@@ -1,0 +1,967 @@
+;;*****************************************************************************
+;;
+;; Title:       ExpandToken.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Expands generic and structure tokens
+;;
+;; Date:        6th November 2009
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    function ExpandToken                ,boolean
+
+        required in Str                 ,@RpsStructure
+        required in TokenStart          ,int
+        required in TokenEnd            ,int
+        required inout buffer           ,a
+        required inout ErrStatus        ,int
+        endparams
+
+        .include "CODEGEN_SRC:codegen.def"
+        .define BTN_ROW_PIXELS      45
+
+        stack record local_data
+            TokenReplaced   ,boolean
+        endrecord
+
+    proc
+
+        init local_data
+
+        using buffer(TokenStart,TokenEnd) select
+
+        ("<AUTHOR>"),
+            TokenReplaced = ReplaceToken(buffer,"<AUTHOR>",Env.Author)
+
+        ("<CODEGEN_VERSION>"),
+            TokenReplaced = ReplaceToken(buffer,"<CODEGEN_VERSION>",CODEGEN_APPNAME+" "+CODEGEN_VERSION)
+
+        ("<COMPANY>"),
+            TokenReplaced = ReplaceToken(buffer,"<COMPANY>",Env.Company)
+
+        ("<DATE>"),
+        begin
+            data sysdate, a20
+            data datemdy, a10
+            sysdate = %datetime
+            datemdy = sysdate(5:2) + "/" + sysdate(7:2) + "/" + sysdate(1:4)
+            TokenReplaced = ReplaceToken(buffer,"<DATE>",datemdy)
+        end
+
+        ("<DATE1>"),
+        begin
+            data sysdate, a20
+            data datemdy, a10
+            sysdate = %datetime
+            datemdy = sysdate(7:2) + "/" + sysdate(5:2) + "/" + sysdate(1:4)
+            TokenReplaced = ReplaceToken(buffer,"<DATE1>",datemdy)
+        end
+
+        ("<YEAR>"),
+        begin
+            data sysdate, a20
+            sysdate = %datetime
+            TokenReplaced = ReplaceToken(buffer,"<YEAR>",sysdate(1:4))
+        end
+
+        ("<MONTH>"),
+        begin
+            data sysdate, a20
+            sysdate = %datetime
+            TokenReplaced = ReplaceToken(buffer,"<MONTH>",sysdate(5:2))
+        end
+
+        ("<MONTHNAME>"),
+        begin
+            data sysdate, a20
+            data monthname, a9
+            sysdate = %datetime
+            using sysdate(5:2) select
+            ("01"), monthname = "January"
+            ("02"), monthname = "February"
+            ("03"), monthname = "March"
+            ("04"), monthname = "April"
+            ("05"), monthname = "May"
+            ("06"), monthname = "June"
+            ("07"), monthname = "July"
+            ("08"), monthname = "August"
+            ("09"), monthname = "September"
+            ("10"), monthname = "October"
+            ("11"), monthname = "November"
+            ("12"), monthname = "December"
+            endusing
+            TokenReplaced = ReplaceToken(buffer,"<MONTHNAME>",monthname)
+        end
+
+        ("<MONTHSHORTNAME>"),
+        begin
+            data sysdate, a20
+            data monthname, a3
+            sysdate = %datetime
+            using sysdate(5:2) select
+            ("01"), monthname = "Jan"
+            ("02"), monthname = "Feb"
+            ("03"), monthname = "Mar"
+            ("04"), monthname = "Apr"
+            ("05"), monthname = "May"
+            ("06"), monthname = "Jun"
+            ("07"), monthname = "Jul"
+            ("08"), monthname = "Aug"
+            ("09"), monthname = "Sep"
+            ("10"), monthname = "Oct"
+            ("11"), monthname = "Nov"
+            ("12"), monthname = "Dec"
+            endusing
+            TokenReplaced = ReplaceToken(buffer,"<MONTHSHORTNAME>",monthname)
+        end
+
+        ("<DAY>"),
+        begin
+            data sysdate, a20
+            sysdate = %datetime
+            TokenReplaced = ReplaceToken(buffer,"<DAY#>",sysdate(7:2))
+        end
+
+        ("<WEEKDAY>"),
+        begin
+            data dayname, a9
+            using %wkday select
+            (1),    dayname="Sunday"
+            (2),    dayname="Monday"
+            (3),    dayname="Tuesday"
+            (4),    dayname="Wednesday"
+            (5),    dayname="Thursday"
+            (6),    dayname="Friday"
+            (7),    dayname="Saturday"
+            endusing
+            TokenReplaced = ReplaceToken(buffer,"<WEEKDAY>",dayname)
+        end
+
+        ("<TAG_EXPRESSION>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Tags.Count) then
+                begin
+                    data expression, a1024," "
+                    data addOperator, boolean, false
+                    data Tag, @RpsTag
+                    data Field, @RpsField
+                    foreach Tag in Str.Tags.GetEnumerator()
+                    begin
+                        Field = (RpsField)Str.Fields[Tag.Name]
+                        ;;Do we need to add an && or || operator?
+                        if (addOperator)
+                        begin
+                            using Tag.ComparisonConnector select
+                            (RpsTagComparison.CompareAnd),
+                                expression = atrim(expression) + "&&"
+                            (RpsTagComparison.CompareOr),
+                                expression = atrim(expression) + "||"
+                            endusing
+                        end
+                        ;;Add the next part of the expression
+                        expression = atrim(expression) + "(" + Tag.Field
+                        using Tag.ComparisonOperator select
+                        (RpsTagOperator.OpEQ),
+                            expression = atrim(expression) + "=="
+                        (RpsTagOperator.OpNE),
+                            expression = atrim(expression) + "!="
+                        (RpsTagOperator.OpLE),
+                            expression = atrim(expression) + "<="
+                        (RpsTagOperator.OpLT),
+                            expression = atrim(expression) + "<"
+                        (RpsTagOperator.OpGE),
+                            expression = atrim(expression) + ">="
+                        (RpsTagOperator.OpGT),
+                            expression = atrim(expression) + ">"
+                        endusing
+                        if (Field.DataTypeCode=="A"||Field.DataTypeCode=="U") then
+                            expression = atrim(expression) + '"' + Tag.ComparisonValue + '")'
+                        else
+                            expression = atrim(expression) + Tag.ComparisonValue + ')'
+                        addOperator = true
+                    end
+                    TokenReplaced=ReplaceToken(buffer,"<TAG_EXPRESSION>",atrim(expression))
+                end
+                else
+                    TokenReplaced=ReplaceToken(buffer,"<TAG_EXPRESSION>","true")
+            end
+            else
+            begin
+                RpsRequired("<TAG_EXPRESSION>")
+                ErrStatus=1
+            end
+        end
+
+        ("<TAG_FIELD_DEFINE>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.TagField) then
+                    TokenReplaced=ReplaceToken(buffer,"<TAG_FIELD_DEFINE>",".define TAG_FIELD      "+Str.TagField)
+                else
+                    TokenReplaced=ReplaceToken(buffer,"<TAG_FIELD_DEFINE>",";.define TAG_FIELD     No tag exists for this structure")
+            end
+            else
+            begin
+                RpsRequired("<TAG_FIELD_DEFINE>")
+                ErrStatus=1
+            end
+        end
+
+        ("<TAG_VALUE_DEFINE>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.TagValue) then
+                    TokenReplaced=ReplaceToken(buffer,"<TAG_VALUE_DEFINE>",".define TAG_VALUE      "+Str.TagValue)
+                else
+                    TokenReplaced=ReplaceToken(buffer,"<TAG_VALUE_DEFINE>",';.define TAG_VALUE     ""')
+            end
+            else
+            begin
+                RpsRequired("<TAG_VALUE_DEFINE>")
+                ErrStatus=1
+            end
+        end
+
+        ("<TAG_END_DEFINE>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.TagEndValue) then
+                    TokenReplaced=ReplaceToken(buffer,"<TAG_END_DEFINE>",".define TAG_ENDVALUE   "+Str.TagEndValue)
+                else
+                    TokenReplaced=ReplaceToken(buffer,"<TAG_END_DEFINE>",';.define TAG_ENDVALUE  ""')
+            end
+            else
+            begin
+                RpsRequired("<TAG_END_DEFINE>")
+                ErrStatus=1
+            end
+        end
+
+        ("<DISPLAY_FIELD>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.DisplayField) then
+                    TokenReplaced=ReplaceToken(buffer,"<DISPLAY_FIELD>",Str.DisplayField)
+                else
+                begin
+                    data msg, a132
+                    s_bld(msg,,"Token <DISPLAY_FIELD> in template %a requires a display field!",UpperCase(Env.CurrentTemplate))
+                    ErrorLog(msg)
+                    s_bld(msg,,"       Error occurred while processing structure %a.",Str.Name)
+                    Log(msg,false,false)
+                    Log("       Add @CODEGEN_DISPLAY_FIELD to the display fields user text string.",false,false)
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired("<DISPLAY_FIELD>")
+                ErrStatus=1
+            end
+        end
+
+        ("<STRUCTURE_FIELDS>"),
+        begin
+            if (Env.RpsInUse)  then
+            begin
+                data fld        ,@RpsField
+                data fldCount   ,int, 0
+                foreach fld in Str.Fields.GetEnumerator()
+                    fldCount+=fld.ArrayDimension[1]
+                TokenReplaced = ReplaceToken(buffer,"<STRUCTURE_FIELDS>",string(fldCount))
+            end
+            else
+            begin
+                RpsRequired("<STRUCTURE_FIELDS>")
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_ADDRESSING>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                begin
+                    using Str.Files[Env.FileIndex].Addressing select
+                    (RpsFileAddressing.Addressing32Bit),
+                        TokenReplaced=ReplaceToken(buffer,"<FILE_ADDRESSING>","32")
+                    (RpsFileAddressing.Addressing40Bit),
+                        TokenReplaced=ReplaceToken(buffer,"<FILE_ADDRESSING>","40")
+                    endusing
+                end
+                else
+                begin
+                    RpsFileRequired("<FILE_ADDRESSING>")
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired("<FILE_ADDRESSING>")
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_COMPRESSION>","<file_compression>"),
+        begin
+            data tmpToken   ,a18
+            data tmpValue   ,a3
+            tmpToken = buffer(TokenStart,TokenEnd)
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                begin
+                    using Str.Files[Env.FileIndex].RecordCompression select
+                    (true),
+                        tmpValue="YES"
+                    (false),
+                        tmpValue="NO"
+                    endusing
+                    if tmpToken=="<file_compression>"
+                        locase tmpValue
+                    TokenReplaced=ReplaceToken(buffer,tmpToken,tmpValue)
+                end
+                else
+                begin
+                    RpsFileRequired(tmpToken)
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired(tmpToken)
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_DESC>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                    TokenReplaced=ReplaceToken(buffer,"<FILE_DESC>",Str.Files[Env.FileIndex].Description)
+                else
+                begin
+                    RpsFileRequired("<FILE_DESC>")
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired("<FILE_DESC>")
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_DENSITY>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                    TokenReplaced=ReplaceToken(buffer,"<FILE_DENSITY>",string(Str.Files[Env.FileIndex].Density))
+                else
+                begin
+                    RpsFileRequired("<FILE_DENSITY>")
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired("<FILE_DENSITY>")
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_NAME>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                    TokenReplaced=ReplaceToken(buffer,"<FILE_NAME>",Str.Files[Env.FileIndex].FileSpec)
+                else
+                begin
+                    RpsFileRequired("<FILE_NAME>")
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired("<FILE_NAME>")
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_NAME_NOEXT>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                begin
+                    data tmpname, a255
+                    data dotpos, int
+                    tmpname = Str.Files[Env.FileIndex].FileSpec
+                    if (dotpos=%rvstr(1,tmpname,"."))
+                        tmpname = tmpname(1:dotpos-1)
+                    TokenReplaced=ReplaceToken(buffer,"<FILE_NAME_NOEXT>",atrim(tmpname))
+                end
+                else
+                begin
+                    RpsFileRequired("<FILE_NAME_NOEXT>")
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired("<FILE_NAME_NOEXT>")
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_PAGESIZE>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                begin
+                    using Str.Files[Env.FileIndex].PageSize select
+                    (RpsFilePageSize.PageSize512),
+                        TokenReplaced=ReplaceToken(buffer,"<FILE_PAGESIZE>","512")
+                    (RpsFilePageSize.PageSize1024),
+                        TokenReplaced=ReplaceToken(buffer,"<FILE_PAGESIZE>","1024")
+                    (RpsFilePageSize.PageSize2048),
+                        TokenReplaced=ReplaceToken(buffer,"<FILE_PAGESIZE>","2048")
+                    (RpsFilePageSize.PageSize4096),
+                        TokenReplaced=ReplaceToken(buffer,"<FILE_PAGESIZE>","4096")
+                    (RpsFilePageSize.PageSize8192),
+                        TokenReplaced=ReplaceToken(buffer,"<FILE_PAGESIZE>","8192")
+                    endusing
+                end
+                else
+                begin
+                    RpsFileRequired("<FILE_PAGESIZE>")
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired("<FILE_PAGESIZE>")
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_RECTYPE>","<file_rectype>"),
+        begin
+            data tmptoken, a14
+            tmptoken = buffer(TokenStart,TokenEnd)
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                begin
+                    data tmptype, a8
+                    using Str.Files[Env.FileIndex].RecordType select
+                    (RpsRecordType.FixedLength),
+                        tmptype="FIXED"
+                    (RpsRecordType.VariableLength),
+                        tmptype="VARIABLE"
+                    (RpsRecordType.MultipleFixedLength),
+                        tmptype="MULTIPLE"
+                    endusing
+                    if (tmptoken=="<file_rectype>")
+                        locase tmptype
+                    TokenReplaced=ReplaceToken(buffer,tmptoken,tmptype)
+                end
+                else
+                begin
+                    RpsFileRequired(tmptoken)
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired(tmptoken)
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_STATIC_RFA>","<file_static_rfa>"),
+        begin
+            data tmpToken   ,a17
+            data tmpValue   ,a3
+            tmpToken = buffer(TokenStart,TokenEnd)
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                begin
+                    using Str.Files[Env.FileIndex].StaticRfa select
+                    (true),
+                        tmpValue="YES"
+                    (false),
+                        tmpValue="NO"
+                    endusing
+                    if tmpToken=="<file_static_rfa>"
+                        locase tmpValue
+                    TokenReplaced=ReplaceToken(buffer,tmpToken,tmpValue)
+                end
+                else
+                begin
+                    RpsFileRequired(tmpToken)
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired(tmpToken)
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_TYPE>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                    TokenReplaced=ReplaceToken(buffer,"<FILE_TYPE>",Str.Files[Env.FileIndex].FileType)
+                else
+                begin
+                    RpsFileRequired("<FILE_TYPE>")
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired("<FILE_TYPE>")
+                ErrStatus=1
+            end
+        end
+
+        ("<FILE_UTEXT>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Files.Count) then
+                    TokenReplaced=ReplaceToken(buffer,"<FILE_UTEXT>",Str.Files[Env.FileIndex].UserText)
+                else
+                begin
+                    RpsFileRequired("<FILE_UTEXT>")
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired("<FILE_UTEXT>")
+                ErrStatus=1
+            end
+        end
+
+        ("<MAPPED_FILE>"),
+        begin
+            data MappedFileToken, a13
+            MappedFileToken=buffer(TokenStart,TokenEnd)
+            if (Env.RpsInUse) then
+            begin
+                if (Str.MappedStructure) then
+                    TokenReplaced=ReplaceToken(buffer,MappedFileToken,Str.MappedFileSpec)
+                else
+                begin
+                    RpsStrMapRequired(MappedFileToken)
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired(MappedFileToken)
+                ErrStatus=1
+            end
+        end
+
+        ("<MAPPED_STRUCTURE>","<mapped_structure>"),
+        begin
+            data MappedStructureToken, a18
+            MappedStructureToken = buffer(TokenStart,TokenEnd)
+            if (Env.RpsInUse) then
+            begin
+                data MappedStructureStruct, a30, ""
+                MappedStructureStruct = Str.MappedStructure
+                if (MappedStructureStruct) then
+                begin
+                    if (MappedStructureToken=="<mapped_structure>")
+                        locase MappedStructureStruct
+                    TokenReplaced=ReplaceToken(buffer,MappedStructureToken,MappedStructureStruct)
+                end
+                else
+                begin
+                    RpsStrMapRequired(MappedStructureToken)
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired(MappedStructureToken)
+                ErrStatus=1
+            end
+        end
+
+        ("<NAMESPACE>"),
+        begin
+            if (Env.DefaultNamespace) then
+                TokenReplaced=ReplaceToken(buffer,"<NAMESPACE>",Env.DefaultNamespace)
+            else
+            begin
+                data msg, a132
+                s_bld(msg,,"Template %a uses a <NAMESPACE> token!",UpperCase(Env.CurrentTemplate))
+                ErrorLog(msg)
+                Log("       Default namespace required, use SYNDEFNS or -n",false,false)
+                ErrStatus=1
+            end
+        end
+
+        ("<PRIMARY_KEY_FIELD>","<primary_key_field>","<Primary_Key_Field>","<Primary_key_field>","<PrimaryKeyField>","<primaryKeyField>"),
+        begin
+            data TokenName, a19
+            TokenName=buffer(TokenStart,TokenEnd)
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Keys.Count) then
+                begin
+                    using TokenName select
+                    ("<PRIMARY_KEY_FIELD>"),
+                        TokenReplaced=ReplaceToken(buffer,TokenName,PrimaryKeyField(Str.Keys,ErrStatus))
+                    ("<primary_key_field>"),
+                        TokenReplaced=ReplaceToken(buffer,TokenName,LowerCase(PrimaryKeyField(Str.Keys,ErrStatus)))
+                    ("<Primary_Key_Field>"),
+                        TokenReplaced=ReplaceToken(buffer,TokenName,MixedCase(PrimaryKeyField(Str.Keys,ErrStatus)))
+                    ("<Primary_key_field>"),
+                        TokenReplaced=ReplaceToken(buffer,TokenName,XfCase(PrimaryKeyField(Str.Keys,ErrStatus)))
+                    ("<PrimaryKeyField>"),
+                        TokenReplaced=ReplaceToken(buffer,TokenName,PascalCase(PrimaryKeyField(Str.Keys,ErrStatus)))
+                    ("<primaryKeyField>"),
+                        TokenReplaced=ReplaceToken(buffer,TokenName,CamelCase(PrimaryKeyField(Str.Keys,ErrStatus)))
+                    endusing
+                end
+                else
+                begin
+                    RpsKeyRequired(TokenName)
+                    ErrStatus=1
+                end
+            end
+            else
+            begin
+                RpsRequired(TokenName)
+                ErrStatus=1
+            end
+        end
+
+        ("<DATA_FIELDS_LIST>"),
+        begin
+            ;;Make sure we have a repository
+            if (Env.RpsInUse) then
+            begin
+                data replacementText, a CODEGEN_BUFSZ, " "
+                data FldNbr, int
+                data Fld, @RpsField
+                ;;Iterate through the structure fields
+                for FldNbr from 0 thru Str.Fields.Count-1
+                begin
+                    Fld = Str.Fields[FldNbr]
+                    ;;Skip the primary key field
+                    if (Fld.Name==PrimaryKeyField(Str.Keys,ErrStatus))
+                        nextloop
+                    ;;Skip fields excluded by Toolkit
+                    if (Fld.ExcludedByToolkit)
+                        nextloop
+                    ;;Check for array fields
+                    if (Fld.ArrayDimension[1]==1) then
+                        replacementText = atrim(replacementText)+Fld.Name
+                    else
+                    begin
+                        ;;Iterate through array elements
+                        data ElemNbr, int
+                        for ElemNbr from 1 thru Fld.ArrayDimension[1]
+                        begin
+                            replacementText = atrim(replacementText)+Fld.Name+"["+string(ElemNbr)+"]"
+                            if (ElemNbr < Fld.ArrayDimension[1])
+                                replacementText = atrim(replacementText)+","
+                        end
+                    end
+                    ;;Add a comma between fields
+                    if (!Str.Fields.IsLastField(fld))
+                        replacementText = atrim(replacementText)+","
+                end
+                clear fld
+                ;;Check for a trailing comma, which can happen if the last field is
+                ;;excluded by Toolkit
+                if (replacementText(trim(replacementText):1)==",")
+                    replacementText = replacementText(1:trim(replacementText)-1)
+
+                TokenReplaced=ReplaceToken(buffer,"<DATA_FIELDS_LIST>",replacementText)
+            end
+            else
+            begin
+                RpsRequired("<DATA_FIELDS_LIST>")
+                ErrStatus=1
+            end
+        end
+
+        ("<STRUCTURE_NAME>","<structure_name>","<Structure_Name>","<Structure_name>","<StructureName>","<structureName>"),
+        begin
+            data StructureToken, a16
+            StructureToken=buffer(TokenStart,TokenEnd)
+            if (Env.RpsInUse)  then
+            begin
+                data StructureStruct, a30
+                using StructureToken select
+                ("<STRUCTURE_NAME>"),
+                    StructureStruct = Str.Alias
+                ("<structure_name>"),
+                    StructureStruct = LowerCase(Str.Alias)
+                ("<Structure_Name>"),
+                    StructureStruct = MixedCase(Str.Alias)
+                ("<Structure_name>"),
+                    StructureStruct = XfCase(Str.Alias)
+                ("<StructureName>"),
+                    StructureStruct = PascalCase(Str.Alias)
+                ("<structureName>"),
+                    StructureStruct = CamelCase(Str.Alias)
+                endusing
+                TokenReplaced = ReplaceToken(buffer,StructureToken,StructureStruct)
+            end
+            else
+            begin
+                RpsRequired(StructureToken)
+                ErrStatus=1
+            end
+        end
+
+        ("<STRUCTURE_NOALIAS>","<structure_noalias>","<Structure_Noalias>","<Structure_noalias>","<StructureNoAlias>","<structureNoAlias>"),
+        begin
+            data StructureToken, a19
+            StructureToken=buffer(TokenStart,TokenEnd)
+            if (Env.RpsInUse)  then
+            begin
+                data StructureStruct, a30
+                using StructureToken select
+                ("<STRUCTURE_NOALIAS>"),
+                    StructureStruct = Str.Name
+                ("<structure_noalias>"),
+                    StructureStruct = LowerCase(Str.Name)
+                ("<Structure_Noalias>"),
+                    StructureStruct = MixedCase(Str.Name)
+                ("<Structure_noalias>"),
+                    StructureStruct = XfCase(Str.Name)
+                ("<StructureNoAlias>"),
+                    StructureStruct = PascalCase(Str.Name)
+                ("<structureNoAlias>"),
+                    StructureStruct = CamelCase(Str.Name)
+                endusing
+                TokenReplaced = ReplaceToken(buffer,StructureToken,StructureStruct)
+            end
+            else
+            begin
+                RpsRequired(StructureToken)
+                ErrStatus=1
+            end
+        end
+
+        ("<STRUCTURE_CHILDREN>"),
+        begin
+            if (Env.RpsInUse) then
+                TokenReplaced=ReplaceToken(buffer,"<STRUCTURE_CHILDREN>",string(Str.ChildCount))
+            else
+            begin
+                RpsRequired("<STRUCTURE_CHILDREN>")
+                ErrStatus=1
+            end
+        end
+
+        ("<STRUCTURE_DESC>"),
+        begin
+            if (Env.RpsInUse) then
+                TokenReplaced=ReplaceToken(buffer,"<STRUCTURE_DESC>",Str.Description)
+            else
+            begin
+                RpsRequired("<STRUCTURE_DESC>")
+                ErrStatus=1
+            end
+        end
+
+        ("<STRUCTURE_KEYS>"),
+        begin
+            if (Env.RpsInUse) then
+                TokenReplaced=ReplaceToken(buffer,"<STRUCTURE_KEYS>",string(Str.Keys.Count))
+            else
+            begin
+                RpsRequired("<STRUCTURE_KEYS>")
+                ErrStatus=1
+            end
+        end
+
+        ("<STRUCTURE_LDESC>"),
+        begin
+            if (Env.RpsInUse) then
+                TokenReplaced=ReplaceToken(buffer,"<STRUCTURE_LDESC>",Str.LongDescription)
+            else
+            begin
+                RpsRequired("<STRUCTURE_LDESC>")
+                ErrStatus=1
+            end
+        end
+
+        ("<STRUCTURE_SIZE>"),
+        begin
+            if (Env.RpsInUse) then
+                TokenReplaced=ReplaceToken(buffer,"<STRUCTURE_SIZE>",string(Str.Length))
+            else
+            begin
+                RpsRequired("<STRUCTURE_SIZE>")
+                ErrStatus=1
+            end
+        end
+
+        ("<STRUCTURE_UTEXT>"),
+        begin
+            if (Env.RpsInUse) then
+                TokenReplaced=ReplaceToken(buffer,"<STRUCTURE_UTEXT>",Str.UserText)
+            else
+            begin
+                RpsRequired("<STRUCTURE_UTEXT>")
+                ErrStatus=1
+            end
+        end
+
+        ("<TEMPLATE>","<template>"),
+        begin
+            data TemplateToken, a10
+            data tmptemplate, a30
+            TemplateToken = buffer(TokenStart,TokenEnd)
+            tmptemplate = Env.CurrentTemplate
+            upcase tmptemplate
+            if (TemplateToken=="<template>")
+                locase tmptemplate
+            TokenReplaced=ReplaceToken(buffer,TemplateToken,atrim(tmptemplate))
+        end
+
+        ("<TIME>"),
+        begin
+            data sysdate, a20
+            data timehm, a5
+            sysdate = %datetime
+            timehm = sysdate(9:2) + ":" + sysdate(11:2)
+            TokenReplaced=ReplaceToken(buffer,"<TIME>",timehm)
+        end
+
+        ("<WINDOW_HEIGHT>"),
+        begin
+            if (Env.WindowHeight) then
+                TokenReplaced=ReplaceToken(buffer,"<WINDOW_HEIGHT>",string(Env.WindowHeight))
+            else
+                TokenReplaced=ReplaceToken(buffer,"<WINDOW_HEIGHT>","20")
+        end
+
+        ("<WINDOW_HEIGHTPX>"),
+        begin
+            data buttonRow, int, 0
+            if (Env.Buttons.Count)
+                buttonRow = BTN_ROW_PIXELS
+            if (Env.WindowHeight) then
+                TokenReplaced=ReplaceToken(buffer,"<WINDOW_HEIGHTPX>",string((Env.WindowHeight*Env.CharacterHeight)+buttonRow))
+            else
+            begin
+                data fld        ,@RpsField
+                data fldCount   ,int, 0
+                foreach fld in Str.Fields.GetEnumerator()
+                    fldCount+=fld.ArrayDimension[1]
+                TokenReplaced=ReplaceToken(buffer,"<WINDOW_HEIGHTPX>",string((fldCount*Env.CharacterHeight)+buttonRow))
+            end
+            ;;NOTE: If these calculations are changed then also change <BUTTON_ROWPX>
+        end
+
+        ("<WINDOW_NAME>","<window_name>","<Window_Name>","<Window_name>","<WindowName>","<windowName>"),
+        begin
+            data tmpName, a30
+            if (Env.WindowName) then
+                tmpName = Env.WindowName
+            else
+                tmpName = Str.Name
+            using buffer(TokenStart,TokenEnd) select
+            ("<WINDOW_NAME>"),
+                TokenReplaced=ReplaceToken(buffer,"<WINDOW_NAME>",UpperCase(tmpName))
+            ("<window_name>"),
+                TokenReplaced=ReplaceToken(buffer,"<window_name>",LowerCase(tmpName))
+            ("<Window_Name>"),
+                TokenReplaced=ReplaceToken(buffer,"<Window_Name>",MixedCase(tmpName))
+            ("<Window_name>"),
+                TokenReplaced=ReplaceToken(buffer,"<Window_name>",XfCase(tmpName))
+            ("<WindowName>"),
+                TokenReplaced=ReplaceToken(buffer,"<WindowName>",PascalCase(tmpName))
+            ("<windowName>"),
+                TokenReplaced=ReplaceToken(buffer,"<windowName>",CamelCase(tmpName))
+            endusing
+        end
+
+        ("<WINDOW_WIDTH>"),
+        begin
+            if (Env.WindowWidth) then
+                TokenReplaced=ReplaceToken(buffer,"<WINDOW_WIDTH>",string(Env.WindowWidth))
+            else
+                TokenReplaced=ReplaceToken(buffer,"<WINDOW_WIDTH>","78")
+        end
+
+        ("<WINDOW_WIDTHPX>"),
+        begin
+            if (Env.WindowWidth) then
+                TokenReplaced=ReplaceToken(buffer,"<WINDOW_WIDTHPX>",string(Env.WindowWidth*Env.CharacterWidth))
+            else
+                TokenReplaced=ReplaceToken(buffer,"<WINDOW_WIDTHPX>","800")
+        end
+
+        endusing
+
+        freturn TokenReplaced
+
+    endfunction
+
+endnamespace

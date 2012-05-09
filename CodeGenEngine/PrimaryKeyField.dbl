@@ -1,0 +1,170 @@
+;;*****************************************************************************
+;;
+;; Title:       PrimaryKeyField.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Returns information about a structures primary key
+;;
+;; Date:        16th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    function PrimaryKeyField, a
+
+        required in a_key           ,@RpsKeyCollection
+        required out a_errnum, int
+        optional in a_multiple      ,n      ;;Return all segemnts, comma-seperated
+        optional in a_withorder     ,n      ;;Include order (ASC or DESC)
+        optional in a_seperator     ,a      ;;Seperator to use (default is comma)
+        optional in a_prefix        ,a      ;;Prefix for each key segment
+        endparams
+
+        stack record local_data
+            keynbr          ,i4
+            keynames        ,a1024
+            seperator       ,a1
+            prefix          ,a10
+        endrecord
+
+    proc
+
+        init local_data
+
+        ;;Determine seperator
+        if (^passed(a_seperator)) then
+            seperator = a_seperator
+        else
+            seperator = ","
+
+        ;;Determine prefix
+        if (^passed(a_prefix))
+            prefix = a_prefix
+
+        ;;Iterate through access keys creating database indexes
+
+        for keynbr from 0 thru a_key.Count-1
+        begin
+
+            data ky, @RpsKey
+            ky = a_key[keynbr]
+
+            ;;Make sure it's an access key
+            if (ky.KeyType!=RpsKeyType.Access)
+                nextloop
+
+            ;;Make sure it's key of reference 0
+            if (ky.KeyOfReference)
+                nextloop
+
+            if (^passed(a_multiple)&&a_multiple) then
+            begin
+                ;;Return a comma-seperated list of all segments
+                data segnum, int
+                for segnum from 0 thru ky.Segments.Count-1
+                begin
+                    data seg, @RpsKeySegment
+                    seg = ky.Segments[segnum]
+
+                    ;;Make sure segment is a "field" segment
+                    if (seg.SegmentType==RpsKeySegmentType.Field) then
+                    begin
+                        ;;Add prefix
+                        if (prefix)
+                            keynames = atrim(keynames) + atrim(prefix)
+                        ;;Add segment name
+                        keynames = atrim(keynames) + seg.Field
+                        ;;Add order if requested
+                        if (^passed(a_withorder)&&a_withorder)
+                        begin
+                            using seg.Order select
+                            (RpsKeySegmentOrder.Ascending),
+                                keynames = atrim(keynames) + " ASC"
+                            (RpsKeySegmentOrder.Descending),
+                                keynames = atrim(keynames) + " DESC"
+                            (),
+                            begin
+                                using ky.SortOrder select
+                                (RpsKeyOrder.Ascending),
+                                    keynames = atrim(keynames) + " ASC"
+                                (RpsKeyOrder.Descending),
+                                    keynames = atrim(keynames) + " DESC"
+                                endusing
+                            end
+                            endusing
+                        end
+                        ;;Add seperator
+                        if (segnum<ky.Segments.Count-1)
+                            keynames = atrim(keynames) + seperator
+                    end
+                    else
+                    begin
+                        data mtx, a132
+                        s_bld(mtx,,"Structure %a key %a has an unsupported segment",Env.CurrentStructure.Name,ky.Name)
+                        ErrorLog(mtx)
+                        a_errnum=9
+                        exitloop
+                    end
+                end
+            end
+            else
+            begin
+                ;;Return only the first segment
+                ;;Make sure segment 1 is a "field" segment
+                if (ky.Segments[0].SegmentType==RpsKeySegmentType.Field) then
+                    keynames = ky.Segments[0].Field
+                else
+                begin
+                    data mtx, a132
+                    s_bld(mtx,,"Structure %a key %a has an unsupported segment",Env.CurrentStructure.Name,ky.Name)
+                    ErrorLog(mtx)
+                    a_errnum=9
+                    exitloop
+                end
+            end
+
+            exitloop
+
+        end
+
+        freturn atrim(keynames)
+
+    endfunction
+
+endnamespace
+

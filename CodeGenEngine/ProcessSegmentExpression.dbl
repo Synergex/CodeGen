@@ -1,0 +1,418 @@
+;;*****************************************************************************
+;;
+;; Title:       ProcessSegmentExpression.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Processes key segment loop expressions
+;;
+;; Date:        5th November 2009
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.Engine
+
+    function ProcessSegmentExpression           ,boolean
+
+        required in Segment                     ,@RpsKeySegment
+        required in Fld                         ,@RpsField
+        required in TokenStart                  ,int
+        required in TokenEnd                    ,int
+        required in Loop1OutputOff              ,boolean
+        required inout Loop2ConditionMode       ,@ArrayList
+        required inout Loop2ConditionApplies    ,@ArrayList
+        required inout Loop2OutputOff           ,boolean
+        required inout buffer                   ,a
+        required inout ErrStatus                ,int
+        endparams
+
+        stack record local_data
+            ReplacedToken                       ,boolean
+            EndConditionPos                     ,int
+        endrecord
+
+    proc
+
+        init local_data
+
+        Loop2ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
+        Loop2ConditionApplies.Add((@boolean)false)
+
+        ;;Make sure it's a valid type, and see if this field
+        ;;matches the condition
+        using ((a)Loop2ConditionMode[Loop2ConditionMode.Count-1]) select
+        ("INCREMENT "),
+            if (Fld.AutoIncrement)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOINCREMENT "),
+            if (!Fld.AutoIncrement)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+
+
+        ("ALPHA "),
+            if (Fld.DataType==RpsFieldDataType.Alpha)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("ARRAY "),
+            if (Fld.ArrayDimension[1]>1)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("ARRIVE "),
+            if (Fld.ArriveMethod)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("BOLD "),
+            if (Fld.RenditionHighlight)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("BOOLEAN "),
+            if (Fld.DataType==RpsFieldDataType.Boolean)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("BZERO "),
+            if (Fld.BlankIfZero)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("CHANGE "),
+            if (Fld.ChangeMethod)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("CHECKBOX "),
+            if (Fld.ViewAs==RpsFieldViewAs.Checkbox)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("COERCEBOOLEAN"),
+            if (Fld.CorecedType==RpsFieldCorecedType.CtBoolean)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("COMBOBOX "),
+            if ((Fld.ViewAs==RpsFieldViewAs.Field)&&(Fld.SelectionList.Count))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("DATE "),
+            if (Fld.TypeName=="DATE")
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("DATEORTIME "),
+            if ((Fld.TypeName=="DATE") || (Fld.TypeName=="TIME"))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("DATETODAY "),
+            if (Fld.DateDefaultToday)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("DECIMAL "),
+            if ((Fld.DataType==RpsFieldDataType.Decimal) && (Fld.TypeName!="DATE") && (Fld.TypeName!="TIME"))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("DEFAULT "),
+            if (Fld.DefaultValue)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("DISABLED "),
+            if (Fld.Disabled)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("DRILL "),
+            if (Fld.DrillMethod)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("ECHO "),
+            if (!Fld.NoEcho)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("ENABLED "),
+            if (!Fld.Disabled)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("HEADING "),
+            if (Fld.ReportHeading)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("FORMAT "),
+            if (Fld.FormatName)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("HELPID "),
+            if (Fld.HelpIdentifier)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("HYPERLINK "),
+            if (Fld.HyperlinkMethod)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("I1 "),
+            if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==1))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("I2 "),
+            if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==2))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("I4 "),
+            if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==4))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("I8 "),
+            if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==8))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("I124 "),
+            if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size<=4))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("INFOLINE "),
+            if (Fld.InfoLineText)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("INTEGER "),
+            if (Fld.DataType==RpsFieldDataType.Integer)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("LEAVE "),
+            if (Fld.LeaveMethod)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("MAPPED "),
+            if (Fld.MappedField)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+    ;    ("MAPPEDSTR "),
+    ;        if (Str.MappedStructure)
+    ;            Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+    ;    ("MORE "),
+    ;        if ((FldNbr!=Str.Fields.Count)||(ElemNbr!=Fld.ArrayDimension[1]))
+    ;            Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOCOERCEBOOLEAN"),
+            if (Fld.CorecedType!=RpsFieldCorecedType.CtBoolean)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOECHO "),
+            if (Fld.NoEcho)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOLANGUAGE "),
+            if (Fld.ExcludedByLanguage)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+    ;    ("NOMORE "),
+    ;        if (!((FldNbr!=Str.Fields.Count)||(ElemNbr!=Fld.ArrayDimension[1])))
+    ;            Loop2ConditionApplies[Loop2ConditionApplies.Count] = (@boolean)true
+        ("NOPRECISION "),
+            if (!Fld.Precision)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOREPORT "),
+            if (Fld.ExcludedByReportWriter)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOSELECTIONS"),
+            if (!Fld.SelectionList.Count)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOTALPHA "),
+            if (Fld.DataType!=RpsFieldDataType.Alpha)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOTDATE "),
+            if (!(Fld.TypeName=="DATE"))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOTDATEORTIME "),
+            if ((!(Fld.TypeName=="DATE")) && (!(Fld.TypeName=="TIME")))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOTDECIMAL "),
+            if (Fld.DataType!=RpsFieldDataType.Decimal)
+            &   || ((Fld.DataType==RpsFieldDataType.Decimal)
+            &       && ((Fld.TypeName=="DATE") || (Fld.TypeName!="TIME")))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOTINTEGER "),
+            if (Fld.DataType!=RpsFieldDataType.Integer)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOTNUMERIC "),
+            if ((Fld.DataType!=RpsFieldDataType.Decimal)
+            &   &&(Fld.DataType!=RpsFieldDataType.Integer))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOTTIME "),
+            if ((Fld.TypeName!="TIME"))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOTOOLKIT "),
+            if (Fld.ExcludedByToolkit)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOWEB "),
+            if (Fld.ExcludedByWeb)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NUMERIC "),
+            if ((Fld.DataType==RpsFieldDataType.Decimal)
+            &   ||(Fld.DataType==RpsFieldDataType.Integer))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("OCNATIVE"),
+            if (!Fld.OcObject)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("OCOBJECT"),
+            if (Fld.OcObject)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("OPTIONAL "),
+            if (!Fld.Required)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+    ;   ("PKSEGMENT "),
+    ;   begin
+    ;       data isPkSegment, Boolean, false
+    ;       data ix, int
+    ;       data segment, @RpsKeySegment
+    ;       for ix from 1 thru Str.Keys[1].Segments.Count
+    ;       begin
+    ;           segment = Str.Keys[1].Segments[ix]
+    ;           if (segment.Field==Fld.Name)
+    ;           begin
+    ;               isPkSegment = true
+    ;               exitloop
+    ;           end
+    ;       end
+    ;       Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)isPkSegment
+    ;   end
+    ;   ("NOTPKSEGMENT "),
+    ;   begin
+    ;       data isPkSegment, Boolean, false
+    ;       data ix, int
+    ;       data segment, @RpsKeySegment
+    ;       for ix from 1 thru Str.Keys[1].Segments.Count
+    ;       begin
+    ;           segment = Str.Keys[1].Segments[ix]
+    ;           if (segment.Field==Fld.Name)
+    ;           begin
+    ;               isPkSegment = true
+    ;               exitloop
+    ;           end
+    ;       end
+    ;       Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)(!isPkSegment)
+    ;   end
+        ("PRECISION "),
+            if (Fld.Precision)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("PROMPT "),
+            if (Fld.Prompt)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("RADIOBUTTONS "),
+            if (Fld.ViewAs==RpsFieldViewAs.RadioButtons)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOTRADIOBUTTONS "),
+            if (Fld.ViewAs!=RpsFieldViewAs.RadioButtons)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("RANGE "),
+            if (Fld.NumericRangeExists)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("READONLY "),
+            if (Fld.ReadOnly)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("READWRITE "),
+            if (!Fld.ReadOnly)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("REQUIRED "),
+            if (Fld.Required)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("REVERSE "),
+            if (Fld.RenditionReverse)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("SELECTIONS"),
+            if (Fld.SelectionList.Count)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("TIME "),
+            if (Fld.TypeName=="TIME")
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("TIMENOW "),
+            if (Fld.TimeDefaultNow)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("TEXTBOX "),
+            if ((Fld.ViewAs==RpsFieldViewAs.Field)&&(!Fld.SelectionList.Count))
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("UNDERLINE "),
+            if (Fld.RenditionUnderline)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("UPPERCASE "),
+            if (Fld.Uppercase)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+
+
+
+        (),
+        begin
+            ;;If we get an invalid condition mode we'll set ErrStatus, which
+            ;;will bail us out of this entire call
+            ErrorLog("Invalid type "+(a)Loop2ConditionMode[Loop2ConditionMode.Count-1]+" in <IF> token")
+            ErrStatus = 1
+        end
+        endusing
+
+        if (!ErrStatus)
+        begin
+            ;;Do we need to suppress output because of this new condition?
+            if (!Loop2OutputOff&&!(boolean)Loop2ConditionApplies[Loop2ConditionApplies.Count-1])
+                Loop2OutputOff = true
+
+            ;;Is this a single-line condition?
+            if (EndConditionPos=instr(TokenEnd,buffer,"</IF>")) then
+            begin
+                ;;Yes, this is a single line condition
+                if (Env.Debug)
+                    display(Env.Tt,"    - Processing single-line "+(a)Loop2ConditionMode[Loop2ConditionMode.Count-1]+" condition, depth "+string(Loop2ConditionApplies.Count))
+                ;;Do we need to keep the content?
+                if (Loop2OutputOff) then
+                begin
+                    ;;No, remove the <IF></IF> tokens AND the content
+                    DebugLog(", excluding content",false,false)
+                    if ((TokenStart)>1) then
+                        buffer = buffer(1,TokenStart-1)
+                        & + buffer(EndConditionPos+5,^size(buffer))
+                    else
+                        buffer = buffer(EndConditionPos+5,^size(buffer))
+                end
+                else
+                begin
+                    ;;Yes, remove the <IF></IF> tokens but leave the content
+                    DebugLog(", retaining content",false,false)
+                    if ((TokenStart)>1) then
+                        buffer = buffer(1,TokenStart-1)
+                        & + buffer(TokenEnd+1,EndConditionPos-1)
+                        & + buffer(EndConditionPos+5,^size(buffer))
+                    else
+                        buffer = buffer(TokenEnd+1,EndConditionPos-1)
+                        & + buffer(EndConditionPos+5,^size(buffer))
+                end
+
+                ReplacedToken = true
+
+                ;;This was a single-line condition, and we have dealt with it, so
+                ;;remove the condition from the "stack"
+
+                Loop2ConditionApplies.RemoveAt(Loop2ConditionApplies.Count-1)
+                Loop2ConditionMode.RemoveAt(Loop2ConditionMode.Count-1)
+
+                ;;And figure out if we need to suppress output now based on the new "stack"
+                Loop2OutputOff = Loop1OutputOff
+                if (Loop2ConditionApplies.Count)
+                begin
+                    data tmpval, @boolean
+                    foreach tmpval in Loop2ConditionApplies
+                    begin
+                        if (!(boolean)tmpval)
+                        begin
+                            Loop2OutputOff = true
+                            exitloop
+                        end
+                    end
+                end
+            end
+            else
+            begin
+                ;;The condition spans multiple lines, wind forward
+                if (Env.Debug)
+                begin
+                    display(Env.Tt,"    - Start multi-line "+(a)Loop2ConditionMode[Loop2ConditionMode.Count-1]+" condition, depth "+string(Loop2ConditionApplies.Count))
+                    if (Loop2OutputOff) then
+                        DebugLog(", output now OFF",false,false)
+                    else
+                        DebugLog(", output now ON",false,false)
+                end
+            end
+        end
+
+        freturn ReplacedToken
+
+    endfunction
+
+endnamespace

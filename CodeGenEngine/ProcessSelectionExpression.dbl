@@ -1,0 +1,180 @@
+;;*****************************************************************************
+;;
+;; Title:       ProcessSelectionExpression.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Processes field selection loop expressions
+;;
+;; Date:        5th November 2009
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.Engine
+
+    function ProcessSelectionExpression         ,boolean
+
+        required in Fld                         ,@RpsField
+        required in SelNbr                      ,int
+        required in TokenStart                  ,int
+        required in TokenEnd                    ,int
+        required in Loop1OutputOff              ,boolean
+        required inout Loop2ConditionMode       ,@ArrayList
+        required inout Loop2ConditionApplies    ,@ArrayList
+        required inout Loop2OutputOff           ,boolean
+        required inout buffer                   ,a
+        required inout ErrStatus                ,int
+        endparams
+
+        stack record local_data
+            ReplacedToken                       ,boolean
+            EndConditionPos                     ,int
+        endrecord
+
+    proc
+
+        init local_data
+
+        Loop2ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
+        Loop2ConditionApplies.Add((@boolean)false)
+
+        ;;Make sure it's a valid type, and see if this field
+        ;;matches the condition
+        using ((a)Loop2ConditionMode[Loop2ConditionMode.Count-1]) select
+
+        ("FIRST "),
+            if (SelNbr == 0)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("INFOLINE "),
+            if (Fld.InfoLineText)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("LAST "),
+            if (SelNbr == Fld.SelectionList.Count-1)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("MORE "),
+            if (SelNbr < Fld.SelectionList.Count-1)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        ("NOMORE "),
+            if (SelNbr == Fld.SelectionList.Count-1)
+                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+        (),
+        begin
+            ;;If we get an invalid condition mode we'll set ErrStatus, which
+            ;;will bail us out of this entire call
+            ErrorLog("Invalid type "+(a)Loop2ConditionMode[Loop2ConditionMode.Count-1]+" in <IF> token")
+            ErrStatus = 1
+        end
+        endusing
+
+        if (!ErrStatus)
+        begin
+            ;;Do we need to suppress output because of this new condition?
+            if (!Loop2OutputOff&&!(boolean)Loop2ConditionApplies[Loop2ConditionApplies.Count-1])
+                Loop2OutputOff = true
+
+            ;;Is this a single-line condition?
+            if (EndConditionPos=instr(TokenEnd,buffer,"</IF>")) then
+            begin
+                ;;Yes, this is a single line condition
+                if (Env.Debug)
+                    display(Env.Tt,"    - Processing single-line "+(a)Loop2ConditionMode[Loop2ConditionMode.Count-1]+" condition, depth "+string(Loop2ConditionApplies.Count))
+                ;;Do we need to keep the content?
+                if (Loop2OutputOff) then
+                begin
+                    ;;No, remove the <IF></IF> tokens AND the content
+                    DebugLog(", excluding content",false,false)
+                    if ((TokenStart)>1) then
+                        buffer = buffer(1,TokenStart-1)
+                        & + buffer(EndConditionPos+5,^size(buffer))
+                    else
+                        buffer = buffer(EndConditionPos+5,^size(buffer))
+                end
+                else
+                begin
+                    ;;Yes, remove the <IF></IF> tokens but leave the content
+                    DebugLog(", retaining content",false,false)
+                    if ((TokenStart)>1) then
+                        buffer = buffer(1,TokenStart-1)
+                        & + buffer(TokenEnd+1,EndConditionPos-1)
+                        & + buffer(EndConditionPos+5,^size(buffer))
+                    else
+                        buffer = buffer(TokenEnd+1,EndConditionPos-1)
+                        & + buffer(EndConditionPos+5,^size(buffer))
+                end
+
+                ReplacedToken = true
+
+                ;;This was a single-line condition, and we have dealt with it, so
+                ;;remove the condition from the "stack"
+
+                Loop2ConditionApplies.RemoveAt(Loop2ConditionApplies.Count-1)
+                Loop2ConditionMode.RemoveAt(Loop2ConditionMode.Count-1)
+
+                ;;And figure out if we need to suppress output now based on the new "stack"
+                Loop2OutputOff = Loop1OutputOff
+                if (Loop2ConditionApplies.Count)
+                begin
+                    data tmpval, @boolean
+                    foreach tmpval in Loop2ConditionApplies
+                    begin
+                        if (!(boolean)tmpval)
+                        begin
+                            Loop2OutputOff = true
+                            exitloop
+                        end
+                    end
+                end
+            end
+            else
+            begin
+                ;;The condition spans multiple lines, wind forward
+                if (Env.Debug)
+                begin
+                    display(Env.Tt,"    - Start multi-line "+(a)Loop2ConditionMode[Loop2ConditionMode.Count-1]+" condition, depth "+string(Loop2ConditionApplies.Count))
+                    if (Loop2OutputOff) then
+                        DebugLog(", output now OFF",false,false)
+                    else
+                        DebugLog(", output now ON",false,false)
+                end
+            end
+        end
+
+        freturn ReplacedToken
+
+    endfunction
+
+endnamespace

@@ -1,0 +1,124 @@
+;;*****************************************************************************
+;;
+;; Title:       ReplaceToken.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Replaces a token in a string
+;;
+;; Date:        16th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    function ReplaceToken, boolean
+
+        required inout  a_string        ,a
+        required in     a_token         ,a
+        required in     a_replacement   ,a
+        endparams
+
+        .include "CODEGEN_SRC:codegen.def"
+
+        stack record local_data
+            pos             ,i4
+            len             ,i4
+            tokenReplaced   ,boolean
+            tmpbuf          ,a CODEGEN_BUFSZ
+        endrecord
+
+        static record logrec
+                            ,a7, "     - "
+            token           ,a30
+                            ,a4, " -> "
+            replacement     ,a40
+        endrecord
+
+        .ifdef OS_UNIX
+        .define CRLF                char(10)
+        .else
+        .define CRLF                char(13)+char(10)
+        .endc
+
+    proc
+
+        init local_data
+
+        if ((a_token) && (a_string) && (pos=instr(1,a_string,atrim(a_token))))
+        begin
+
+            clear tmpbuf
+            len = trim(a_token)
+
+            if (pos>1) then
+                tmpbuf = a_string(1:pos-1) + a_replacement
+            else
+                tmpbuf = a_replacement
+
+            if ((pos+len)<=trim(a_string))
+                tmpbuf = atrim(tmpbuf)+a_string((pos+len),trim(a_string))
+
+            a_string = tmpbuf
+
+            if (Env.Debug)
+            begin
+                token = a_token
+                if (pos=instr(1,a_replacement,CRLF)) then
+                begin
+                    token = a_token
+                    replacement = "<multiple output lines>"
+                    Log(logrec,false,false)
+                end
+                else
+                begin
+                    replacement = a_replacement
+                    if (trim(a_replacement)>^size(replacement))
+                        replacement(37,40) = " ..."
+                    Log(logrec,false,false)
+                end
+            end
+
+            tokenReplaced = true
+
+        end
+
+        freturn tokenReplaced
+
+    endfunction
+
+endnamespace
+

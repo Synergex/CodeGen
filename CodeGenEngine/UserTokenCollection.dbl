@@ -1,0 +1,381 @@
+;;*****************************************************************************
+;;
+;; Title:       UserTokenCollection.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a collection of user-defined tokens
+;;
+;; Date:        9th November 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.Engine
+
+    public sealed class UserTokenCollection
+
+        private p_Collection, @ArrayList
+        private p_TokenFile, a80
+
+        ;;Constructor (start empty)
+        public method UserTokenCollection
+            endparams
+        proc
+            p_Collection = new ArrayList()
+        endmethod
+
+        ;;Constructor (load tokens from token file)
+        public method UserTokenCollection
+            required in UserTokenFile, a
+            endparams
+        proc
+            p_Collection = new ArrayList()
+            LoadTokensFromFile(UserTokenFile)
+        endmethod
+
+        ;;Constructor (load tokens from command line array)
+        public method UserTokenCollection
+            required in TokenArray, [*]a
+            required in TokenCount, n
+            endparams
+        proc
+            p_Collection = new ArrayList()
+            AddTokens(TokenArray,TokenCount)
+        endmethod
+
+        ;;Destructor
+        method ~UserTokenCollection
+        proc
+            clear p_Collection
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;Private methods and properties
+
+        ;;Load user defined tokens from XML file
+        private method LoadTokensFromFile, void
+            required in UserTokenFile, a
+            endparams
+            record Local_Data
+                tmpch       ,int
+                RecCount    ,int
+                tmpbuf      ,a256
+            endrecord
+        proc
+            init Local_Data
+            p_TokenFile = UserTokenFile
+            if (!instr(1,p_TokenFile,"."))
+                p_TokenFile=atrim(p_TokenFile)+".tkn"
+
+            try
+                open(tmpch=0,i:s,Env.TemplateDir+p_TokenFile)
+            catch (ex)
+                throw new CodegenException("Failed to open user defined token file "+Env.TemplateDir+p_TokenFile)
+            endtry
+
+            VerboseLog("Loading user defined tokens from "+atrim(p_TokenFile),true,false)
+
+            repeat
+            begin
+
+                data pos1, int, 0
+                data pos2, int, 0
+                data pos3, int, 0
+                data pos4, int, 0
+                data lastRec, boolean, false
+
+                begin
+                    reads(tmpch,tmpbuf,eout)
+                    exit
+eout,               if (rdlen()) then
+                        lastRec = true
+                    else
+                        exitloop
+                end
+
+                ;;Ignore blank lines
+                if (!tmpbuf)
+                begin
+                    if (lastRec) then
+                        exitloop
+                    else
+                        nextloop
+                end
+
+                ;;Ignore comment lines
+                if (tmpbuf==";")
+                begin
+                    if (lastRec) then
+                        exitloop
+                    else
+                        nextloop
+                end
+
+                RecCount += 1
+
+                pos1=instr(1,tmpbuf,"<")
+                if (pos1) pos2=instr(pos1,tmpbuf,">")
+                if (pos2) pos3=instr(pos2,tmpbuf,"</")
+                if (pos3) pos4=instr(pos3,tmpbuf,">")
+
+                ;;Make sure the record looks like a open/close tag record
+                if ((!pos1)||(!pos2)||(!pos3)||(!pos4))
+                    throw new CodegenException("Record " + string(RecCount) + " in user defined token file is invalid!")
+
+                ;;Make sure the open and close tags match
+                if (tmpbuf(pos1+1,pos2-1)!=tmpbuf(pos3+2,pos4-1))
+                    throw new CodegenException("Record " + string(RecCount) + " in user defined token file is invalid!")
+
+                ;;Store details of this user token
+                p_Collection.Add(new UserToken(tmpbuf(pos1,pos2),tmpbuf(pos2+1,pos3-1)))
+
+                if (lastRec)
+                    exitloop
+            end
+
+            close tmpch
+            if (p_Collection.Count&&Env.Verbose)
+            begin
+                data tmpToken, @UserToken
+                foreach tmpToken in p_Collection
+                    Log(" - User token " + tmpToken.Name + " = " + tmpToken.Value,false,false)
+            end
+
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;Public methods and properties
+
+        public property TokenFile, a
+            method get
+            proc
+                mreturn atrim(p_TokenFile)
+            endmethod
+            method set
+            proc
+                p_TokenFile = value
+                mreturn
+            endmethod
+        endproperty
+
+        ;;Add command line tokens to existing collection, replacing any existing ones
+        public method AddTokens, void
+            required in TokenArray, [*]a
+            required in TokenCount, n
+            endparams
+            record
+                ix      ,int
+                delim   ,int
+                token   ,string
+                value   ,string
+            endrecord
+        proc
+
+            VerboseLog("Loading user defined tokens from command line:",false,false)
+
+            for ix from 1 thru TokenCount
+            begin
+
+                ;;Make sure the token looks right (name=value)
+                if (((delim=instr(1,TokenArray[ix],"="))<2) || (delim==trim(TokenArray[ix])) )
+                    throw new CodegenException("Command line token " + atrim(TokenArray[ix]) + " is invalid!")
+
+                token = "<" + atrim(TokenArray[ix](1:delim-1)) + ">"
+                value = atrim(TokenArray[ix](delim+1:trim(TokenArray[ix])))
+
+                ;;If the token is already in the collection then update its value
+                ;;Otherwise add a new user token
+                begin
+                    data tmpToken, @UserToken
+                    data existingToken, Boolean, false
+                    foreach tmpToken in p_Collection
+                    begin
+                        if (tmpToken.Name.eqs.token)
+                        begin
+                            tmpToken.Value = value
+                            existingToken = true
+                            exitloop
+                        end
+                    end
+                    if (!existingToken)
+                        p_Collection.Add(new UserToken(token,value))
+                end
+
+                VerboseLog(" - User token " + token + " = " + value,false,false)
+            end
+
+
+        endmethod
+
+        ;;; <summary>
+        ;;; Expose the internal ArrayList so consumers can use FOREACH
+        ;;; </summary>
+        ;;; <returns>Internal ArrayList used to store user tokens.</returns>
+        public method GetEnumerator, @ArrayList
+            endparams
+        proc
+            mreturn p_Collection
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;The following members make the collection look just like an ArrayList
+
+        ;;Gets or sets the number of elements that the collection can contain.
+        public property Capacity, int
+            method get
+            proc
+                mreturn p_Collection.Capacity
+            endmethod
+            method set
+            proc
+                p_Collection.Capacity = value
+            endmethod
+        endproperty
+
+        ;;Gets the number of elements actually contained in the collection.
+        public property Count, int
+            method get
+            proc
+                mreturn p_Collection.Count
+            endmethod
+        endproperty
+
+        ;;Gets or sets the element at the specified index.
+        public property Indexer, @UserToken
+            required in Index, int
+            method get
+            proc
+                mreturn (UserToken)p_Collection[Index]
+            endmethod
+            method set
+            proc
+                p_Collection[Index] = value
+            endmethod
+        endproperty
+
+        ;;Adds an element to the end of the collection.
+        public method Add, int
+            required in UserToken, @UserToken
+            endparams
+        proc
+            mreturn p_Collection.Add(UserToken)
+        endmethod
+
+        ;;Removes the element at the specified index of the collection.
+        public method RemoveAt, void
+            required in Index, int
+        proc
+            p_Collection.RemoveAt(Index)
+        endmethod
+
+        ;;Searches for the specified element and returns the one-based index
+        ;;of the first occurrence within the entire collection.
+        public method IndexOf, int
+            required in UserToken, @UserToken
+        proc
+            mreturn p_Collection.IndexOf(UserToken)
+        endmethod
+
+        ;;Searches for the specified element and returns the one-based index
+        ;;of the first occurrence within the range of elements in the collection
+        ;;that extends from the specified index to the last element.
+        public method IndexOf, int
+            required in UserToken, @UserToken
+            required in StartIndex, int
+        proc
+            mreturn p_Collection.IndexOf(UserToken,StartIndex)
+        endmethod
+
+        ;;Searches for the specified element and returns the one-based index
+        ;;of the first occurrence within the range of elements in the collection
+        ;;that starts at the specified index and contains the specified number of
+        ;;elements.
+        public method IndexOf, int
+            required in UserToken, @UserToken
+            required in StartIndex, int
+            required in Count, int
+        proc
+            mreturn p_Collection.IndexOf(UserToken,StartIndex,Count)
+        endmethod
+
+        ;;Removes all elements from the collection.
+        public method Clear, void
+        proc
+            p_Collection.Clear()
+        endmethod
+
+        ;;Inserts an element into the collection at the specified index.
+        public method Insert, void
+            required in AtIndex, int
+            required in UserToken, @UserToken
+            endparams
+        proc
+            p_Collection.Insert(AtIndex,UserToken)
+        endmethod
+
+        ;;Searches for the specified object and returns the one-based index of
+        ;;the last occurrence within the entire collection.
+        public method LastIndexOf, int
+            required in UserToken, @UserToken
+        proc
+            mreturn p_Collection.LastIndexOf(UserToken)
+        endmethod
+
+        ;;Searches for the specified object and returns the one-based index of
+        ;;the last occurrence within the range of elements in the collection that
+        ;;extends from the first element to the specified index.
+        public method LastIndexOf, int
+            required in UserToken, @UserToken
+            required in StartIndex, int
+        proc
+            mreturn p_Collection.LastIndexOf(UserToken,StartIndex)
+        endmethod
+
+        ;;Searches for the specified object and returns the one-based index of
+        ;;the last occurrence within the range of elements in the collection that
+        ;;contains the specified number of elements and ends at the specified index.
+        public method LastIndexOf, int
+            required in UserToken, @UserToken
+            required in StartIndex, int
+            required in Count, int
+        proc
+            mreturn p_Collection.LastIndexOf(UserToken,StartIndex,Count)
+        endmethod
+
+    endclass
+
+endnamespace

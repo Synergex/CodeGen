@@ -1,0 +1,1489 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsField.CodeGen.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents CodeGen specific attributes of a Repository field
+;;
+;; Date:        18th March 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.RepositoryAPI
+
+    public partial class RpsField
+
+        ;;CodeGen uses the following "name" properties
+        ;;
+        ;;Name          Starts off as the actual name of the field per repository
+        ;;              Could change to include paths and array dimensions after CheckStructure
+        ;;
+        ;;AlternateName Starts off as the alternate name of the field per repository
+        ;;              Set to the same as Name if no alternate name is defined
+        ;;              Could change to include paths and array dimensions after CheckStructure
+        ;;
+        ;;BaseName      Starts off as the alternate name of the field per repository
+        ;;              Could change to include paths and array dimensions after CheckStructure
+        ;;              For arrays, BaseName does NOT include any final array element number
+        ;;
+        ;;OriginalName  The original name of the field (per repository definition)
+        ;;
+        ;;SqlName       The SQL name has array element brackets and path periods removed.
+        ;;
+        ;;OdbcName      The ODBC name is like the SQL name, but has an _ before array element numbers.
+        ;;
+
+
+        ;;CodeGen specific Field attribute data
+        ;;
+        ;;IMPARTANT: If more properties are added, remember to update the cloneField method
+        ;;
+        protected mTypeCode             ,string     ;Data type code
+        protected mTypeName             ,string     ;Synergy type name
+        protected mCsType               ,string     ;C# data type
+        protected mCsDefault            ,string     ;C# default value
+        protected mCsNumericConvert     ,string     ;C# numeric conversion function
+        protected mOcType               ,string     ;Objective-C data type
+        protected mOcDefault            ,string     ;Objective-C default value
+        protected mOcObject             ,boolean    ;Objective-C data type is an object
+        protected mVbType               ,string     ;VB.NET data type
+        protected mVbDefault            ,string     ;VB default value
+        protected mSqlType              ,string     ;SQL data type
+        protected mMappedField          ,string     ;Mapped field name
+        protected mMappingFunction      ,string     ;Mapping conversion function
+        protected mUnmappingFunction    ,string     ;Mapping unconversion function
+        protected mAutoIncrement        ,boolean    ;Auto incrementing numeric field
+        protected mWasArrayElement      ,boolean    ;Field was from an expanded array
+        protected mOriginalElement      ,[#]int     ;Original element #'s for expanded array fields
+        protected mSqlName              ,string     ;SQL compatible name
+        protected mOdbcName             ,string     ;ODBC compatible name
+
+        private enum MappedType
+            CSharp
+            VB
+            SQL
+            ObjectiveC
+            Java
+        endenum
+
+        private method loadCodeGenData, void
+            endparams
+            record
+                pos1, int
+                pos2, int
+            endrecord
+        proc
+
+            ;;Load the CodeGen specific attributes
+
+            mCsType  = getDataType(MappedType.CSharp)
+            mVbType  = getDataType(MappedType.VB)
+            mSqlType = getDataType(MappedType.SQL)
+            mOcType  = getDataType(MappedType.ObjectiveC)
+
+            using DataType select
+            (RpsFieldDataType.Alpha),
+            begin
+                mTypeCode = "A"
+                using DataTypeSubclass select
+                (RpsFieldSubclass.Binary),
+                begin
+                    mTypeName = "BINARY"
+                    mCsNumericConvert = ""
+                    mCsDefault = '""'
+                    mVbDefault = '""'
+                    mOcDefault = '@""'
+                    mOcObject = true
+                end
+                (),
+                begin
+                    mTypeName = "ALPHA"
+                    mCsNumericConvert = ""
+                    mCsDefault = '""'
+                    mVbDefault = '""'
+                    mOcDefault = '@""'
+                    mOcObject = true
+                end
+                endusing
+            end
+            (RpsFieldDataType.User),
+            begin
+                mTypeCode = "A"
+                using DataTypeSubclass select
+                (RpsFieldSubclass.UserAlpha),
+                begin
+                    mTypeName = "USER ALPHA"
+                    mCsNumericConvert = ""
+                    mCsDefault = '""'
+                    mVbDefault = '""'
+                    mOcDefault = '@""'
+                    mOcObject = true
+                end
+                (RpsFieldSubclass.UserNumeric),
+                begin
+                    mTypeName = "USER NUMERIC"
+                    mCsNumericConvert = ""
+                    mCsDefault = '""'
+                    mVbDefault = '""'
+                    mOcDefault = '@""'
+                    mOcObject = true
+                end
+                (RpsFieldSubclass.UserDate),
+                begin
+                    mTypeName = "USER DATE"
+                    mCsNumericConvert = ""
+                    mCsDefault = '""'
+                    mVbDefault = '""'
+                    mOcDefault = '@""'
+                    mOcObject = true
+                end
+                endusing
+            end
+            (RpsFieldDataType.Decimal),
+            begin
+                mTypeCode = "D"
+                using DataTypeSubclass select
+                (RpsFieldSubclass.DateYYYYMMDD),
+                begin
+                    mTypeName = "DATE"
+                    mCsNumericConvert = ""
+                    mCsDefault = "new DataTime()"
+                    mVbDefault = "New DateTime()"
+                    mOcDefault = "[NSDate new]"
+                    mOcObject = true
+                end
+                (RpsFieldSubclass.DateYYMMDD),
+                begin
+                    mTypeName = "DATE"
+                    mCsNumericConvert = ""
+                    mCsDefault = "new DataTime()"
+                    mVbDefault = "New DateTime()"
+                    mOcDefault = "[NSDate new]"
+                    mOcObject = true
+                end
+                (RpsFieldSubclass.DateYYYYJJJ),
+                begin
+                    mTypeName = "DATE"
+                    mCsNumericConvert = ""
+                    mCsDefault = "new DataTime()"
+                    mVbDefault = "New DateTime()"
+                    mOcDefault = "[NSDate new]"
+                    mOcObject = true
+                end
+                (RpsFieldSubclass.DateYYJJJ),
+                begin
+                    mTypeName = "DATE"
+                    mCsNumericConvert = ""
+                    mCsDefault = "new DataTime()"
+                    mVbDefault = "New DateTime()"
+                    mOcDefault = "[NSDate new]"
+                    mOcObject = true
+                end
+                (RpsFieldSubclass.DateYYYYPP),
+                begin
+                    mTypeName = "JULIAN"
+                    mCsNumericConvert = ""
+                    mCsDefault = '""'
+                    mVbDefault = '""'
+                    mOcDefault = '@""'
+                    mOcObject = true
+                end
+                (RpsFieldSubclass.DateYYPP),
+                begin
+                    mTypeName = "JULIAN"
+                    mCsNumericConvert = ""
+                    mCsDefault = '""'
+                    mVbDefault = '""'
+                    mOcDefault = '@""'
+                    mOcObject = true
+                end
+                (RpsFieldSubclass.TimeHHMMSS),
+                begin
+                    mTypeName = "TIME"
+                    mCsNumericConvert = ""
+                    mCsDefault = "new DataTime()"
+                    mVbDefault = "New DateTime()"
+                    mOcDefault = "[NSDate new]"
+                    mOcObject = true
+                end
+                (RpsFieldSubclass.TimeHHMM),
+                begin
+                    mTypeName = "TIME"
+                    mCsNumericConvert = ""
+                    mCsDefault = "new DataTime()"
+                    mVbDefault = "New DateTime()"
+                    mOcDefault = "[NSDate new]"
+                    mOcObject = true
+                end
+                (),
+                begin
+                    if (Precision) then
+                    begin
+                        mTypeName = "IMPLIED"
+                        mCsNumericConvert = "decimal.TryParse"
+                        mCsDefault = "0"
+                        mVbDefault = "0"
+                        mOcDefault = "0.0"
+                        mOcObject = false
+                    end
+                    else
+                    begin
+                        if (Size<=9) then
+                        begin
+                            mTypeName = "DECIMAL"
+                            mCsNumericConvert = "int.TryParse"
+                            mCsDefault = "0"
+                            mVbDefault = "0"
+                            mOcDefault = "0"
+                            mOcObject = false
+                        end
+                        else
+                        begin
+                            mTypeName = "DECIMAL"
+                            mCsNumericConvert = "long.TryParse"
+                            mCsDefault = "0"
+                            mVbDefault = "0"
+                            mOcDefault = "0"
+                            mOcObject = false
+                        end
+                    end
+                end
+                endusing
+            end
+            (RpsFieldDataType.Integer),
+            begin
+                mTypeCode = "I"
+                using Size select
+                (1,2),
+                begin
+                    mTypeName = "INTEGER"
+                    mCsNumericConvert = "int.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (4),
+                begin
+                    mTypeName = "INTEGER"
+                    mCsNumericConvert = "int.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (8),
+                begin
+                    mTypeName = "INTEGER"
+                    mCsNumericConvert = "long.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                endusing
+            end
+            (RpsFieldDatatype.Boolean),
+            begin
+                mTypeName = "BOOLEAN"
+                mCsNumericConvert = "bool.TryParse"
+                mCsDefault = "false"
+                mVbDefault = "False"
+                mOcDefault = "NO"
+                mOcObject = false
+            end
+            (RpsFieldDataType.Enum),    ;;Can't currently happen because of %CheckStructure
+            begin
+                mTypeName = ""
+                mCsNumericConvert = ""
+                mCsDefault = ""
+                mVbDefault = ""
+                mOcDefault = ""
+                mOcObject = false
+            end
+            (RpsFieldDataType.Binary),  ;;Can't currently happen because of %CheckStructure
+            begin
+                mTypeName = ""
+                mCsNumericConvert = ""
+                mCsDefault = ""
+                mVbDefault = ""
+                mOcDefault = ""
+                mOcObject = false
+            end
+            (RpsFieldDataType.Structfield), ;;Can't currently happen because of %CheckStructure
+            begin
+                mTypeName = ""
+                mCsNumericConvert = ""
+                mCsDefault = ""
+                mVbDefault = ""
+                mOcDefault = ""
+                mOcObject = false
+            end
+            endusing
+
+            ;;If the field has an explicit coercion then use it
+            if (CorecedType!=RpsFieldCorecedType.CtNone)
+            begin
+                using CorecedType select
+                (RpsFieldCorecedType.CtByte),
+                begin
+                    mTypeName = "BYTE"
+                    mCsNumericConvert = "byte.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtShort),
+                begin
+                    mTypeName = "SHORT"
+                    mCsNumericConvert = "short.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtInt),
+                begin
+                    mTypeName = "INTEGER"
+                    mCsNumericConvert = "int.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtLong),
+                begin
+                    mTypeName = "LONG"
+                    mCsNumericConvert = "long.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtSbyte),
+                begin
+                    mTypeName = "SBYTE"
+                    mCsNumericConvert = "sbyte.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtUshort),
+                begin
+                    mTypeName = "USHORT"
+                    mCsNumericConvert = "ushort.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtUint),
+                begin
+                    mTypeName = "UINTEGER"
+                    mCsNumericConvert = "uint.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtUlong),
+                begin
+                    mTypeName = "ULONG"
+                    mCsNumericConvert = "ulong.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtBoolean),
+                begin
+                    mTypeName = "BOOLEAN"
+                    mCsNumericConvert = "bool.TryParse"
+                    mCsDefault = "false"
+                    mVbDefault = "False"
+                    mOcDefault = "NO"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtDouble),
+                begin
+                    mTypeName = "DOUBLE"
+                    mCsNumericConvert = "double.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0.0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtFloat),
+                begin
+                    mTypeName = "FLOAT"
+                    mCsNumericConvert = "float.TryParse"
+                    mCsDefault = "0"
+                    mVbDefault = "0"
+                    mOcDefault = "0.0"
+                    mOcObject = false
+                end
+                (RpsFieldCorecedType.CtNullDateTime),
+                begin
+                    mTypeName = "NULLABLEDATETIME"
+                    mCsNumericConvert = ""
+                    mCsDefault = "null"
+                    mVbDefault = "Nothing"
+                    mOcDefault = "[NSDate new]"
+                    mOcObject = true
+                end
+                endusing
+            end
+
+            ;;Mapped field
+            mMappedField = ""
+            if (pos1=instr(1,RpsUtils.UpperCase(mUserText),"@MAP="))
+            begin
+                pos2=instr(pos1,mUserText,";")
+                if (pos2>=pos1+6) then
+                    mMappedField = RpsUtils.UpperCase(mUserText(pos1+5,pos2-1))
+                else
+                begin
+                    data mtx, a132
+                    s_bld(mtx,,"Field %a.%a has an invalid @MAP specification",mStructureName,mName)
+                    throw new RpsFieldException(mtx)
+                end
+            end
+
+            ;;Mapping conversion function
+            mMappingFunction = ""
+            if (pos1=instr(1,mUserText,"@MAPF="))
+            begin
+                pos2=instr(pos1,RpsUtils.UpperCase(mUserText),";")
+                if (pos2>=pos1+7) then
+                    mMappingFunction = mUserText(pos1+6,pos2-1)
+                else
+                begin
+                    data mtx, a128
+                    s_bld(mtx,,"Field %a.%a has an invalid @MAPF=func; specification",mStructureName,mName)
+                    throw new RpsFieldException(mtx)
+                end
+            end
+
+            ;;Mapping unconversion function
+            mUnmappingFunction = ""
+            if (pos1=instr(1,RpsUtils.UpperCase(mUserText),"@UNMAPF="))
+            begin
+                pos2=instr(pos1,mUserText,";")
+                if (pos2>=pos1+9) then
+                    mUnmappingFunction = mUserText(pos1+8,pos2-1)
+                else
+                begin
+                    data mtx, a132
+                    s_bld(mtx,,"Field %a.%a has an invalid @UNMAPF=func; specification",mStructureName,mName)
+                    throw new RpsFieldException(mtx)
+                end
+            end
+
+            ;;Auto incrmenting field
+            mAutoIncrement = false
+            if (pos1=instr(1,RpsUtils.UpperCase(mUserText),"@AUTOINCREMENT;"))
+                mAutoIncrement = true
+
+            mWasArrayElement = false
+            mOriginalElement = new int[4]
+            mOriginalElement[1] = mArrayDimension[1]
+            mOriginalElement[2] = mArrayDimension[2]
+            mOriginalElement[3] = mArrayDimension[3]
+            mOriginalElement[4] = mArrayDimension[4]
+
+            mSqlName = mName
+            mOdbcName = mName
+
+        endmethod
+
+        private method cloneCodeGenData, void
+            required in SourceField, @RpsField
+            endparams
+        proc
+            ;;Clone the CodeGen specific properties
+            mTypeCode               = SourceField.TypeCode
+            mTypeName               = SourceField.TypeName
+            mCsType                 = SourceField.CsType
+            mCsDefault              = SourceField.CsDefault
+            mCsNumericConvert       = SourceField.CsNumericConvert
+            mOcType                 = SourceField.OcType
+            mOcDefault              = SourceField.OcDefault
+            mOcObject               = SourceField.OcObject
+            mVbType                 = SourceField.VbType
+            mVbDefault              = SourceField.VbDefault
+            mSqlType                = SourceField.SqlType
+            mMappedField            = SourceField.MappedField
+            mMappingFunction        = SourceField.MappingFunction
+            mUnmappingFunction      = SourceField.UnmappingFunction
+            mAutoIncrement          = SourceField.AutoIncrement
+            mWasArrayElement        = SourceField.WasArrayElement
+            mSqlName                = SourceField.SqlName
+            mOdbcName               = SourceField.OdbcName
+
+            mOriginalElement = new int[4]
+            mOriginalElement[1]     = SourceField.OriginalElement[1]
+            mOriginalElement[2]     = SourceField.OriginalElement[2]
+            mOriginalElement[3]     = SourceField.OriginalElement[3]
+            mOriginalElement[4]     = SourceField.OriginalElement[4]
+
+        endmethod
+
+        private method getDataType, string
+            required in ToType  ,MappedType
+            endparams
+            record
+                r  ,string
+            endrecord
+        proc
+
+            r=""
+
+            using DataType select
+            (RpsFieldDataType.Alpha),
+            begin
+                using DataTypeSubclass select
+                (RpsFieldSubclass.Binary),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="string"
+                    (MappedType.VB),
+                        r="String"
+                    (MappedType.SQL),
+                        r="CHAR("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSString"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="string"
+                    (MappedType.VB),
+                        r="String"
+                    (MappedType.SQL),
+                        r="VARCHAR("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSString"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                endusing
+            end
+            (RpsFieldDataType.User),
+            begin
+                using DataTypeSubclass select
+                (RpsFieldSubclass.UserAlpha),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="string"
+                    (MappedType.VB),
+                        r="String"
+                    (MappedType.SQL),
+                        r="CHAR("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSString"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (RpsFieldSubclass.UserNumeric),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="string"
+                    (MappedType.VB),
+                        r="String"
+                    (MappedType.SQL),
+                        r="CHAR("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSString"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (RpsFieldSubclass.UserDate),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="string"
+                    (MappedType.VB),
+                        r="String"
+                    (MappedType.SQL),
+                    begin
+                        using UserFieldType select
+                        ("^CLASS^=YYYYMMDDHHMISSUUUUUU"),
+                            r = "DATETIME2"
+                        (),
+                            r = "CHAR("+string(Size)+")"
+                        endusing
+                    end
+                    (MappedType.ObjectiveC),
+                        r="NSString"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                endusing
+            end
+            (RpsFieldDataType.Decimal),
+            begin
+                using DataTypeSubclass select
+                (RpsFieldSubclass.DateYYYYMMDD),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="DateTime"
+                    (MappedType.VB),
+                        r="DateTime"
+                    (MappedType.SQL),
+                        r="DATE"
+                    (MappedType.ObjectiveC),
+                        r="NSDate"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (RpsFieldSubclass.DateYYMMDD),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="DateTime"
+                    (MappedType.VB),
+                        r="DateTime"
+                    (MappedType.SQL),
+                        r="DECIMAL("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSDate"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (RpsFieldSubclass.DateYYYYJJJ),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="DateTime"
+                    (MappedType.VB),
+                        r="DateTime"
+                    (MappedType.SQL),
+                        r="DECIMAL("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSDate"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (RpsFieldSubclass.DateYYJJJ),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="DateTime"
+                    (MappedType.VB),
+                        r="DateTime"
+                    (MappedType.SQL),
+                        r="DECIMAL("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSDate"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (RpsFieldSubclass.DateYYYYPP),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="string"
+                    (MappedType.VB),
+                        r="String"
+                    (MappedType.SQL),
+                        r="CHAR("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSString"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (RpsFieldSubclass.DateYYPP),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="string"
+                    (MappedType.VB),
+                        r="String"
+                    (MappedType.SQL),
+                        r="CHAR("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSString"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (RpsFieldSubclass.TimeHHMMSS),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="DateTime"
+                    (MappedType.VB),
+                        r="DateTime"
+                    (MappedType.SQL),
+                        r="DECIMAL("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSDate"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (RpsFieldSubclass.TimeHHMM),
+                begin
+                    using ToType select
+                    (MappedType.CSharp),
+                        r="DateTime"
+                    (MappedType.VB),
+                        r="DateTime"
+                    (MappedType.SQL),
+                        r="DECIMAL("+string(Size)+")"
+                    (MappedType.ObjectiveC),
+                        r="NSDate"
+                    (MappedType.Java),
+                        r=""
+                    endusing
+                end
+                (),
+                begin
+                    if (Precision) then
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="decimal"
+                        (MappedType.VB),
+                            r="Decimal"
+                        (MappedType.SQL),
+                            r="DECIMAL("+string(Size)+","+string(Precision)+")"
+                        (MappedType.ObjectiveC),
+                            r="double"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                    else
+                    begin
+                        if (Size<=9) then
+                        begin
+                            using ToType select
+                            (MappedType.CSharp),
+                                r="int"
+                            (MappedType.VB),
+                                r="Integer"
+                            (MappedType.SQL),
+                                r="DECIMAL("+string(Size)+")"
+                            (MappedType.ObjectiveC),
+                                r="int"
+                            (MappedType.Java),
+                                r=""
+                            endusing
+                        end
+                        else
+                        begin
+                            using ToType select
+                            (MappedType.CSharp),
+                                r="long"
+                            (MappedType.VB),
+                                r="Long"
+                            (MappedType.SQL),
+                                r="DECIMAL("+string(Size)+")"
+                            (MappedType.ObjectiveC),
+                                r="long int"
+                            (MappedType.Java),
+                                r=""
+                            endusing
+                        end
+                    end
+                end
+                endusing
+            end
+            (RpsFieldDataType.Integer),
+            begin
+                using Size select
+                (1,2),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="int"
+                        (MappedType.VB),
+                            r="Integer"
+                        (MappedType.SQL),
+                            r="SMALLINT"
+                        (MappedType.ObjectiveC),
+                            r="short int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (4),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="int"
+                        (MappedType.VB),
+                            r="Integer"
+                        (MappedType.SQL),
+                            r="INT"
+                        (MappedType.ObjectiveC),
+                            r="int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (8),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="long"
+                        (MappedType.VB),
+                            r="Long"
+                        (MappedType.SQL),
+                            r="BIGINT"
+                        (MappedType.ObjectiveC),
+                            r="long int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                endusing
+            end
+            (RpsFieldDatatype.Boolean),
+            begin
+                using ToType select
+                (MappedType.CSharp),
+                    r="bool"
+                (MappedType.VB),
+                    r="Boolean"
+                (MappedType.SQL),
+                    r="BIT"
+                (MappedType.ObjectiveC),
+                    r="BOOL"
+                (MappedType.Java),
+                    r=""
+                endusing
+            end
+            (RpsFieldDataType.Enum),    ;Can't currently happen because of %CheckStructure
+            begin
+                using ToType select
+                (MappedType.CSharp),
+                    r=""
+                (MappedType.VB),
+                    r=""
+                (MappedType.SQL),
+                    r=""
+                (MappedType.ObjectiveC),
+                    r=""
+                (MappedType.Java),
+                    r=""
+                endusing
+            end
+            (RpsFieldDataType.Binary),  ;Can't currently happen because of %CheckStructure
+            begin
+                using ToType select
+                (MappedType.CSharp),
+                    r=""
+                (MappedType.VB),
+                    r=""
+                (MappedType.SQL),
+                    r=""
+                (MappedType.ObjectiveC),
+                    r=""
+                (MappedType.Java),
+                    r=""
+                endusing
+            end
+            (RpsFieldDataType.Structfield), ;Can't currently happen because of %CheckStructure
+            begin
+                using ToType select
+                (MappedType.CSharp),
+                    r=""
+                (MappedType.VB),
+                    r=""
+                (MappedType.SQL),
+                    r=""
+                (MappedType.ObjectiveC),
+                    r=""
+                (MappedType.Java),
+                    r=""
+                endusing
+            end
+            endusing
+
+            ;If the field has an explicit coercion then use it
+            if (CorecedType!=RpsFieldCorecedType.CtNone)
+            begin
+                using CorecedType select
+                (RpsFieldCorecedType.CtByte),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="byte"
+                        (MappedType.VB),
+                            r="Byte"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="short int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtShort),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="short"
+                        (MappedType.VB),
+                            r="Short"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="short int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtInt),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="int"
+                        (MappedType.VB),
+                            r="Integer"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtLong),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="long"
+                        (MappedType.VB),
+                            r="Long"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="long int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtSbyte),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="sbyte"
+                        (MappedType.VB),
+                            r="System.SByte"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="unsigned short int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtUshort),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="ushort"
+                        (MappedType.VB),
+                            r="System.UInt16"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="unsigned short int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtUint),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="uint"
+                        (MappedType.VB),
+                            r="System.UInt32"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="unsigned int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtUlong),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="ulong"
+                        (MappedType.VB),
+                            r="System.UInt64"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="unsigned long int"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtBoolean),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="bool"
+                        (MappedType.VB),
+                            r="Boolean"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="BOOL"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtDouble),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="double"
+                        (MappedType.VB),
+                            r="System.Double"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="double"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtFloat),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="float"
+                        (MappedType.VB),
+                            r="System.Single"
+                        (MappedType.SQL),
+                            nop
+                        (MappedType.ObjectiveC),
+                            r="float"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                (RpsFieldCorecedType.CtNullDateTime),
+                    begin
+                        using ToType select
+                        (MappedType.CSharp),
+                            r="Nullable<System.DateTime>"
+                        (MappedType.VB),
+                            r="Nullable(Of System.DateTime)"
+                        (MappedType.SQL),
+                            r=""
+                        (MappedType.ObjectiveC),
+                            r="NSDate"
+                        (MappedType.Java),
+                            r=""
+                        endusing
+                    end
+                endusing
+            end
+
+            mreturn r
+
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;; These properties are present because of my specific requirements for
+        ;; using this class in CodeGen. In most other scenarios these properties
+        ;; should be removed.
+
+        protected property FieldData, f_info
+            method get
+            proc
+                mreturn mf_info
+            endmethod
+        endproperty
+
+        ;; Synergy data type code
+        public property TypeCode, string
+            method get
+            proc
+                mreturn mTypeCode
+            endmethod
+            method set
+            proc
+                mTypeCode = value
+            endmethod
+        endproperty
+
+        ;; Synergy data type name
+        public property TypeName, string
+            method get
+            proc
+                mreturn mTypeName
+            endmethod
+            method set
+            proc
+                mTypeName = value
+            endmethod
+        endproperty
+
+        ;; C# data type
+        public property CsType, string
+            method get
+            proc
+                mreturn mCsType
+            endmethod
+            method set
+            proc
+                mCsType = value
+            endmethod
+        endproperty
+
+        ;; C# numeric conversion function
+        public property CsNumericConvert, string
+            method get
+            proc
+                mreturn mCsNumericConvert
+            endmethod
+            method set
+            proc
+                mCsNumericConvert = value
+            endmethod
+        endproperty
+
+        ;; VB data type
+        public property VbType, string
+            method get
+            proc
+                mreturn mVbType
+            endmethod
+            method set
+            proc
+                mVbType = value
+            endmethod
+        endproperty
+
+        ;; C# default value (based on data type)
+        public property CsDefault, string
+            method get
+            proc
+                mreturn mCsDefault
+            endmethod
+            method set
+            proc
+                mCsDefault = value
+            endmethod
+        endproperty
+
+        ;; VB default value (based on data type)
+        public property VbDefault, string
+            method get
+            proc
+                mreturn mVbDefault
+            endmethod
+            method set
+            proc
+                mVbDefault = value
+            endmethod
+        endproperty
+
+        ;; SQL data type (a20)
+        public property SqlType, string
+            method get
+            proc
+                mreturn mSqlType
+            endmethod
+            method set
+            proc
+                mSqlType = value
+            endmethod
+        endproperty
+
+        ;; Mapped field name
+        public property MappedField, string
+            method get
+            proc
+                mreturn mMappedField
+            endmethod
+            method set
+            proc
+                mMappedField = value
+            endmethod
+        endproperty
+
+        ;; Mapping conversion function
+        public property MappingFunction, string
+            method get
+            proc
+                mreturn mMappingFunction
+            endmethod
+            method set
+            proc
+                mMappingFunction = value
+            endmethod
+        endproperty
+
+        ;; Mapping unconversion function
+        public property UnmappingFunction, string
+            method get
+            proc
+                mreturn mUnmappingFunction
+            endmethod
+            method set
+            proc
+                mUnmappingFunction = value
+            endmethod
+        endproperty
+
+        ;; Auto incrmenting numeric field
+        public property AutoIncrement, boolean
+            method get
+            proc
+                mreturn mAutoIncrement
+            endmethod
+            method set
+            proc
+                mAutoIncrement = value
+            endmethod
+        endproperty
+
+        ;; Objective-C data type
+        public property OcType, string
+            method get
+            proc
+                mreturn mOcType
+            endmethod
+            method set
+            proc
+                mOcType = value
+            endmethod
+        endproperty
+
+        ;; Objective-C default value type
+        public property OcDefault, string
+            method get
+            proc
+                mreturn mOcDefault
+            endmethod
+            method set
+            proc
+                mOcDefault = value
+            endmethod
+        endproperty
+
+        ;; Objective-C data type is an object
+        public property OcObject, boolean
+            method get
+            proc
+                mreturn mOcObject
+            endmethod
+            method set
+            proc
+                mOcObject = value
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; (CodeGen Specific)
+        ;;; Indicates that the field was created when an array field
+        ;;; was expanded into multiple individual fields
+        ;;; </summary>
+        public property WasArrayElement, boolean
+            method get
+            proc
+                mreturn mWasArrayElement
+            endmethod
+            method set
+            proc
+                mWasArrayElement = value
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; (CodeGen Specific)
+        ;;; For array fields which have been expanded out to multiple
+        ;;; individual fields, this property exposes the fields original
+        ;;; array element number. A value of 0 indicates that the field
+        ;;; is not an expanded array field.
+        ;;; </summary>
+        public property OriginalElement, [#]int
+            method get
+            proc
+                mreturn mOriginalElement
+            endmethod
+            method set
+            proc
+                mOriginalElement = value
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; (CodeGen Specific)
+        ;;; A name for the field which is compatible with SQL databases,
+        ;;; and other environments where path names and array dimensions
+        ;;; are not allowed.
+        ;;; </summary>
+        public property SqlName, string
+            method get
+            proc
+                mreturn mSqlName
+            endmethod
+            method set
+            proc
+                mSqlName = value
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; (CodeGen Specific)
+        ;;; A name for the field which is compatible with xfODBC column names.
+        ;;; </summary>
+        public property OdbcName, string
+            method get
+            proc
+                mreturn mOdbcName
+            endmethod
+            method set
+            proc
+                mOdbcName = value
+            endmethod
+        endproperty
+
+        ; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[1] = 1 !!!
+        ; Tracker 33206 2/24/12
+        ; Used by CodeGenEngine.CheckStructure
+        public method SetArrayDim1, void
+            required in newVal, int
+            endparams
+        proc
+            mArrayDimension[1] = newVal
+        endmethod
+
+        ; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[2] = 1 !!!
+        ; Tracker 33206 2/24/12
+        ; Used by CodeGenEngine.CheckStructure
+        public method SetArrayDim2, void
+            required in newVal, int
+            endparams
+        proc
+            mArrayDimension[2] = newVal
+        endmethod
+
+        ; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[3] = 1 !!!
+        ; Tracker 33206 2/24/12
+        ; Used by CodeGenEngine.CheckStructure
+        public method SetArrayDim3, void
+            required in newVal, int
+            endparams
+        proc
+            mArrayDimension[3] = newVal
+        endmethod
+
+        ; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[4] = 1 !!!
+        ; Tracker 33206 2/24/12
+        ; Used by CodeGenEngine.CheckStructure
+        public method SetArrayDim4, void
+            required in newVal, int
+            endparams
+        proc
+            mArrayDimension[4] = newVal
+        endmethod
+
+        ; BUG WORKAROUND - CAN'T SET Field.OriginalElement[1] = 1 !!!
+        ; Tracker 33206 2/24/12
+        ; Used by CodeGenEngine.CheckStructure
+        public method SetOriginalElement1, void
+            required in newVal, int
+            endparams
+        proc
+            mOriginalElement[1] = newVal
+        endmethod
+
+        ; BUG WORKAROUND - CAN'T SET Field.OriginalElement[2] = 1 !!!
+        ; Tracker 33206 2/24/12
+        ; Used by CodeGenEngine.CheckStructure
+        public method SetOriginalElement2, void
+            required in newVal, int
+            endparams
+        proc
+            mOriginalElement[2] = newVal
+        endmethod
+
+        ; BUG WORKAROUND - CAN'T SET Field.OriginalElement[3] = 1 !!!
+        ; Tracker 33206 2/24/12
+        ; Used by CodeGenEngine.CheckStructure
+        public method SetOriginalElement3, void
+            required in newVal, int
+            endparams
+        proc
+            mOriginalElement[3] = newVal
+        endmethod
+
+        ; BUG WORKAROUND - CAN'T SET Field.OriginalElement[4] = 1 !!!
+        ; Tracker 33206 2/24/12
+        ; Used by CodeGenEngine.CheckStructure
+        public method SetOriginalElement4, void
+            required in newVal, int
+            endparams
+        proc
+            mOriginalElement[4] = newVal
+        endmethod
+
+    endclass
+
+endnamespace

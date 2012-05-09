@@ -1,0 +1,106 @@
+;;*****************************************************************************
+;;
+;; Title:       CheckExpressionEnd.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Check for the end of a multi-line expression
+;;
+;; Date:        5th November 2009
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.Engine
+
+    function CheckExpressionEnd             ,boolean
+
+        required in buffer                  ,a
+        required inout ConditionMode        ,@ArrayList
+        required inout ConditionApplies     ,@ArrayList
+        required inout OutputOff            ,boolean
+        endparams
+
+        stack record local_data
+            gotEnd                          ,int
+        endrecord
+
+    proc
+
+        init local_data
+
+        ;;Do we have the end of a multi-line condition?
+        gotEnd = instr(1,buffer,"</IF>")
+
+        ;;If there's anything before it then it's not the end of a multi-line condition!
+        if ((gotEnd>1)&&(!IsWhitespace(buffer(1,gotEnd-1))))
+            clear gotEnd
+
+        if (gotEnd)
+        begin
+            ;;We have the end of a multi-line condition
+            if (Env.Debug)
+                display(Env.Tt,"     - End multi-line "+(a)ConditionMode[ConditionMode.Count-1]+" condition, depth "+string(ConditionApplies.Count))
+
+            ;;Remove this condition from the "stack"
+            ConditionApplies.RemoveAt(ConditionApplies.Count-1)
+            ConditionMode.RemoveAt(ConditionMode.Count-1)
+
+            ;;And figure out if we need to suppress output now, based on the new "stack"
+            OutputOff = false
+            if (ConditionApplies.Count)
+            begin
+                data item, @boolean
+                foreach item in ConditionApplies
+                begin
+                    if (!(boolean)item)
+                    begin
+                        OutputOff = true
+                        exitloop
+                    end
+                end
+            end
+            if (OutputOff) then
+                DebugLog(", output now OFF",false,false)
+            else
+                DebugLog(", output now ON",false,false)
+        end
+
+        freturn (boolean)gotEnd
+
+    endfunction
+
+endnamespace

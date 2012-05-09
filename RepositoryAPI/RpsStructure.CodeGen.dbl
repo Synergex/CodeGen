@@ -1,0 +1,169 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsStructure.CodeGen.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents CodeGen specific Repository structure attributes
+;;
+;; Date:        18th March 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.define DDINFO_DEFINES_ONLY
+.include "RPSLIB:ddinfo.def"
+.undefine DDINFO_DEFINES_ONLY
+
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.RepositoryAPI
+
+    public partial class RpsStructure
+
+        ;; CodeGen specific attribute data
+        protected mStructureAlias   ,a30        ;;Structure alias (CodeGen)
+        protected mMappedStructure  ,a30        ;;Name of mapped structure
+        protected mMappedFileSpec   ,a255       ;;File spec of mapped file
+        protected mDisplayField     ,a30        ;;Name of display field
+        protected mIsFake           ,boolean    ;;Structure is fake (not in repository)
+
+        private method loadCodeGenData, void
+            required in StructureName, string
+            endparams
+        proc
+            ;; Default the alias to the same as the structure name
+            mStructureAlias = mStructureName
+
+            ;; Load mapped structure
+            begin
+                data pos1, int
+                data pos2, int
+                if (pos1=%instr(1,RpsUtils.UpperCase(mUserText),"@MAP="))
+                begin
+                    pos2=%instr(pos1,mUserText,";")
+                    if ((!pos2)||(pos2<pos1+6)) then
+                    begin
+                        data tmpbuf, a128
+                        xcall s_bld(tmpbuf,,"Structure %a has an invalid @MAP specification in user text.",mStructureName)
+                        throw new RpsStructureException(tmpbuf)
+                    end
+                    else
+                        mMappedStructure = RpsUtils.UpperCase(mUserText(pos1+5,pos2-1))
+                end
+            end
+
+            ;; Load file associated with mapped structure
+            if (mMappedStructure)
+            begin
+                data tmp_sinfo  ,s_info
+                data tmp_flinfo ,fl_info
+
+                ;; Get the structure info for the mapped structure
+                xcall dd_struct(Repository.RpsControl,DDS_INFO,mMappedStructure,tmp_sinfo)
+
+                ;; Get the file info for the first (or only) file
+                ;; TODO: Shouldn't need the ^a cast but .NET won't work without it.
+                xcall dd_file(Repository.RpsControl,DDL_INFO,tmp_sinfo.si_file,^a(tmp_flinfo))
+
+                mMappedFileSpec = tmp_flinfo.fli_fname
+
+            end
+
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;; Public properties to expose the structures attributes
+
+        ;; Structure alias
+        public property Alias, a
+            method get
+            proc
+                mreturn %atrim(mStructureAlias)
+            endmethod
+            method set
+            proc
+                mStructureAlias = value
+            endmethod
+        endproperty
+
+        ;; Name of mapped structure (@MAP=structure; in user text)
+        public property MappedStructure, a30
+            method get
+            proc
+                mreturn %atrim(mMappedStructure)
+            endmethod
+            private method set
+            proc
+                mMappedStructure = value
+            endmethod
+        endproperty
+
+        ;; Mapped file specification (from MappedStruct)
+        public property MappedFileSpec, a255
+            method get
+            proc
+                mreturn %atrim(mMappedFileSpec)
+            endmethod
+            private method set
+            proc
+                mMappedFileSpec = value
+            endmethod
+        endproperty
+
+        ;; Name of strucures display field (@CODEGEN_DISPLAY_FIELD in a fields user text)
+        public property DisplayField, a30
+            method get
+            proc
+                mreturn %atrim(mDisplayField)
+            endmethod
+            method set
+            proc
+                mDisplayField = value
+            endmethod
+        endproperty
+
+        public property IsFake, boolean
+            method get
+            proc
+                mreturn mIsFake
+            endmethod
+            private method set
+            proc
+                mIsFake = value
+            endmethod
+        endproperty
+
+    endclass
+
+endnamespace
+

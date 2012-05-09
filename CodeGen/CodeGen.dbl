@@ -1,0 +1,455 @@
+;;*****************************************************************************
+;;
+;; Title:       CodeGen.dbl
+;;
+;; Type:        Program
+;;
+;; Description: Template based code generator
+;;
+;; Date:        19th March 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+
+main CodeGen
+
+    record
+        Tt              ,int                ;;Terminal channel
+        ErrStatus       ,int
+        doTryCatch      ,Boolean, true
+        .ifdef D_GUI
+        LmSts           ,int                ;;License manager status
+        LmToken         ,int                ;;License manager login token
+        LmSlot          ,int                ;;License slot number allocated
+        LmLoggedIn      ,boolean            ;;License is logged in
+        .endc
+    endrecord
+
+    .ifdef D_GUI
+    .define LM_PRODUCER     "92"
+    .define LM_PRODUCT      "CGEN40"
+    record LmRec
+        application         ,a6
+        max_users           ,d4
+        expiry_date         ,d8
+        install_date        ,d8
+        custom              ,a100
+    endrecord
+    .endc
+
+proc
+
+    open(Tt=0,i,"tt:")
+    flags(7004020,1)
+
+    .ifdef D_GUI
+    lm_login(LmSts,LM_PRODUCER,LM_PRODUCT,LmToken,LmRec,LmSlot)
+    using LmSts select
+    (0),    ;;LMSTS_OK
+    begin
+        data today, a8
+        today = %datetime
+        if (LmRec.expiry_date&&(LmRec.expiry_date<^d(today))) then
+        begin
+            lm_logout(LmSts,LM_PRODUCER,LM_PRODUCT,LmToken)
+            writes(Tt,"ERROR: Your CodeGen license " + LM_PRODUCT + " has expired.")
+            ErrStatus = 1
+        end
+        else
+            LmLoggedIn = true
+    end
+    (1),    ;;LMSTS_NOCONFIG
+    begin
+        writes(Tt,"ERROR: No CodeGen license (" + LM_PRODUCT + ") was found.")
+        ErrStatus = 1
+    end
+    (2),
+    begin
+        writes(Tt,"ERROR: Maximum users exceeded for license " + LM_PRODUCT +".")
+        ErrStatus = 1
+    end
+    endusing
+
+    .endc
+
+    if (!ErrStatus)
+    begin
+        data tmpValue   ,a1
+        data tmpLen     ,int
+        xcall getlog("CODEGEN_NOCATCH",tmpValue,tmpLen)
+        doTryCatch = (TmpValue!="1")
+
+        if (doTryCatch) then
+        begin
+            try
+            begin
+                MainLineLogic(Tt)
+            end
+            catch (ex, @Synergex.synergyde.SynException)
+            begin
+                data errTxt, a128
+                s_bld(errTxt,,"ERROR: Error %n at line %n in %a.",ex.Errno,ex.Lineno,%atrim(ex.Source))
+                if (!Tt)
+                    open(Tt=0,i,"tt:")
+                writes(Tt,atrim(errTxt))
+            end
+            catch (ex, @Exception)
+            begin
+                data errTxt, a128
+                s_bld(errTxt,,"ERROR: %a.",%atrim(ex.Message))
+                if (!Tt)
+                    open(Tt=0,i,"tt:")
+                writes(Tt,atrim(errTxt))
+            end
+            finally
+            begin
+                .ifdef D_GUI
+                if (LmLoggedIn)
+                    lm_logout(LmSts,LM_PRODUCER,LM_PRODUCT,LmToken)
+                .else
+                nop
+                .endc
+            end
+            endtry
+        end
+        else
+        begin
+            MainLineLogic(Tt)
+            .ifdef D_GUI
+            if (LmLoggedIn)
+                lm_logout(LmSts,LM_PRODUCER,LM_PRODUCT,LmToken)
+            .endc
+        end
+    end
+
+    stop
+
+endmain
+
+subroutine MainLineLogic
+
+    required inout Tt, int
+    endparams
+
+    .ifdef D_GUI
+    .include "CODEGEN_SRC:RegistryApi.def"
+    .endc
+
+    record
+        ErrStatus       ,int                                ;;Problem?
+        TxtLen          ,int                                ;;Length of a string
+        UnsetTemplate   ,boolean                            ;;Need to unset CODEGEN_TPLDIR
+        .ifdef D_GUI
+        UnsetExe        ,boolean                            ;;Need to unset CODEGEN_EXE
+        UnsetAuthor     ,boolean                            ;;Need to unset CODEGEN_AUTHOR
+        UnsetCompany    ,boolean                            ;;Need to unset CODEGEN_COMPANY
+        .ifndef DBLNET
+        RegOpen         ,boolean                            ;;Registry session open
+        RegHdl          ,int                                ;;Registry handle
+        RegHiveSys      ,int, HKEY_LOCAL_MACHINE            ;;Registry hive
+        RegKey          ,a*, "SOFTWARE\Synergex\CodeGen\"   ;;Registry key
+        .endc
+        .endc
+        TempString      ,a256
+    endrecord
+
+proc
+
+    .ifdef DBLNET
+
+    ;;Explicitly set CODEGEN_EXE to the location of the running executable
+    TempString = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
+    xcall setlog("CODEGEN_EXE",atrim(TempString),TxtLen)
+    UnsetExe=true
+
+    ;;Is CODEGEN_TPLDIR already set in the environment?
+    xcall getlog("CODEGEN_TPLDIR",TempString,TxtLen)
+    if (!TxtLen)
+    begin
+        ;;No, look in the registry for the value set by InstallShield
+        data templateFolder, string
+        templateFolder = (string)Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
+        if (templateFolder!="") then
+        begin
+            ;;Found it
+            xcall setlog("CODEGEN_TPLDIR",templateFolder,TxtLen)
+        end
+        else
+        begin
+            ;;Still nothing - default to current directory
+            xcall setlog("CODEGEN_TPLDIR",".",TxtLen)
+        end
+        UnsetTemplate=true
+    end
+
+    ;;Is CODEGEN_AUTHOR already set in the environment?
+    xcall getlog("CODEGEN_AUTHOR",TempString,TxtLen)
+    if (!TxtLen)
+    begin
+        ;;No, look in the registry for the value set by InstallShield
+        TempString = (string)Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultAuthor","")
+        if (TempString!="")
+        begin
+            xcall setlog("CODEGEN_AUTHOR",TempString,TxtLen)
+            UnsetAuthor = true
+        end
+    end
+
+    ;;Is CODEGEN_COMPANY already set in the environment?
+    xcall getlog("CODEGEN_COMPANY",TempString,TxtLen)
+    if (!TxtLen)
+    begin
+        ;;No, look in the registry for the value set by InstallShield
+        TempString = (string)Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultCompany","")
+        if (TempString!="")
+        begin
+            xcall setlog("CODEGEN_COMPANY",TempString,TxtLen)
+            UnsetCompany = true
+        end
+    end
+
+    xcall CodeGen.Engine.CodeGenLauncher
+
+    .else  ;End of Synergy .NET, start of Traditional Synergy code
+
+    .ifdef D_GUI
+    ;;Start a Registry API session
+    if (ErrStatus=%RegStartSession(RegHdl)) then
+        writes(Tt,"ERROR: Failed to start registry session")
+    else
+        RegOpen=true
+    .endc
+
+    if (!ErrStatus)
+    begin
+        ;;Is CODEGEN_EXE already set in the environment?
+        xcall getlog("CODEGEN_EXE",TempString,TxtLen)
+        if (!TxtLen)
+        begin
+            .ifdef D_GUI
+            ;;No, look in the registry for the value set by InstallShield
+            if (ErrStatus=%RegGetString(RegHdl,RegHiveSys,RegKey,"InstallPath",TempString)) then
+            begin
+                ;;No InstallPath location found, we can't continue
+                writes(Tt,"ERROR: CodeGen is not correctly installed (can't determine CODEGEN_EXE)")
+                clear TempString
+            end
+            else
+            begin
+                ;;Set CODEGEN_EXE:
+                xcall setlog("CODEGEN_EXE",atrim(TempString),TxtLen)
+                UnsetExe=true
+            end
+            .else
+            ;;UNIX and OpenVMS
+            writes(Tt,"ERROR: CodeGen is not correctly installed (can't determine CODEGEN_EXE)")
+            ErrStatus=1
+            .endc
+        end
+    end
+
+    .ifndef OS_VMS
+    if (!ErrStatus)
+    begin
+        ;;Check for requird files
+        try
+        begin
+            CheckFilePresent("CODEGEN_EXE:codegenengine.elb")
+            CheckFilePresent("CODEGEN_EXE:rps.elb")
+        end
+        catch (ex)
+        begin
+            writes(Tt,"ERROR: CodeGen is not correctly installed (one or more ELB's are missing)")
+            ErrStatus=1
+        end
+        endtry
+    end
+    .endc
+
+    if (!ErrStatus)
+    begin
+        ;;Is CODEGEN_TPLDIR already set in the environment?
+        xcall getlog("CODEGEN_TPLDIR",TempString,TxtLen)
+        if (!TxtLen)
+        begin
+            .ifdef D_GUI
+            ;;No, look in the registry for the value set by InstallShield
+            if (ErrStatus=%RegGetString(RegHdl,RegHiveSys,RegKey,"TemplatePath",TempString)) then
+            begin
+                ;;No TemplatePath location found, default to current directory
+                TempString = "."
+                clear ErrStatus
+            end
+            else
+            begin
+                xcall setlog("CODEGEN_TPLDIR",atrim(TempString),TxtLen)
+                UnsetTemplate=true
+            end
+            .else
+            .ifdef OS_VMS
+            xcall setlog("CODEGEN_TPLDIR","SYS$DISK:",TxtLen)
+            .else
+            xcall setlog("CODEGEN_TPLDIR",".",TxtLen)
+            .endc
+            UnsetTemplate=true
+            .endc
+        end
+    end
+
+    if (!ErrStatus)
+    begin
+        ;;Is CODEGEN_AUTHOR already set in the environment?
+        xcall getlog("CODEGEN_AUTHOR",TempString,TxtLen)
+        if (!TxtLen)
+        begin
+            .ifdef D_GUI
+            ;;No, look in the registry for the value set by InstallShield
+            if (ErrStatus=%RegGetString(RegHdl,RegHiveSys,RegKey,"DefaultAuthor",TempString)) then
+            begin
+                ;;No DefaultAuthor found, that's OK, we have a default later
+                clear TempString, ErrStatus
+            end
+            else
+            begin
+                xcall setlog("CODEGEN_AUTHOR",atrim(TempString),TxtLen)
+                UnsetAuthor=true
+            end
+            .else
+            nop
+            .endc
+        end
+    end
+
+    if (!ErrStatus)
+    begin
+        ;;Is CODEGEN_COMPANY already set in the environment?
+        xcall getlog("CODEGEN_COMPANY",TempString,TxtLen)
+        if (!TxtLen)
+        begin
+            .ifdef D_GUI
+            ;;No, look in the registry for the value set by InstallShield
+            if (ErrStatus=%RegGetString(RegHdl,RegHiveSys,RegKey,"DefaultCompany",TempString)) then
+            begin
+                ;;No DefaultCompany found. That's OK, we have a default later.
+                clear TempString, ErrStatus
+            end
+            else
+            begin
+                ;;Set CODEGEN_COMPANY:
+                xcall setlog("CODEGEN_COMPANY",atrim(TempString),TxtLen)
+                UnsetCompany=true
+            end
+            .else
+            nop
+            .endc
+        end
+    end
+
+    .ifndef OS_VMS
+    ;;Activate the ELB's we need
+    if (!ErrStatus)
+    begin
+        try
+        begin
+            xcall openelb("CODEGEN_EXE:codegenengine.elb")
+        end
+        catch (ex)
+        begin
+            writes(Tt,"ERROR: CodeGen is not correctly installed (Failed to open CODEGEN_EXE:codegenengine.elb)")
+            ErrStatus=1
+        end
+        endtry
+    end
+    .endc
+
+    .ifdef D_GUI
+    ;;End the Registry API session
+    if (RegOpen)
+        xcall RegEndSession(RegHdl)
+    .endc
+
+    ;;Off we go
+    if (!ErrStatus)
+    begin
+        close Tt
+        clear Tt
+        .ifdef OS_VMS
+        xcall CodeGenLauncher
+        .else
+        xcall xsubr("CodeGenLauncher")
+        .endc
+    end
+
+    .endc ;End of traditional Synergy processing
+
+    ;;Unset any environment variables that we set
+    if (UnsetTemplate)
+        xcall setlog("CODEGEN_TPLDIR",,TxtLen)
+    .ifdef D_GUI
+    if (UnsetExe)
+        xcall setlog("CODEGEN_EXE",,TxtLen)
+    if (UnsetAuthor)
+        xcall setlog("CODEGEN_AUTHOR",,TxtLen)
+    if (UnsetCompany)
+        xcall setlog("CODEGEN_COMPANY",,TxtLen)
+    .endc
+
+    xreturn
+
+endsubroutine
+
+subroutine CheckFilePresent
+
+    required in FileSpec    ,string
+    endparams
+
+    stack record
+        tmpCh   ,int
+    endrecord
+
+proc
+
+    open(tmpCh=syn_freechn(),i:s,FileSpec)
+    close tmpCh
+
+    xreturn
+
+endsubroutine
+
+.ifdef D_GUI
+.ifndef DBLNET
+.include "CODEGEN_SRC:RegistryApi.dbl"
+.endc
+.endc
+

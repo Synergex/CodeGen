@@ -1,0 +1,323 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsFormatCollection.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a collection of Repository formats for a single
+;;              structure, or a collection of global structures, or pre-defined
+;;              date or time structures
+;;
+;; Date:        19th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.define DDINFO_DEFINES_ONLY
+.include "RPSLIB:ddinfo.def"
+.undefine DDINFO_DEFINES_ONLY
+
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.RepositoryAPI
+
+    public class RpsFormatCollection
+
+        private mCollection, @ArrayList
+
+        ;; Constructor (empty collection)
+        public method RpsFormatCollection
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsFormatCollection() constructor")
+            mCollection = new ArrayList()
+            RpsUtils.DbgLog("RpsFormatCollection() constructor done")
+        endmethod
+
+        ;; Constructor (structure formats)
+        public method RpsFormatCollection
+            required in StructureName, a
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsFormatCollection(StructureName="+atrim(StructureName)+") constructor")
+            mCollection = new ArrayList()
+            Repository.CheckIsOpen()
+            LoadFormats(StructureName)
+            RpsUtils.DbgLog("RpsFormatCollection(StructureName="+atrim(StructureName)+") constructor done")
+        endmethod
+
+        ;; Constructor for (global or predefined formats)
+        public method RpsFormatCollection
+            required in GlobalFormatType, RpsGlobalFormatType
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsFormatCollection(GlobalFormatType) constructor")
+            mCollection = new ArrayList()
+            Repository.CheckIsOpen()
+            LoadFormats(GlobalFormatType)
+            RpsUtils.DbgLog("RpsFormatCollection(GlobalFormatType) constructor done")
+        endmethod
+
+        ;; Destructor
+        method ~RpsFormatCollection
+        proc
+            clear mCollection
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;; Private methods and properties
+
+        ;; Load structure formats
+        private method LoadFormats, void
+            required in StructureName, a
+            endparams
+            record local_data
+                MemHandle, int
+                ix, int
+            endrecord
+        proc
+            init local_data
+            try
+            begin
+                data ms_info, s_info
+                ;;Set the current structure?
+                dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
+                if (Repository.RpsControl.error)
+                    throw new RpsFormatException("Failed to get information for repository structure "+StructureName)
+                ;;Do we have any formats to load?
+                if (ms_info.si_nmfmts)
+                begin
+                    ;;Size the format names array and get the format names
+                    MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*ms_info.si_nmfmts)
+                    dd_format(Repository.RpsControl,DDM_LIST,ms_info.si_nmfmts,^m(strIdentifier,MemHandle))
+                    if (Repository.RpsControl.error)
+                        throw new RpsFormatException("Failed to get formats for repository structure "+StructureName)
+                    ;;Add format names to the collection
+                    for ix from 1 thru ms_info.si_nmfmts
+                        mCollection.Add(new RpsFormat(StructureName,^m(strIdentifier[ix],MemHandle)))
+                end
+            end
+            finally
+            begin
+                ;;Free format names array
+                if (MemHandle)
+                    MemHandle = %mem_proc(DM_FREE,MemHandle)
+            end
+            endtry
+
+
+        endmethod
+
+        ;; Load global or predefined formats
+        private method LoadFormats, void
+            required in GlobalFormatType, RpsGlobalFormatType
+            endparams
+            record local_data
+                MemHandle, int
+                FormatCount, int
+                ix, int
+            endrecord
+        proc
+            init local_data
+            try
+            begin
+                ;;Get the global format count
+                dd_name(Repository.RpsControl,DDN_COUNT,GlobalFormatType,FormatCount)
+                if (Repository.RpsControl.error)
+                    throw new RpsFormatException("Failed to get repository global format count")
+                ;;Do we have any formats to load?
+                if (FormatCount)
+                begin
+                    ;;Size the format names array and get the format names
+                    MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*FormatCount)
+                    dd_name(Repository.RpsControl,DDN_LIST,GlobalFormatType,FormatCount,^m(strIdentifier,MemHandle))
+                    if (Repository.RpsControl.error)
+                        throw new RpsFormatException("Failed to get repository global format names")
+                    ;;Add formats to collection
+                    for ix from 1 thru FormatCount
+                    begin
+                        mCollection.Add(new RpsFormat(^m(strIdentifier[ix],MemHandle)))
+                    end
+                end
+            end
+            finally
+            begin
+                ;;Free format names array
+                if (MemHandle)
+                    MemHandle = %mem_proc(DM_FREE,MemHandle)
+            end
+            endtry
+
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;; Public methods and properties
+
+        ;;; <summary>
+        ;;; Expose the internal ArrayList so consumers can use FOREACH
+        ;;; </summary>
+        ;;; <returns>Internal ArrayList used to store the collection.</returns>
+        public method GetEnumerator, @ArrayList
+            endparams
+        proc
+            mreturn mCollection
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;The follwoing members make the collection look just like an ArrayList
+
+        ;;Gets or sets the number of elements that the collection can contain.
+        public property Capacity, int
+            method get
+            proc
+                mreturn mCollection.Capacity
+            endmethod
+            method set
+            proc
+                mCollection.Capacity = value
+            endmethod
+        endproperty
+
+        ;;Gets the number of elements actually contained in the collection.
+        public property Count, int
+            method get
+            proc
+                mreturn mCollection.Count
+            endmethod
+        endproperty
+
+        ;;Gets or sets the element at the specified index.
+        public property Indexer, @RpsFormat
+            required in Index, int
+            method get
+            proc
+                mreturn (RpsFormat)mCollection[Index]
+            endmethod
+            method set
+            proc
+                mCollection[Index] = value
+            endmethod
+        endproperty
+
+        ;;Adds an element to the end of the collection.
+        public method Add, int
+            required in RpsFormat, @RpsFormat
+            endparams
+        proc
+            mreturn mCollection.Add(RpsFormat)
+        endmethod
+
+        ;;Removes the element at the specified index of the collection.
+        public method RemoveAt, void
+            required in Index, int
+        proc
+            mCollection.RemoveAt(Index)
+        endmethod
+
+        ;;Searches for the specified element and returns the one-based index
+        ;;of the first occurrence within the entire collection.
+        public method IndexOf, int
+            required in RpsFormat, @RpsFormat
+        proc
+            mreturn mCollection.IndexOf(RpsFormat)
+        endmethod
+
+        ;;Searches for the specified element and returns the one-based index
+        ;;of the first occurrence within the range of elements in the collection
+        ;;that extends from the specified index to the last element.
+        public method IndexOf, int
+            required in RpsFormat, @RpsFormat
+            required in StartIndex, int
+        proc
+            mreturn mCollection.IndexOf(RpsFormat,StartIndex)
+        endmethod
+
+        ;;Searches for the specified element and returns the one-based index
+        ;;of the first occurrence within the range of elements in the collection
+        ;;that starts at the specified index and contains the specified number of
+        ;;elements.
+        public method IndexOf, int
+            required in RpsFormat, @RpsFormat
+            required in StartIndex, int
+            required in Count, int
+        proc
+            mreturn mCollection.IndexOf(RpsFormat,StartIndex,Count)
+        endmethod
+
+        ;;Removes all elements from the collection.
+        public method Clear, void
+        proc
+            mCollection.Clear()
+        endmethod
+
+        ;;Inserts an element into the collection at the specified index.
+        public method Insert, void
+            required in AtIndex, int
+            required in RpsFormat, @RpsFormat
+            endparams
+        proc
+            mCollection.Insert(AtIndex,RpsFormat)
+        endmethod
+
+        ;;Searches for the specified object and returns the one-based index of
+        ;;the last occurrence within the entire collection.
+        public method LastIndexOf, int
+            required in RpsFormat, @RpsFormat
+        proc
+            mreturn mCollection.LastIndexOf(RpsFormat)
+        endmethod
+
+        ;;Searches for the specified object and returns the one-based index of
+        ;;the last occurrence within the range of elements in the collection that
+        ;;extends from the first element to the specified index.
+        public method LastIndexOf, int
+            required in RpsFormat, @RpsFormat
+            required in StartIndex, int
+        proc
+            mreturn mCollection.LastIndexOf(RpsFormat,StartIndex)
+        endmethod
+
+        ;;Searches for the specified object and returns the one-based index of
+        ;;the last occurrence within the range of elements in the collection that
+        ;;contains the specified number of elements and ends at the specified index.
+        public method LastIndexOf, int
+            required in RpsFormat, @RpsFormat
+            required in StartIndex, int
+            required in Count, int
+        proc
+            mreturn mCollection.LastIndexOf(RpsFormat,StartIndex,Count)
+        endmethod
+
+    endclass
+
+endnamespace

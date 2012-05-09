@@ -1,0 +1,139 @@
+;;*****************************************************************************
+;;
+;; Title:       ProvideFile.dbl
+;;
+;; Type:        Subroutine
+;;
+;; Description: Copy a file from the template directory to the output directory
+;;
+;; Date:        16th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    subroutine ProvideFile
+
+        required in a_text      ,a
+        endparams
+
+        .include "CODEGEN_SRC:codegen.def"
+
+        stack record local_data
+            errstatus       ,i4
+            err             ,i4
+            chin            ,i4
+            chout           ,i4
+            pos             ,i4
+            pfilename       ,a80            ;;Name of additional file to provide
+            pifilespec      ,a256           ;;Name of additional file to provide
+            pofilespec      ,a256           ;;Name of additional file to provide
+            tmpbuf          ,a CODEGEN_BUFSZ;;Temporary buffer
+        endrecord
+
+    proc
+
+        init local_data
+
+        ;;Find the closing token and putt out the file name
+        pos = instr(15,a_text,"</PROVIDE_FILE>")
+        pfilename=a_text(15,pos-1)
+        pifilespec = Env.TemplateDir+pfilename
+        pofilespec = Env.OutputDir+pfilename
+
+        ;;Log what we're doing
+        DebugLog(" - Providing additional file "+ atrim(pfilename),false,false)
+
+        ;;Open input file
+        try
+            open(chin=0,i:s,pifilespec)
+        catch (ex)
+        begin
+            data mtx, a132
+            s_bld(mtx,,"File %a not found!",pifilespec)
+            ErrorLog(mtx)
+            s_bld(mtx,,"       Referenced in template %a by <PROVIDE_FILE>%a</PROVIDE_FILE>",UpperCase(Env.CurrentTemplate),pfilename)
+            Log(mtx,false,false)
+            errstatus=48
+            xreturn
+        end
+        endtry
+
+        ;;See if output file is already there, because we will NOT replace it if it is
+        try
+        begin
+            open(chout=0,i:s,pofilespec)
+            ;;The file is already there
+            DebugLog(" - File "+atrim(pfilename)+" already exists",false,false)
+            close chin
+            close chout
+            xreturn
+        end
+        catch (ex)
+            nop
+        endtry
+
+        ;;Open the new output file
+        try
+            open(chout=0,o:s,pofilespec)
+        catch (ex)
+        begin
+            data mtx, a132
+            s_bld(mtx,,"Failed to provide file %a",pofilespec)
+            ErrorLog(mtx)
+            errstatus=49
+            close chin
+            xreturn
+        end
+        endtry
+
+        ;;Provide file content
+        repeat
+        begin
+            reads(chin,tmpbuf,eofpf)
+            writes(chout,atrim(tmpbuf))
+        end
+eofpf,
+
+        close chin
+        close chout
+
+        xreturn
+
+    endsubroutine
+
+endnamespace
+

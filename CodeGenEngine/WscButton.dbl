@@ -1,0 +1,248 @@
+;;*****************************************************************************
+;;
+;; Title:       WscButton.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a button from a UI Toolkit input window
+;;
+;; Date:        9th April 2008
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    public sealed class WscButton
+
+        private p_Name, string          ;;Button name
+        private p_Caption, string       ;;Button caption
+        private p_ImageName, string     ;;Button image
+        private p_MethodName, string    ;;Button click method name
+        private p_ElbName, string       ;;Button click method ELB name
+        private p_QuickSelect, string   ;;Button quick-select character
+
+        ;;Default constructor
+        public method WscButton
+            endparams
+        proc
+        endmethod
+
+        ;;Alternate constructor
+        public method WscButton
+            required in ButtonName, string
+            required in ButtonCaption, string
+            endparams
+        proc
+            p_Name = ButtonName
+            p_Caption = ButtonCaption
+        endmethod
+
+        ;;Construct a new WscButton from a .BUTTON script command
+        public static method ParseScript, @WscButton
+            required in ButtonScript, a
+            endparams
+            stack record
+                ScriptCode, a256
+                NewButton, @WscButton
+                pos1, int
+                pos2, int
+                pos3, int
+            endrecord
+        proc
+
+            ;;.button name [,text("button_text")|bitmap("file")][,method("method_name"[,"elb_name"])][,select("select_char")]
+            ScriptCode = ButtonScript
+
+            NewButton = new WscButton()
+
+            ;;Remove the .button
+            locase ScriptCode(1:7)
+            ScriptCode = ScriptCode - ".button "
+
+            ;;Find the , at the end of the field name
+            pos1=instr(1,ScriptCode,",")
+
+            ;;Extract the button name
+            NewButton.Name = RemoveLeading(ScriptCode(1:pos1-1))
+
+            DebugLog(" - Found button " + atrim(NewButton.Name),false,false)
+
+            ;;Remove the button name from the script line
+            ScriptCode = RemoveLeading(ScriptCode(pos1+1,trim(ScriptCode)))
+
+            ;;[,text("button_text")|bitmap("file")][,method("method_name"[,"elb_name"])][,select("select_char")]
+
+            ;;Do we have a text("caption") qualifier?
+            if (pos1=instr(1,ScriptCode,"text("))
+            begin
+                pos2=instr(pos1,ScriptCode,")")
+                NewButton.Caption=RemoveLeading(ScriptCode(pos1+5,pos2-1))
+                if ((NewButton.Caption(1:1)=='"')||(NewButton.Caption(1:1)=="'"))
+                begin
+                    NewButton.Caption=NewButton.Caption(2,NewButton.Caption.Length)
+                    NewButton.Caption=NewButton.Caption(1,NewButton.Caption.Length-1)
+                end
+            end
+
+            ;;Do we have a bitmap("file") qualifier?
+            if (pos1=instr(1,ScriptCode,"bitmap("))
+            begin
+                pos2=instr(pos1,ScriptCode,")")
+                NewButton.ImageName=RemoveLeading(ScriptCode(pos1+7,pos2-1))
+                if ((NewButton.ImageName(1:1)=='"')||(NewButton.ImageName(1:1)=="'"))
+                begin
+                    NewButton.ImageName=NewButton.ImageName(2,NewButton.ImageName.Length)
+                    NewButton.ImageName=NewButton.ImageName(1,NewButton.ImageName.Length-1)
+                end
+            end
+
+            ;;Do we have a method("name","elb") qualifier?
+            if (pos1=instr(1,ScriptCode,"method("))
+            begin
+                pos2=instr(pos1,ScriptCode,")")
+                ;;Do we have an ELB?
+                if (pos3=instr(pos1,ScriptCode(pos1,pos2),",")) then
+                begin
+                    ;;Yes, we have an ELB
+                    NewButton.MethodName=RemoveLeading(ScriptCode(pos1+7,pos3-1))
+                    if ((NewButton.MethodName(1:1)=='"')||(NewButton.MethodName(1:1)=="'"))
+                    begin
+                        NewButton.MethodName=NewButton.MethodName(2,NewButton.MethodName.Length)
+                        NewButton.MethodName=NewButton.MethodName(1,NewButton.MethodName.Length-1)
+                    end
+                    NewButton.ElbName=RemoveLeading(ScriptCode(pos3+1,pos2-1))
+                    if ((NewButton.ElbName(1:1)=='"')||(NewButton.ElbName(1:1)=="'"))
+                    begin
+                        NewButton.ElbName=NewButton.ElbName(2,NewButton.ElbName.Length)
+                        NewButton.ElbName=NewButton.ElbName(1,NewButton.ElbName.Length-1)
+                    end
+                end
+                else
+                begin
+                    ;;No ELB
+                    NewButton.MethodName=RemoveLeading(ScriptCode(pos1+7,pos2-1))
+                    if ((NewButton.MethodName(1:1)=='"')||(NewButton.MethodName(1:1)=="'"))
+                    begin
+                        NewButton.MethodName=NewButton.MethodName(2,NewButton.MethodName.Length)
+                        NewButton.MethodName=NewButton.MethodName(1,NewButton.MethodName.Length-1)
+                    end
+                end
+            end
+
+            ;;Do we have a select("char") qualifier?
+            if (pos1=instr(1,ScriptCode,"select("))
+            begin
+                pos2=instr(pos1,ScriptCode,")")
+                NewButton.QuickSelect=RemoveLeading(ScriptCode(pos1+7,pos2-1))
+                if ((NewButton.QuickSelect(1:1)=='"')||(NewButton.QuickSelect(1:1)=="'"))
+                begin
+                    NewButton.QuickSelect=NewButton.QuickSelect(2,NewButton.QuickSelect.Length)
+                    NewButton.QuickSelect=NewButton.QuickSelect(1,NewButton.QuickSelect.Length-1)
+                end
+            end
+
+            mreturn NewButton
+        endmethod
+
+        public property Name, string
+            method get
+            proc
+                mreturn p_Name
+            endmethod
+            method set
+            proc
+                p_Name = value
+            endmethod
+        endproperty
+
+        public property Caption, string
+            method get
+            proc
+                mreturn p_Caption
+            endmethod
+            method set
+            proc
+                p_Caption = value
+            endmethod
+        endproperty
+
+        public property ImageName, string
+            method get
+            proc
+                mreturn p_ImageName
+            endmethod
+            method set
+            proc
+                p_ImageName = value
+            endmethod
+        endproperty
+
+        public property MethodName, string
+            method get
+            proc
+                mreturn p_MethodName
+            endmethod
+            method set
+            proc
+                p_MethodName = value
+            endmethod
+        endproperty
+
+        public property ElbName, string
+            method get
+            proc
+                mreturn p_ElbName
+            endmethod
+            method set
+            proc
+                p_ElbName = value
+            endmethod
+        endproperty
+
+        public property QuickSelect, string
+            method get
+            proc
+                mreturn p_QuickSelect
+            endmethod
+            method set
+            proc
+                p_QuickSelect = value
+            endmethod
+        endproperty
+
+    endclass
+
+endnamespace

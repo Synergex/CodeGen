@@ -1,0 +1,726 @@
+;;*****************************************************************************
+;;
+;; Title:       MapPrep.dbl
+;;
+;; Type:        Program
+;;
+;; Description: Prepares a new repository structure for CodeGen mapping
+;;
+;; Date:        6th December 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.Collections
+
+main MapPrep
+
+    record
+        tt              ,int                    ;;Terminal channel
+        StrNum          ,int                    ;;Structure number
+        LineNum         ,int
+        ClStrCount      ,int                    ;;Command line structure count
+        InCh            ,int                    ;;Input channel
+        OutCh           ,int                    ;;Output channel
+        pos1            ,int                    ;;Position in string
+        pos2            ,int                    ;;Position in string
+        pos3            ,int                    ;;Position in string
+        UserTextDone    ,int                    ;;Have we processed user text
+        ok              ,boolean, true
+        dbr             ,boolean, false
+        verbose         ,boolean, false
+        PromptMode      ,boolean, false
+        KeepField       ,boolean
+        ClBuffer        ,[10]a30
+        RpsCommand      ,a256
+        Structures      ,@RpsStructureCollection
+        buffer          ,a132
+        FieldName       ,a30
+        AltName         ,a30
+        StructureName   ,a30
+        NewStructure    ,a30
+        ItemData        ,@ArrayList
+        FieldMappings   ,@ArrayList
+        FieldDesc       ,a80
+        .ifdef DBLNET
+        SynergyPath     ,a132
+        .endc
+    endrecord
+
+proc
+
+    open(tt=0,i,"tt:")
+    xcall flags(7004000,1)
+    xcall flags(20,0)
+
+    ;;-------------------------------------------------------------------------
+    ;;Dbr or dbs?
+    ;;
+    .ifndef DBLNET
+    begin
+        data tmpi4a, int
+        data tmpi4b, int
+        xcall tnmbr(tmpi4a,tmpi4b)
+        if (tmpi4b!=2)
+            dbr = true
+    end
+    .endc
+
+    ;;-------------------------------------------------------------------------
+    ;;Report usage
+    ;;
+    if (CommandLine("? ") || CommandLine("h "))
+        call usage
+
+    ;;-------------------------------------------------------------------------
+    ;;Verbose mode?
+    ;;
+    if (ok)
+    begin
+        if (CommandLine("v "))
+            verbose = true
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Prompt mode?
+    ;;
+    if (ok&&CommandLine("p "))
+        PromptMode = true
+
+    ;;-------------------------------------------------------------------------
+    ;;Make sure we have a Synergy/DE environment
+
+    .ifdef DBLNET
+    getlog("SYNERGYDE",SynergyPath,pos1)
+    if (!pos1)
+    begin
+        writes(tt,"ERROR: No Synergy environment found. Please run dblvars32.bat")
+        ok = false
+    end
+    .endc
+
+    ;;-------------------------------------------------------------------------
+    ;;Get the structures to process
+
+    if (ok&&!CommandLine("s "))
+        call usage
+
+    if (ok)
+    begin
+        if (verbose)
+            writes(tt,"Structure validation phase")
+
+        if (!CommandLine("s ",10,ClBuffer,ClStrCount)) then
+        begin
+            writes(tt," - ERROR: No structures specified after -s option!")
+            ok = false
+        end
+        else
+        begin
+            if (!ClStrCount) then
+            begin
+                writes(tt," - ERROR: No structures specified after -s option!")
+                ok = false
+            end
+            else
+            begin
+                ;;All or specific structures?
+                if (ClBuffer[1]=="*") then
+                begin
+                    ;;Process all structures
+                    Structures = new RpsStructureCollection(RpsLoadMode.Load)
+                    if (!Structures.Count)
+                    begin
+                        writes(tt," - ERROR: Repository contains no structures!")
+                        ok = false
+                    end
+                end
+                else
+                begin
+                    ;;Process specified structures
+                    Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+                    for StrNum from 1 thru ClStrCount
+                    begin
+                        upcase ClBuffer[StrNum]
+                        try
+                            Structures.Add(new RpsStructure(ClBuffer[StrNum]))
+                        catch (ex)
+                        begin
+                            data mtx, a132
+                            data mln, int
+                            s_bld(mtx,mln," - ERROR: Structure %a not found!",ClBuffer[StrNum])
+                            writes(tt,mtx(1:mln))
+                            ok = false
+                        end
+                        endtry
+                    end
+                end
+            end
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Export schemas for each structure
+
+    if (ok)
+    begin
+        if (verbose)
+            writes(tt,"Schema export phase")
+        for StrNum from 0 thru Structures.Count-1
+        begin
+            if (verbose)
+                writes(tt," - Creating " + Structures[StrNum].Name + ".SCH")
+            delet(Structures[StrNum].Name+".SCH")
+            delet(Structures[StrNum].Name+"_NEW.SCH")
+            .ifdef OS_VMS
+            s_bld(RpsCommand,,"$rpsutl -e %a.SCH -es %a=kr",Structures[StrNum].Name,Structures[StrNum].Name)
+            xcall spawn(RpsCommand,D_NOWINDOW)
+            s_bld(RpsCommand,,'$CONVERT/FDL="RECORD; FORMAT VARIABLE" %a.SCH %a.SCH',Structures[StrNum].Name,Structures[StrNum].Name)
+            xcall spawn(RpsCommand,D_NOWINDOW)
+            .else
+            .ifdef DBLNET
+            RpsCommand = atrim(SynergyPath) + "dbl\bin\dbs.exe RPS:rpsutl -e "+Structures[StrNum].Name+".SCH -es "+Structures[StrNum].Name+"=kr"
+            .else
+            s_bld(RpsCommand,,"dbs RPS:rpsutl -e %a.SCH -es %a=kr",Structures[StrNum].Name,Structures[StrNum].Name)
+            .endc
+            xcall spawn(RpsCommand,D_NOWINDOW)
+            .endc
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Process each schema file
+
+    ;;Process each file:
+    ;; Change structure name to <structure_name>_NEW
+    ;; Add @MAP=<original_structure>; to structure user text
+    ;; Change field names to alternate names if present, and remove alternate names
+    ;; Add @MAP=<original_field>; to fields user text
+    ;; Make sure that all primary key segment fields are marked as required
+    ;; Overlays???
+
+    if (ok)
+    begin
+        if (verbose)
+                writes(tt,"Schema processing phase")
+
+        for StrNum from 0 thru Structures.Count-1
+        begin
+            if (verbose)
+                    writes(tt," - Creating " + Structures[StrNum].Name + "_NEW.SCH")
+
+            try
+            begin
+                open(InCh=0,i:s,Structures[StrNum].Name+".SCH")
+            end
+            catch (e, @Exception)
+            begin
+                writes(tt,"ERROR: Failed to open schema file " + Structures[StrNum].Name+".SCH")
+                writes(tt,"       " + e.Message)
+                ok = false
+                exitloop
+            end
+            endtry
+            open(OutCh=0,o:s,Structures[StrNum].Name+"_NEW.SCH")
+
+            FieldMappings = new ArrayList()
+
+            repeat
+            begin
+                reads(InCh,buffer,eof)
+                if (buffer(1:10)=="Structure ")
+                begin
+                    call structure
+                    nextloop
+                end
+                if (buffer(1:6)=="Field ")
+                begin
+                    call field
+                    nextloop
+                end
+                if (buffer(1:6)=="Key ")
+                begin
+                    call key
+                    nextloop
+                end
+                writes(OutCh,atrim(buffer))
+            end
+
+eof,        close InCh, OutCh
+            FieldMappings = ^null
+        end
+    end
+
+
+    ;;-------------------------------------------------------------------------
+    ;;Delete schema files
+
+    if (ok)
+    begin
+        if (verbose)
+            writes(tt,"Cleanup phase")
+        for StrNum from 0 thru Structures.Count-1
+        begin
+            if (verbose)
+                writes(tt," - Deleting " + Structures[StrNum].Name+".SCH")
+            delet(Structures[StrNum].Name+".SCH")
+        end
+    end
+
+    .ifdef D_GUI
+    if (dbr)
+    begin
+        data TmpBuf, a1
+        display(tt,13,10,"Press a key: ")
+        accept(tt,TmpBuf)
+    end
+    .endc
+
+    close tt
+    stop
+
+;;-----------------------------------------------------------------------------
+;;Display usage information
+;;
+usage,
+    writes(tt,"")
+    writes(tt,"MapPrep -s structure [...] | * [-p] [-h] [-v]")
+    writes(tt,"")
+    writes(tt,"  -s structure [...] | *")
+    writes(tt,"        Structure(s) to process, * to process all")
+    writes(tt,"")
+    writes(tt,"  -p    Prompt for alternate field names")
+    writes(tt,"")
+    writes(tt,"  -h|?  Display this help / usage information")
+    writes(tt,"")
+    writes(tt,"  -v    Verbose messages.")
+    writes(tt,"")
+    ok = false
+
+    return
+
+;;-----------------------------------------------------------------------------
+;;Process the structure
+;;
+structure,
+
+    ;;Extract the structure name
+    pos1 = instr(11,buffer," ")
+    StructureName = buffer(11,pos1-1)
+
+    ;;Append _NEW to the structure name
+    buffer = buffer(1:pos1-1)+"_NEW"+buffer(pos1,trim(buffer))
+
+    ;;Create a buffer for multiple lines of data and add the first line
+    ItemData = new ArrayList()
+    ItemData.Add((@a)atrim(buffer))
+
+    ;;Deal with the remainder of the structure data
+    repeat
+    begin
+        reads(InCh,buffer,EndStr)
+        if (buffer) then
+        begin
+            ;;If this line contains the structure desctiption then add " (NEW)"
+            if (pos1=(instr(1,buffer,'Description "')))
+            begin
+                pos2 = instr(pos1+13,buffer,'"')
+                buffer = buffer(1,pos2-1) + " (NEW)" + buffer(pos2,trim(buffer))
+            end
+            ItemData.Add((@a)atrim(buffer))
+        end
+        else
+            exitloop
+    end
+
+EndStr,
+
+    ;;Do we already have a user text parameter? If so update it.
+    UserTextDone = 0
+    for LineNum from 0 thru ItemData.Count-1
+    begin
+        buffer = (a)ItemData[LineNum]
+        if (pos1=instr(1,buffer,'User Text "'))
+        begin
+            pos1+=11
+            ;;Remove @NOCODEGEN
+            if (pos2=instr(pos1,buffer,"@NOCODEGEN"))
+            begin
+                if (verbose)
+                    writes(tt,"    - Removing @NOCODEGEN from structure user text")
+                buffer = buffer(1,pos2-1) + buffer(pos2+10,trim(buffer))
+            end
+            ;;Remove any existing @MAP=xxx;
+            if (pos2=instr(pos1,buffer,"@MAP="))
+            begin
+                pos3=instr(pos2,buffer,";")
+                if (verbose)
+                    writes(tt,"    - Removing existing " + buffer(pos2,pos3) + " from structure user text")
+                buffer = buffer(1,pos2-1) + buffer(pos3+1,trim(buffer))
+            end
+            ;;Is there anything left in user text, if not then remove it?
+            pos1=instr(1,buffer,'User Text "')
+            if (buffer(pos1:12)=='User Text ""') then
+            begin
+                buffer = buffer - 'User Text ""'
+                if (buffer) then
+                    ItemData[LineNum] = (@a)atrim(buffer)
+                else
+                    ItemData.RemoveAt(LineNum)
+                exitloop
+            end
+            else
+            begin
+                ;;Add the new @MAP= to the existing user text
+                buffer = (buffer(1,pos1+10) + "@MAP=" + atrim(StructureName) + ";" + buffer(pos1+11,trim(buffer)))
+                UserTextDone = 1
+                ItemData[LineNum] = (@a)atrim(buffer)
+                exitloop
+            end
+        end
+    end
+
+    ;;If we don't have an existing user text parameter, create a new one
+    if (!UserTextDone)
+    begin
+        data UserTextString, a80
+        s_bld(UserTextString,,'   User Text "@MAP=%a;"',StructureName)
+        ItemData.Add((@a)atrim(UserTextString))
+    end
+
+    ;;Write the structure definition to the new schema
+    for LineNum from 0 thru ItemData.Count-1
+        writes(OutCh,(a)ItemData[LineNum])
+    writes(OutCh,"")
+
+    return
+
+    ItemData = ^null
+
+;;-----------------------------------------------------------------------------
+;;Process a field
+;;
+field,
+
+    KeepField = true
+
+    ;;Extract the field name
+    pos1 = instr(7,buffer," ")
+    FieldName = buffer(7,pos1-1)
+
+    ;;Create a buffer for multiple lines of data and add the first line
+    ItemData = new ArrayList()
+    ItemData.Add((@a)atrim(buffer))
+
+    ;;Continue loading remaining field lines until we encounter a blank line
+    repeat
+    begin
+        reads(InCh,buffer,EndField)
+        if (buffer) then
+            ItemData.Add((@a)atrim(buffer))
+        else
+            exitloop
+    end
+
+EndField,
+
+    ;;Parse through the field data
+
+    ;;Look for the description
+    clear FieldDesc
+    for LineNum from 0 thru ItemData.Count-1
+    begin
+        data dpos, int
+        data qpos, int
+        buffer = (a)ItemData[LineNum]
+        if (dpos=instr(1,buffer,'Description "'))
+        begin
+            dpos+=13
+            qpos=instr(dpos,buffer,'"')
+            if (qpos!=dpos+1)
+                FieldDesc = buffer(dpos,qpos-1)
+            exitloop
+        end
+    end
+
+    ;;Excluded by language?
+    for LineNum from 0 thru ItemData.Count-1
+    begin
+        buffer = (a)ItemData[LineNum]
+        if (instr(1,buffer,"Language Noview"))
+        begin
+            if (verbose)
+                writes(tt,"    - Deleting " + atrim(FieldName))
+            KeepField = 0
+            exitloop
+        end
+    end
+
+    ;;Alternate name?
+    if (KeepField)
+    begin
+        clear AltName
+        for LineNum from 0 thru ItemData.Count-1
+        begin
+            buffer = (a)ItemData[LineNum]
+            if (pos1=instr(1,buffer,"ODBC Name "))
+            begin
+                if (pos2=instr(pos1+10,buffer," ")) then
+                    pos2-=1
+                else
+                    pos2=trim(buffer)
+                ;;Extract the alternate name
+                AltName = buffer(pos1+10,pos2)
+                ;;Remove the alternate name parameter
+                if (buffer = (buffer-("ODBC Name "+atrim(AltName)))) then
+                    ItemData[LineNum] = (@a)atrim(buffer)
+                else
+                    ItemData.RemoveAt(LineNum)
+                exitloop
+            end
+        end
+        ;;Are we prompting the user for the new field names?
+        if (PromptMode)
+        begin
+            writes(tt,"-------------------------------------------------------------------------------")
+            writes(tt, "Description : "+atrim(FieldDesc))
+            writes(tt, "Old name    : "+atrim(FieldName))
+            display(tt,"New name    : ")
+            reads(tt,AltName)
+            upcase altname
+        end
+        ;;If we have a new name then implement it
+        if (AltName)
+        begin
+            ;;Change the field name
+            buffer = (a)ItemData[0]
+            pos1 = 7
+            pos2 = instr(pos1,buffer," ")
+            buffer = buffer(1,6) + atrim(AltName) + buffer(pos2,trim(buffer))
+            ItemData[0] = (@a)atrim(buffer)
+            ;;Record the new name for later, we'll need it for key processing
+            FieldMappings.Add(new MapPrep.FieldMapping(FieldName,AltName))
+        end
+    end
+
+    if (KeepField)
+    begin
+        UserTextDone = 0
+        for LineNum from 0 thru ItemData.Count-1
+        begin
+            buffer = (a)ItemData[LineNum]
+            if (pos1=instr(1,buffer,'User Text "'))
+            begin
+                pos1+=11
+                ;;Remove @CODEGEN_DISPLAY_FIELD
+                if (pos2=instr(pos1,buffer,"@CODEGEN_DISPLAY_FIELD"))
+                begin
+                    if (verbose)
+                        writes(tt,"      Removing @CODEGEN_DISPLAY_FIELD from user text")
+                    buffer = buffer(1,pos2-1) + buffer(pos2+22,trim(buffer))
+                end
+                ;;Remove any existing @MAP=xxx;
+                if (pos2=instr(pos1,buffer,"@MAP="))
+                begin
+                    pos3=instr(pos2,buffer,";")
+                    if (verbose)
+                        writes(tt,"      Removing existing " + buffer(pos2,pos3) + " from user text")
+                    buffer = buffer(1,pos2-1) + buffer(pos3+1,trim(buffer))
+                end
+                ;;Is there anything left in user text, if not then remove it?
+                pos1=instr(1,buffer,'User Text "')
+                if (buffer(pos1:12)=='User Text ""') then
+                begin
+                    buffer = buffer - 'User Text ""'
+                    if (buffer) then
+                        ItemData[LineNum] = (@a)atrim(buffer)
+                    else
+                        ItemData.RemoveAt(LineNum)
+                    exitloop
+                end
+                else
+                begin
+                    ;;Add the new @MAP= to the existing user text
+                    buffer = (buffer(1,pos1+10) + "@MAP=" + atrim(FieldName) + ";" + buffer(pos1+11,trim(buffer)))
+                    UserTextDone = 1
+                    ItemData[LineNum] = (@a)atrim(buffer)
+                    exitloop
+                end
+            end
+        end
+
+        ;;If we don't have an existing user text parameter, create a new one
+        if (!UserTextDone)
+        begin
+            data UserTextString, a80
+            s_bld(UserTextString,,'   User Text "@MAP=%a;"',FieldName)
+            ItemData.Add((@a)atrim(UserTextString))
+        end
+
+    end
+
+    if (KeepField)
+    begin
+        if (verbose)
+        begin
+            if (AltName) then
+                writes(tt,"    - Mapping  " + atrim(FieldName) + " to " +atrim(AltName))
+            else
+                writes(tt,"    - Keeping  " + atrim(FieldName))
+        end
+
+        ;;Write the field definition to the new schema
+        for LineNum from 0 thru ItemData.Count-1
+            writes(OutCh,(a)ItemData[LineNum])
+        writes(OutCh,"")
+    end
+
+    ItemData = ^null
+
+    return
+
+;;-----------------------------------------------------------------------------
+;;Process a key
+;;
+key,
+
+    ;;Create a buffer for multiple lines of data and add the first line
+    ItemData = new ArrayList()
+    ItemData.Add((@a)atrim(buffer))
+
+    ;;Continue loading remaining key lines until we encounter a blank line
+    repeat
+    begin
+        reads(InCh,buffer,EndKey)
+        if (buffer) then
+            ItemData.Add((@a)atrim(buffer))
+        else
+            exitloop
+    end
+
+EndKey,
+
+    ;;Parse through the key data
+    for LineNum from 0 thru ItemData.Count-1
+    begin
+        data segChanged, boolean, false
+        buffer = (a)ItemData[LineNum]
+
+        if (buffer=="   Segment FIELD   ")
+        begin
+            data fStartPos, int, 20
+            data fEndPos, int
+            data oldName, string
+            data mapping, @MapPrep.FieldMapping
+
+            ;;Extract the original field name
+            fEndPos = %instr(fStartPos,buffer," ")
+
+            ;;Make sure the space isn't beyond the end of the data
+            if (fEndPos>trim(buffer))
+                fEndPos = 0
+
+            if (fEndPos) then
+            begin
+                fEndPos -= 1
+                oldName = buffer(fStartPos,fEndPos)
+            end
+            else
+            begin
+                ;;Nothing after the field name
+                oldName = buffer(fStartPos,%trim(buffer))
+            end
+
+            ;;Does a field mapping exist
+            foreach mapping in FieldMappings
+            begin
+                if (mapping.OldName==oldName)
+                begin
+                    data newBuffer, a^size(buffer)
+                    ;;Replace the field name in the key segment definition
+                    newBuffer = buffer(1:fStartPos-1) + mapping.NewName
+                    if (fEndPos)
+                        newBuffer = %atrim(newBuffer) + buffer(fEndPos+1,%trim(buffer))
+                    ItemData[LineNum] = (@a)newBuffer
+                    exitloop
+                end
+            end
+        end
+    end
+
+    ;;Write the key definition to the new schema
+    for LineNum from 0 thru ItemData.Count-1
+        writes(OutCh,(a)ItemData[LineNum])
+    writes(OutCh,"")
+
+    return
+
+endmain
+
+;;-----------------------------------------------------------------------------
+
+namespace MapPrep
+
+    class FieldMapping
+
+        private mOldName, string
+        private mNewName, string
+
+        public method FieldMapping
+            required in aOldName, a
+            required in aNewName, a
+            endparams
+        proc
+            mOldName = atrim(aOldName)
+            mNewName = atrim(aNewName)
+        endmethod
+
+        public property OldName, string
+            method get
+            proc
+                mreturn mOldName
+            endmethod
+        endproperty
+
+        public property NewName, string
+            method get
+            proc
+                mreturn mNewName
+            endmethod
+        endproperty
+
+    endclass
+
+endnamespace
+

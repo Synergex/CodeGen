@@ -1,0 +1,984 @@
+;;*****************************************************************************
+;;
+;; Title:       RegistryApi.dbl
+;;
+;; Type:        API
+;;
+;; Description: A collection of routines which allow traditional Synergy apps
+;;              to access the Windows registry.
+;;
+;; Date:        21st October 2008
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+namespace CodeGen.Engine
+
+    ;;; <summary>
+    ;;; All of the WIN32 API routines which communicate with the
+    ;;; Windows Registry are found in ADVAPI32.DLL in the Windows
+    ;;; System directory. This routine opens the DLL ready for use,
+    ;;; returning the handle of the DLL for use in subsequent calls.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <returns></returns>
+    function RegStartSession, ^VAL
+        a_reghdl    ,n  ;Registry (DLL) handle
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align
+        stack record
+            status      ,i4     ;;Return status
+        endrecord
+    proc
+        .ifdef D_GUI
+        status = REG_SUCCESS
+        onerror error
+        a_reghdl = dll_open("advapi32.dll")
+        if (%FALSE)
+        begin
+    Error,  clear a_reghdl
+            status = REG_ERR_DLLOPN
+        end
+        .else
+        status = REG_ERR_DLLOPN
+        .endc
+        freturn status
+    endfunction
+
+    ;;; <summary>
+    ;;; This routine ends a Registry session by closing the DLL which
+    ;;; was opened in the RegStartSession routine.  It should be the
+    ;;; last routine called in the Registry session.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <returns></returns>
+    function RegEndSession, ^VAL
+        a_reghdl    ,n  ;;Registry (DLL) handle
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+    proc
+        onerror error
+        a_reghdl = dll_close(a_reghdl)
+        clear a_reghdl
+    Error,
+        freturn REG_SUCCESS
+    endfunction
+
+    ;;; <summary>
+    ;;;  This routine creates a new key in the registry.  The key
+    ;;;  specified in a_key CAN contain several "new levels" of keys,
+    ;;;  and all new parent keys will also be created.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <param name="a_hive"></param>
+    ;;; <param name="a_key"></param>
+    ;;; <param name="a_flush"></param>
+    ;;; <returns></returns>
+    function RegCreateKey, ^VAL
+        a_reghdl    ,n      ;;Registry handle    (Returned by RegStartSession)
+        a_hive      ,n      ;;Registry hive      (e.g. HKEY_LOCAL_MACHINE)
+        a_key       ,a      ;;Path below hive    (e.g. "Software\SomeCompany\SomeProduct")
+        a_flush     ,n      ;;(Optional) flush   (flush to disk after create)
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align
+        stack record ivars
+            status      ,i4     ;;Return status
+            kh          ,i4     ;;Handle to open key
+        endrecord
+        stack record avars
+            key         ,a255   ;;a_key in a null-terminated string
+        endrecord
+        .ifdef DBLNET
+        stack record
+            dllArgs     ,[#]@Object
+        endrecord
+        .endc
+    proc
+        clear ^i(ivars), avars
+        status = REG_SUCCESS
+        ;;Create requested key
+        fill(char(0),key)
+        key(1:trim(a_key)) = a_key
+        .ifdef DBLNET
+        dllArgs = new Object[3]
+        dllArgs[1] = (Object)a_hive
+        dllArgs[2] = (Object)^addr(key)
+        dllArgs[3] = (Object)^addr(kh)
+        if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCreateKeyA",dllArgs)) then
+        .else
+        if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCreateKeyA",a_hive,^addr(key),^addr(kh))) then
+        .endc
+            status = REG_ERR_CREKEY
+        else
+        begin
+            ;;Flush to disk
+            if (^passed(a_flush).and.(a_flush.eq.REG_FLUSH))
+                .ifdef DBLNET
+                dllArgs = new Object[1]
+                dllArgs[1] = (Object)kh
+                if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",dllArgs))
+                .else
+                if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",kh))
+                .endc
+                    status = REG_ERR_FLUSH
+
+            ;;Close new key
+            .ifdef DBLNET
+            dllArgs = new Object[1]
+            dllArgs[1] = (Object)kh
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",kh))
+            .endc
+                status = REG_ERR_CLSKEY
+        end
+        freturn status
+    endfunction
+
+    ;;; <summary>
+    ;;; This routine deletes a key in the Registry.  Any values
+    ;;; contained within the key will also be deleted.  On Windows
+    ;;; 5 and Windows 98, this routine will recursively delete any
+    ;;; ub-keys of the specified key (along with all of their values)
+    ;;; n a similar way to the MS-DOS deltree utility which deletes
+    ;;; n entire directory structure.  On Windows NT, the key to be
+    ;;; eleted MUST NOT contain sub-keys, or the routine will fail.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <param name="a_hive"></param>
+    ;;; <param name="a_key"></param>
+    ;;; <returns></returns>
+    function RegDeleteKey, ^VAL
+        a_reghdl    ,n      ;;Registry handle    (Returned by RegStartSession)
+        a_hive      ,n      ;;Registry hive      (e.g. HKEY_LOCAL_MACHINE)
+        a_key       ,a      ;;Path below hive    (e.g. "Software\SomeCompany\Someproduct")
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align
+        stack record
+            status      ,i4     ;;Return status
+            key         ,a255   ;;a_key in a null-terminated string
+        endrecord
+        .ifdef DBLNET
+        stack record
+            dllArgs     ,[#]@Object
+        endrecord
+        .endc
+    proc
+        status = REG_SUCCESS
+        fill(char(0),key)
+        key(1:trim(a_key)) = a_key
+        .ifdef DBLNET
+        dllArgs = new Object[2]
+        dllArgs[1] = (Object)a_hive
+        dllArgs[2] = (Object)^addr(key)
+        if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegDeleteKeyA",dllArgs))
+        .else
+        if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegDeleteKeyA",a_hive,^addr(key)))
+        .endc
+            status = REG_ERR_DELKEY
+        freturn status
+    endfunction
+
+    ;;; <summary>
+    ;;; This routine deletes a value from a key in the Registry.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <param name="a_hive"></param>
+    ;;; <param name="a_key"></param>
+    ;;; <param name="a_value"></param>
+    ;;; <param name="a_flush"></param>
+    ;;; <returns></returns>
+    function RegDeleteValue, ^VAL
+        a_reghdl    ,n      ;;Registry handle    (Returned by RegStartSession)
+        a_hive      ,n      ;;Registry hive      (e.g. HKEY_LOCAL_MACHINE)
+        a_key       ,a      ;;Path below hive    (e.g. "Software\Somecompany\Someproduct")
+        a_value     ,a      ;;Value name         (e.g. "Version")
+        a_flush     ,n      ;;(Optional) flush   (flush to disk after delete)
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align
+        stack record ivars
+            status      ,i4     ;;Return status
+            kh          ,i4     ;;Handle to currently open key
+        endrecord
+        stack record avars
+            key         ,a255   ;;a_key in a null-terminated string
+            value       ,a255   ;;a_value in a null-terminated string
+        endrecord
+        .ifdef DBLNET
+        stack record
+            dllArgs     ,[#]@Object
+        endrecord
+        .endc
+    proc
+        clear ^i(ivars), avars
+        status = REG_SUCCESS
+        ;;Open requested key
+        fill(char(0),key)
+        key(1:trim(a_key)) = a_key
+        .ifdef DBLNET
+        dllArgs = new Object[3]
+        dllArgs[1] = (Object)a_hive
+        dllArgs[2] = (Object)^addr(key)
+        dllArgs[3] = (Object)^addr(kh)
+        if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegOpenKeyA",dllArgs)) then
+        .else
+        if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegOpenKeyA",a_hive,^addr(key),^addr(kh))) then
+        .endc
+            status = REG_ERR_OPNKEY
+        else
+        begin
+            ;;Delete the requested value
+            fill(char(0),value)
+            value(1:trim(a_value)) = a_value
+            .ifdef DBLNET
+            dllArgs = new Object[2]
+            dllArgs[1] = (Object)kh
+            dllArgs[2] = (Object)^addr(value)
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegDeleteValueA",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegDeleteValueA",kh, ^addr(value)))
+            .endc
+                status = REG_ERR_DELVAL
+            ;;Flush to disk
+            if (^passed(a_flush).and.(a_flush.eq.REG_FLUSH))
+            begin
+                .ifdef DBLNET
+                dllArgs = new Object[1]
+                dllArgs[1] = (Object)kh
+                if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",dllArgs))
+                .else
+                if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",kh))
+                .endc
+                    status = REG_ERR_FLUSH
+            end
+            ;;Close the key
+            .ifdef DBLNET
+            dllArgs = new Object[1]
+            dllArgs[1] = (Object)kh
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",dllArgs) .ne. REG_SUCCESS)
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",kh) .ne. REG_SUCCESS)
+            .endc
+                status = REG_ERR_CLSKEY
+        end
+        freturn status
+    endfunction
+
+    ;;; <summary>
+    ;;; This routine retrieves a REG_BINARY value from the specified
+    ;;; key in the Registry.  If the specified key or value is not
+    ;;; found then a failure status is returned, otherwise the handle
+    ;;; of a dynamic memory section containing the binary data from the
+    ;;; registry is returned, along with the length of that data in bytes.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <param name="a_hive"></param>
+    ;;; <param name="a_key"></param>
+    ;;; <param name="a_value"></param>
+    ;;; <param name="a_data"></param>
+    ;;; <param name="a_size"></param>
+    ;;; <returns></returns>
+    function RegGetBinary, ^VAL
+        a_reghdl    ,n      ;;Registry handle    (Returned by RegStartSession)
+        a_hive      ,n      ;;Registry hive      (e.g. HKEY_LOCAL_MACHINE)
+        a_key       ,a      ;;Path below hive    (e.g. "Software\Somecompany\Someproduct")
+        a_value     ,a      ;;Value name         (e.g. "AllowPosting")
+        a_data      ,n      ;;Value data         (returned, dynamic memory handle)
+        a_size      ,n      ;;Value size         (returned, size in bytes of returned data)
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align
+        stack record ivars
+            status      ,i4     ;;Return status
+            kh          ,i4     ;;Handle to currently open key
+            type        ,i4     ;;Type of value found in registry
+            size        ,i4     ;;Size of value found in registry
+            pos         ,i4     ;;Position of first null in return value
+            null        ,i4     ;;A null character
+            mh          ,i4     ;;Dynamic memory handle for data buffer
+        endrecord
+        stack record avars
+            key         ,a255   ;;a_key in a null-terminated string
+            value       ,a255   ;;a_value in a null-terminated string
+        endrecord
+        .ifdef DBLNET
+        stack record
+            dllArgs     ,[#]@Object
+        endrecord
+        .endc
+    proc
+        clear ^i(ivars), avars
+        status = REG_SUCCESS
+        ;;Open requested key
+        fill(char(0),key)
+        key(1:trim(a_key)) = a_key
+        .ifdef DBLNET
+        dllArgs = new Object[3]
+        dllArgs[1] = (Object)a_hive
+        dllArgs[2] = (Object)^addr(key)
+        dllArgs[3] = (Object)^addr(kh)
+        if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegOpenKeyA",dllArgs)) then
+        .else
+        if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegOpenKeyA",a_hive,^addr(key),^addr(kh))) then
+        .endc
+            status = REG_ERR_OPNKEY
+        else
+        begin
+            fill(char(0),value)
+            if (^passed(a_value))
+                value(1:trim(a_value)) = a_value
+            ;;Get the value's data type and size
+            .ifdef DBLNET
+            dllArgs = new Object[6]
+            dllArgs[1] = (Object)kh
+            dllArgs[2] = (Object)^addr(value)
+            dllArgs[3] = ^null
+            dllArgs[4] = (Object)^addr(type)
+            dllArgs[5] = ^null
+            dllArgs[6] = (Object)^addr(size)
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",dllArgs)) then
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",kh,^addr(value),null,^addr(type),null,^addr(size))) then
+            .endc
+                status = REG_ERR_GETVAL
+            else
+            begin
+                case type of
+                begincase
+                REG_BINARY:
+                begin
+                    ;;Allocate dynamic memory
+                    mh = mem_proc(DM_ALLOC+DM_STATIC,BINSIZE(size))
+                    .ifdef DBLNET
+                    dllArgs = new Object[6]
+                    dllArgs[1] = (Object)kh
+                    dllArgs[2] = (Object)^addr(value)
+                    dllArgs[3] = ^null
+                    dllArgs[4] = ^null
+                    dllArgs[5] = (Object)^addr(BINDATA(mh,1))
+                    dllArgs[6] = (Object)^addr(size)
+                    if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",dllArgs)) then
+                    .else
+                    if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",kh,^addr(value),null,null,^addr(BINDATA(mh,1)),^addr(size))) then
+                    .endc
+                    begin
+                        status = REG_ERR_GETVAL
+                        mh=mem_proc(DM_FREE,mh)
+                    end
+                    else
+                    begin
+                        a_data = mh             ;;Success, return the dynamic memory handle
+                        a_size = size           ;; ... and size
+                    end
+                end
+                REG_DWORD:
+                    status = REG_ERR_VALTYP
+                REG_SZ:
+                    status = REG_ERR_VALTYP
+                endcase
+            end
+            .ifdef DBLNET
+            dllArgs = new Object[1]
+            dllArgs[1] = (Object)kh
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",kh))
+            .endc
+                status = REG_ERR_CLSKEY
+        end
+        freturn status
+    endfunction
+
+    ;;; <summary>
+    ;;; This routine retrieves a REG_DWORD (4-byte integer, i4) value
+    ;;; from the specified key in the Registry.  If the specified key
+    ;;; or value is not found then a failure status is returned,
+    ;;; otherwise the data from the registry value is returned.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <param name="a_hive"></param>
+    ;;; <param name="a_key"></param>
+    ;;; <param name="a_value"></param>
+    ;;; <param name="a_data"></param>
+    ;;; <returns></returns>
+    function RegGetDword, ^VAL
+        a_reghdl    ,n      ;;Registry handle    (Returned by RegStartSession)
+        a_hive      ,n      ;;Registry hive      (e.g. HKEY_LOCAL_MACHINE)
+        a_key       ,a      ;;Path below hive    (e.g. "Software\Somecompany\Someproduct")
+        a_value     ,a      ;;Value name         (e.g. "AllowPosting")
+        a_data      ,n      ;;Value data         (returned)
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align
+        stack record ivars
+            status      ,i4     ;;Return status
+            kh          ,i4     ;;Handle to currently open key
+            type        ,i4     ;;Type of value found in registry
+            size        ,i4     ;;Size of value found in registry
+            pos         ,i4     ;;Position of first null in return value
+            null        ,i4     ;;A null character
+            data        ,i4     ;;Return buffer (value data from registry)
+        endrecord
+        stack record avars
+            key         ,a255   ;;a_key in a null-terminated string)
+            value       ,a255   ;;a_value in a null-terminated string)
+        endrecord
+        .ifdef DBLNET
+        stack record
+            dllArgs     ,[#]@Object
+        endrecord
+        .endc
+    proc
+        clear ^i(ivars), avars, a_data
+        status = REG_SUCCESS
+        fill(char(0),key)
+        key(1:trim(a_key)) = a_key
+        ;;Open requested key
+        .ifdef DBLNET
+        dllArgs = new Object[3]
+        dllArgs[1] = (Object)a_hive
+        dllArgs[2] = (Object)^addr(key)
+        dllArgs[3] = (Object)^addr(kh)
+        if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegOpenKeyA",dllArgs)) then
+        .else
+        if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegOpenKeyA",a_hive,^addr(key),^addr(kh))) then
+        .endc
+            status = REG_ERR_OPNKEY
+        else
+        begin
+            fill(char(0),value)
+            if (^passed(a_value))
+                value(1:trim(a_value)) = a_value
+            size=4
+            ;;Get requested value
+            .ifdef DBLNET
+            dllArgs = new Object[6]
+            dllArgs[1] = (Object)kh
+            dllArgs[2] = (Object)^addr(value)
+            dllArgs[3] = ^null
+            dllArgs[4] = (Object)^addr(type)
+            dllArgs[5] = (Object)^addr(data)
+            dllArgs[6] = (Object)^addr(size)
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",dllArgs)) then
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",kh,^addr(value),null,^addr(type),^addr(data),^addr(size))) then
+            .endc
+                status = REG_ERR_GETVAL
+            else
+            begin
+                case type of
+                begincase
+                REG_DWORD:
+                    a_data = data       ;;Return data
+                REG_SZ:
+                    status = REG_ERR_VALTYP
+                REG_BINARY:
+                    status = REG_ERR_VALTYP
+                endcase
+            end
+            .ifdef DBLNET
+            dllArgs = new Object[1]
+            dllArgs[1] = (Object)kh
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",kh))
+            .endc
+                status = REG_ERR_CLSKEY
+        end
+        freturn status
+    endfunction
+
+    ;;; <summary>
+    ;;; This routine retrieves a REG_SZ (string) value from the
+    ;;; specified key in the Registry.  If the specified key or value
+    ;;; is not found then a failure status is returned, otherwise the
+    ;;; data from the   registry value is returned.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <param name="a_hive"></param>
+    ;;; <param name="a_key"></param>
+    ;;; <param name="a_value"></param>
+    ;;; <param name="a_data"></param>
+    ;;; <returns></returns>
+    function RegGetString, ^VAL
+        a_reghdl    ,n      ;;Registry handle    (Returned by RegStartSession)
+        a_hive      ,n      ;;Registry hive      (e.g. HKEY_LOCAL_MACHINE)
+        a_key       ,a      ;;Path below hive    (e.g. "Software\Somecompany\Someproduct")
+        a_value     ,a      ;;Value name         (e.g. "LastProcessDate")
+        a_data      ,a      ;;Value data         (returned)
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align
+        stack record ivars
+            status      ,i4     ;;Return status
+            kh          ,i4     ;;Handle to currently open key
+            type        ,i4     ;;Type of value found in registry
+            size        ,i4     ;;Size of value found in registry
+            pos         ,i4     ;;Position of first null in return value
+            null        ,i4     ;;A null character
+        endrecord
+        stack record avars
+            key         ,a255   ;;a_key in a null-terminated string
+            value       ,a255   ;;a_value in a null-terminated string
+            data        ,a255   ;;Value data from registry
+        endrecord
+        .ifdef DBLNET
+        stack record
+            dllArgs     ,[#]@Object
+        endrecord
+        .endc
+    proc
+        clear ^i(ivars), avars
+        status = REG_SUCCESS
+        fill(char(0),key)
+        key(1:trim(a_key)) = a_key
+        ;;Open requested key
+        .ifdef DBLNET
+        dllArgs = new Object[3]
+        dllArgs[1] = (Object)a_hive
+        dllArgs[2] = (Object)^addr(key)
+        dllArgs[3] = (Object)^addr(kh)
+        if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegOpenKeyA",dllArgs)) then
+        .else
+        if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegOpenKeyA",a_hive,^addr(key),^addr(kh))) then
+        .endc
+            status = REG_ERR_OPNKEY
+        else
+        begin
+            fill(char(0),value)
+            if (^passed(a_value))
+                value(1:trim(a_value)) = a_value
+            ;;Get the value's data type & size
+            .ifdef DBLNET
+            dllArgs = new Object[6]
+            dllArgs[1] = (Object)kh
+            dllArgs[2] = (Object)^addr(value)
+            dllArgs[3] = ^null
+            dllArgs[4] = (Object)^addr(type)
+            dllArgs[5] = ^null
+            dllArgs[6] = (Object)^addr(size)
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",dllArgs)) then
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",kh,^addr(value),null,^addr(type),null,^addr(size))) then
+            .endc
+                status = REG_ERR_GETVAL
+            else
+            begin
+                case type of
+                begincase
+                REG_SZ:
+                begin
+                    ;;It's a string key, get the value
+                    clear data(1:size)
+                    .ifdef DBLNET
+                    dllArgs = new Object[6]
+                    dllArgs[1] = (Object)kh
+                    dllArgs[2] = (Object)^addr(value)
+                    dllArgs[3] = ^null
+                    dllArgs[4] = ^null
+                    dllArgs[5] = (Object)^addr(data)
+                    dllArgs[6] = (Object)^addr(size)
+                    if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",dllArgs)) then
+                    .else
+                    if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegQueryValueExA",kh,^addr(value),null,null,^addr(data),^addr(size))) then
+                    .endc
+                        status = REG_ERR_GETVAL
+                    else
+                    begin
+                        ;;Look for a Null in the returned string
+                        pos = instr(1,data, char(0))
+                        ;;Return data up to the first null
+                        using pos select
+                        (0),    ;;No null, it's all data
+                            a_data = data
+                        (1),    ;;Null in position 1, it's an empty string
+                            clear a_data
+                        (),     ;;Return data before the null
+                            a_data = data(1:pos-1)
+                        endusing
+                    end
+                end
+                REG_DWORD:
+                    status = REG_ERR_VALTYP
+                REG_BINARY:
+                    status = REG_ERR_VALTYP
+                endcase
+            end
+            .ifdef DBLNET
+            dllArgs = new Object[1]
+            dllArgs[1] = (Object)kh
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",kh))
+            .endc
+                status = REG_ERR_CLSKEY
+        end
+        freturn status
+    endfunction
+
+    ;;; <summary>
+    ;;; This routine sets a REG_BINARY value in the specified key in
+    ;;; the Registry. If the value is not found, it will be created.
+    ;;; If the key (or parent keys) are not found, they will be created.
+    ;;; In other words, this routine can create a new value, several
+    ;;; levels deep in a totally new heirarchy in the Registry.  Binary
+    ;;; data is passed to this routine in a dynamic memory section,
+    ;;; with the handle and size of the section being provided to the
+    ;;; routine.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <param name="a_hive"></param>
+    ;;; <param name="a_key"></param>
+    ;;; <param name="a_value"></param>
+    ;;; <param name="a_data"></param>
+    ;;; <param name="a_size"></param>
+    ;;; <param name="a_flush"></param>
+    ;;; <param name="a_freemem"></param>
+    ;;; <returns></returns>
+    function RegSetBinary, ^VAL
+        a_reghdl    ,n      ;;Registry handle    (Returned by RegStartSession
+        a_hive      ,n      ;;Registry hive      (e.g. HKEY_LOCAL_MACHINE)
+        a_key       ,a      ;;Path below hive    (e.g. "Software\SomeCompany\SomeProduct")
+        a_value     ,a      ;;Value name         (e.g. "LastPostingDate")
+        a_data      ,n      ;;Value data         (Dynamic memory handle)
+        a_size      ,n      ;;Value size         (Size of data in bytes)
+        a_flush     ,n      ;;(Optional) Flush to disk after set
+        a_freemem   ,n      ;;(Optional) Free dynamic memory after set
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align
+        stack record ivars
+            status      ,i4     ;;Return status
+            kh          ,i4     ;;Handle to currently open key
+            type        ,i4     ;;Value type to be created (REG_SZ)
+            size        ,i4     ;;Size of data, including terminating null
+            null        ,i4     ;;A null (binary 0
+        endrecord
+        stack record avars
+            key         ,a255   ;;a_key in a null-terminated string
+            value       ,a255   ;;a_value in a null-terminated string
+        endrecord
+        .ifdef DBLNET
+        stack record
+            dllArgs     ,[#]@Object
+        endrecord
+        .endc
+    proc
+        clear ^i(ivars), avars
+        status = REG_SUCCESS
+        ;;Open or create the requested key
+        fill(char(0),key)
+        key(1:trim(a_key)) = a_key
+        .ifdef DBLNET
+        dllArgs = new Object[3]
+        dllArgs[1] = (Object)a_hive
+        dllArgs[2] = (Object)^addr(key)
+        dllArgs[3] = (Object)^addr(kh)
+        if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCreateKeyA",dllArgs)) then
+        .else
+        if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCreateKeyA",a_hive,^addr(key),^addr(kh))) then
+        .endc
+            status = REG_ERR_CREKEY
+        else
+        begin
+            ;;Create or set the new value in the opened key
+            fill(char(0),value)
+            value(1:trim(a_value)) = a_value
+            type = REG_BINARY
+            size = a_size
+            .ifdef DBLNET
+            dllArgs = new Object[6]
+            dllArgs[1] = (Object)kh
+            dllArgs[2] = (Object)^addr(value)
+            dllArgs[3] = ^null
+            dllArgs[4] = (Object)type
+            dllArgs[5] = (Object)^addr(BINDATA(a_data,1))
+            dllArgs[6] = (Object)size
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegSetValueExA",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegSetValueExA",kh,^addr(value),null,type,^addr(BINDATA(a_data,1)),size))
+            .endc
+                status = REG_ERR_SETVAL
+            ;;Deallocate dynamic memory?
+            if (^passed(a_freemem).and.(a_freemem.eq.REG_FREEMEM))
+                a_data = mem_proc(DM_FREE,a_data)
+            ;;Flush to disk?
+            if (^passed(a_flush).and.(a_flush.eq.REG_FLUSH))
+            begin
+                .ifdef DBLNET
+                dllArgs = new Object[1]
+                dllArgs[1] = (Object)kh
+                if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",dllArgs))
+                .else
+                if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",kh))
+                .endc
+                    status = REG_ERR_FLUSH
+            end
+            ;;Close the key
+            .ifdef DBLNET
+            dllArgs = new Object[1]
+            dllArgs[1] = (Object)kh
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",kh))
+            .endc
+                status = REG_ERR_CLSKEY
+        end
+        freturn status
+    endfunction
+
+    ;;; <summary>
+    ;;; This routine sets a REG_DWORD (4-byte integer, i4) value in
+    ;;; the specified key in the Registry.  If the value is not found,
+    ;;; it will be created. If the key (or parent keys) are not found,
+    ;;; they will be created.  In other words, this routine can create
+    ;;; a new value, several levels deep in a totally new heirarchy
+    ;;; in the Registry.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <param name="a_hive"></param>
+    ;;; <param name="a_key"></param>
+    ;;; <param name="a_value"></param>
+    ;;; <param name="a_data"></param>
+    ;;; <param name="a_flush"></param>
+    ;;; <returns></returns>
+    function RegSetDword, ^VAL
+        a_reghdl    ,n      ;;Registry handle    (Returned by RegStartSession)
+        a_hive      ,n      ;;Registry hive      (e.g. HKEY_LOCAL_MACHINE)
+        a_key       ,a      ;;Path below hive    (e.g. "Software\SomeCompany\SomeProduct")
+        a_value     ,a      ;;Value name         (e.g. "AllowPosting")
+        a_data      ,n      ;;Value data         (e.g. 1)
+        a_flush     ,n      ;;(Optional) flush   (flush to disk after set)
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align
+        stack record ivars
+            status      ,i4     ;;Return status
+            kh          ,i4     ;;Handle to currently open key
+            type        ,i4     ;;Value type to be created (REG_SZ)
+            size        ,i4     ;;Size of data, including terminating null
+            null        ,i4     ;;A null (binary 0
+            data        ,i4     ;;Value to set (from a_data)
+        endrecord
+        stack record avars
+            key         ,a255   ;;a_key  in null-terminated string
+            value       ,a255   ;;a_value  in null-terminated string
+        endrecord
+        .ifdef DBLNET
+        stack record
+            dllArgs     ,[#]@Object
+        endrecord
+        .endc
+    proc
+        clear ^i(ivars), avars
+        status = REG_SUCCESS
+        fill(char(0),key)
+        key(1:trim(a_key)) = a_key
+        ;;Create new key
+        .ifdef DBLNET
+        dllArgs = new Object[3]
+        dllArgs[1] = (Object)a_hive
+        dllArgs[2] = (Object)^addr(key)
+        dllArgs[3] = (Object)^addr(kh)
+        if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCreateKeyA",dllArgs)) then
+        .else
+        if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCreateKeyA",a_hive,^addr(key),^addr(kh))) then
+        .endc
+            status = REG_ERR_CREKEY
+        else
+        begin
+            fill(char(0),value)
+            value(1:trim(a_value)) = a_value
+            type = REG_DWORD
+            size = 4
+            data = a_data
+            ;;Set value of new key
+            .ifdef DBLNET
+            dllArgs = new Object[6]
+            dllArgs[1] = (Object)kh
+            dllArgs[2] = (Object)^addr(value)
+            dllArgs[3] = ^null
+            dllArgs[4] = (Object)type
+            dllArgs[5] = (Object)^addr(data)
+            dllArgs[6] = (Object)size
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegSetValueExA",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegSetValueExA",kh,^addr(value),null,type,^addr(data),size))
+            .endc
+                status = REG_ERR_SETVAL
+            ;;Flush to disk
+            if (^passed(a_flush).and.(a_flush.eq.REG_FLUSH))
+            begin
+                .ifdef DBLNET
+                dllArgs = new Object[1]
+                dllArgs[1] = (Object)kh
+                if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",dllArgs))
+                .else
+                if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",kh))
+                .endc
+                    status = REG_ERR_FLUSH
+            end
+            ;;Close new key
+            .ifdef DBLNET
+            dllArgs = new Object[1]
+            dllArgs[1] = (Object)kh
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",kh))
+            .endc
+                status = REG_ERR_CLSKEY
+        end
+        freturn status
+    endfunction
+
+    ;;; <summary>
+    ;;; This routine sets a REG_SZ (variable length, null-terminated
+    ;;; string) value in the specified key in the Registry.  If the
+    ;;; value is not found, it will be created. If the key (or parent
+    ;;; keys) are not found, they will be created. In other words,
+    ;;; this routine can create a new value, several levels deep in
+    ;;; a totally new heirarchy in the Registry.
+    ;;; </summary>
+    ;;; <param name="a_reghdl"></param>
+    ;;; <param name="a_hive"></param>
+    ;;; <param name="a_key"></param>
+    ;;; <param name="a_value"></param>
+    ;;; <param name="a_data"></param>
+    ;;; <param name="a_flush"></param>
+    ;;; <returns></returns>
+    function RegSetString, ^VAL
+        a_reghdl    ,n      ;;Registry handle    (Returned by RegStartSession
+        a_hive      ,n      ;;Registry hive      (e.g. HKEY_LOCAL_MACHINE)
+        a_key       ,a      ;;Path below hive    (e.g. "Software\SomeCompany\SomeProduct")
+        a_value     ,a      ;;Value name         (e.g. "LastPostingDate")
+        a_data      ,a      ;;Value data         (e.g. "06/09/1999")
+        a_flush     ,n      ;;(Optional) flush   (flush to disk after set)
+        endparams
+        .define REGISTRY_INTERNAL
+        .include "CODEGEN_SRC:RegistryApi.def"
+        .align                  ;;A new comment
+        stack record ivars
+            status      ,i4     ;;Return status
+            kh          ,i4     ;;Handle to currently open key
+            type        ,i4     ;;Value type to be created (REG_SZ)
+            size        ,i4     ;;Size of data, including terminating null
+            null        ,i4     ;;A null (binary 0
+        endrecord
+        stack record avars
+            key         ,a255   ;;a_key in a null-terminated string
+            value       ,a255   ;;a_value in a null-terminated string
+            data        ,a255   ;;a_data in a null-terminated string
+        endrecord
+        .ifdef DBLNET
+        stack record
+            dllArgs     ,[#]@Object
+        endrecord
+        .endc
+    proc
+        clear ^i(ivars), avars
+        status = REG_SUCCESS
+        fill(char(0),key)
+        key(1:trim(a_key)) = a_key
+        ;;Open or create the requested key
+        .ifdef DBLNET
+        dllArgs = new Object[3]
+        dllArgs[1] = (Object)a_hive
+        dllArgs[2] = (Object)^addr(key)
+        dllArgs[3] = (Object)^addr(kh)
+        if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCreateKeyA",dllArgs)) then
+        .else
+        if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCreateKeyA",a_hive,^addr(key),^addr(kh))) then
+        .endc
+            status = REG_ERR_CREKEY
+        else
+        begin
+            fill(char(0),value)
+            value(1:trim(a_value)) = a_value
+            fill(char(0),data)
+            if (trim(a_data))
+                data(1:trim(a_data)) = a_data
+            type = REG_SZ
+            size = trim(a_data) + 1
+            ;;Create or set the new value in the opened key
+            .ifdef DBLNET
+            dllArgs = new Object[6]
+            dllArgs[1] = (Object)kh
+            dllArgs[2] = (Object)^addr(value)
+            dllArgs[3] = ^null
+            dllArgs[4] = (Object)type
+            dllArgs[5] = (Object)^addr(data)
+            dllArgs[6] = (Object)size
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegSetValueExA",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegSetValueExA",kh,^addr(value),null,type,^addr(data),size))
+            .endc
+                status = REG_ERR_SETVAL
+            ;;Flush to disk
+            if (^passed(a_flush).and.(a_flush.eq.REG_FLUSH))
+            begin
+                .ifdef DBLNET
+                dllArgs = new Object[1]
+                dllArgs[1] = (Object)kh
+                if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",dllArgs))
+                .else
+                if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegFlushKey",kh))
+                .endc
+                    status = REG_ERR_FLUSH
+            end
+            ;;Close the key
+            .ifdef DBLNET
+            dllArgs = new Object[1]
+            dllArgs[1] = (Object)kh
+            if (dll_netcall(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",dllArgs))
+            .else
+            if (dll_call(a_reghdl,DLL_TYPE_WINAPI,"RegCloseKey",kh))
+            .endc
+                status = REG_ERR_CLSKEY
+        end
+        freturn status
+    endfunction
+
+endnamespace

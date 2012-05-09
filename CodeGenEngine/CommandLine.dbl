@@ -1,0 +1,165 @@
+;;*****************************************************************************
+;;
+;; Title:       CommandLine.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Parses and returns information about the command line which
+;;              started the program
+;;
+;; Date:        13th November 2007
+;;
+;; Author:      William Hawkins, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    function CommandLine, boolean
+
+    required in  a_opt          ,a      ;;Option string
+    optional in  a_maxoptvals   ,n      ;;Maximum argument to return
+    optional out a_optvals      ,[*]a   ;;Option arguments
+    optional out a_numoptvals   ,n      ;;Number of argument
+    endparams
+
+    .define MAXARGS 128
+
+    record local_data
+        fstatus         ,boolean, false ;;Function return status
+        maxopts         ,i4             ;;Maximum number of options
+        maxoptvals      ,i4             ;;Maximum number of options requested
+        numoptvals      ,i4             ;;Number of options found
+        ctr             ,i4             ;;Counter
+        length          ,i4             ;;Length
+        num_args        ,i4
+        arg_pos         ,[MAXARGS] i4
+        arg_len         ,[MAXARGS] i4
+        command         ,a1024
+        opt_char        ,a1
+        option          ,a255
+    endrecord
+
+    proc
+
+        init local_data
+
+        if (^passed(a_maxoptvals)&&^passed(a_optvals))
+            maxoptvals = a_maxoptvals
+
+        if (%option(34)) then
+            opt_char = '/'
+        else
+            opt_char = '-'
+
+        cmdln(command, maxopts, arg_pos, arg_len)
+
+        for ctr from 1 thru maxopts
+        begin
+            if (arg_pos[ctr]&&arg_len[ctr]) then
+                option = command(arg_pos[ctr]:arg_len[ctr])
+            else
+                clear option
+
+            ;;Is this the requested option?
+            .ifdef OS_VMS
+            ;;On OpenVMS prior to V7.2, command lines were parsed as upper case.
+            ;;After 7.2 they can be optionally parsed case-preserved.  This is
+            ;;based on a process setting $SET PROCESS/PARSE_STYLE=TRADITIONAL|EXTENDED.
+            ;;CodeGen required TRADITIONAL command-line parsing to be used.
+            if (option==opt_char+UpperCase(a_opt))
+            .else
+            if (option==opt_char+a_opt)
+            .endc
+                call process_argument
+        end
+
+        if (^passed(a_numoptvals))
+            a_numoptvals = num_args
+
+        freturn fstatus
+
+
+    process_argument,
+
+            ;;Found requested option
+            fstatus = true
+
+            ;;Process next argument
+            ctr += 1
+
+            if (arg_pos[ctr]&&arg_len[ctr]) then
+                option = command(arg_pos[ctr]:arg_len[ctr])
+            else
+                option = opt_char
+
+            while(option!=opt_char)
+            begin
+                num_args+=1
+                if (num_args<=maxoptvals)
+                begin
+                    ;;Strip leading and trailing quote characters
+                    using option select
+                    ("'", '"'),
+                    begin
+                        length = trimz(option)
+                        if ((length>1)&&(option(length:1)==option(1:1)))
+                        begin
+                            if (length>2) then
+                                option = option(2, length-1)
+                            else
+                                clear option
+                        end
+                    end
+                    endusing
+                    a_optvals[num_args] = option
+                end
+
+                ;;Process next argument
+                ctr+=1
+
+                if (arg_pos[ctr]&&arg_len[ctr]) then
+                    option = command(arg_pos[ctr]:arg_len[ctr])
+                else
+                    option = opt_char
+              end
+
+            ;;Adjust counter to stay in correct position in loop
+            ctr -= 1
+            return
+
+    endfunction
+
+endnamespace
+
