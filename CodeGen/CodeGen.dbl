@@ -46,112 +46,45 @@ main CodeGen
 
     record
         Tt              ,int                ;;Terminal channel
-        ErrStatus       ,int
         doTryCatch      ,Boolean, true
-        .ifdef D_GUI
-        LmSts           ,int                ;;License manager status
-        LmToken         ,int                ;;License manager login token
-        LmSlot          ,int                ;;License slot number allocated
-        LmLoggedIn      ,boolean            ;;License is logged in
-        .endc
-    endrecord
-
-    .ifdef D_GUI
-    .define LM_PRODUCER     "92"
-    .define LM_PRODUCT      "CGEN40"
-    record LmRec
-        application         ,a6
-        max_users           ,d4
-        expiry_date         ,d8
-        install_date        ,d8
-        custom              ,a100
-    endrecord
-    .endc
+		tmpValue		,a1
+		tmpLen			,int
+	endrecord
 
 proc
 
     open(Tt=0,i,"tt:")
     flags(7004020,1)
 
-    .ifdef D_GUI
-    lm_login(LmSts,LM_PRODUCER,LM_PRODUCT,LmToken,LmRec,LmSlot)
-    using LmSts select
-    (0),    ;;LMSTS_OK
-    begin
-        data today, a8
-        today = %datetime
-        if (LmRec.expiry_date&&(LmRec.expiry_date<^d(today))) then
-        begin
-            lm_logout(LmSts,LM_PRODUCER,LM_PRODUCT,LmToken)
-            writes(Tt,"ERROR: Your CodeGen license " + LM_PRODUCT + " has expired.")
-            ErrStatus = 1
-        end
-        else
-            LmLoggedIn = true
-    end
-    (1),    ;;LMSTS_NOCONFIG
-    begin
-        writes(Tt,"ERROR: No CodeGen license (" + LM_PRODUCT + ") was found.")
-        ErrStatus = 1
-    end
-    (2),
-    begin
-        writes(Tt,"ERROR: Maximum users exceeded for license " + LM_PRODUCT +".")
-        ErrStatus = 1
-    end
-    endusing
+    xcall getlog("CODEGEN_NOCATCH",tmpValue,tmpLen)
+    doTryCatch = (TmpValue!="1")
 
-    .endc
-
-    if (!ErrStatus)
+    if (doTryCatch) then
     begin
-        data tmpValue   ,a1
-        data tmpLen     ,int
-        xcall getlog("CODEGEN_NOCATCH",tmpValue,tmpLen)
-        doTryCatch = (TmpValue!="1")
-
-        if (doTryCatch) then
-        begin
-            try
-            begin
-                MainLineLogic(Tt)
-            end
-            catch (ex, @Synergex.synergyde.SynException)
-            begin
-                data errTxt, a128
-                s_bld(errTxt,,"ERROR: Error %n at line %n in %a.",ex.Errno,ex.Lineno,%atrim(ex.Source))
-                if (!Tt)
-                    open(Tt=0,i,"tt:")
-                writes(Tt,atrim(errTxt))
-            end
-            catch (ex, @Exception)
-            begin
-                data errTxt, a128
-                s_bld(errTxt,,"ERROR: %a.",%atrim(ex.Message))
-                if (!Tt)
-                    open(Tt=0,i,"tt:")
-                writes(Tt,atrim(errTxt))
-            end
-            finally
-            begin
-                .ifdef D_GUI
-                if (LmLoggedIn)
-                    lm_logout(LmSts,LM_PRODUCER,LM_PRODUCT,LmToken)
-                .else
-                nop
-                .endc
-            end
-            endtry
-        end
-        else
+        try
         begin
             MainLineLogic(Tt)
-            .ifdef D_GUI
-            if (LmLoggedIn)
-                lm_logout(LmSts,LM_PRODUCER,LM_PRODUCT,LmToken)
-            .endc
         end
+        catch (ex, @Synergex.synergyde.SynException)
+        begin
+            data errTxt, a128
+            s_bld(errTxt,,"ERROR: Error %n at line %n in %a.",ex.Errno,ex.Lineno,%atrim(ex.Source))
+            if (!Tt)
+                open(Tt=0,i,"tt:")
+            writes(Tt,atrim(errTxt))
+        end
+        catch (ex, @Exception)
+        begin
+            data errTxt, a128
+            s_bld(errTxt,,"ERROR: %a.",%atrim(ex.Message))
+            if (!Tt)
+                open(Tt=0,i,"tt:")
+            writes(Tt,atrim(errTxt))
+        end
+        endtry
     end
+    else
+        MainLineLogic(Tt)
 
     stop
 
