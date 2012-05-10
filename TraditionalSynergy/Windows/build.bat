@@ -57,10 +57,16 @@ echo Configuring environment ...
 set REPOSITORY_SRC=%ROOT%..\..\RepositoryAPI
 set CODEGEN_SRC=%ROOT%..\..\CodeGenEngine
 set MAINLINE_SRC=%ROOT%..\..\CodeGen
+set MAPPREP_SRC=%ROOT%..\..\MapPrep
+set RPSINFO_SRC=%ROOT%..\..\RpsInfo
 set CODEGEN_OBJ=%ROOT%obj
 set CODEGEN_EXE=%ROOT%exe
 set SYNEXPDIR=%ROOT%hdr
 set SYNIMPDIR=%ROOT%hdr
+
+if not exist "%SYNEXPDIR%\."   mkdir "%SYNEXPDIR%"
+if not exist "%CODEGEN_OBJ%\." mkdir "%CODEGEN_OBJ%"
+if not exist "%CODEGEN_EXE%\." mkdir "%CODEGEN_EXE%"
 
 if "%1"=="32" goto X86
 if "%1"=="64" goto X64
@@ -110,9 +116,8 @@ echo null.dbl >> RepositoryAPI.in
 dbl < RepositoryAPI.in
 if ERRORLEVEL 1 goto RPS_COMPILE_ERROR
 
-dblink %DBG% -l CODEGEN_EXE:RepositoryAPI.elb CODEGEN_OBJ:RepositoryAPI.dbo
+dblink %DBG% -l CODEGEN_EXE:RepositoryAPI.elb CODEGEN_OBJ:RepositoryAPI.dbo RPSLIB:ddlib.elb
 if ERRORLEVEL 1 goto RPS_LINK_ERROR
-
 
 del /q null.dbl
 del /q RepositoryAPI.in
@@ -140,6 +145,22 @@ if ERRORLEVEL 1 goto CODEGEN_COMPILE_ERROR
 
 dblink %DBG% -o CODEGEN_EXE:CodeGen.dbr CODEGEN_OBJ:CodeGen.dbo
 if ERRORLEVEL 1 goto CODEGEN_LINK_ERROR
+
+echo Building MapPrep ...
+
+dbl %DBG% -XTo CODEGEN_OBJ:MapPrep.dbo MAPPREP_SRC:MapPrep.dbl
+if ERRORLEVEL 1 goto MAPPREP_COMPILE_ERROR
+
+dblink %DBG% -o CODEGEN_EXE:MapPrep.dbr CODEGEN_OBJ:MapPrep.dbo CODEGEN_EXE:CodeGenEngine.elb
+if ERRORLEVEL 1 goto MAPPREP_LINK_ERROR
+
+echo Building RpsInfo ...
+
+dbl %DBG% -XTo CODEGEN_OBJ:RpsInfo.dbo RPSINFO_SRC:RpsInfo.dbl
+if ERRORLEVEL 1 goto RPSINFO_COMPILE_ERROR
+
+dblink %DBG% -o CODEGEN_EXE:RpsInfo.dbr CODEGEN_OBJ:RpsInfo.dbo CODEGEN_EXE:CodeGenEngine.elb
+if ERRORLEVEL 1 goto RPSINFO_LINK_ERROR
 
 echo Done!
 
@@ -184,6 +205,22 @@ goto EXIT
 
 :CODEGEN_LINK_ERROR
 echo ERROR: CodeGen link failed!
+goto EXIT
+
+:MAPPREP_COMPILE_ERROR
+echo ERROR: MapPrep compile failed!
+goto EXIT
+
+:MAPPREP_LINK_ERROR
+echo ERROR: MapPrep link failed!
+goto EXIT
+
+:RPSINFO_COMPILE_ERROR
+echo ERROR: RpsInfo compile failed!
+goto EXIT
+
+:RPSINFO_LINK_ERROR
+echo ERROR: RpsInfo link failed!
 goto EXIT
 
 :USAGE
