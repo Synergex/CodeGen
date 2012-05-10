@@ -1,13 +1,13 @@
 @echo off
 rem ***************************************************************************
 rem
-rem Title:       CodeGen.dbl
+rem Title:       build.bat
 rem
-rem Type:        Program
+rem Type:        Windows batch file
 rem
-rem Description: Template based code generator
+rem Description: Builds CodeGen and utilities under Traditional Synergy
 rem
-rem Date:        19th March 2007
+rem Date:        10th May 2012
 rem
 rem Author:      Steve Ives, Synergex Professional Services Group
 rem              http://www.synergex.com
