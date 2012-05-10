@@ -86,143 +86,122 @@ if not defined SYNERGYDE64 goto NO_SYNERGY_64
 call "%SYNERGYDE64%\dbl\dblvars64.bat" > nul
 goto DEBUG
 
+rem ---------------------------------------------------------------------------
 :DEBUG
 
-if "%2"=="DEBUG" set DBG=-d
-if "%2"=="debug" set DBG=-d
+if "%2"=="DEBUG" set DBG=d
+if "%2"=="debug" set DBG=d
 if "%DBG%"=="-d" echo Debug mode enabled
 
+rem ---------------------------------------------------------------------------
 :PROTOTYPE
 
 echo Deleting old prototypes ...
 if exist "%SYNEXPDIR%\codegen-repositoryapi-*.dbp" del /q "%SYNEXPDIR%\codegen-repositoryapi-*.dbp"
 if exist "%SYNEXPDIR%\codegen-engine-*.dbp" del /q "%SYNEXPDIR%\codegen-engine-*.dbp"
-
 echo Prototyping Repository API ...
 dblproto %REPOSITORY_SRC%\*.dbl
 if ERRORLEVEL 1 goto RPS_PROTO_ERROR
-
 echo Prototyping CodeGen Engine ...
 dblproto %CODEGEN_SRC%\*.dbl
 if ERRORLEVEL 1 goto ENGINE_PROTO_ERROR
 
+rem ---------------------------------------------------------------------------
 echo Building Repository API ...
 
-echo %DBG% -XTo CODEGEN_OBJ:RepositoryAPI.dbo \ > RepositoryAPI.in
-for /F %%f in ('dir /b %REPOSITORY_SRC%\*.dbl') do echo %REPOSITORY_SRC%\%%f \ >> RepositoryAPI.in
-echo ;Temporary file > null.dbl
-echo null.dbl >> RepositoryAPI.in
-
-dbl < RepositoryAPI.in
+set SOURCEFILES=
+for /f %%f in ('dir /b %REPOSITORY_SRC%\*.dbl') do call :ADDSOURCEFILE %REPOSITORY_SRC% %%f
+dbl -%DBG%XTo CODEGEN_OBJ:RepositoryAPI.dbo %SOURCEFILES%
 if ERRORLEVEL 1 goto RPS_COMPILE_ERROR
-
-dblink %DBG% -l CODEGEN_EXE:RepositoryAPI.elb CODEGEN_OBJ:RepositoryAPI.dbo RPSLIB:ddlib.elb
+dblink -l%DBG% CODEGEN_EXE:RepositoryAPI.elb CODEGEN_OBJ:RepositoryAPI.dbo RPSLIB:ddlib.elb
 if ERRORLEVEL 1 goto RPS_LINK_ERROR
 
-del /q null.dbl
-del /q RepositoryAPI.in
-
+rem ---------------------------------------------------------------------------
 echo Building CodeGen Engine ...
 
-echo %DBG% -XTo CODEGEN_OBJ:CodeGenEngine.dbo \ > CodeGenEngine.in
-for /F %%f in ('dir /b %CODEGEN_SRC%\*.dbl') do echo %CODEGEN_SRC%\%%f \ >> CodeGenEngine.in
-echo ;Temporary file > null.dbl
-echo null.dbl >> CodeGenEngine.in
-
-dbl < CodeGenEngine.in
-if ERRORLEVEL 1 goto ENGINE_COMPILE_ERROR
-
-dblink %DBG% -l CODEGEN_EXE:CodeGenEngine.elb CODEGEN_OBJ:CodeGenEngine.dbo CODEGEN_EXE:RepositoryAPI.elb
+set SOURCEFILES=
+for /f %%f in ('dir /b %CODEGEN_SRC%\*.dbl') do call :ADDSOURCEFILE %CODEGEN_SRC% %%f
+dbl -%DBG%XTo CODEGEN_OBJ:CodeGenEngine.dbo %SOURCEFILES%
+if ERRORLEVEL 1 goto RPS_COMPILE_ERROR
+dblink -l%DBG% CODEGEN_EXE:CodeGenEngine.elb CODEGEN_OBJ:CodeGenEngine.dbo CODEGEN_EXE:RepositoryAPI.elb DBLDIR:synxml.elb
 if ERRORLEVEL 1 goto ENGINE_LINK_ERROR
 
-del /q null.dbl
-del /q CodeGenEngine.in
-
+rem ---------------------------------------------------------------------------
 echo Building CodeGen ...
 
-dbl %DBG% -XTo CODEGEN_OBJ:CodeGen.dbo MAINLINE_SRC:CodeGen.dbl
+dbl -%DBG%XTo CODEGEN_OBJ:CodeGen.dbo MAINLINE_SRC:CodeGen.dbl
 if ERRORLEVEL 1 goto CODEGEN_COMPILE_ERROR
-
-dblink %DBG% -o CODEGEN_EXE:CodeGen.dbr CODEGEN_OBJ:CodeGen.dbo
+dblink -%DBG%o CODEGEN_EXE:CodeGen.dbr CODEGEN_OBJ:CodeGen.dbo
 if ERRORLEVEL 1 goto CODEGEN_LINK_ERROR
 
+rem ---------------------------------------------------------------------------
 echo Building MapPrep ...
 
-dbl %DBG% -XTo CODEGEN_OBJ:MapPrep.dbo MAPPREP_SRC:MapPrep.dbl
+dbl -%DBG%XTo CODEGEN_OBJ:MapPrep.dbo MAPPREP_SRC:MapPrep.dbl
 if ERRORLEVEL 1 goto MAPPREP_COMPILE_ERROR
-
-dblink %DBG% -o CODEGEN_EXE:MapPrep.dbr CODEGEN_OBJ:MapPrep.dbo CODEGEN_EXE:CodeGenEngine.elb
+dblink -%DBG%o CODEGEN_EXE:MapPrep.dbr CODEGEN_OBJ:MapPrep.dbo CODEGEN_EXE:CodeGenEngine.elb
 if ERRORLEVEL 1 goto MAPPREP_LINK_ERROR
-
 echo Building RpsInfo ...
-
-dbl %DBG% -XTo CODEGEN_OBJ:RpsInfo.dbo RPSINFO_SRC:RpsInfo.dbl
+dbl -%DBG%XTo CODEGEN_OBJ:RpsInfo.dbo RPSINFO_SRC:RpsInfo.dbl
 if ERRORLEVEL 1 goto RPSINFO_COMPILE_ERROR
-
-dblink %DBG% -o CODEGEN_EXE:RpsInfo.dbr CODEGEN_OBJ:RpsInfo.dbo CODEGEN_EXE:CodeGenEngine.elb
+dblink -%DBG%o CODEGEN_EXE:RpsInfo.dbr CODEGEN_OBJ:RpsInfo.dbo CODEGEN_EXE:CodeGenEngine.elb
 if ERRORLEVEL 1 goto RPSINFO_LINK_ERROR
 
+rem ---------------------------------------------------------------------------
 echo Done!
-
 popd
 goto EXIT
 
+rem ---------------------------------------------------------------------------
+:ADDSOURCEFILE
+set SOURCEFILES=%SOURCEFILES% %1\%2
+goto :eof
+
+rem ---------------------------------------------------------------------------
 :NO_SYNERGY_32
 echo ERROR: No 32-bit Synergy/DE installation was detected!
 goto EXIT
-
 :NO_SYNERGY_64
 echo ERROR: No 64-bit Synergy/DE installation was detected!
 goto EXIT
-
 :RPS_PROTO_ERROR
 echo ERROR: Repository API prototyping failed!
 goto EXIT
-
 :RPS_COMPILE_ERROR
 echo ERROR: Repository API compile failed!
 goto EXIT
-
 :RPS_LINK_ERROR
 echo ERROR: Repository API link failed!
 goto EXIT
-
 :ENGINE_PROTO_ERROR
 echo ERROR: CodeGen Engine prototyping failed!
 goto EXIT
-
 :ENGINE_COMPILE_ERROR
 echo ERROR: CodeGen Engine compile failed!
 goto EXIT
-
 :ENGINE_LINK_ERROR
 echo ERROR: CodeGen Engine link failed!
 goto EXIT
-
 :CODEGEN_COMPILE_ERROR
 echo ERROR: CodeGen compile failed!
 goto EXIT
-
 :CODEGEN_LINK_ERROR
 echo ERROR: CodeGen link failed!
 goto EXIT
-
 :MAPPREP_COMPILE_ERROR
 echo ERROR: MapPrep compile failed!
 goto EXIT
-
 :MAPPREP_LINK_ERROR
 echo ERROR: MapPrep link failed!
 goto EXIT
-
 :RPSINFO_COMPILE_ERROR
 echo ERROR: RpsInfo compile failed!
 goto EXIT
-
 :RPSINFO_LINK_ERROR
 echo ERROR: RpsInfo link failed!
 goto EXIT
 
+rem ---------------------------------------------------------------------------
 :USAGE
 echo CodeGen Traditional Synergy build script usage:
 echo     BUILD              32-bit release mode
@@ -232,6 +211,6 @@ echo     BUILD 64           64-bit release mode
 echo     BUILD 64 DEBUG     64-bit debug mode
 goto exit
 
+rem ---------------------------------------------------------------------------
 :EXIT
-
 endlocal
