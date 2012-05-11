@@ -77,11 +77,13 @@ goto USAGE
 echo Architecture defaulting to 32-bit release mode
 
 :X86
+set BUILDMODE=32
 if not defined SYNERGYDE32 goto NO_SYNERGY_32
 call "%SYNERGYDE32%\dbl\dblvars32.bat" > nul
 goto DEBUG
 
 :X64
+set BUILDMODE=64
 if not defined SYNERGYDE64 goto NO_SYNERGY_64
 call "%SYNERGYDE64%\dbl\dblvars64.bat" > nul
 goto DEBUG
@@ -111,9 +113,9 @@ echo Building Repository API ...
 
 set SOURCEFILES=
 for /f %%f in ('dir /b %REPOSITORY_SRC%\*.dbl') do call :ADDSOURCEFILE %REPOSITORY_SRC% %%f
-dbl -%DBG%XTo CODEGEN_OBJ:RepositoryAPI.dbo %SOURCEFILES%
+dbl -%DBG%XTo CODEGEN_OBJ:repositoryapi.dbo %SOURCEFILES%
 if ERRORLEVEL 1 goto RPS_COMPILE_ERROR
-dblink -l%DBG% CODEGEN_EXE:RepositoryAPI.elb CODEGEN_OBJ:RepositoryAPI.dbo RPSLIB:ddlib.elb
+dblink -l%DBG% CODEGEN_EXE:repositoryapi.elb CODEGEN_OBJ:repositoryapi.dbo RPSLIB:ddlib.elb
 if ERRORLEVEL 1 goto RPS_LINK_ERROR
 
 rem ---------------------------------------------------------------------------
@@ -121,34 +123,61 @@ echo Building CodeGen Engine ...
 
 set SOURCEFILES=
 for /f %%f in ('dir /b %CODEGEN_SRC%\*.dbl') do call :ADDSOURCEFILE %CODEGEN_SRC% %%f
-dbl -%DBG%XTo CODEGEN_OBJ:CodeGenEngine.dbo %SOURCEFILES%
+dbl -%DBG%XTo CODEGEN_OBJ:codegenengine.dbo %SOURCEFILES%
 if ERRORLEVEL 1 goto RPS_COMPILE_ERROR
-dblink -l%DBG% CODEGEN_EXE:CodeGenEngine.elb CODEGEN_OBJ:CodeGenEngine.dbo CODEGEN_EXE:RepositoryAPI.elb DBLDIR:synxml.elb
+dblink -l%DBG% CODEGEN_EXE:codegenengine.elb CODEGEN_OBJ:codegenengine.dbo CODEGEN_EXE:repositoryapi.elb DBLDIR:synxml.elb
 if ERRORLEVEL 1 goto ENGINE_LINK_ERROR
 
 rem ---------------------------------------------------------------------------
 echo Building CodeGen ...
 
-dbl -%DBG%XTo CODEGEN_OBJ:CodeGen.dbo MAINLINE_SRC:CodeGen.dbl
+dbl -%DBG%XTo CODEGEN_OBJ:codegen.dbo MAINLINE_SRC:CodeGen.dbl
 if ERRORLEVEL 1 goto CODEGEN_COMPILE_ERROR
-dblink -%DBG%o CODEGEN_EXE:CodeGen.dbr CODEGEN_OBJ:CodeGen.dbo
+dblink -%DBG%o CODEGEN_EXE:codegen.dbr CODEGEN_OBJ:codegen.dbo CODEGEN_EXE:codegenengine.elb
 if ERRORLEVEL 1 goto CODEGEN_LINK_ERROR
 
 rem ---------------------------------------------------------------------------
 echo Building MapPrep ...
 
-dbl -%DBG%XTo CODEGEN_OBJ:MapPrep.dbo MAPPREP_SRC:MapPrep.dbl
+dbl -%DBG%XTo CODEGEN_OBJ:mapprep.dbo MAPPREP_SRC:MapPrep.dbl
 if ERRORLEVEL 1 goto MAPPREP_COMPILE_ERROR
-dblink -%DBG%o CODEGEN_EXE:MapPrep.dbr CODEGEN_OBJ:MapPrep.dbo CODEGEN_EXE:CodeGenEngine.elb
+dblink -%DBG%o CODEGEN_EXE:mapprep.dbr CODEGEN_OBJ:mapprep.dbo CODEGEN_EXE:codegenengine.elb
 if ERRORLEVEL 1 goto MAPPREP_LINK_ERROR
+
+rem ---------------------------------------------------------------------------
 echo Building RpsInfo ...
-dbl -%DBG%XTo CODEGEN_OBJ:RpsInfo.dbo RPSINFO_SRC:RpsInfo.dbl
+
+dbl -%DBG%XTo CODEGEN_OBJ:rpsinfo.dbo RPSINFO_SRC:RpsInfo.dbl
 if ERRORLEVEL 1 goto RPSINFO_COMPILE_ERROR
-dblink -%DBG%o CODEGEN_EXE:RpsInfo.dbr CODEGEN_OBJ:RpsInfo.dbo CODEGEN_EXE:CodeGenEngine.elb
+dblink -%DBG%o CODEGEN_EXE:rpsinfo.dbr CODEGEN_OBJ:rpsinfo.dbo CODEGEN_EXE:codegenengine.elb
 if ERRORLEVEL 1 goto RPSINFO_LINK_ERROR
 
 rem ---------------------------------------------------------------------------
-echo Done!
+echo Checking batch files ...
+
+if exist "%CODEGEN_EXE%\setenv.bat"   del /q "%CODEGEN_EXE%\setenv.bat"
+if exist "%CODEGEN_EXE%\codegen.bat"  del /q "%CODEGEN_EXE%\codegen.bat"
+if exist "%CODEGEN_EXE%\codegend.bat" del /q "%CODEGEN_EXE%\codegend.bat"
+if exist "%CODEGEN_EXE%\mapprep.bat"  del /q "%CODEGEN_EXE%\mapprep.bat"
+if exist "%CODEGEN_EXE%\rpsinfo.bat"  del /q "%CODEGEN_EXE%\rpsinfo.bat"
+
+call :CREATE_SETENV_BAT
+call :CREATE_CODEGEN_BAT
+call :CREATE_CODEGEND_BAT
+call :CREATE_MAPPREP_BAT
+call :CREATE_RPSINFO_BAT
+
+rem ---------------------------------------------------------------------------
+echo Verifying documentation is present ...
+
+if not exist "%CODEGEN_EXE%\CodeGen.chm" copy "%ROOT%..\..\Documentation\CodeGen.chm" "%CODEGEN_EXE%"
+
+rem ---------------------------------------------------------------------------
+echo .
+echo BUILD COMPLETE!
+echo .
+echo To use CodeGen from any command prompt, add this folder to PATH:
+echo %CODEGEN_EXE%
 popd
 goto EXIT
 
@@ -156,6 +185,58 @@ rem ---------------------------------------------------------------------------
 :ADDSOURCEFILE
 set SOURCEFILES=%SOURCEFILES% %1\%2
 goto :eof
+
+
+rem ---------------------------------------------------------------------------
+:CREATE_SETENV_BAT
+echo @echo off > "%CODEGEN_EXE%\setenv.bat"
+if "%BUILDMODE%"=="32" echo call "%CODEGEN_EXE%\synergy32.bat"  >> "%CODEGEN_EXE%\setenv.bat"
+if "%BUILDMODE%"=="64" echo call "%CODEGEN_EXE%\synergy64.bat"  >> "%CODEGEN_EXE%\setenv.bat"
+echo if not defined CODEGEN_EXE    set CODEGEN_EXE=%CODEGEN_EXE% >> "%CODEGEN_EXE%\setenv.bat"
+echo if not defined CODEGEN_TPLDIR set CODEGEN_TPLDIR=%~dp0..\..\Templates >> "%CODEGEN_EXE%\setenv.bat"
+echo if not defined CODEGEN_OUTDIR set CODEGEN_OUTDIR=. >> "%CODEGEN_EXE%\setenv.bat"
+goto :eof
+
+rem ---------------------------------------------------------------------------
+:CREATE_CODEGEN_BAT
+echo Creating codegen.bat ...
+echo @echo off > "%CODEGEN_EXE%\codegen.bat"
+echo setlocal >> "%CODEGEN_EXE%\codegen.bat"
+echo call "%CODEGEN_EXE%\setenv.bat" >> "%CODEGEN_EXE%\codegen.bat"
+echo dbs CODEGEN_EXE:CodeGen %* >> "%CODEGEN_EXE%\codegen.bat"
+echo endlocal >> "%CODEGEN_EXE%\codegen.bat"
+goto :eof
+
+rem ---------------------------------------------------------------------------
+:CREATE_CODEGEND_BAT
+echo Creating codegend.bat ...
+echo @echo off > "%CODEGEN_EXE%\codegend.bat"
+echo setlocal >> "%CODEGEN_EXE%\codegend.bat"
+echo call "%CODEGEN_EXE%\setenv.bat" >> "%CODEGEN_EXE%\codegend.bat"
+echo if not defined CODEGEN_EXE set CODEGEN_EXE=%~dp0 >> "%CODEGEN_EXE%\codegend.bat"
+echo dbr -d CODEGEN_EXE:CodeGen %* >> "%CODEGEN_EXE%\codegend.bat"
+echo endlocal >> "%CODEGEN_EXE%\codegend.bat"
+goto :eof
+
+rem ---------------------------------------------------------------------------
+:CREATE_MAPPREP_BAT
+echo creating mapprep.bat
+
+echo setlocal > "%CODEGEN_EXE%\mapprep.bat"
+echo call "%CODEGEN_EXE%\setenv.bat" >> "%CODEGEN_EXE%\mapprep.bat"
+echo @dbs CODEGEN_EXE:mapprep.dbr %* > "%CODEGEN_EXE%\mapprep.bat"
+echo endlocal >> "%CODEGEN_EXE%\mapprep.bat"
+goto:eof
+
+rem ---------------------------------------------------------------------------
+:CREATE_RPSINFO_BAT
+echo Creating rpsinfo.bat
+echo setlocal > "%CODEGEN_EXE%\rpsinfo.bat"
+echo call setenv.bat >> "%CODEGEN_EXE%\rpsinfo.bat"
+echo @dbs CODEGEN_EXE:rpsinfo.dbr %* > "%CODEGEN_EXE%\rpsinfo.bat"
+echo endlocal >> "%CODEGEN_EXE%\rpsinfo.bat"
+
+goto:eof
 
 rem ---------------------------------------------------------------------------
 :NO_SYNERGY_32

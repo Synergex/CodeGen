@@ -212,24 +212,6 @@ proc
         end
     end
 
-    .ifndef OS_VMS
-    if (!ErrStatus)
-    begin
-        ;;Check for requird files
-        try
-        begin
-            CheckFilePresent("CODEGEN_EXE:codegenengine.elb")
-            CheckFilePresent("CODEGEN_EXE:rps.elb")
-        end
-        catch (ex)
-        begin
-            writes(Tt,"ERROR: CodeGen is not correctly installed (one or more ELB's are missing)")
-            ErrStatus=1
-        end
-        endtry
-    end
-    .endc
-
     if (!ErrStatus)
     begin
         ;;Is CODEGEN_TPLDIR already set in the environment?
@@ -278,8 +260,6 @@ proc
                 xcall setlog("CODEGEN_AUTHOR",atrim(TempString),TxtLen)
                 UnsetAuthor=true
             end
-            .else
-            nop
             .endc
         end
     end
@@ -303,28 +283,9 @@ proc
                 xcall setlog("CODEGEN_COMPANY",atrim(TempString),TxtLen)
                 UnsetCompany=true
             end
-            .else
-            nop
             .endc
         end
     end
-
-    .ifndef OS_VMS
-    ;;Activate the ELB's we need
-    if (!ErrStatus)
-    begin
-        try
-        begin
-            xcall openelb("CODEGEN_EXE:codegenengine.elb")
-        end
-        catch (ex)
-        begin
-            writes(Tt,"ERROR: CodeGen is not correctly installed (Failed to open CODEGEN_EXE:codegenengine.elb)")
-            ErrStatus=1
-        end
-        endtry
-    end
-    .endc
 
     .ifdef D_GUI
     ;;End the Registry API session
@@ -337,11 +298,7 @@ proc
     begin
         close Tt
         clear Tt
-        .ifdef OS_VMS
         xcall CodeGenLauncher
-        .else
-        xcall xsubr("CodeGenLauncher")
-        .endc
     end
 
     .endc ;End of traditional Synergy processing
@@ -357,24 +314,6 @@ proc
     if (UnsetCompany)
         xcall setlog("CODEGEN_COMPANY",,TxtLen)
     .endc
-
-    xreturn
-
-endsubroutine
-
-subroutine CheckFilePresent
-
-    required in FileSpec    ,string
-    endparams
-
-    stack record
-        tmpCh   ,int
-    endrecord
-
-proc
-
-    open(tmpCh=syn_freechn(),i:s,FileSpec)
-    close tmpCh
 
     xreturn
 
