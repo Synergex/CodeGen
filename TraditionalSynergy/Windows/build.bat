@@ -222,18 +222,21 @@ rem ---------------------------------------------------------------------------
 :CREATE_MAPPREP_BAT
 echo creating mapprep.bat
 
-echo setlocal > "%CODEGEN_EXE%\mapprep.bat"
+echo @echo off > "%CODEGEN_EXE%\mapprep.bat"
+echo setlocal >> "%CODEGEN_EXE%\mapprep.bat"
 echo call "%CODEGEN_EXE%\setenv.bat" >> "%CODEGEN_EXE%\mapprep.bat"
-echo @dbs CODEGEN_EXE:mapprep.dbr %* > "%CODEGEN_EXE%\mapprep.bat"
+echo dbs CODEGEN_EXE:mapprep.dbr %* >> "%CODEGEN_EXE%\mapprep.bat"
 echo endlocal >> "%CODEGEN_EXE%\mapprep.bat"
 goto:eof
 
 rem ---------------------------------------------------------------------------
 :CREATE_RPSINFO_BAT
 echo Creating rpsinfo.bat
-echo setlocal > "%CODEGEN_EXE%\rpsinfo.bat"
+
+echo @echo off > "%CODEGEN_EXE%\rpsinfo.bat"
+echo setlocal >> "%CODEGEN_EXE%\rpsinfo.bat"
 echo call setenv.bat >> "%CODEGEN_EXE%\rpsinfo.bat"
-echo @dbs CODEGEN_EXE:rpsinfo.dbr %* > "%CODEGEN_EXE%\rpsinfo.bat"
+echo dbs CODEGEN_EXE:rpsinfo.dbr %* >> "%CODEGEN_EXE%\rpsinfo.bat"
 echo endlocal >> "%CODEGEN_EXE%\rpsinfo.bat"
 
 goto:eof
