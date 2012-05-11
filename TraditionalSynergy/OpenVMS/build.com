@@ -90,26 +90,6 @@ $ !
 $ !----------------------------------------------------------------------------
 $ RPSAPI:
 $ !
-$ ! Concatenate the partial class files
-$ !
-$ IF F$SEARCH("REPOSITORY_SRC:RpsField.dbl").NES."" .AND. F$SEARCH("REPOSITORY_SRC:RpsField_CodeGen.dbl").NES.""
-$ THEN
-$    PURGE/NOLOG/NOCONF REPOSITORY_SRC:RpsField.dbl
-$    PURGE/NOLOG/NOCONF REPOSITORY_SRC:RpsField_CodeGen.dbl
-$    RENAME REPOSITORY_SRC:RpsField.dbl REPOSITORY_SRC:RpsField.original
-$    RENAME REPOSITORY_SRC:RpsField_CodeGen.dbl REPOSITORY_SRC:RpsField_CodeGen.original
-$    COPY REPOSITORY_SRC:RpsField.original+REPOSITORY_SRC:RpsField_CodeGen.original REPOSITORY_SRC:RpsField.dbl
-$ ENDIF
-$ !
-$ IF F$SEARCH("REPOSITORY_SRC:RpsStructure.dbl").NES."" .AND. F$SEARCH("REPOSITORY_SRC:RpsStructure_CodeGen.dbl").NES.""
-$ THEN
-$    PURGE/NOLOG/NOCONF REPOSITORY_SRC:RpsStructure.dbl
-$    PURGE/NOLOG/NOCONF REPOSITORY_SRC:RpsStructure_CodeGen.dbl
-$    RENAME REPOSITORY_SRC:RpsStructure.dbl REPOSITORY_SRC:RpsStructure.original
-$    RENAME REPOSITORY_SRC:RpsStructure_CodeGen.dbl REPOSITORY_SRC:RpsStructure_CodeGen.original
-$    COPY REPOSITORY_SRC:RpsStructure.original+REPOSITORY_SRC:RpsStructure_CodeGen.original REPOSITORY_SRC:RpsStructure.dbl
-$ ENDIF
-$ !
 $ WRITE SYS$OUTPUT "Prototyping repository API ..."
 $ IF F$SEARCH("SYNEXPDIR:CODEGEN-REPOSITORYAPI-*.DBP").NES."" THEN DELETE/NOLOG/NOCONF SYNEXPDIR:CODEGEN-REPOSITORYAPI-*.DBP;*
 $ DBLPROTO REPOSITORY_SRC:*.DBL
