@@ -14,9 +14,9 @@ To build CodeGen
 
 1. Log in to an administrative account
 2. Open a BASH shell
-2. Move to the "TraditionalSynergy\Unix" folder
-3. Change the "build" script to a Unix format (dos2unix build)
-4. Execute the "build" script
+3. Move to the "TraditionalSynergy\Unix" folder
+4. Change the "build" script to a Unix format (dos2unix build)
+5. Execute the "build" script
 
 To execute CodeGen:
 
