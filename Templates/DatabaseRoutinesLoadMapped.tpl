@@ -1,14 +1,15 @@
-<CODEGEN_FILENAME><structure_name>_load.dbl</CODEGEN_FILENAME>
-<PROCESS_TEMPLATE>sql_map.tpl</PROCESS_TEMPLATE>
-<PROCESS_TEMPLATE>sql_insert_rows.tpl</PROCESS_TEMPLATE>
+<CODEGEN_FILENAME><StructureName>SqlLoad.dbl</CODEGEN_FILENAME>
+<PROCESS_TEMPLATE>DatabaseRoutines.tpl</PROCESS_TEMPLATE>
 ;//****************************************************************************
 ;//
 ;// Title:       sql_load_mapped.tpl
 ;//
 ;// Type:        CodeGen Template
 ;//
-;// Description: Template to generate a Synergy function which loads data from
-;//              a data file to a database table for a mapped structure.
+;// Description: Template to generate a Synergy functions which can be use to
+;//              load data from an ISAM file intto a database table. This
+;//              template is designed to work with MAPPED structures. For
+;//              unmapped structures use DatabaseRoutinesLoad template.
 ;//
 ;// Date:        12th March 2008
 ;//
@@ -44,7 +45,7 @@
 ;//
 ;;*****************************************************************************
 ;;
-;; Routine:     <structure_name>_load
+;; Routine:     <Structure_Name>Load
 ;;
 ;; Author:      <AUTHOR>
 ;;
@@ -64,38 +65,47 @@
 ;;  true    Table loaded
 ;;  false   Error (see a_errtxt)
 ;;
-function <structure_name>_load ,^val
+function <StructureName>Load ,^val
 
-    required in  a_dbchn    ,int        ;;Connected database channel
-    optional out a_errtxt   ,a          ;;Error text
-    optional in  a_logex    ,boolean    ;;Log exception records
-    optional in  a_terminal ,int        ;;Terminal channel to log errors on
+    required in    a_dbchn      ,int        ;;Connected database channel
+    optional out   a_errtxt     ,a          ;;Error text
+    optional in    a_logex      ,boolean    ;;Log exception records
+    optional in    a_terminal   ,int        ;;Terminal channel to log errors on
+    optional inout a_rows       ,int        ;;Rows to load / loaded
+    optional out   a_failrows   ,int        ;;Rows that failed to load
     endparams
 
     .include "CONNECTDIR:ssql.def"
-    .include "<MAPPED_STRUCTURE>" repository, stack record="<mapped_structure>"
-    .include "<STRUCTURE_NOALIAS>" repository, structure="<structure_name>"
 
     .define BUFFER_ROWS 1000
     .define EXCEPTION_BUFSZ 100
 
     stack record local_data
-        ok      ,boolean    ;;Return status
-        filechn ,int        ;;Data file channel
-        mh      ,int        ;;Memory handle containing data to insert
-        ms      ,int        ;;Size of memory buffer in rows
-        mc      ,int        ;;Memory buffer rows currently used
-        ex_mh   ,int        ;;Memory buffer for exception records
-        ex_mc   ,int        ;;Number of records in returned exception array
-        ex_ch   ,int        ;;Exception log file channel
-        cnt     ,int        ;;Loop counter
-        errtxt  ,a512       ;;Error message text
+        ok          ,boolean    ;;Return status
+        filechn     ,int        ;;Data file channel
+        mh          ,int        ;;Memory handle containing data to insert
+        ms          ,int        ;;Size of memory buffer in rows
+        mc          ,int        ;;Memory buffer rows currently used
+        ex_mh       ,int        ;;Memory buffer for exception records
+        ex_mc       ,int        ;;Number of records in returned exception array
+        ex_ch       ,int        ;;Exception log file channel
+        cnt         ,int        ;;Loop counter
+        maxrows     ,int        ;;Max rows to load (for testing)
+        goodrows    ,int        ;;Rows successfully inserted
+        failrows    ,int        ;;Rows that failed to insert
+        errtxt      ,a512       ;;Error message text
+        <mapped_structure>, str<MAPPED_STRUCTURE>
     endrecord
 
 proc
 
     init local_data
     ok = true
+
+    if (^passed(a_rows)&&a_rows) then
+        maxrows = a_rows
+    else
+        maxrows = 0
 
     ;;Open the data file associated with the mapped structure
     begin
@@ -108,19 +118,22 @@ fnf,    ok = false
 
     if (ok)
     begin
+        data rowsLoaded, int, 0
 
         ;;Allocate memory buffer for the database rows
-        mh = %mem_proc(DM_ALLOC,^size(<structure_name>)*(ms=BUFFER_ROWS))
+        mh = %mem_proc(DM_ALLOC,^size(str<STRUCTURE_NAME>)*(ms=BUFFER_ROWS))
 
         ;;Read records from the input file
         repeat
         begin
-
             ;;Get the next record from the input file
             reads(filechn,<mapped_structure>,eof)
 
+            if ((maxrows)&&((rowsLoaded+=1)>maxRows))
+                exitloop
+
             ;;Map the data into the next database record
-            xcall <structure_name>_map(<mapped_structure>,^m(<structure_name>[mc+=1],mh))
+            xcall <StructureName>Map(<mapped_structure>,(str<STRUCTURE_NAME>)^m(str<STRUCTURE_NAME>[mc+=1],mh))
 
             ;;If the buffer is full, write it to the database
             if (mc==ms)
@@ -134,7 +147,7 @@ fnf,    ok = false
 eof,    ;;Any data waiting to be written?
         if (mc)
         begin
-            mh = %mem_proc(DM_RESIZ,^size(<structure_name>)*mc,mh)
+            mh = %mem_proc(DM_RESIZ,^size(str<STRUCTURE_NAME>)*mc,mh)
             call insert_data
         end
 
@@ -151,6 +164,14 @@ eof,    ;;Any data waiting to be written?
     if (ex_ch)
         close ex_ch
 
+    ;;Return number of rows inserted
+    if (^passed(a_rows))
+        a_rows = goodrows
+
+    ;;Return number of failed rows
+    if (^passed(a_failrows))
+        a_failrows = failrows
+
     ;;Return the error text
     if (^passed(a_errtxt))
         a_errtxt = errtxt
@@ -159,10 +180,14 @@ eof,    ;;Any data waiting to be written?
 
 insert_data,
 
-    if (%<structure_name>_insert_rows(a_dbchn,mh,errtxt,ex_mh,a_terminal))
+    if (%<StructureName>InsertRows(a_dbchn,mh,errtxt,ex_mh,a_terminal))
     begin
         ;;Any exceptions?
-        if (ex_mh)
+        if (!ex_mh) then
+        begin
+            goodrows += mc
+        end
+        else
         begin
             ;;Are we logging exceptions?
             if (^passed(a_logex)&&a_logex) then
@@ -171,12 +196,15 @@ insert_data,
                 if (!ex_ch)
                     open(ex_ch=%syn_freechn,o:s,"exceptions_<structure_name>.log")
                 ;;How many exceptions to log?
-                ex_mc = (%mem_proc(DM_GETSIZE,ex_mh)/^size(<structure_name>))
+                ex_mc = (%mem_proc(DM_GETSIZE,ex_mh)/^size(str<STRUCTURE_NAME>))
                 ;Log the exceptions
                 for cnt from 1 thru ex_mc
-                    writes(ex_ch,^m(<structure_name>[cnt],ex_mh))
+                    writes(ex_ch,^m(str<STRUCTURE_NAME>[cnt],ex_mh))
                 if (^passed(a_terminal)&&a_terminal)
                     writes(a_terminal,"Exceptions were logged to exceptions_<structure_name>.log")
+                ;;Update the lobal counters
+                goodrows += (mc-ex_mc)
+                failrows += ex_mc
             end
             else
             begin
@@ -193,4 +221,75 @@ insert_data,
     return
 
 endfunction
+
+;;*****************************************************************************
+;;
+;; Routine:     <StructureName>Map
+;;
+;; Author:      <AUTHOR>
+;;
+;; Company:     <COMPANY>
+;;
+;; Created:     <DATE> at <TIME>
+;;
+;;*****************************************************************************
+;;
+;; WARNING:     This code was generated by <CODEGEN_VERSION>.  Any changes that
+;;              you make to this file will be lost if the code is regenerated.
+;;
+;;*****************************************************************************
+;;
+subroutine <StructureName>Map
+
+    required in  <mapped_structure>, str<MAPPED_STRUCTURE>
+    required out <structure_name>, str<STRUCTURE_NAME>
+    endparams
+
+proc
+
+    ;;Store the record
+    <FIELD_LOOP>
+    <field_path> = <mapped_path_conv>
+    </FIELD_LOOP>
+
+    xreturn
+
+endsubroutine
+
+;;*****************************************************************************
+;;
+;; Routine:     <StructureName>Unmap
+;;
+;; Author:      <AUTHOR>
+;;
+;; Company:     <COMPANY>
+;;
+;; Created:     <DATE> at <TIME>
+;;
+;;*****************************************************************************
+;;
+;; WARNING:     This code was generated by <CODEGEN_VERSION>.  Any changes that
+;;              you make to this file will be lost if the code is regenerated.
+;;
+;;*****************************************************************************
+;;
+subroutine <StructureName>Unmap
+
+    required in  <structure_name>, str<STRUCTURE_NAME>
+    required out <mapped_structure>, str<MAPPED_STRUCTURE>
+    endparams
+
+proc
+
+    ;;Store the record
+    <FIELD_LOOP>
+    <mapped_path> = <field_path_conv>
+    </FIELD_LOOP>
+
+    xreturn
+
+endsubroutine
+
+.include "<STRUCTURE_NOALIAS>" repository, structure="str<STRUCTURE_NAME>", end
+.include "<MAPPED_STRUCTURE>" repository, structure="str<MAPPED_STRUCTURE>", end
 

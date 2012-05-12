@@ -1,11 +1,13 @@
-<CODEGEN_FILENAME><structure_name>_load.dbl</CODEGEN_FILENAME>
-<PROCESS_TEMPLATE>sql_insert_rows.tpl</PROCESS_TEMPLATE>
+<CODEGEN_FILENAME><StructureName>SqlLoad.dbl</CODEGEN_FILENAME>
+<PROCESS_TEMPLATE>DatabaseRoutines.tpl</PROCESS_TEMPLATE>
 ;//****************************************************************************
 ;//
-;// Title:       sql_load_unmapped.tpl
+;// Title:       DatabaseRoutinesLoad.tpl
 ;//
-;// Description: Template to generate a Synergy function which loads data from
-;//              a data file to a database table for an unmapped structure.
+;// Description: Template to generate a Synergy functions which can be use to
+;//              load data from an ISAM file intto a database table. This
+;//              template is designed to work with UNMAPPED structures. For
+;//              mapped structures use the DatabaseRoutinesLoadMapped template.
 ;//
 ;// Date:        12th March 2008
 ;//
@@ -41,7 +43,7 @@
 ;//
 ;;*****************************************************************************
 ;;
-;; Routine:     <structure_name>_load
+;; Routine:     <StructureName>Load
 ;;
 ;; Author:      <AUTHOR>
 ;;
@@ -61,12 +63,14 @@
 ;;  true    Table loaded
 ;;  false   Error (see a_errtxt)
 ;;
-function <structure_name>_load ,^val
+function <StructureName>Load ,^val
 
-    required in  a_dbchn    ,int        ;;Connected database channel
-    optional out a_errtxt   ,a          ;;Error text
-    optional in  a_logex    , boolean   ;;Log exception records
-    optional in  a_terminal ,int        ;;Terminal channel to log errors on
+    required in    a_dbchn      ,int        ;;Connected database channel
+    optional out   a_errtxt     ,a          ;;Error text
+    optional in    a_logex      ,boolean    ;;Log exception records
+    optional in    a_terminal   ,int        ;;Terminal channel to log errors on
+    optional inout a_rows       ,int        ;;Rows to load / loaded
+    optional out   a_failrows   ,int        ;;Rows that failed to load
     endparams
 
     .include "CONNECTDIR:ssql.def"
@@ -76,22 +80,30 @@ function <structure_name>_load ,^val
     .define EXCEPTION_BUFSZ 100
 
     stack record local_data
-        ok      ,boolean    ;;Return status
-        filechn ,int        ;;Data file channel
-        mh      ,int        ;;Memory handle containing data to insert
-        ms      ,int        ;;Size of memory buffer in rows
-        mc      ,int        ;;Memory buffer rows currently used
-        ex_mh   ,int        ;;Memory buffer for exception records
-        ex_mc   ,int        ;;Number of records in returned exception array
-        ex_ch   ,int        ;;Exception log file channel
-        cnt     ,int        ;;Loop counter
-        errtxt  ,a512       ;;Error message text
+        ok          ,boolean    ;;Return status
+        filechn     ,int        ;;Data file channel
+        mh          ,int        ;;Memory handle containing data to insert
+        ms          ,int        ;;Size of memory buffer in rows
+        mc          ,int        ;;Memory buffer rows currently used
+        ex_mh       ,int        ;;Memory buffer for exception records
+        ex_mc       ,int        ;;Number of records in returned exception array
+        ex_ch       ,int        ;;Exception log file channel
+        cnt         ,int        ;;Loop counter
+        maxrows     ,int        ;;Max rows to load (for testing)
+        goodrows    ,int        ;;Rows successfully inserted
+        failrows    ,int        ;;Rows that failed to insert
+        errtxt      ,a512       ;;Error message text
     endrecord
 
 proc
 
     init local_data
     ok = true
+
+    if (^passed(a_rows)&&a_rows) then
+        maxrows = a_rows
+    else
+        maxrows = 0
 
     ;;Open the data file associated with the structure
     begin
@@ -104,6 +116,7 @@ fnf,    ok = false
 
     if (ok)
     begin
+        data rowsLoaded, int, 0
 
         ;;Allocate memory buffer for the database rows
         mh = %mem_proc(DM_ALLOC,^size(<structure_name>)*(ms=BUFFER_ROWS))
@@ -111,9 +124,11 @@ fnf,    ok = false
         ;;Read records from the input file
         repeat
         begin
-
             ;;Get the next record from the input file
             reads(filechn,^m(<structure_name>[mc+=1],mh),eof)
+
+            if ((maxrows)&&((rowsLoaded+=1)>maxRows))
+                exitloop
 
             ;;If the buffer is full, write it to the database
             if (mc==ms)
@@ -121,13 +136,12 @@ fnf,    ok = false
 
             if (!ok)
                 exitloop
-
         end
 
 eof,    ;;Any data waiting to be written?
         if (mc)
         begin
-            mh = %mem_proc(DM_RESIZ,^size(<structure_name>)*mc-1,mh)
+            mh = %mem_proc(DM_RESIZ,^size(<structure_name>)*mc-=1,mh)
             call insert_data
         end
 
@@ -144,6 +158,14 @@ eof,    ;;Any data waiting to be written?
     if (ex_ch)
         close ex_ch
 
+    ;;Return number of rows inserted
+    if (^passed(a_rows))
+        a_rows = goodrows
+
+    ;;Return number of failed rows
+    if (^passed(a_failrows))
+        a_failrows = failrows
+
     ;;Return the error text
     if (^passed(a_errtxt))
         a_errtxt = errtxt
@@ -152,10 +174,14 @@ eof,    ;;Any data waiting to be written?
 
 insert_data,
 
-    if (%<structure_name>_insert_rows(a_dbchn,mh,errtxt,ex_mh,a_terminal))
+    if (%<StructureName>InsertRows(a_dbchn,mh,errtxt,ex_mh,a_terminal))
     begin
         ;;Any exceptions?
-        if (ex_mh)
+        if (!ex_mh) then
+        begin
+            goodrows += mc
+        end
+        else
         begin
             ;;Are we logging exceptions?
             if (^passed(a_logex)&&a_logex) then
@@ -170,6 +196,9 @@ insert_data,
                     writes(ex_ch,^m(<structure_name>[cnt],ex_mh))
                 if (^passed(a_terminal)&&a_terminal)
                     writes(a_terminal,"Exceptions were logged to exceptions_<structure_name>.log")
+                ;;Update the lobal counters
+                goodrows += (mc-ex_mc)
+                failrows += ex_mc
             end
             else
             begin
