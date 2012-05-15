@@ -103,7 +103,7 @@ namespace <NAMESPACE>
         ;;; <summary>
         ;;; Constructor
         ;;; </summary>
-        ;;; <param name="aDb">DatabaseConnection object</returns>
+        ;;; <param name="aDb">DatabaseConnection object</param>
         public method <StructureName>Table
             required in aDb, @DatabaseConnection
             endparams
