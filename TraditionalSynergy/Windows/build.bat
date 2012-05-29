@@ -57,6 +57,7 @@ echo Configuring environment ...
 set REPOSITORY_SRC=%ROOT%..\..\RepositoryAPI
 set CODEGEN_SRC=%ROOT%..\..\CodeGenEngine
 set MAINLINE_SRC=%ROOT%..\..\CodeGen
+set CREATEFILE_SRC=%ROOT%..\..\CreateFile
 set MAPPREP_SRC=%ROOT%..\..\MapPrep
 set RPSINFO_SRC=%ROOT%..\..\RpsInfo
 set CODEGEN_OBJ=%ROOT%obj
@@ -137,6 +138,14 @@ dblink -%DBG%o CODEGEN_EXE:codegen.dbr CODEGEN_OBJ:codegen.dbo CODEGEN_EXE:codeg
 if ERRORLEVEL 1 goto CODEGEN_LINK_ERROR
 
 rem ---------------------------------------------------------------------------
+echo Building CreateFile ...
+
+dbl -%DBG%XTo CODEGEN_OBJ:createfile.dbo CREATEFILE_SRC:CreateFile.dbl
+if ERRORLEVEL 1 goto CREATEFILE_COMPILE_ERROR
+dblink -%DBG%o CODEGEN_EXE:createfile.dbr CODEGEN_OBJ:createfile.dbo CODEGEN_EXE:codegenengine.elb
+if ERRORLEVEL 1 goto CREATEFILE_LINK_ERROR
+
+rem ---------------------------------------------------------------------------
 echo Building MapPrep ...
 
 dbl -%DBG%XTo CODEGEN_OBJ:mapprep.dbo MAPPREP_SRC:MapPrep.dbl
@@ -164,6 +173,7 @@ if exist "%CODEGEN_EXE%\rpsinfo.bat"  del /q "%CODEGEN_EXE%\rpsinfo.bat"
 call :CREATE_SETENV_BAT
 call :CREATE_CODEGEN_BAT
 call :CREATE_CODEGEND_BAT
+call :CREATE_CREATEFILE_BAT
 call :CREATE_MAPPREP_BAT
 call :CREATE_RPSINFO_BAT
 
@@ -203,7 +213,7 @@ echo Creating codegen.bat ...
 echo @echo off>"%CODEGEN_EXE%\codegen.bat"
 echo setlocal>>"%CODEGEN_EXE%\codegen.bat"
 echo call "%CODEGEN_EXE%\setenv.bat">>"%CODEGEN_EXE%\codegen.bat"
-echo dbs CODEGEN_EXE:CodeGen %*>>"%CODEGEN_EXE%\codegen.bat"
+echo dbs CODEGEN_EXE:CodeGen %%*>>"%CODEGEN_EXE%\codegen.bat"
 echo endlocal>>"%CODEGEN_EXE%\codegen.bat"
 goto :eof
 
@@ -214,18 +224,29 @@ echo @echo off>"%CODEGEN_EXE%\codegend.bat"
 echo setlocal>>"%CODEGEN_EXE%\codegend.bat"
 echo call "%CODEGEN_EXE%\setenv.bat">>"%CODEGEN_EXE%\codegend.bat"
 echo if not defined CODEGEN_EXE set CODEGEN_EXE=%~dp0>>"%CODEGEN_EXE%\codegend.bat"
-echo dbr -d CODEGEN_EXE:CodeGen %*>>"%CODEGEN_EXE%\codegend.bat"
+echo dbr -d CODEGEN_EXE:CodeGen %%*>>"%CODEGEN_EXE%\codegend.bat"
 echo endlocal>>"%CODEGEN_EXE%\codegend.bat"
 goto :eof
 
 rem ---------------------------------------------------------------------------
+:CREATE_CREATEFILE_BAT
+echo Creating createfile.bat
+
+echo @echo off>"%CODEGEN_EXE%\createfile.bat"
+echo setlocal>>"%CODEGEN_EXE%\createfile.bat"
+echo call "%CODEGEN_EXE%\setenv.bat">>"%CODEGEN_EXE%\createfile.bat"
+echo dbs CODEGEN_EXE:createfile.dbr %%*>>"%CODEGEN_EXE%\createfile.bat"
+echo endlocal>>"%CODEGEN_EXE%\createfile.bat"
+goto:eof
+
+rem ---------------------------------------------------------------------------
 :CREATE_MAPPREP_BAT
-echo creating mapprep.bat
+echo Creating mapprep.bat
 
 echo @echo off>"%CODEGEN_EXE%\mapprep.bat"
 echo setlocal>>"%CODEGEN_EXE%\mapprep.bat"
 echo call "%CODEGEN_EXE%\setenv.bat">>"%CODEGEN_EXE%\mapprep.bat"
-echo dbs CODEGEN_EXE:mapprep.dbr %*>>"%CODEGEN_EXE%\mapprep.bat"
+echo dbs CODEGEN_EXE:mapprep.dbr %%*>>"%CODEGEN_EXE%\mapprep.bat"
 echo endlocal>>"%CODEGEN_EXE%\mapprep.bat"
 goto:eof
 
@@ -236,7 +257,7 @@ echo Creating rpsinfo.bat
 echo @echo off>"%CODEGEN_EXE%\rpsinfo.bat"
 echo setlocal>>"%CODEGEN_EXE%\rpsinfo.bat"
 echo call setenv.bat>>"%CODEGEN_EXE%\rpsinfo.bat"
-echo dbs CODEGEN_EXE:rpsinfo.dbr %*>>"%CODEGEN_EXE%\rpsinfo.bat"
+echo dbs CODEGEN_EXE:rpsinfo.dbr %%*>>"%CODEGEN_EXE%\rpsinfo.bat"
 echo endlocal>>"%CODEGEN_EXE%\rpsinfo.bat"
 
 goto:eof
@@ -271,6 +292,12 @@ echo ERROR: CodeGen compile failed!
 goto EXIT
 :CODEGEN_LINK_ERROR
 echo ERROR: CodeGen link failed!
+goto EXIT
+:CREATEFILE_COMPILE_ERROR
+echo ERROR: CreateFile compile failed!
+goto EXIT
+:CREATEFILE_LINK_ERROR
+echo ERROR: CreateFile link failed!
 goto EXIT
 :MAPPREP_COMPILE_ERROR
 echo ERROR: MapPrep compile failed!

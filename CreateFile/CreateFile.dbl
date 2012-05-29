@@ -1,0 +1,272 @@
+;;*****************************************************************************
+;;
+;; Title:       CreateFile.dbl
+;;
+;; Type:        Program
+;;
+;; Description: Create data files from repository definitions.
+;;
+;; Date:        3rd April 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CreateFile
+	
+	;;; <summary>
+	;;; The main entry point for the application.
+	;;; </summary>
+	main CreateFile
+	
+		.define APP_NAME        "CreateFile"
+		.define APP_VERSION     "V1.0"
+	
+		.include "RPSLIB:ddinfo.def"
+	
+		record
+			tt					,i4			;;Terminal channel
+			ok                  ,i4
+			status              ,i4
+			strcount            ,d4         ;Number of structures in repository
+			strnames            ,i4         ;Dynamic memory array of structure names
+			count               ,i4         ;Loop counter
+			strname             ,[1]a30     ;Structure to process
+			filespec            ,[1]a255    ;File to create
+			filecreated         ,a255       ;File created
+			errtxt              ,a60        ;Error text
+			replace             ,d1         ;Replace existing files?
+			verbose             ,d1         ;Verbose mode
+			rpsopen             ,d1         ;Is the repository open?
+		endrecord
+		
+		structure struct
+			,a30
+		endstructure
+		
+	proc
+		
+		ok=TRUE
+		open(tt=0,i,"tt:")
+		xcall flags(7004000,1)
+		xcall flags(20,0)
+		
+		;---------------------------------------------------------------------------
+		;Are we being asked for usage information?
+		
+		if (CommandLine("h ") || CommandLine("?"))
+		begin
+			call usage
+			ok = false
+		end
+		
+		;---------------------------------------------------------------------------
+		;Make sure we have a structure specification
+		
+		if (ok)
+		begin
+			if (CommandLine("s ",1,strname)) then
+			begin
+				if (!strname[1])
+				begin
+					writes(tt,"No structure name specified following -s. Use -h for help.")
+					ok=FALSE
+				end
+			end
+			else
+			begin
+				writes(tt,"No structure name specified. Use -s, or -h for help.")
+				ok=FALSE
+			end
+		end
+		
+		;---------------------------------------------------------------------------
+		;Check for a filespec option
+		
+		if (ok)
+		begin
+			if (CommandLine("f",1,filespec))
+			begin
+				if (filespec[1]&&strname[1]=="*")
+				begin
+					writes(tt,"Invalid options.  -s * and -f can't be used together!")
+					ok = FALSE
+				end
+			end
+		end
+		
+		;---------------------------------------------------------------------------
+		;Check for "replace existing files" option
+		
+		if (ok)
+		begin
+			if (CommandLine("r"))
+				replace=TRUE
+		end
+		
+		;---------------------------------------------------------------------------
+		;Check for "verbose" option
+		
+		if (ok)
+		begin
+			if (CommandLine("v"))
+				verbose=TRUE
+		end
+		
+		;---------------------------------------------------------------------------
+		;Open the repository
+		
+		if (ok)
+		begin
+			xcall dd_init(dcs)
+			if (dcs.error) then
+			begin
+				writes(tt,"Failed to open repository!")
+				ok=FALSE
+			end
+			else
+				rpsopen=TRUE
+		end
+		
+		;---------------------------------------------------------------------------
+		;If the user requested all structures, get a list of them
+		
+		if (ok&&strname[1]=="*")
+		begin
+			;Get number of structures
+			xcall dd_name(dcs,DDN_COUNT,DDN_STRUCT,strcount)
+			if (dcs.error) then
+			begin
+				writes(tt,"Failed to get repository structure count!")
+				ok=FALSE
+			end
+			else
+			begin
+				;Make sure we have at least one structure
+				if (!strcount)
+				begin
+					writes(tt,"Repository contains no structures!")
+					ok=FALSE
+				end
+			end
+			
+			;Allocate memory and get the names of the structures
+			if (ok)
+			begin
+				strnames = %mem_proc(DM_ALLOC+DM_BLANK,^size(struct)*strcount)
+				xcall dd_name(dcs,DDN_LIST,DDN_STRUCT,strcount,^m(struct[1],strnames))
+				if (dcs.error)
+				begin
+					writes(tt,"Failed to get repository structure names!")
+					ok=FALSE
+				end
+			end
+			
+		end
+		
+		;---------------------------------------------------------------------------
+		;Create the file(s)
+		
+		if (ok)
+		begin
+			if (!strcount) then
+			begin
+				;Single file
+				if (%RpsCreateFile(dcs,strname[1],replace,filespec[1],filecreated,errtxt)==RpsCreateFileResult.Success) then
+					writes(tt,%atrim(filecreated) + " -> " + %atrim(errtxt))
+				else
+					writes(tt,%atrim(errtxt))
+			end
+			else
+			begin
+				;Multiple files
+				for count from 1 thru strcount
+				begin
+					if (%RpsCreateFile(dcs,^m(struct[count],strnames),replace,filespec[1],filecreated,errtxt))
+						nop
+					if (verbose) then
+					begin
+						writes(tt,"")
+						writes(tt,"Structure: " + %atrim(^m(struct[count],strnames)))
+						if (filecreated)
+							writes(tt,"File:      " + %atrim(filecreated))
+						writes(tt,"Result:    " + %atrim(errtxt))
+					end
+					else
+						writes(tt,^m(struct[count],strnames) + " " + %atrim(errtxt))
+				end
+			end
+		end
+		
+		;---------------------------------------------------------------------------
+		;Clean up and exit
+		
+		if (strnames)
+			strnames = %mem_proc(DM_FREE,strnames)
+			
+		if (rpsopen)
+			xcall dd_exit(dcs)
+			
+		close tt
+		stop
+		
+	usage,
+		
+		writes(tt,"")
+		writes(tt,APP_NAME + " " + APP_VERSION)
+		
+		;Limit for text    -------------------------------------------------------------------------------
+		writes(tt,"")
+		writes(tt,"  CreateFile [-s structure | *] [-f filespec] [-r] [-h|?]")
+		writes(tt,"")
+		writes(tt,"    -f    Specification of file to create. This will override the file spec in")
+		writes(tt,"          the repository.")
+		writes(tt,"")
+		writes(tt,"    -h    Display this usage information.")
+		writes(tt,"")
+		writes(tt,"    -r    Replace existing files. The default is not to replace existing files.")
+		writes(tt,"")
+		writes(tt,"    -s    The name of the repository structure to process.")
+		writes(tt,"")
+		writes(tt,"    -v    Verbose mode.  Displays additional information during processing.")
+		writes(tt,"")
+		writes(tt,"    -?    Display this usage information.")
+		writes(tt,"")
+		
+		return
+		
+	endmain
+
+endnamespace
+
