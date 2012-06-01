@@ -866,7 +866,278 @@ namespace CodeGen.Engine
                 Log("No Repository structure processing",false,false)
         end
 
-        ;;-------------------------------------------------------------------------
+		;;-------------------------------------------------------------------------
+		;;Do we have any custom token processors?
+		
+		if (!ErrStatus)
+		begin
+			data customFileSpec, a256
+			data tmpLen, i4
+			data libraries, @ArrayList
+			data loadCustomTokens, Boolean, false
+			
+			;;Setup a file spec to locate custom token processor extensions
+			xcall getlog("CODEGEN_EXE",customFileSpec,tmpLen)
+			.ifdef DBLNET
+			if (customFileSpec(%trim(customFileSpec):1)!="\")
+				customFileSpec = %atrim(customFileSpec) + "\"
+			customFileSpec = %atrim(customFileSpec) + "custom*.dll"
+			.else
+			.ifdef D_GUI
+			if (customFileSpec(%trim(customFileSpec):1)!="\")
+				customFileSpec = %atrim(customFileSpec) + "\"
+			customFileSpec = %atrim(customFileSpec) + "custom*.elb"
+			.endc
+			.ifdef OS_UNIX
+			if (customFileSpec(%trim(customFileSpec):1)!="/")
+				customFileSpec = %atrim(customFileSpec) + "/"
+			customFileSpec = %atrim(customFileSpec) + "custom*.elb"
+			.endc
+			.ifdef OS_VMS
+			customFileSpec = %atrim(customFileSpec) + "custom*.exe"
+			.endc
+			.endc
+			
+			;;Search for and open custom token processor extensions
+			DebugLog("Checking for custom tokens (" + %atrim(customFileSpec) + ")",true,false)
+			if (WinDir(customFileSpec,libraries,WinDirCase.NoChange))
+			begin
+				data file, @a
+				foreach file in libraries
+				begin
+					data libSpec, String, "CODEGEN_EXE:"+(a)file
+					try
+					begin
+						DebugLog(" - Activating " + libSpec,false,false)
+						xcall openelb(libSpec)
+						loadCustomTokens = true
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to open custom token library " + libSpec)
+					end
+					endtry
+				end
+				
+			end
+			
+			;;Load any custom token processor extensions
+			if (loadCustomTokens)
+			begin
+				data address, D_ADDR
+				
+				;;Look for custom generic tokens
+				address = %xaddr("LoadCustomTokens",,1)
+				if (address)
+				begin
+					try
+					begin
+						xcall xsubr(address)
+						if (Env.CustomTokens.Count>0)
+						begin
+							data customToken, @CustomTokenProcessor
+							DebugLog(" - Custom generic tokens have been loaded:",false,false)
+							foreach customToken in Env.CustomTokens
+								DebugLog("   " + customToken.Token,false,false)
+						end
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to load custom generic tokens. LoadCustomTokens() failed!")
+						ErrStatus = 1
+					end
+					endtry
+				end
+				
+				;;Look for custom field loop tokens
+				address = %xaddr("LoadCustomFieldTokens",,1)
+				if (address)
+				begin
+					try
+					begin
+						xcall xsubr(address)
+						if (Env.CustomFieldTokens.Count>0)
+						begin
+							data customToken, @CustomFieldTokenProcessor
+							DebugLog(" - Custom field loop tokens have been loaded:",false,false)
+							foreach customToken in Env.CustomFieldTokens
+								DebugLog("   " + customToken.Token,false,false)
+						end
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to load custom field loop tokens. LoadCustomFieldTokens() failed!")
+						ErrStatus = 1
+					end
+					endtry
+				end
+				
+				;;Look for custom field selection loop tokens
+				address = %xaddr("LoadCustomSelectionTokens",,1)
+				if (address)
+				begin
+					try
+					begin
+						xcall xsubr(address)
+						if (Env.CustomSelectionTokens.Count>0)
+						begin
+							data customToken, @CustomSelectionTokenProcessor
+							DebugLog(" - Custom field selection loop tokens have been loaded:",false,false)
+							foreach customToken in Env.CustomSelectionTokens
+								DebugLog(" - " + customToken.Token,false,false)
+						end
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to load custom field selection loop tokens. LoadCustomSelectionTokens() failed!")
+						ErrStatus = 1
+					end
+					endtry
+				end
+				
+				;;Look for custom enum loop tokens
+				address = %xaddr("LoadCustomEnumTokens",,1)
+				if (address)
+				begin
+					try
+					begin
+						xcall xsubr(address)
+						if (Env.CustomEnumTokens.Count>0)
+						begin
+							data customToken, @CustomEnumTokenProcessor
+							DebugLog(" - Custom enum loop tokens have been loaded:",false,false)
+							foreach customToken in Env.CustomEnumTokens
+								DebugLog("   " + customToken.Token,false,false)
+						end
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to load custom enum loop tokens. LoadCustomEnumTokens() failed!")
+						ErrStatus = 1
+					end
+					endtry
+				end
+				
+				;;Look for custom enum member loop tokens
+				address = %xaddr("LoadCustomEnumMemberTokens",,1)
+				if (address)
+				begin
+					try
+					begin
+						xcall xsubr(address)
+						if (Env.CustomEnumMemberTokens.Count>0)
+						begin
+							data customToken, @CustomEnumMemberTokenProcessor
+							DebugLog(" - Custom enum member loop tokens have been loaded:",false,false)
+							foreach customToken in Env.CustomEnumMemberTokens
+								DebugLog("   " + customToken.Token,false,false)
+						end
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to load custom enum member loop tokens. LoadCustomEnumMemberTokens() failed!")
+						ErrStatus = 1
+					end
+					endtry
+				end
+				
+				;;Look for custom key loop tokens
+				address = %xaddr("LoadCustomKeyTokens",,1)
+				if (address)
+				begin
+					try
+					begin
+						xcall xsubr(address)
+						if (Env.CustomKeyTokens.Count>0)
+						begin
+							data customToken, @CustomKeyTokenProcessor
+							DebugLog(" - Custom key loop tokens have been loaded:",false,false)
+							foreach customToken in Env.CustomKeyTokens
+								DebugLog("   " + customToken.Token,false,false)
+						end
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to load custom key loop tokens. LoadCustomKeyTokens() failed!")
+						ErrStatus = 1
+					end
+					endtry
+				end
+				
+				;;Look for custom key segment loop tokens
+				address = %xaddr("LoadCustomSegmentTokens",,1)
+				if (address)
+				begin
+					try
+					begin
+						xcall xsubr(address)
+						if (Env.CustomSegmentTokens.Count>0)
+						begin
+							data customToken, @CustomSegmentTokenProcessor
+							DebugLog(" - Custom key segment loop tokens have been loaded:",false,false)
+							foreach customToken in Env.CustomSegmentTokens
+								DebugLog("   " + customToken.Token,false,false)
+						end
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to load custom key segment loop tokens. LoadCustomSegmentTokens() failed!")
+						ErrStatus = 1
+					end
+					endtry
+				end
+				
+				;;Look for custom relation loop tokens
+				address = %xaddr("LoadCustomRelationTokens",,1)
+				if (address)
+				begin
+					try
+					begin
+						xcall xsubr(address)
+						if (Env.CustomRelationTokens.Count>0)
+						begin
+							data customToken, @CustomRelationTokenProcessor
+							DebugLog(" - Custom relation loop tokens have been loaded:",false,false)
+							foreach customToken in Env.CustomRelationTokens
+								DebugLog("   " + customToken.Token,false,false)
+						end
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to load custom relation loop tokens. LoadCustomRelationTokens() failed!")
+						ErrStatus = 1
+					end
+					endtry
+				end
+				
+				;;Look for custom button loop tokens
+				address = %xaddr("LoadCustomButtonTokens",,1)
+				if (address)
+				begin
+					try
+					begin
+						xcall xsubr(address)
+						if (Env.CustomButtonTokens.Count>0)
+						begin
+							data customToken, @CustomButtonTokenProcessor
+							DebugLog(" - Custom button loop tokens have been loaded:",false,false)
+							foreach customToken in Env.CustomButtonTokens
+								DebugLog("   " + customToken.Token,false,false)
+						end
+					end
+					catch (e, @Exception)
+					begin
+						ErrorLog("Failed to load custom button loop tokens. LoadCustomButtonTokens() failed!")
+						ErrStatus = 1
+					end
+					endtry
+				end
+				
+			end
+			
+		end
+		
+		;;-------------------------------------------------------------------------
         ;;Are we being asked to process a user defined token file?
 
         if (!ErrStatus)

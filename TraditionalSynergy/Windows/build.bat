@@ -56,6 +56,7 @@ echo Configuring environment ...
 
 set REPOSITORY_SRC=%ROOT%..\..\RepositoryAPI
 set CODEGEN_SRC=%ROOT%..\..\CodeGenEngine
+set CUSTOM_SRC=%ROOT%..\..\CustomTokenExample
 set MAINLINE_SRC=%ROOT%..\..\CodeGen
 set CREATEFILE_SRC=%ROOT%..\..\CreateFile
 set MAPPREP_SRC=%ROOT%..\..\MapPrep
@@ -108,6 +109,9 @@ if ERRORLEVEL 1 goto RPS_PROTO_ERROR
 echo Prototyping CodeGen Engine ...
 dblproto %CODEGEN_SRC%\*.dbl
 if ERRORLEVEL 1 goto ENGINE_PROTO_ERROR
+rem echo Prototyping CustomTokenExample ...
+rem dblproto %CUSTOM_SRC%\*.dbl
+rem if ERRORLEVEL 1 goto CUSTOM_PROTO_ERROR
 
 rem ---------------------------------------------------------------------------
 echo Building Repository API ...
@@ -130,13 +134,23 @@ dblink -l%DBG% CODEGEN_EXE:codegenengine.elb CODEGEN_OBJ:codegenengine.dbo CODEG
 if ERRORLEVEL 1 goto ENGINE_LINK_ERROR
 
 rem ---------------------------------------------------------------------------
+rem echo Building CustomTokenExample ...
+
+rem set SOURCEFILES=
+rem for /f %%f in ('dir /b %CUSTOM_SRC%\*.dbl') do call :ADDSOURCEFILE %CUSTOM_SRC% %%f
+rem dbl -%DBG%XTo CODEGEN_OBJ:customtokens.dbo %SOURCEFILES%
+rem if ERRORLEVEL 1 goto CUSTOM_COMPILE_ERROR
+rem dblink -l%DBG% CODEGEN_EXE:customtokens.elb CODEGEN_OBJ:customtokens.dbo CODEGEN_EXE:codegenengine.elb
+rem if ERRORLEVEL 1 goto CUSTOM_LINK_ERROR
+
+rem ---------------------------------------------------------------------------
 echo Building CodeGen ...
 
 dbl -%DBG%XTo CODEGEN_OBJ:codegen.dbo MAINLINE_SRC:CodeGen.dbl
 if ERRORLEVEL 1 goto CODEGEN_COMPILE_ERROR
 dblink -%DBG%o CODEGEN_EXE:codegen.dbr CODEGEN_OBJ:codegen.dbo CODEGEN_EXE:codegenengine.elb
 if ERRORLEVEL 1 goto CODEGEN_LINK_ERROR
-
+cd exe
 rem ---------------------------------------------------------------------------
 echo Building CreateFile ...
 
@@ -195,7 +209,6 @@ rem ---------------------------------------------------------------------------
 :ADDSOURCEFILE
 set SOURCEFILES=%SOURCEFILES% %1\%2
 goto :eof
-
 
 rem ---------------------------------------------------------------------------
 :CREATE_SETENV_BAT
@@ -286,6 +299,15 @@ echo ERROR: CodeGen Engine compile failed!
 goto EXIT
 :ENGINE_LINK_ERROR
 echo ERROR: CodeGen Engine link failed!
+goto EXIT
+:CUSTOM_PROTO_ERROR
+echo ERROR: CustomTokenExample prototyping failed!
+goto EXIT
+:CUSTOM_COMPILE_ERROR
+echo ERROR: CustomTokenExample compile failed!
+goto EXIT
+:CUSTOM_LINK_ERROR
+echo ERROR: CustomTokenExample link failed!
 goto EXIT
 :CODEGEN_COMPILE_ERROR
 echo ERROR: CodeGen compile failed!

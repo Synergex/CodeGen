@@ -46,14 +46,13 @@ import CodeGen.RepositoryAPI
 namespace CodeGen.Engine
 
     function ExpandSegmentToken         ,boolean
-
-        required in Segment             ,@RpsKeySegment
-        required in SegNbr              ,int
-        required in Fld                 ,@RpsField
-        required in TokenStart          ,int
-        required in TokenEnd            ,int
-        required in LastSegment         ,int
-        required inout buffer           ,a
+        required in    Segment          ,@RpsKeySegment ;;Current key segment
+        required in    SegNbr           ,int            ;;Current key segment number
+        required in    Fld              ,@RpsField      ;;Field referenced by current segment
+        required in    TokenStart       ,int            ;;Start position of token in buffer
+		required in    TokenEnd         ,int            ;;End position of token in buffer
+		required in    LastSegment      ,int            ;;Is this the last segment of thy key
+		required inout buffer           ,a              ;;Buffer containing token to be replaced
         endparams
 
         stack record local_data
@@ -280,7 +279,26 @@ namespace CodeGen.Engine
 
         ("<SEGMENT_VBTYPE>"),
             ReplacedToken = ReplaceToken(buffer,"<SEGMENT_VBTYPE>",Fld.VbType)
-
+			
+		(),
+		begin
+			;;If we didn't match anything so far then lets see if we have any custom key segment loop token processors
+			if (Env.CustomSegmentTokens.Count>0)
+			begin
+				;;We do have custom processors, look for a match
+				data customToken, @CustomSegmentTokenProcessor
+				foreach customToken in Env.CustomSegmentTokens
+				begin
+					if (customToken.Token==buffer(TokenStart,TokenEnd))
+					begin
+						;;Found a match, expand the custom token
+						ReplacedToken = customToken.Replace(Segment,SegNbr,Fld,TokenStart,TokenEnd,LastSegment,buffer)
+						exitloop
+					end
+				end
+			end
+		end
+		
         endusing
 
         freturn ReplacedToken
