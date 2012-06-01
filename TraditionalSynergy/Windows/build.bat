@@ -197,6 +197,11 @@ echo Verifying documentation is present ...
 if not exist "%CODEGEN_EXE%\CodeGen.chm" copy "%ROOT%..\..\Documentation\CodeGen.chm" "%CODEGEN_EXE%"
 
 rem ---------------------------------------------------------------------------
+echo Verifying DefaultButtons.xml is present ...
+
+if not exist "%CODEGEN_EXE%\DefaultButtons.xml" copy "%CODEGEN_SRC%\DefaultButtons.xml" "%CODEGEN_EXE%"
+
+rem ---------------------------------------------------------------------------
 echo .
 echo BUILD COMPLETE!
 echo .

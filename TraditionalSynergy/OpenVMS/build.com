@@ -131,6 +131,8 @@ $     GOTO ENGINE_LOOP
 $ !
 $ ENGINE_DONE:
 $ !
+$ IF F$SEARCH("CODEGEN_EXE:DefaultButtons.xml").EQS."" THEN COPY/NOLOG CODEGEN_SRC:DefaultButtons.xml CODEGEN_EXE:DefaultButtons.xml
+$ !
 $ IF "''P1'".EQS."ENGINE" THEN GOTO DONE
 $ !
 $ !----------------------------------------------------------------------------
