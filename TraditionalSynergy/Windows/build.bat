@@ -200,6 +200,7 @@ rem ---------------------------------------------------------------------------
 echo Verifying DefaultButtons.xml is present ...
 
 if not exist "%CODEGEN_EXE%\DefaultButtons.xml" copy "%CODEGEN_SRC%\DefaultButtons.xml" "%CODEGEN_EXE%"
+attrib -r "%CODEGEN_EXE%\DefaultButtons.xml"
 
 rem ---------------------------------------------------------------------------
 echo .
