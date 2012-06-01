@@ -139,7 +139,10 @@ namespace CodeGen.Engine
             ;;Button loop data
             BtnNbr                  ,int            ;;Current button number
 
-            ;;Miscellaneous
+			;;File loop data
+			FileNbr                 ,int            ;;Current file number
+			
+			;;Miscellaneous
             TemplateCodeIndex       ,int            ;;Current index in template code
             DoAnotherPass           ,boolean        ;;Another pass is needed
             DoingLastRecord         ,boolean        ;;Are we processing the last record
@@ -749,6 +752,25 @@ namespace CodeGen.Engine
                 end
             end
 
+			("<FILE_LOOP>"),
+			begin
+				if (Env.RpsInUse) then
+				begin
+					if (Str.Files.Count) then
+						call process_file_loop
+					else
+					begin
+						RpsFileRequired("<FILE_LOOP>")
+						ErrStatus=1
+					end
+				end
+				else
+				begin
+					RpsRequired("<FILE_LOOP>")
+					ErrStatus=1
+				end
+			end
+
             (),
                 TokenReplaced = ExpandToken(Str,TokenStart,TokenEnd,buffer,ErrStatus)
 
@@ -853,7 +875,7 @@ namespace CodeGen.Engine
         return
 
     ;;=============================================================================
-    ;
+    ;;
     process_field_loop,
 
         DebugLog("   - Processing field loop",true,false)
@@ -2227,6 +2249,173 @@ namespace CodeGen.Engine
 
         return
 
-    endfunction
+	;;=============================================================================
+	;;
+	process_file_loop,
+		
+		DebugLog("   - Processing file loop",true,false)
+		
+		Loop1TemplateCode = new ArrayList()
+		clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
+		
+		;Look for an end tag in the same line
+		if (Token2Start=instr(1,buffer,"</FILE_LOOP>"))
+			Token2End=Token2Start+11
+			
+		;Do we have an in-line loop?
+		if (Token2Start&&Token2End) then
+		begin
+			Loop1IsInline=true
+			;Add anything before the open tag to the output buffer
+			if (TokenStart>1) then
+				AlUtil.Add(Output,buffer(1:TokenStart-1))
+			else
+				AlUtil.Add(Output,"")
+			;Store anything after the closing tag
+			if (Token2End<trimz(buffer))
+				Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
+			;Remove the closing tag and any trailing data
+			clear buffer(Token2Start,^size(buffer))
+			;Remove any leading data and the opening tag
+			buffer=buffer(TokenEnd+1,^size(buffer))
+			;What remains is our template code for the in-line loop
+			AlUtil.Add(Loop1TemplateCode,buffer)
+		end
+		else
+		begin
+			;It's a multi-line loop, extract the loop template code
+			repeat
+			begin
+				buffer = (a)Template[TemplateCodeIndex+=1]
+				if (instr(1,buffer,"</FILE_LOOP>"))
+					exitloop
+				AlUtil.Add(Loop1TemplateCode,buffer)
+			end
+		end
+		
+		;Take a copy of the loop template code so that we can modify and restore it
+		;for each field in the collection. This supports the ability to use level 1
+		;loop tokens in a level 2 loop.
+		AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
+		
+		;Now process the loop template for each file
+		
+		clear LogicalFieldNumber
+		
+		;for FldNbr from 0 thru Str.Fields.Count-1
+		FileNbr = -1
+		while ((FileNbr+=1) < Str.Files.Count)
+		begin
+			data File, @RpsFile, Str.Files[FileNbr]
+			
+			DebugLog("     - Processing file " + File.Name,true,false)
+			
+			Loop1ConditionApplies = new ArrayList()
+			Loop1ConditionMode = new ArrayList()
+			Loop1OutputOff = false
+			
+			Loop1Output = new ArrayList()
+			if (Loop1IsInline)
+				AlUtil.Add(Loop1Output,"")
+				
+			;Process the template code
+			for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
+			begin
+				buffer = (a)Loop1TemplateCode[Loop1Rec]
+				
+				;Are we winding forward looking for the end of a multi-line condition?
+				if (Loop1ConditionApplies.Count)
+					if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
+						nextloop
+						
+				;If no tokens just add the line to the output stream
+				if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+				begin
+					if (!Loop1OutputOff)
+					begin
+						if (Loop1IsInline) then
+							AlUtil.AppendToLastItem(Loop1Output,buffer)
+						else
+							AlUtil.Add(Loop1Output,buffer)
+					end
+					nextloop
+				end
+				
+				;Replace any tokens in the buffer
+				do
+				begin
+					Loop1TokenReplaced = false
+					
+					;Any more tokens?
+					if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+						exitloop
+						
+					;Expression?
+					if (buffer(TokenStart:4)=="<IF ")
+					begin
+						Loop1TokenReplaced = ProcessFileExpression(Str,File,FileNbr,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
+						if (ErrStatus) then
+							exitloop
+						else
+							nextloop
+					end
+					
+					;Replace file loop tokens
+					Loop1TokenReplaced = ExpandFileToken(Str,File,FileNbr,TokenStart,TokenEnd,Loop1OutputOff,buffer,ErrStatus)
+					
+					;If nothing replaced just move on
+					if (!Loop1TokenReplaced)
+					begin
+						TokenStart += 1
+						Loop1TokenReplaced = true
+					end
+				end
+				until (!Loop1TokenReplaced)
+				
+				if (ErrStatus)
+					exitloop
+					
+				;Add the line to the output buffer
+				if (!Loop1OutputOff && !instr(1,buffer,"<IF "))
+				begin
+					if (Loop1IsInline) then
+						AlUtil.AppendToLastItem(Loop1Output,buffer)
+					else
+						AlUtil.Add(Loop1Output,buffer)
+				end
+			end
+			
+			if (ErrStatus)
+				exitloop
+				
+			;We're done with this item, commit the output
+			if (Loop1IsInline) then
+				AlUtil.AppendToLastItem(Output,Loop1Output[0])
+			else
+				AlUtil.AppendItems(Output,Loop1Output)
+			clear Loop1Output
+			
+			if (ErrStatus)
+				exitloop
+				
+		end
+		
+		;For in-line loops, add back any trailing code
+		if (Loop1IsInline&&Loop1TrailingData)
+			AlUtil.AppendToLastItem(Output,Loop1TrailingData)
+			
+		clear Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
+		DoAnotherPass = true
+		
+		;Advance to the next template record (after the end of the loop token)
+		if (TemplateCodeIndex<Template.Count-1)
+			buffer = (a)Template[TemplateCodeIndex+=1]
+			
+		if (!ErrStatus)
+			DebugLog("   - End of file loop",false,false)
+			
+		return
+	
+	endfunction
 
 endnamespace
