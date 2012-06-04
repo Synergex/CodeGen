@@ -194,13 +194,19 @@ call :CREATE_RPSINFO_BAT
 rem ---------------------------------------------------------------------------
 echo Verifying documentation is present ...
 
-if not exist "%CODEGEN_EXE%\CodeGen.chm" copy "%ROOT%..\..\Documentation\CodeGen.chm" "%CODEGEN_EXE%"
+if not exist "%CODEGEN_EXE%\CodeGen.chm" copy "%ROOT%..\..\Documentation\CodeGen.chm" "%CODEGEN_EXE%">nul
 
 rem ---------------------------------------------------------------------------
 echo Verifying DefaultButtons.xml is present ...
 
-if not exist "%CODEGEN_EXE%\DefaultButtons.xml" copy "%CODEGEN_SRC%\DefaultButtons.xml" "%CODEGEN_EXE%"
+if not exist "%CODEGEN_EXE%\DefaultButtons.xml" copy "%CODEGEN_SRC%\DefaultButtons.xml" "%CODEGEN_EXE%">nul
 attrib -r "%CODEGEN_EXE%\DefaultButtons.xml"
+
+rem ---------------------------------------------------------------------------
+echo Verifying DataMappingsExample.xml is present ...
+
+if not exist "%CODEGEN_EXE%\DataMappingsExample.xml" copy "%REPOSITORY_SRC%\DataMappings.xml" "%CODEGEN_EXE%\DataMappingsExample.xml">nul
+attrib -r "%CODEGEN_EXE%\DataMappingsExample.xml"
 
 rem ---------------------------------------------------------------------------
 echo .

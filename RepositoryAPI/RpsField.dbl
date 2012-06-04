@@ -983,9 +983,16 @@ namespace CodeGen.RepositoryAPI
         ;; Field size (d5)
         public property Size, int
             method get
-            proc
-                mreturn mf_info.fi_size
-            endmethod
+			proc
+				;TODO: BUG workaround, tracker 33563
+				;Implicit D to I conversion failing in CodeGen.RepositoryAPI.DataMapping.SetFieldAttributes()
+				;on traditional 32-bit Synergy
+				.ifndef DBLNET
+				mreturn %integer(mf_info.fi_size)
+				.else
+				mreturn mf_info.fi_size
+				.endc
+			endmethod
             method set
             proc
                 mf_info.fi_size = value
@@ -996,8 +1003,15 @@ namespace CodeGen.RepositoryAPI
         public property Precision, int
             method get
             proc
-                mreturn mf_info.fi_prec
-            endmethod
+				;TODO: BUG workaround, tracker 33563
+				;Implicit D to I conversion failing in CodeGen.RepositoryAPI.DataMapping.SetFieldAttributes()
+				;on traditional 32-bit Synergy
+				.ifndef DBLNET
+				mreturn %integer(mf_info.fi_prec)
+				.else
+				mreturn mf_info.fi_prec
+				.endc
+			endmethod
             method set
             proc
                 mf_info.fi_prec = value
@@ -2207,6 +2221,8 @@ namespace CodeGen.RepositoryAPI
 		protected mOriginalElement      ,[#]int     ;Original element #'s for expanded array fields
 		protected mSqlName              ,string     ;SQL compatible name
 		protected mOdbcName             ,string     ;ODBC compatible name
+
+		protected static mMappings, @DataMappings
 		
 		private enum MappedType
 			CSharp
@@ -2218,14 +2234,17 @@ namespace CodeGen.RepositoryAPI
 		
 		private method loadCodeGenData, void
 			endparams
-			record
-				pos1, int
-				pos2, int
-			endrecord
 		proc
 			
+			;;First time in, create a mappings object
+			if (mMappings==^null)
+				mMappings = new DataMappings()
+
+			;;Describe the current field to the DataMapping objects
+			mMappings.SetFieldAttributes(this.Size,this.Precision)
+
 			;;Load the CodeGen specific attributes
-			
+
 			mCsType  = getDataType(MappedType.CSharp)
 			mVbType  = getDataType(MappedType.VB)
 			mSqlType = getDataType(MappedType.SQL)
@@ -2597,10 +2616,13 @@ namespace CodeGen.RepositoryAPI
 			
 			;;Auto incrmenting field
 			mAutoIncrement = false
-			if (pos1=instr(1,RpsUtils.UpperCase(mUserText),"@AUTOINCREMENT;")) then
+			begin
+				data pos1, int
+				if (pos1=instr(1,RpsUtils.UpperCase(mUserText),"@AUTOINCREMENT;")) then
 				mAutoIncrement = true
 			else if (pos1=instr(1,RpsUtils.UpperCase(mLongDescription),"@AUTOINCREMENT;"))
-				mAutoIncrement = true
+					mAutoIncrement = true
+			end
 			
 			mWasArrayElement = false
 			mOriginalElement = new int[4]
@@ -2649,12 +2671,7 @@ namespace CodeGen.RepositoryAPI
 		private method getDataType, string
 			required in ToType  ,MappedType
 			endparams
-			record
-				r  ,string
-			endrecord
 		proc
-			
-			r=""
 			
 			using DataType select
 			(RpsFieldDataType.Alpha),
@@ -2664,30 +2681,30 @@ namespace CodeGen.RepositoryAPI
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="string"
+						mreturn mMappings.CsMappings.GetBinaryAlphaType()
 					(MappedType.VB),
-						r="String"
+						mreturn mMappings.VbMappings.GetBinaryAlphaType()
 					(MappedType.SQL),
-						r="CHAR("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetBinaryAlphaType()
 					(MappedType.ObjectiveC),
-						r="NSString"
+						mreturn mMappings.OcMappings.GetBinaryAlphaType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="string"
+						mreturn mMappings.CsMappings.GetAlphaType()
 					(MappedType.VB),
-						r="String"
+						mreturn mMappings.VbMappings.GetAlphaType()
 					(MappedType.SQL),
-						r="VARCHAR("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetAlphaType()
 					(MappedType.ObjectiveC),
-						r="NSString"
+						mreturn mMappings.OcMappings.GetAlphaType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				endusing
@@ -2699,52 +2716,52 @@ namespace CodeGen.RepositoryAPI
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="string"
+						mreturn mMappings.CsMappings.GetUserAlphaType()
 					(MappedType.VB),
-						r="String"
+						mreturn mMappings.VbMappings.GetUserAlphaType()
 					(MappedType.SQL),
-						r="CHAR("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetUserAlphaType()
 					(MappedType.ObjectiveC),
-						r="NSString"
+						mreturn mMappings.OcMappings.GetUserAlphaType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldSubclass.UserNumeric),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="string"
+						mreturn mMappings.CsMappings.GetUserNumericType()
 					(MappedType.VB),
-						r="String"
+						mreturn mMappings.VbMappings.GetUserNumericType()
 					(MappedType.SQL),
-						r="CHAR("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetUserNumericType()
 					(MappedType.ObjectiveC),
-						r="NSString"
+						mreturn mMappings.OcMappings.GetUserNumericType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldSubclass.UserDate),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="string"
+						mreturn mMappings.CsMappings.GetUserDateType()
 					(MappedType.VB),
-						r="String"
+						mreturn mMappings.VbMappings.GetUserDateType()
 					(MappedType.SQL),
 					begin
 						using UserFieldType select
 						("^CLASS^=YYYYMMDDHHMISSUUUUUU"),
-							r = "DATETIME2"
+							mreturn mMappings.CsMappings.GetUserTimeStampType()
 						(),
-							r = "CHAR("+string(Size)+")"
+							mreturn mMappings.SqlMappings.GetUserDateType()
 						endusing
 					end
 					(MappedType.ObjectiveC),
-						r="NSString"
+						mreturn mMappings.OcMappings.GetUserDateType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				endusing
@@ -2756,120 +2773,120 @@ namespace CodeGen.RepositoryAPI
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="DateTime"
+						mreturn mMappings.CsMappings.GetDateYYYYMMDDType()
 					(MappedType.VB),
-						r="DateTime"
+						mreturn mMappings.VbMappings.GetDateYYYYMMDDType()
 					(MappedType.SQL),
-						r="DATE"
+						mreturn mMappings.SqlMappings.GetDateYYYYMMDDType()
 					(MappedType.ObjectiveC),
-						r="NSDate"
+						mreturn mMappings.OcMappings.GetDateYYYYMMDDType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldSubclass.DateYYMMDD),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="DateTime"
+						mreturn mMappings.CsMappings.GetDateYYMMDDType()
 					(MappedType.VB),
-						r="DateTime"
+						mreturn mMappings.VbMappings.GetDateYYMMDDType()
 					(MappedType.SQL),
-						r="DECIMAL("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetDateYYMMDDType()
 					(MappedType.ObjectiveC),
-						r="NSDate"
+						mreturn mMappings.OcMappings.GetDateYYMMDDType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldSubclass.DateYYYYJJJ),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="DateTime"
+						mreturn mMappings.CsMappings.GetDateYYYYJJJType()
 					(MappedType.VB),
-						r="DateTime"
+						mreturn mMappings.VbMappings.GetDateYYYYJJJType()
 					(MappedType.SQL),
-						r="DECIMAL("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetDateYYYYJJJType()
 					(MappedType.ObjectiveC),
-						r="NSDate"
+						mreturn mMappings.OcMappings.GetDateYYYYJJJType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldSubclass.DateYYJJJ),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="DateTime"
+						mreturn mMappings.CsMappings.GetDateYYJJJType()
 					(MappedType.VB),
-						r="DateTime"
+						mreturn mMappings.VbMappings.GetDateYYJJJType()
 					(MappedType.SQL),
-						r="DECIMAL("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetDateYYJJJType()
 					(MappedType.ObjectiveC),
-						r="NSDate"
+						mreturn mMappings.OcMappings.GetDateYYJJJType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldSubclass.DateYYYYPP),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="string"
+						mreturn mMappings.CsMappings.GetDateYYYYPPType()
 					(MappedType.VB),
-						r="String"
+						mreturn mMappings.VbMappings.GetDateYYYYPPType()
 					(MappedType.SQL),
-						r="CHAR("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetDateYYYYPPType()
 					(MappedType.ObjectiveC),
-						r="NSString"
+						mreturn mMappings.OcMappings.GetDateYYYYPPType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldSubclass.DateYYPP),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="string"
+						mreturn mMappings.CsMappings.GetDateYYPPType()
 					(MappedType.VB),
-						r="String"
+						mreturn mMappings.VbMappings.GetDateYYPPType()
 					(MappedType.SQL),
-						r="CHAR("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetDateYYPPType()
 					(MappedType.ObjectiveC),
-						r="NSString"
+						mreturn mMappings.OcMappings.GetDateYYPPType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldSubclass.TimeHHMMSS),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="DateTime"
+						mreturn mMappings.CsMappings.GetTimeHHMMSSType()
 					(MappedType.VB),
-						r="DateTime"
+						mreturn mMappings.VbMappings.GetTimeHHMMSSType()
 					(MappedType.SQL),
-						r="DECIMAL("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetTimeHHMMSSType()
 					(MappedType.ObjectiveC),
-						r="NSDate"
+						mreturn mMappings.OcMappings.GetTimeHHMMSSType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldSubclass.TimeHHMM),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="DateTime"
+						mreturn mMappings.CsMappings.GetTimeHHMMType()
 					(MappedType.VB),
-						r="DateTime"
+						mreturn mMappings.VbMappings.GetTimeHHMMType()
 					(MappedType.SQL),
-						r="DECIMAL("+string(Size)+")"
+						mreturn mMappings.SqlMappings.GetTimeHHMMType()
 					(MappedType.ObjectiveC),
-						r="NSDate"
+						mreturn mMappings.OcMappings.GetTimeHHMMType()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(),
@@ -2878,15 +2895,15 @@ namespace CodeGen.RepositoryAPI
 					begin
 						using ToType select
 						(MappedType.CSharp),
-							r="decimal"
+							mreturn mMappings.CsMappings.GetImpliedDecimalType()
 						(MappedType.VB),
-							r="Decimal"
+							mreturn mMappings.VbMappings.GetImpliedDecimalType()
 						(MappedType.SQL),
-							r="DECIMAL("+string(Size)+","+string(Precision)+")"
+							mreturn mMappings.SqlMappings.GetImpliedDecimalType()
 						(MappedType.ObjectiveC),
-							r="double"
+							mreturn mMappings.OcMappings.GetImpliedDecimalType()
 						(MappedType.Java),
-							r=""
+							mreturn ""
 						endusing
 					end
 					else
@@ -2895,30 +2912,30 @@ namespace CodeGen.RepositoryAPI
 						begin
 							using ToType select
 							(MappedType.CSharp),
-								r="int"
+								mreturn mMappings.CsMappings.GetSmallDecimalType()
 							(MappedType.VB),
-								r="Integer"
+								mreturn mMappings.VbMappings.GetSmallDecimalType()
 							(MappedType.SQL),
-								r="DECIMAL("+string(Size)+")"
+								mreturn mMappings.SqlMappings.GetSmallDecimalType()
 							(MappedType.ObjectiveC),
-								r="int"
+								mreturn mMappings.OcMappings.GetSmallDecimalType()
 							(MappedType.Java),
-								r=""
+								mreturn ""
 							endusing
 						end
 						else
 						begin
 							using ToType select
 							(MappedType.CSharp),
-								r="long"
+								mreturn mMappings.CsMappings.GetLargeDecimalType()
 							(MappedType.VB),
-								r="Long"
+								mreturn mMappings.VbMappings.GetLargeDecimalType()
 							(MappedType.SQL),
-								r="DECIMAL("+string(Size)+")"
+								mreturn mMappings.SqlMappings.GetLargeDecimalType()
 							(MappedType.ObjectiveC),
-								r="long int"
+								mreturn mMappings.OcMappings.GetLargeDecimalType()
 							(MappedType.Java),
-								r=""
+								mreturn ""
 							endusing
 						end
 					end
@@ -2928,49 +2945,64 @@ namespace CodeGen.RepositoryAPI
 			(RpsFieldDataType.Integer),
 			begin
 				using Size select
-				(1,2),
+				(1),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="int"
+						mreturn mMappings.CsMappings.GetInteger1Type()
 					(MappedType.VB),
-						r="Integer"
+						mreturn mMappings.VbMappings.GetInteger1Type()
 					(MappedType.SQL),
-						r="SMALLINT"
+						mreturn mMappings.SqlMappings.GetInteger1Type()
 					(MappedType.ObjectiveC),
-						r="short int"
+						mreturn mMappings.OcMappings.GetInteger1Type()
 					(MappedType.Java),
-						r=""
+						mreturn ""
+					endusing
+				end
+				(2),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetInteger2Type()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetInteger2Type()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetInteger2Type()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetInteger2Type()
+					(MappedType.Java),
+						mreturn ""
 					endusing
 				end
 				(4),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="int"
+						mreturn mMappings.CsMappings.GetInteger4Type()
 					(MappedType.VB),
-						r="Integer"
+						mreturn mMappings.VbMappings.GetInteger4Type()
 					(MappedType.SQL),
-						r="INT"
+						mreturn mMappings.SqlMappings.GetInteger4Type()
 					(MappedType.ObjectiveC),
-						r="int"
+						mreturn mMappings.OcMappings.GetInteger4Type()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(8),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="long"
+						mreturn mMappings.CsMappings.GetInteger8Type()
 					(MappedType.VB),
-						r="Long"
+						mreturn mMappings.VbMappings.GetInteger8Type()
 					(MappedType.SQL),
-						r="BIGINT"
+						mreturn mMappings.SqlMappings.GetInteger8Type()
 					(MappedType.ObjectiveC),
-						r="long int"
+						mreturn mMappings.OcMappings.GetInteger8Type()
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				endusing
@@ -2979,60 +3011,60 @@ namespace CodeGen.RepositoryAPI
 			begin
 				using ToType select
 				(MappedType.CSharp),
-					r="bool"
+					mreturn mMappings.CsMappings.GetBooleanType()
 				(MappedType.VB),
-					r="Boolean"
+					mreturn mMappings.VbMappings.GetBooleanType()
 				(MappedType.SQL),
-					r="BIT"
+					mreturn mMappings.SqlMappings.GetBooleanType()
 				(MappedType.ObjectiveC),
-					r="BOOL"
+					mreturn mMappings.OcMappings.GetBooleanType()
 				(MappedType.Java),
-					r=""
+					mreturn ""
 				endusing
 			end
 			(RpsFieldDataType.Enum),    ;Can't currently happen because of %CheckStructure
 			begin
 				using ToType select
 				(MappedType.CSharp),
-					r=""
+					mreturn mMappings.CsMappings.GetEnumType()
 				(MappedType.VB),
-					r=""
+					mreturn mMappings.VbMappings.GetEnumType()
 				(MappedType.SQL),
-					r=""
+					mreturn mMappings.SqlMappings.GetEnumType()
 				(MappedType.ObjectiveC),
-					r=""
+					mreturn mMappings.OcMappings.GetEnumType()
 				(MappedType.Java),
-					r=""
+					mreturn ""
 				endusing
 			end
 			(RpsFieldDataType.Binary),  ;Can't currently happen because of %CheckStructure
 			begin
 				using ToType select
 				(MappedType.CSharp),
-					r=""
+					mreturn mMappings.CsMappings.GetBinaryType()
 				(MappedType.VB),
-					r=""
+					mreturn mMappings.VbMappings.GetBinaryType()
 				(MappedType.SQL),
-					r=""
+					mreturn mMappings.SqlMappings.GetBinaryType()
 				(MappedType.ObjectiveC),
-					r=""
+					mreturn mMappings.OcMappings.GetBinaryType()
 				(MappedType.Java),
-					r=""
+					mreturn ""
 				endusing
 			end
 			(RpsFieldDataType.Structfield), ;Can't currently happen because of %CheckStructure
 			begin
 				using ToType select
 				(MappedType.CSharp),
-					r=""
+					mreturn mMappings.CsMappings.GetStructFieldType()
 				(MappedType.VB),
-					r=""
+					mreturn mMappings.VbMappings.GetStructFieldType()
 				(MappedType.SQL),
-					r=""
+					mreturn mMappings.SqlMappings.GetStructFieldType()
 				(MappedType.ObjectiveC),
-					r=""
+					mreturn mMappings.OcMappings.GetStructFieldType()
 				(MappedType.Java),
-					r=""
+					mreturn ""
 				endusing
 			end
 			endusing
@@ -3045,186 +3077,186 @@ namespace CodeGen.RepositoryAPI
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="byte"
+						mreturn "byte"
 					(MappedType.VB),
-						r="Byte"
+						mreturn "Byte"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="short int"
+						mreturn "short int"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtShort),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="short"
+						mreturn "short"
 					(MappedType.VB),
-						r="Short"
+						mreturn "Short"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="short int"
+						mreturn "short int"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtInt),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="int"
+						mreturn "int"
 					(MappedType.VB),
-						r="Integer"
+						mreturn "Integer"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="int"
+						mreturn "int"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtLong),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="long"
+						mreturn "long"
 					(MappedType.VB),
-						r="Long"
+						mreturn "Long"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="long int"
+						mreturn "long int"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtSbyte),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="sbyte"
+						mreturn "sbyte"
 					(MappedType.VB),
-						r="System.SByte"
+						mreturn "System.SByte"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="unsigned short int"
+						mreturn "unsigned short int"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtUshort),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="ushort"
+						mreturn "ushort"
 					(MappedType.VB),
-						r="System.UInt16"
+						mreturn "System.UInt16"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="unsigned short int"
+						mreturn "unsigned short int"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtUint),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="uint"
+						mreturn "uint"
 					(MappedType.VB),
-						r="System.UInt32"
+						mreturn "System.UInt32"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="unsigned int"
+						mreturn "unsigned int"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtUlong),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="ulong"
+						mreturn "ulong"
 					(MappedType.VB),
-						r="System.UInt64"
+						mreturn "System.UInt64"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="unsigned long int"
+						mreturn "unsigned long int"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtBoolean),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="bool"
+						mreturn "bool"
 					(MappedType.VB),
-						r="Boolean"
+						mreturn "Boolean"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="BOOL"
+						mreturn "BOOL"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtDouble),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="double"
+						mreturn "double"
 					(MappedType.VB),
-						r="System.Double"
+						mreturn "System.Double"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="double"
+						mreturn "double"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtFloat),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="float"
+						mreturn "float"
 					(MappedType.VB),
-						r="System.Single"
+						mreturn "System.Single"
 					(MappedType.SQL),
 						nop
 					(MappedType.ObjectiveC),
-						r="float"
+						mreturn "float"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				(RpsFieldCorecedType.CtNullDateTime),
 				begin
 					using ToType select
 					(MappedType.CSharp),
-						r="Nullable<System.DateTime>"
+						mreturn "Nullable<System.DateTime>"
 					(MappedType.VB),
-						r="Nullable(Of System.DateTime)"
+						mreturn "Nullable(Of System.DateTime)"
 					(MappedType.SQL),
-						r=""
+						mreturn ""
 					(MappedType.ObjectiveC),
-						r="NSDate"
+						mreturn "NSDate"
 					(MappedType.Java),
-						r=""
+						mreturn ""
 					endusing
 				end
 				endusing
 			end
 			
-			mreturn r
+			mreturn ""
 			
 		endmethod
 		

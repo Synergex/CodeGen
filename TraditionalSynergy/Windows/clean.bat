@@ -43,9 +43,6 @@ rem ***************************************************************************
 
 setlocal
 
-echo CodeGen Traditional Synergy clean
-echo =================================
-
 set ROOT=%~dp0
 pushd "%ROOT%"
 
@@ -61,6 +58,7 @@ if exist exe\rpsinfo.bat del /q exe\rpsinfo.bat
 if exist exe\createfile.bat del /q exe\createfile.bat
 if exist exe\setenv.bat del /q exe\setenv.bat
 if exist exe\DefaultButtons.xml del /q exe\DefaultButtons.xml
+if exist exe\DataMappingsExample.xml del /q exe\DataMappingsExample.xml
 
 if exist hdr\. rmdir /q hdr
 if exist obj\. rmdir /q obj

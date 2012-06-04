@@ -1,0 +1,376 @@
+
+import System
+
+namespace CodeGen.RepositoryAPI
+
+	public class DataMappings
+		
+		private mCsMappings     ,@DataMapping
+		private mVbMappings     ,@DataMapping
+		private mSqlMappings    ,@DataMapping
+		private mOcMappings     ,@DataMapping
+
+		public method DataMappings
+			endparams
+		proc
+			;;Create the mapping data objects for the various languages we support
+			mCsMappings  = new DataMapping()
+			mVbMappings  = new DataMapping()
+			mSqlMappings = new DataMapping()
+			mOcMappings  = new DataMapping()
+
+			;;Set default mappings
+			setDefaultMappings()
+
+			;;Do we have a DataMappings.xml file?
+			begin
+				data tmpCh, int, 0
+				data xmlFileFound, Boolean, false
+				try
+				begin
+					open(tmpCh,i:s,"CODEGEN_EXE:DataMappings.xml")
+					close tmpch
+					xmlFileFound = true
+				end
+				catch (ex)
+				begin
+					;;No DataMappings.xml, just go with default mappings
+					nop
+				end
+				endtry
+
+				if (xmlFileFound)
+					parseXmlFile()
+			end
+
+		endmethod
+
+		private method setDefaultMappings, void
+			endparams
+		proc
+			;;Set hard-coded default values. These are the traditional data type mappings
+			;;that CodeGen supported before we introduced the ability to customize the
+			;;data type mappings.
+
+			mCsMappings.AlphaMapping  = "string"
+			mVbMappings.AlphaMapping  = "String"
+			mSqlMappings.AlphaMapping = "VARCHAR(l)"
+			mOcMappings.AlphaMapping  = "NSString"
+			
+			mCsMappings.BinaryAlphaMapping  = "string"
+			mVbMappings.BinaryAlphaMapping  = "String"
+			mSqlMappings.BinaryAlphaMapping = "CHAR(l)"
+			mOcMappings.BinaryAlphaMapping  = "NSString"
+			
+			mCsMappings.UserAlphaMapping  = "string"
+			mVbMappings.UserAlphaMapping  = "String"
+			mSqlMappings.UserAlphaMapping = "CHAR(l)"
+			mOcMappings.UserAlphaMapping  = "NSString"
+			
+			mCsMappings.UserNumericMapping  = "string"
+			mVbMappings.UserNumericMapping  = "String"
+			mSqlMappings.UserNumericMapping = "CHAR(l)"
+			mOcMappings.UserNumericMapping  = "NSString"
+			
+			mCsMappings.UserDateMapping  = "string"
+			mVbMappings.UserDateMapping  = "String"
+			mSqlMappings.UserDateMapping = "CHAR(l)"
+			mOcMappings.UserDateMapping  = "NSString"
+			
+			mCsMappings.UserTimeStampMapping  = "string"
+			mVbMappings.UserTimeStampMapping  = "String"
+			mSqlMappings.UserTimeStampMapping = "DATETIME2"
+			mOcMappings.UserTimeStampMapping  = "NSString"
+			
+			mCsMappings.DateYYYYMMDDMapping  = "DateTime"
+			mVbMappings.DateYYYYMMDDMapping  = "DateTime"
+			mSqlMappings.DateYYYYMMDDMapping = "DATE"
+			mOcMappings.DateYYYYMMDDMapping  = "NSDate"
+			
+			mCsMappings.DateYYMMDDMapping  = "DateTime"
+			mVbMappings.DateYYMMDDMapping  = "DateTime"
+			mSqlMappings.DateYYMMDDMapping = "DECIMAL(l)"
+			mOcMappings.DateYYMMDDMapping  = "NSDate"
+			
+			mCsMappings.DateYYYYJJJMapping  = "DateTime"
+			mVbMappings.DateYYYYJJJMapping  = "DateTime"
+			mSqlMappings.DateYYYYJJJMapping = "DECIMAL(l)"
+			mOcMappings.DateYYYYJJJMapping  = "NSDate"
+			
+			mCsMappings.DateYYJJJMapping  = "DateTime"
+			mVbMappings.DateYYJJJMapping  = "DateTime"
+			mSqlMappings.DateYYJJJMapping = "DECIMAL(l)"
+			mOcMappings.DateYYJJJMapping  = "NSDate"
+			
+			mCsMappings.DateYYYYPPMapping  = "string"
+			mVbMappings.DateYYYYPPMapping  = "String"
+			mSqlMappings.DateYYYYPPMapping = "CHAR(l)"
+			mOcMappings.DateYYYYPPMapping  = "NSString"
+			
+			mCsMappings.DateYYPPMapping  = "string"
+			mVbMappings.DateYYPPMapping  = "String"
+			mSqlMappings.DateYYPPMapping = "CHAR(l)"
+			mOcMappings.DateYYPPMapping  = "NSString"
+			
+			mCsMappings.TimeHHMMSSMapping  = "DateTime"
+			mVbMappings.TimeHHMMSSMapping  = "DateTime"
+			mSqlMappings.TimeHHMMSSMapping = "DECIMAL(l)"
+			mOcMappings.TimeHHMMSSMapping  = "NSDate"
+			
+			mCsMappings.TimeHHMMMapping  = "DateTime"
+			mVbMappings.TimeHHMMMapping  = "DateTime"
+			mSqlMappings.TimeHHMMMapping = "DECIMAL(l)"
+			mOcMappings.TimeHHMMMapping  = "NSDate"
+			
+			mCsMappings.ImpliedDecimalMapping  = "decimal"
+			mVbMappings.ImpliedDecimalMapping  = "Decimal"
+			mSqlMappings.ImpliedDecimalMapping = "DECIMAL(l,p)"
+			mOcMappings.ImpliedDecimalMapping  = "double"
+			
+			mCsMappings.SmallDecimalMapping  = "int"
+			mVbMappings.SmallDecimalMapping  = "Integer"
+			mSqlMappings.SmallDecimalMapping = "DECIMAL(l)"
+			mOcMappings.SmallDecimalMapping  = "int"
+			
+			mCsMappings.LargeDecimalMapping  = "long"
+			mVbMappings.LargeDecimalMapping  = "Long"
+			mSqlMappings.LargeDecimalMapping = "DECIMAL(l)"
+			mOcMappings.LargeDecimalMapping  = "long int"
+			
+			mCsMappings.Integer1Mapping  = "int"
+			mVbMappings.Integer1Mapping  = "Integer"
+			mSqlMappings.Integer1Mapping = "SMALLINT"
+			mOcMappings.Integer1Mapping  = "short int"
+			
+			mCsMappings.Integer2Mapping  = "int"
+			mVbMappings.Integer2Mapping  = "Integer"
+			mSqlMappings.Integer2Mapping = "SMALLINT"
+			mOcMappings.Integer2Mapping  = "short int"
+			
+			mCsMappings.Integer4Mapping  = "int"
+			mVbMappings.Integer4Mapping  = "Integer"
+			mSqlMappings.Integer4Mapping = "INT"
+			mOcMappings.Integer4Mapping  = "int"
+			
+			mCsMappings.Integer8Mapping  = "long"
+			mVbMappings.Integer8Mapping  = "Long"
+			mSqlMappings.Integer8Mapping = "BIGINT"
+			mOcMappings.Integer8Mapping  = "long int"
+			
+			mCsMappings.BooleanMapping  = "bool"
+			mVbMappings.BooleanMapping  = "Boolean"
+			mSqlMappings.BooleanMapping = "BIT"
+			mOcMappings.BooleanMapping  = "bool"
+			
+			mCsMappings.EnumMapping  = "int"
+			mVbMappings.EnumMapping  = "Integer"
+			mSqlMappings.EnumMapping = "INT"
+			mOcMappings.EnumMapping  = "int"
+			
+			mCsMappings.BinaryMapping  = "string"
+			mVbMappings.BinaryMapping  = "String"
+			mSqlMappings.BinaryMapping = "CHAR(l)"
+			mOcMappings.BinaryMapping  = "NSString"
+			
+			mCsMappings.StructFieldMapping  = "string"
+			mVbMappings.StructFieldMapping  = "String"
+			mSqlMappings.StructFieldMapping = "VARCHAR(l)"
+			mOcMappings.StructFieldMapping  = "NSString"
+			
+		endmethod
+
+		private method parseXmlFile, void
+			endparams
+			.include "DBLDIR:synxml.def"
+			record localData
+				parser          ,XML_PARSER_TYPE
+				xdoc            ,XML_DOC_TYPE
+				root            ,XML_ELEM_TYPE
+				sections        ,XML_ELEMLIST_TYPE
+			endrecord
+		proc
+
+			init localData
+			
+			;;Parse the XML file
+			parser = xml_parser_create()
+			xdoc = xml_parser_parsefile(parser,"CODEGEN_EXE:DataMappings.xml")
+			xml_parser_delete(parser)
+			if (!xdoc) then
+			begin
+				data parserError, a256
+				xcall xml_parser_error(parser,parserError)
+				throw new RpsDataMappingException("DataMappings.xml is not a valid XML file. " + atrim(parserError))
+			end
+			else
+			begin
+				;;XML document was parsed, load content
+				data ixSection, int
+				data rootName, a20
+				
+				;;Get the root element and make sure it's a "DataMappings" document
+				root = xml_doc_getRoot(xdoc)
+				xml_elem_getName(root,rootName)
+				if (rootName!="DataMappings")
+					throw new Exception("DataMappings.xml root node '" + atrim(rootName) + "' is invalid")
+					
+				;;Iterate through the root nodes child elements
+				sections = xml_elem_children(root)
+				for ixSection from 1 thru xml_elemlist_count(sections)
+				begin
+					data sectionRoot, XML_ELEM_TYPE
+					data sectionName, a20
+					data thisMapping, @DataMapping
+					
+					;;Get the top node for this section (SQL, CShapp, etc.)
+					sectionRoot = xml_elemlist_item(sections,ixSection)
+					
+					;;Make sure it's one that we recognize, and set the DataMapping context
+					xml_elem_getname(sectionRoot,sectionName)
+					using sectionName select
+					("SQL "),
+						thisMapping = mSqlMappings
+					("CSharp "),
+						thisMapping = mCsMappings
+					("VisualBasic "),
+						thisMapping = mVbMappings
+					("ObjectiveC "),
+						thisMapping = mOcMappings
+					(),
+						throw new RpsDataMappingException("DataMappings.xml element '" + atrim(sectionName) + "' is not supported.")
+					endusing
+					
+					;;If we get here then we found a section in the XML file
+					;;that corresponds to a supported mapping type, and
+					;;thisMapping is set to the appropriate DataMapping object.
+					begin
+						data xmlMappings, XML_ELEMLIST_TYPE
+						data ixMapping, int
+						
+						;;Iterate through the child nodes of the main section, which are the
+						;;indvidual data mappings.
+						xmlMappings = xml_elem_children(sectionRoot)
+						for ixMapping from 1 thru xml_elemlist_count(xmlMappings)
+						begin
+							data xmlMapping, XML_ELEM_TYPE
+							data mappingName, a30
+							data mappingValue, a80
+							
+							;;Get the name and value of this mapping
+							xmlMapping = xml_elemlist_item(xmlMappings,ixMapping)
+							xml_elem_getName(xmlMapping,mappingName)
+							xml_elem_getText(xmlMapping,mappingValue)
+							
+							;;Make sure the mapping has a value
+							if (!%trimz(mappingValue))
+								throw new RpsDataMappingException("DataMappings.xml element '" + atrim(sectionName) + "." + atrim(mappingName) + "' does not have a value.")
+
+							;;Make sure it's one we recognize, and use the value as the mapped data type
+							using mappingName select
+							("Alpha "),
+								thisMapping.AlphaMapping = atrim(mappingValue)
+							("AlphaBinary "),
+								thisMapping.BinaryAlphaMapping = atrim(mappingValue)
+							("UserAlpha"),
+								thisMapping.UserAlphaMapping = atrim(mappingValue)
+							("UserNumeric "),
+								thisMapping.UserNumericMapping = atrim(mappingValue)
+							("UserDate "),
+								thisMapping.UserDateMapping = atrim(mappingValue)
+							("UserTimeStamp "),
+								thisMapping.UserTimeStampMapping = atrim(mappingValue)
+							("DateYYYYMMDD "),
+								thisMapping.DateYYYYMMDDMapping = atrim(mappingValue)
+							("DateYYMMDD "),
+								thisMapping.DateYYMMDDMapping = atrim(mappingValue)
+							("DateYYYYJJJ "),
+								thisMapping.DateYYYYJJJMapping = atrim(mappingValue)
+							("DateYYJJJ "),
+								thisMapping.DateYYJJJMapping = atrim(mappingValue)
+							("DateYYYYPP "),
+								thisMapping.DateYYYYPPMapping = atrim(mappingValue)
+							("DateYYPP "),
+								thisMapping.DateYYPPMapping = atrim(mappingValue)
+							("TimeHHMMSS "),
+								thisMapping.TimeHHMMSSMapping = atrim(mappingValue)
+							("TimeHHMM "),
+								thisMapping.TimeHHMMMapping = atrim(mappingValue)
+							("ImpliedDecimal "),
+								thisMapping.ImpliedDecimalMapping = atrim(mappingValue)
+							("SmallDecimal "),
+								thisMapping.SmallDecimalMapping = atrim(mappingValue)
+							("LargeDecimal "),
+								thisMapping.LargeDecimalMapping = atrim(mappingValue)
+							("Integer1 "),
+								thisMapping.Integer1Mapping = atrim(mappingValue)
+							("Integer2 "),
+								thisMapping.Integer2Mapping = atrim(mappingValue)
+							("Integer4 "),
+								thisMapping.Integer4Mapping = atrim(mappingValue)
+							("Integer8 "),
+								thisMapping.Integer8Mapping = atrim(mappingValue)
+							("Boolean "),
+								thisMapping.BooleanMapping = atrim(mappingValue)
+							("Enum "),
+								thisMapping.EnumMapping = atrim(mappingValue)
+							("Binary "),
+								thisMapping.BinaryMapping = atrim(mappingValue)
+							("StructField "),
+								thisMapping.StructFieldMapping = atrim(mappingValue)
+							(),
+								throw new RpsDataMappingException("DataMappings.xml element '" + atrim(sectionName) + "." + atrim(mappingName) + "' is not supported.")
+							endusing
+						end
+					end
+				end
+			end
+			
+			;;Clean up
+			if (xdoc)
+				xml_doc_delete(xdoc)
+
+		endmethod
+
+		public method SetFieldAttributes, void
+			required in aLength, int
+			required in aPrecision, int
+			endparams
+		proc
+			mCsMappings.SetFieldAttributes(aLength,aPrecision)
+			mVbMappings.SetFieldAttributes(aLength,aPrecision)
+			mSqlMappings.SetFieldAttributes(aLength,aPrecision)
+			mOcMappings.SetFieldAttributes(aLength,aPrecision)
+		endmethod
+		
+		public property SqlMappings, @DataMapping
+			method get
+			proc
+				mreturn mSqlMappings
+			endmethod
+		endproperty
+		
+		public property CsMappings, @DataMapping
+			method get
+			proc
+				mreturn mCsMappings
+			endmethod
+		endproperty
+		
+		public property VbMappings, @DataMapping
+			method get
+			proc
+				mreturn mVbMappings
+			endmethod
+		endproperty
+		
+		public property OcMappings, @DataMapping
+			method get
+			proc
+				mreturn mOcMappings
+			endmethod
+		endproperty
+	
+	endclass
+
+endnamespace
+
