@@ -4,27 +4,30 @@ using System.ComponentModel;
 using System.Configuration.Install;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
+using System.IO;
+using System.Diagnostics;
 
 namespace InstallerCustomActions
 {
     [RunInstaller(true)]
     public class InstallerActions : Installer
     {
-        public override void Install(System.Collections.IDictionary stateSaver)
+        [System.Security.Permissions.SecurityPermission(System.Security.Permissions.SecurityAction.Demand)]
+        public override void Install(System.Collections.IDictionary savedState)
         {
-            base.Install(stateSaver);
+            base.Install(savedState);
 
             string curPath = GetPath();
-            stateSaver.Add("previousPath", curPath);
+            savedState.Add("previousPath", curPath);
             string newPath = AddPath(curPath, MyPath());
             if (curPath != newPath)
             {
-                stateSaver.Add("changedPath", true);
+                savedState.Add("changedPath", true);
                 SetPath(newPath);
                 broadcastSettingsChanged();
             }
             else
-                stateSaver.Add("changedPath", false);
+                savedState.Add("changedPath", false);
 
             //Save the install data to the registry
 
@@ -41,10 +44,12 @@ namespace InstallerCustomActions
             key.SetValue("DefaultCompany", company);
             key.Close();
 
-            stateSaver.Add("changedRegistry", true);
+            savedState.Add("changedRegistry", true);
 
+            ngen(savedState, "install");
         }
 
+        [System.Security.Permissions.SecurityPermission(System.Security.Permissions.SecurityAction.Demand)]
         public override void Uninstall(System.Collections.IDictionary savedState)
         {
             base.Uninstall(savedState);
@@ -59,8 +64,11 @@ namespace InstallerCustomActions
             {
                 Registry.LocalMachine.DeleteSubKey(@"SOFTWARE\Synergex\CodeGen");
             }
+
+            ngen(savedState, "uninstall");
         }
 
+        [System.Security.Permissions.SecurityPermission(System.Security.Permissions.SecurityAction.Demand)]
         public override void Rollback(System.Collections.IDictionary savedState)
         {
             base.Rollback(savedState);
@@ -75,6 +83,8 @@ namespace InstallerCustomActions
             {
                 Registry.LocalMachine.DeleteSubKey(@"SOFTWARE\Synergex\CodeGen");
             }
+
+            ngen(savedState, "uninstall");
         }
 
         private static string MyPath()
@@ -175,6 +185,57 @@ namespace InstallerCustomActions
         }
 
         #endregion
+
+        [System.Security.Permissions.SecurityPermission(System.Security.Permissions.SecurityAction.Demand)]
+        private void ngen(System.Collections.IDictionary savedState, string ngenCommand)
+        {
+            String[] argsArray;
+
+            if (string.Compare(ngenCommand, "install", StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                String args = Context.Parameters["NgenAssemblies"];
+                if (String.IsNullOrEmpty(args))
+                {
+                    throw new InstallException("No arguments specified");
+                }
+
+                char[] separators = { ';' };
+                argsArray = args.Split(separators);
+                savedState.Add("NgenArgs", argsArray); //It is Ok to 'ngen uninstall' assemblies which were not installed
+            }
+            else
+            {
+                argsArray = (String[])savedState["NgenArgs"];
+            }
+
+            // Gets the path to the Framework directory.
+            string fxPath = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
+
+            for (int i = 0; i < argsArray.Length; ++i)
+            {
+                string arg = argsArray[i];
+                // Quotes the argument, in case it has a space in it.
+                arg = "\"" + arg + "\"";
+
+                string command = ngenCommand + " " + arg;
+
+                ProcessStartInfo si = new ProcessStartInfo(Path.Combine(fxPath, "ngen.exe"), command);
+                si.WindowStyle = ProcessWindowStyle.Hidden;
+
+                Process p;
+
+                try
+                {
+                    Context.LogMessage(">>>>" + Path.Combine(fxPath, "ngen.exe ") + command);
+                    p = Process.Start(si);
+                    p.WaitForExit();
+                }
+                catch (Exception ex)
+                {
+                    throw new InstallException("Failed to ngen " + arg, ex);
+                }
+            }
+        }
 
     }
 }
