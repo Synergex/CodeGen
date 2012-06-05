@@ -742,7 +742,24 @@ namespace CodeGen.Engine
 			
 		end
 		
-		;;-------------------------------------------------------------------------
+        ;;-------------------------------------------------------------------------
+        ;;Report if we're doing Repository processing
+        
+        if (!ErrStatus && Env.Verbose)
+        begin
+            if (Env.RpsInUse) then
+            begin
+                data str, @RpsStructure
+                Log("Structure(s):",true,false)
+                
+                foreach str in Structures.GetEnumerator()
+                    Log(" - " + str.Name,false,false)
+            end
+            else
+                Log("No Repository structure processing",false,false)
+        end
+        
+        ;;-------------------------------------------------------------------------
 		;;Do we have structure aliases specified
 		
 		if (!ErrStatus&&Structures!=^null)
@@ -776,14 +793,14 @@ namespace CodeGen.Engine
 					ErrStatus=1
 				end
 				
-				DebugLog("Applying structure aliases",true,false)
+				VerboseLog("Applying structure aliases",true,false)
 				for AliasIndex from 1 thru ClAliasCount
 				begin
 					Structures[AliasIndex-1].Alias = UpperCase(ClBuffer[AliasIndex])
-					DebugLog(" - Structure "
-&					+ Structures[AliasIndex-1].Name
-&					+ " aliased as "
-&					+ Structures[AliasIndex-1].Alias,false,false)
+					VerboseLog(" - Structure "
+                    &   + Structures[AliasIndex-1].Name
+                    &   + " aliased as "
+                    &   + Structures[AliasIndex-1].Alias,false,false)
 				end
 			end
 		end
@@ -847,23 +864,6 @@ namespace CodeGen.Engine
 					end
 				end
 			end
-		end
-		
-		;;-------------------------------------------------------------------------
-		;;Report if we're doing Repository processing
-		
-		if (!ErrStatus && Env.Verbose)
-		begin
-			if (Env.RpsInUse) then
-			begin
-				data str, @RpsStructure
-				Log("Structure(s):",true,false)
-				
-				foreach str in Structures.GetEnumerator()
-					Log(" - " + str.Name,false,false)
-			end
-			else
-				Log("No Repository structure processing",false,false)
 		end
 		
 		;;-------------------------------------------------------------------------
@@ -1351,6 +1351,42 @@ namespace CodeGen.Engine
 			end
 		end
 		
+        ;;-------------------------------------------------------------------------
+        ;;Are we being asked to process multiple structures at the same time (in
+        ;;the same template)
+
+        if ((!ErrStatus)&&CommandLine("ms ")&&(Env.RpsInUse)&&(Structures.Count>1))
+        begin
+            data structureToCheck, @RpsStructure
+            
+            ;;Make sure that we have at least two structures
+            if (Structures.Count<2)
+            begin
+                ErrorLog("Option -ms requires you to specify at least two structures after -s")
+                ErrStatus = 1
+            end
+
+            ;;Check all of the structures and load them into the Env.CurrentStructures collection
+            if (!ErrStatus)
+            begin
+                foreach structureToCheck in Structures.GetEnumerator()
+                begin
+                    if (!CheckStructure(structureToCheck))
+                    begin
+                        ErrStatus = 1
+                        exitloop
+                    end
+                end
+            end
+
+            if (!ErrStatus)
+            begin
+                Env.CurrentStructures = Structures
+                Env.FileIndexes = FileIndex
+                VerboseLog("Processing "+string(Structures.Count)+" structures concurrently",true,false)
+            end
+        end
+            
 		;;-------------------------------------------------------------------------
 		;;We're good to go. Generate souce code
 		
@@ -1359,27 +1395,25 @@ namespace CodeGen.Engine
 			
 			VerboseLog("",false,false)
 			
-			if (!Env.RpsInUse) then
+            if ((!Env.RpsInUse)||(Env.CurrentStructures!=^null)) then
 				call process_templates
 			else
-			begin
-				
-				for StrNum from 0 thru Structures.Count-1
-				begin
-					
-					;;Check the structure.  If all is OK the structure will be loaded into Env.CurrentStructure
-					if (!CheckStructure(Structures[StrNum]))
-						nextloop
-						
-					Env.FileIndex = FileIndex[StrNum+1]
-					
-					;;Generate code for this structure
-					call process_templates
-					
-					Env.CurrentStructure = ^null
-					
-				end
-				
+            begin
+                for StrNum from 0 thru Structures.Count-1
+                begin
+                    ;;Check the structure, flatten arrays and groups, etc.
+                    if (CheckStructure(Structures[StrNum])) then
+                        Env.CurrentStructure = Structures[StrNum]
+                    else
+                        nextloop
+                        
+                    Env.FileIndex = FileIndex[StrNum+1]
+                        
+                    ;;Generate code for this structure
+                    call process_templates
+                        
+                    Env.CurrentStructure = ^null
+                end
 			end
 			
 		end
@@ -1419,9 +1453,20 @@ namespace CodeGen.Engine
 			data tmpTemplate, @a
 			foreach tmpTemplate in Templates
 			begin
-				Env.CurrentTemplate =(a)tmpTemplate
-				Generate()
-				Env.CurrentTemplate = ""
+                Env.CurrentTemplate =(a)tmpTemplate
+
+                ;;If we're processing multiple structures in the same template then make
+                ;;sure that context is set to the first structure for each template
+                if (Env.CurrentStructures!=^null)
+                begin
+                    Env.CurrentStructure = Env.CurrentStructures[0]
+                    Env.FileIndex = Env.FileIndexes[1]
+                end
+
+                ;;Generate the code
+                Generate()
+                
+                Env.CurrentTemplate = ""
 			end
 		end
 		

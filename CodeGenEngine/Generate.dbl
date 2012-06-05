@@ -438,8 +438,58 @@ namespace CodeGen.Engine
 
                 do
                 begin
+                    data tmpPos, int
+
                     ;Get the next record to process
                     buffer = (a)Template[TemplateCodeIndex+=1]
+
+                    ;;Do we have an instruction to switch strcuture context (<STRUCTURE#n>)?
+                    if (tmpPos = instr(1,buffer,"<STRUCTURE#"))
+                    begin
+                        data tmpEndPos, int
+                        data tmpStrNum, int
+                        ;;Make sure the token is formatted correctly
+                        if ((!(tmpEndPos = %instr(tmpPos+11,buffer,">")))||((tmpEndPos-tmpPos)<12))
+                        begin
+                            ErrorLog("Invalid <STRUCTURE#n> token encountered")
+                            ErrStatus = 1
+                            exitloop
+                        end
+                        ;;Make sure "n" is a valid integer value
+                        try
+                        begin
+                            tmpStrNum = integer(buffer(tmpPos+11,tmpEndPos-1))
+                            if (tmpStrNum<1)
+                                throw new BadDigitException()
+                        end
+                        catch (e, @BadDigitException)
+                        begin
+                            ErrorLog("Invalid <STRUCTURE#n> token encountered")
+                            ErrStatus = 1
+                            exitloop
+                        end
+                        endtry
+                        ;;Make sure we have multiple structures
+                        if (Env.CurrentStructures==^null)
+                        begin
+                            ErrorLog("Token "+buffer(tmpPos,tmpEndPos)+" in template " + Env.CurrentTemplate + " requires multiple structures")
+                            ErrStatus = 1
+                            exitloop
+                        end
+                        ;;Make sure we have enough structures
+                        if (Env.CurrentStructures.Count<tmpStrNum)
+                        begin
+                            ErrorLog("Token "+buffer(tmpPos,tmpEndPos)+" in template " + Env.CurrentTemplate + " requires " + string(tmpStrNum) + " structures")
+                            ErrStatus = 1
+                            exitloop
+                        end
+                        ;;We're good to go, switch the current structure
+                        Env.CurrentStructure = Env.CurrentStructures[tmpStrNum-1]
+                        Env.FileIndex = Env.FileIndexes[tmpStrNum]
+                        Str = Env.CurrentStructure
+                        DebugLog(" - Switched context to structure " + string(tmpStrNum) + " (" + Env.CurrentStructure.Name + ")",true,true)
+                        nextloop
+                    end
 
                     ;Do token replacement
                     do call process_line
@@ -451,7 +501,8 @@ namespace CodeGen.Engine
                 end
                 until ((TemplateCodeIndex==Template.Count-1)||ErrStatus)
 
-                DebugLog(" - Ending token replacement pass " + string(PassCount) + " with " + string(Output.Count) + " records",false,false)
+                if (!ErrStatus)
+                    DebugLog(" - Ending token replacement pass " + string(PassCount) + " with " + string(Output.Count) + " records",false,false)
 
                 if (!ErrStatus&&DoAnotherPass)
                 begin
@@ -518,7 +569,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;Replace <ENVIFEXIST:name.ext>
+        ;Replace <ENVIFEXIST:xxxxx>
         NoFileOk = false
         begin
             data TmpPos, int
