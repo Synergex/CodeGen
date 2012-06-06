@@ -55,12 +55,14 @@ namespace CodeGen.Engine
 		static record
 			ErrStatus   ,int                    ;;Main error status variables
 			StrNum      ,int                    ;;Structure number being processed
-			WscFile     ,a80                    ;;UI Toolkit window script file
+            WscFile     ,a80                    ;;UI Toolkit window script file
 			ClBuffer    ,[10]a80                ;;Command line option values
 			Templates   ,@ArrayList             ;;Collection of template names
 			Structures  ,@RpsStructureCollection;;Collection of repository structures
 			FileIndex   ,[#]int                 ;;Array of file indexes to use
-		endrecord
+            FileDef     ,@RpsFile               ;;Repository file definition name
+
+        endrecord
 		
 		external function
 			CleanScriptField, a
@@ -563,20 +565,100 @@ namespace CodeGen.Engine
 			end
 		end
 		
+        ;;-------------------------------------------------------------------------
+        ;;Do we have a repository file definition specified?
+        
+        if (!ErrStatus)
+        begin
+            data fileCount, int
+            if (CommandLine("file ",1,ClBuffer,fileCount))
+            begin
+                if (fileCount!=1)
+                begin
+                    ErrorLog("Must specify exactly one file definition name after the -file option!")
+                    ErrStatus=1
+                end
+
+                if (!ErrStatus)
+                begin
+                    ;;Get the file details from the repository
+                    upcase ClBuffer[1]
+                    try
+                    begin
+                        FileDef = new RpsFile(ClBuffer[1])
+                    end
+                    catch (e, @RpsFileException)
+                    begin
+                        ErrorLog("Failed to load repository file definition " + ClBuffer[1])
+                        ErrStatus = 1
+                    end
+                    endtry
+                end
+                
+                if (!ErrStatus)
+                begin
+                    ;;Make sure the file has at least one structure defined, and if so set them as the structures to process
+                    if (FileDef.StructureCount>0) then
+                    begin
+                        Structures = FileDef.Structures
+                        Env.RpsInUse = true
+
+                        ;;Default all structures to use the file being processed
+                        begin
+                            data ix, int
+                            FileIndex = new int[Structures.Count]
+                            for ix from 0 thru Structures.Count-1
+                            begin
+                                data iy, int
+                                FileIndex[ix+1] = 0
+                                for iy from 0 thru Structures[ix].Files.Count-1
+                                begin
+                                    if (Structures[ix].Files[iy].Name==FileDef.Name)
+                                    begin
+                                        FileIndex[ix+1] = iy
+                                        exitloop
+                                    end
+                                end
+                            end
+                        end
+
+                    end
+                    else
+                    begin
+                        ErrorLog("Repository file " + atrim(ClBuffer[1]) + " doesn't have any structures assigned")
+                        ErrStatus = 1
+                    end
+                end
+
+            end
+        end
+
 		;;-------------------------------------------------------------------------
 		;;Do we have a UI Toolkit window script specified?
 		
 		if (!ErrStatus)
 		begin
 			data WscCount, int
-			if (CommandLine("w ",1,ClBuffer,WscCount))
-				if (WscCount==1) then
-					WscFile = ClBuffer[1]
-				else
-				begin
-					ErrorLog("Must specify exactly one window script after -w option!")
-					ErrStatus=1
-				end
+            if (CommandLine("w ",1,ClBuffer,WscCount))
+            begin
+
+                if (FileDef!=^null)
+                begin
+                    ErrorLog("Can't use -file and -w options together!")
+                    ErrStatus=1
+                end
+
+                if (!ErrStatus)
+                begin
+                    if (WscCount==1) then
+                        WscFile = ClBuffer[1]
+                    else
+                    begin
+                        ErrorLog("Must specify exactly one window script name after the -w option!")
+                        ErrStatus=1
+                    end
+                end
+            end
 		end
 		
 		;;-------------------------------------------------------------------------
@@ -587,11 +669,20 @@ namespace CodeGen.Engine
 			data ClStrCount, int
 			if (CommandLine("s ",10,ClBuffer,ClStrCount))
 			begin
-				if (WscFile)
-				begin
-					ErrorLog("Can't use -w and -s options together!")
-					ErrStatus=1
-				end
+                if (FileDef!=^null)
+                begin
+                    ErrorLog("Can't use -file and -s options together!")
+                    ErrStatus=1
+                end
+                
+                if (!ErrStatus)
+                begin
+                    if (WscFile)
+                    begin
+                        ErrorLog("Can't use -w and -s options together!")
+                        ErrStatus=1
+                    end
+                end
 				
 				if (!ErrStatus)
 				begin
@@ -1355,7 +1446,7 @@ namespace CodeGen.Engine
         ;;Are we being asked to process multiple structures at the same time (in
         ;;the same template)
 
-        if ((!ErrStatus)&&CommandLine("ms ")&&(Env.RpsInUse)&&(Structures.Count>1))
+        if ((!ErrStatus)&&(Env.RpsInUse)&&(CommandLine("ms ")||((FileDef!=^null)&&(Structures.Count>1))))
         begin
             data structureToCheck, @RpsStructure
             
