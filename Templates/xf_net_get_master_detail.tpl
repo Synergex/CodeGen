@@ -91,23 +91,27 @@ import System.Collections
 </PRIMARY_KEY>
 ;;;<param name="<StructureName>">Returned <StructureName> record</param>
 <STRUCTURE#2>
-;;;<param name="<StructureName>">Returned <StructureName>s collection</param>
+;;;<param name="<StructureName>s">Returned <StructureName>s collection</param>
 <STRUCTURE#1>
 ;;;<returns>True for success, false for failure</returns>
 {xfMethod(interface="<XF_INTERFACE>",elb="<XF_ELB>")}
 function Get<StructureName>, Boolean
+
     <PRIMARY_KEY>
     <SEGMENT_LOOP>
     {xfParameter(name="<SegmentName>")}
     required in  a<SegmentName>, <segment_spec>
     </SEGMENT_LOOP>
     </PRIMARY_KEY>
+    
     {xfParameter(name="<StructureName>")}
     required out a<StructureName>, str<StructureName>
+    
     <STRUCTURE#2>
     {xfParameter(name="<StructureName>s",collectionType=xfCollectType.structure,structure="str<StructureName>")}
     required out a<StructureName>s, @ArrayList
     <STRUCTURE#1>
+    
     endparams
 
     stack record localData
