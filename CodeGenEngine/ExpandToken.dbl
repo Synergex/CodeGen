@@ -185,7 +185,7 @@ namespace CodeGen.Engine
                     data Field, @RpsField
                     foreach Tag in Str.Tags.GetEnumerator()
                     begin
-                        Field = (RpsField)Str.Fields[Tag.Name]
+                        Field = (RpsField)Str.Fields[Tag.Field]
                         ;;Do we need to add an && or || operator?
                         if (addOperator)
                         begin
@@ -230,6 +230,85 @@ namespace CodeGen.Engine
             end
         end
 
+        ("<TAG_EXPRESSION_PATH>"),
+        begin
+            if (Env.RpsInUse) then
+            begin
+                if (Str.Tags.Count) then
+                begin
+                    data expression, a1024," "
+                    data addOperator, boolean, false
+                    data Tag, @RpsTag
+                    data Field, @RpsField
+                    foreach Tag in Str.Tags.GetEnumerator()
+                    begin
+                        Field = (RpsField)Str.Fields[Tag.Field]
+                        ;;Do we need to add an && or || operator?
+                        if (addOperator)
+                        begin
+                            using Tag.ComparisonConnector select
+                            (RpsTagComparison.CompareAnd),
+                                expression = atrim(expression) + "&&"
+                            (RpsTagComparison.CompareOr),
+                                expression = atrim(expression) + "||"
+                            endusing
+                        end
+                        ;;Add the next part of the expression
+                        expression = atrim(expression) + "(" + Str.Alias + "." + Tag.Field
+                        using Tag.ComparisonOperator select
+                        (RpsTagOperator.OpEQ),
+                            expression = atrim(expression) + "=="
+                        (RpsTagOperator.OpNE),
+                            expression = atrim(expression) + "!="
+                        (RpsTagOperator.OpLE),
+                            expression = atrim(expression) + "<="
+                        (RpsTagOperator.OpLT),
+                            expression = atrim(expression) + "<"
+                        (RpsTagOperator.OpGE),
+                            expression = atrim(expression) + ">="
+                        (RpsTagOperator.OpGT),
+                            expression = atrim(expression) + ">"
+                        endusing
+                        if (Field.DataTypeCode=="A"||Field.DataTypeCode=="U") then
+                            expression = atrim(expression) + '"' + Tag.ComparisonValue + '")'
+                        else
+                            expression = atrim(expression) + Tag.ComparisonValue + ')'
+                        addOperator = true
+                    end
+                    ReplacedToken=ReplaceToken(buffer,"<TAG_EXPRESSION_PATH>",atrim(expression))
+                end
+                else
+                    ReplacedToken=ReplaceToken(buffer,"<TAG_EXPRESSION_PATH>","true")
+            end
+            else
+            begin
+                RpsRequired("<TAG_EXPRESSION_PATH>")
+                ErrStatus=1
+            end
+        end
+        
+        ("<TAG_FIELD_NAME>"),
+        begin
+            if (Env.RpsInUse) then
+                ReplacedToken=ReplaceToken(buffer,"<TAG_FIELD_NAME>",Str.TagField)
+            else
+            begin
+                RpsRequired("<TAG_FIELD_NAME>")
+                ErrStatus=1
+            end
+        end
+
+        ("<TAG_FIELD_PATH>"),
+        begin
+            if (Env.RpsInUse) then
+                ReplacedToken=ReplaceToken(buffer,"<TAG_FIELD_PATH>",Str.Alias+"."+Str.TagField)
+            else
+            begin
+                RpsRequired("<TAG_FIELD_PATH>")
+                ErrStatus=1
+            end
+        end
+        
         ("<TAG_FIELD_DEFINE>"),
         begin
             if (Env.RpsInUse) then
