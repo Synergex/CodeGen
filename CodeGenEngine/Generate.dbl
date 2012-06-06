@@ -173,8 +173,6 @@ namespace CodeGen.Engine
 		
     proc
 
-        ;;This routine is called once per structure / template combination
-
         ;;Add the template to the collection of templates to be processed
         ;;during this pass. It's a collection in case the first template
         ;;lists other templates to be processed at the same time.
@@ -210,7 +208,7 @@ namespace CodeGen.Engine
         freturn ErrStatus
 
     ;;=============================================================================
-    ;; Process a single template (against a single structure)
+    ;; Process a template file to create an output file
     ;;
     process_template,
 
@@ -244,15 +242,18 @@ namespace CodeGen.Engine
 
             repeat
             begin
-
+                try
                 begin
-                    reads(InCh,buffer,eoif)
-                    exit
-    eoif,           if (%rsize) then
+                    reads(InCh,buffer)
+                end
+                catch (e, @EndOfFileException)
+                begin
+                    if (%rsize) then
                         DoingLastRecord=true
                     else
                         exitloop
                 end
+                endtry
 
                 TemplateCodeIndex+=1
 
@@ -351,15 +352,15 @@ namespace CodeGen.Engine
                     data tmpTemplate, @a
                     data tplfound, boolean, false
 
-                    ;Find the end tag and extract the file spec
+                    ;;Find the end tag and extract the file spec
                     TokenEnd = instr((TokenStart+=18),buffer,"</PROCESS_TEMPLATE>")
                     buffer = buffer(TokenStart,TokenEnd-1)
 
-                    ;If the template has a .tpl then remove it
+                    ;;If the template has a .tpl then remove it
                     if (TokenStart=instr(1,LowerCase(buffer),".tpl"))
                         clear buffer(TokenStart:4)
 
-                    ;Is this template already in the to do list?
+                    ;;Is this template already in the to do list?
                     foreach tmpTemplate in Templates
                     begin
                         if ((a)tmpTemplate.eqs.LowerCase(buffer))
@@ -369,7 +370,7 @@ namespace CodeGen.Engine
                         end
                     end
 
-                    ;Is this template already in the done list?
+                    ;;Is this template already in the done list?
                     if (!tplfound)
                     begin
                         data doneTemplate, @a
@@ -414,9 +415,9 @@ namespace CodeGen.Engine
                     exitloop
             end
 
+            ;;Finished loading the template into memory
             if (!ErrStatus)
                 DebugLog(" - Template initially contains " + string(Template.Count) + " records",false,false)
-
         end
 
         ;;Create the output file
@@ -440,7 +441,7 @@ namespace CodeGen.Engine
                 begin
                     data tmpPos, int
 
-                    ;Get the next record to process
+                    ;;Get the next record to process
                     buffer = (a)Template[TemplateCodeIndex+=1]
 
                     ;;Do we have an instruction to switch strcuture context (<STRUCTURE#n>)?
@@ -491,11 +492,11 @@ namespace CodeGen.Engine
                         nextloop
                     end
 
-                    ;Do token replacement
+                    ;;Do token replacement
                     do call process_line
                     until (!TokenReplaced||ErrStatus)
 
-                    ;Add the record to the output file buffer
+                    ;;Add the record to the output file buffer
                     if (!ErrStatus)
                         Output.Add((@a)(atrim(buffer)))
                 end
@@ -506,8 +507,8 @@ namespace CodeGen.Engine
 
                 if (!ErrStatus&&DoAnotherPass)
                 begin
-                    ;We're going to process the data again, so switch the output
-                    ;buffer to the input buffer
+                    ;;We're going to process the data again, so switch the output
+                    ;;buffer to the input buffer
                     Template = Output
                     clear Output
                 end
@@ -553,11 +554,11 @@ namespace CodeGen.Engine
 
         TokenReplaced = false
 
-        ;Do we have any tokens in the line
+        ;;Do we have any tokens in the line
         if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
             return
 
-        ;First process any user defined tokens
+        ;;First process any user defined tokens
         if (Env.UserTokens!=^null)
         begin
             data ut, @UserToken
@@ -569,7 +570,9 @@ namespace CodeGen.Engine
             end
         end
 
-        ;Replace <ENVIFEXIST:xxxxx>
+        ;;Replace <ENVIFEXIST:xxxxx>
+        ;;This code turns the token into an <ENV: token and sets NoFileOK to
+        ;;indicate that it's OK if the environment variable doesn't exist
         NoFileOk = false
         begin
             data TmpPos, int
@@ -580,7 +583,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;Replace <ENV:xxxxx>
+        ;;Replace <ENV:xxxxx>
         if (TokenStart = instr(1,buffer,"<ENV:"))
         begin
             begin
@@ -601,9 +604,9 @@ namespace CodeGen.Engine
                 data envVar     ,a30
                 data envLen     ,int
                 data envData    ,a CODEGEN_BUFSZ
-                ;Extract the token
+                ;;Extract the token
                 ThisToken = buffer(TokenStart,TokenEnd)
-                ;Get environment variable contents
+                ;;Get environment variable contents
                 envVar = buffer(TokenStart+5,TokenEnd-1)
                 getlog(envVar,envData,envLen)
                 if (envLen) then
@@ -625,7 +628,9 @@ namespace CodeGen.Engine
             end
         end
 
-        ;Replace <FILEIFEXIST:name.ext>
+        ;;Replace <FILEIFEXIST:name.ext>
+        ;;This code turns the token into a <FILE: token and sets NoFileOK to
+        ;;indicate that it's OK if the file doesn't exist
         NoFileOk = false
         begin
             data TmpPos, int
@@ -636,24 +641,21 @@ namespace CodeGen.Engine
             end
         end
 
-        ;Replace <FILE:name.ext>
+        ;;Replace <FILE:name.ext>
         if instr(1,buffer,"<FILE:")
-        begin
             call process_include_file
-        end
-
 
         TokenStart = 1
         repeat
         begin
 
-            ;Do we still have at least one token
+            ;;Do we still have at least one token
             if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
                 exitloop
 
             TokenReplaced = false
 
-            ;Process the token
+            ;;Process the token
             using buffer(TokenStart,TokenEnd) select
 
             ("<FIELD_LOOP>"),
@@ -822,6 +824,7 @@ namespace CodeGen.Engine
 				end
 			end
 
+            ;;The token wasn't a loop token, so it must be a generic or structure token
             (),
                 TokenReplaced = ExpandToken(Str,TokenStart,TokenEnd,buffer,ErrStatus)
 
@@ -837,14 +840,14 @@ namespace CodeGen.Engine
         return
 
     ;;=============================================================================
-    ;
+    ;;
     process_include_file,
 
         TokenStart = instr(1,buffer,"<FILE:")
 
 
-        ;<FILE:name.ext>
-        ;<FILE:xxx<struct>xxx.ext>
+        ;;<FILE:name.ext>
+        ;;<FILE:xxx<struct>xxx.ext>
 
         begin
             data TokenStart2, int
@@ -867,7 +870,7 @@ namespace CodeGen.Engine
             data ix, int, 0
             data doReturn, boolean, false
 
-            ;Open the inclde file
+            ;;Open the inclde file
             includeFileName = buffer(TokenStart+6,TokenEnd-1)
             try
                 open(tmpCh=0,i:s,Env.TemplateDir+atrim(includeFileName))
@@ -934,32 +937,32 @@ namespace CodeGen.Engine
         Loop1TemplateCode = new ArrayList()
         clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline, ItemWasRepeated
 
-        ;Look for an end tag in the same line
+        ;;Look for an end tag in the same line
         if (Token2Start=instr(1,buffer,"</FIELD_LOOP>"))
             Token2End=Token2Start+12
 
-        ;Do we have an in-line loop?
+        ;;Do we have an in-line loop?
         if (Token2Start&&Token2End) then
         begin
             Loop1IsInline=true
-            ;Add anything before the open tag to the output buffer
+            ;;Add anything before the open tag to the output buffer
             if (TokenStart>1) then
                 AlUtil.Add(Output,buffer(1:TokenStart-1))
             else
                 AlUtil.Add(Output,"")
-            ;Store anything after the closing tag
+            ;;Store anything after the closing tag
             if (Token2End<trimz(buffer))
                 Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
-            ;Remove the closing tag and any trailing data
+            ;;Remove the closing tag and any trailing data
             clear buffer(Token2Start,^size(buffer))
-            ;Remove any leading data and the opening tag
+            ;;Remove any leading data and the opening tag
             buffer=buffer(TokenEnd+1,^size(buffer))
-            ;What remains is our template code for the in-line loop
+            ;;What remains is our template code for the in-line loop
             AlUtil.Add(Loop1TemplateCode,buffer)
         end
         else
         begin
-            ;It's a multi-line loop, extract the loop template code
+            ;;It's a multi-line loop, extract the loop template code
             repeat
             begin
                 buffer = (a)Template[TemplateCodeIndex+=1]
@@ -969,22 +972,21 @@ namespace CodeGen.Engine
             end
         end
 
-        ;Take a copy of the loop template code so that we can modify and restore it
-        ;for each field in the collection. This supports the ability to use level 1
-        ;loop tokens in a level 2 loop.
+        ;;Take a copy of the loop template code so that we can modify and restore it
+        ;;for each field in the collection. This supports the ability to use level 1
+        ;;loop tokens in a level 2 loop.
         AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
 
-        ;Now process the loop template for each field, and for array fields, for
-        ;each array element (arrays are treated as a collection of multiple fields
-        ;of the same type).
+        ;;Now process the loop template for each field, and for array fields, for
+        ;;each array element (arrays are treated as a collection of multiple fields
+        ;;of the same type).
 
         clear LogicalFieldNumber
 
-        ;for FldNbr from 0 thru Str.Fields.Count-1
         fldNbr = -1
         while ((FldNbr+=1) < Str.Fields.Count)
         begin
-            ;Construct a new CodegenRpsField from the current RpsField object
+            ;;Get a handle on the current field
             fld = Str.Fields[FldNbr]
 
             DebugLog("     - Processing field " + fld.Name,true,false)
@@ -999,17 +1001,17 @@ namespace CodeGen.Engine
             if (Loop1IsInline)
                 AlUtil.Add(Loop1Output,"")
 
-            ;Process the template code
+            ;;Process the template code
             for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
             begin
                 buffer = (a)Loop1TemplateCode[Loop1Rec]
 
-                ;Are we winding forward looking for the end of a multi-line condition?
+                ;;Are we winding forward looking for the end of a multi-line condition?
                 if (Loop1ConditionApplies.Count)
                     if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
                         nextloop
 
-                ;If no tokens just add the line to the output stream
+                ;;If no tokens just add the line to the output stream
                 if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
                 begin
                     if (!Loop1OutputOff)
@@ -1022,17 +1024,17 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;Replace any tokens in the buffer
+                ;;Replace any tokens in the buffer
                 RepeatItem = false
                 do
                 begin
                     Loop1TokenReplaced = false
 
-                    ;Any more tokens?
+                    ;;Any more tokens?
                     if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
                         exitloop
 
-                    ;Expression?
+                    ;;Expression?
                     if (buffer(TokenStart:4)=="<IF ")
                     begin
                         Loop1TokenReplaced = ProcessFieldExpression(Str,Fld,FldNbr,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
@@ -1042,7 +1044,7 @@ namespace CodeGen.Engine
                             nextloop
                     end
 
-                    ;Replace field loop tokens
+                    ;;Replace field loop tokens
                     using buffer(TokenStart,TokenEnd) select
                     ("<SELECTION_LOOP>"),
                     begin
@@ -1054,7 +1056,7 @@ namespace CodeGen.Engine
                         Loop1TokenReplaced = ExpandFieldToken(Str,Fld,FldNbr,LogicalFieldNumber,TokenStart,TokenEnd,Loop1OutputOff,buffer,ErrStatus)
                     endusing
 
-                    ;If nothing replaced just move on
+                    ;;If nothing replaced just move on
                     if (!Loop1TokenReplaced)
                     begin
                         TokenStart += 1
@@ -1066,7 +1068,7 @@ namespace CodeGen.Engine
                 if (ErrStatus)
                     exitloop
 
-                ;Add the line to the output buffer
+                ;;Add the line to the output buffer
                 if (!Loop1OutputOff && !instr(1,buffer,"<IF ") && !RepeatItem )
                 begin
                     if (Loop1IsInline) then
@@ -1081,9 +1083,9 @@ namespace CodeGen.Engine
 
             if (RepeatItem) then
             begin
-                ;We just processed a level 2 loop, and that could have left
-                ;behind level 1 loop tokens, so use the output for this item
-                ;as template code and go around again
+                ;;We just processed a level 2 loop, and that could have left
+                ;;behind level 1 loop tokens, so use the output for this item
+                ;;as template code and go around again
                 AlUtil.Clone(Loop1Output,Loop1TemplateCode)
                 FldNbr-=1
                 LogicalFieldNumber-=1
@@ -1092,7 +1094,7 @@ namespace CodeGen.Engine
             end
             else
             begin
-                ;We're done with this item, commit the output
+                ;;We're done with this item, commit the output
                 if (Loop1IsInline) then
                     AlUtil.AppendToLastItem(Output,Loop1Output[0])
                 else
@@ -1110,14 +1112,14 @@ namespace CodeGen.Engine
 
         end
 
-        ;For in-line loops, add back any trailing code
+        ;;For in-line loops, add back any trailing code
         if (Loop1IsInline&&Loop1TrailingData)
             AlUtil.AppendToLastItem(Output,Loop1TrailingData)
 
         clear Fld, Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
         DoAnotherPass = true
 
-        ;Advance to the next template record (after the end of the loop token)
+        ;;Advance to the next template record (after the end of the loop token)
         if (TemplateCodeIndex<Template.Count-1)
             buffer = (a)Template[TemplateCodeIndex+=1]
 
@@ -1135,44 +1137,44 @@ namespace CodeGen.Engine
         Loop2TemplateCode = new ArrayList()
         clear Loop2CloseTokenStart, Loop2CloseTokenEnd, Loop2TrailingData, Loop2LeadingData, Loop2NoOutput
 
-        ;We need to process the logic for this loop, even though the loop may not
-        ;apply in this case (e.g. a field selection loop for a field with no
-        ;selections. If we find this to be the case we'll suppress all output
+        ;;We need to process the logic for this loop, even though the loop may not
+        ;;apply in this case (e.g. a field selection loop for a field with no
+        ;;selections. If we find this to be the case we'll suppress all output
         Loop2NoOutput = (!Fld.SelectionList.Count)
 
-        ;If the parent loop's output if off then so is ours
+        ;;If the parent loop's output if off then so is ours
         Loop2OutputOff = Loop1OutputOff
 
-        ;If the parent loop is in-line then so are we
+        ;;If the parent loop is in-line then so are we
         Loop2IsInline = Loop1IsInline
 
-        ;Look for closing tag in same line
+        ;;Look for closing tag in same line
         if (Loop2CloseTokenStart=instr(1,buffer,"</SELECTION_LOOP>"))
             Loop2CloseTokenEnd=Loop2CloseTokenStart+16
 
-        ;In-line loop?
+        ;;In-line loop?
         if (Loop2CloseTokenStart&&Loop2CloseTokenEnd) then
         begin
             Loop2IsInline = true
 
-            ;Store any leading code
+            ;;Store any leading code
             if ((TokenStart>1)&&buffer(1:TokenStart-1))
                 Loop2LeadingData = buffer(1:TokenStart-1)
 
-            ;Store any trailing code
+            ;;Store any trailing code
             if (Loop2CloseTokenEnd<trimz(buffer))
             begin
                 Loop2TrailingData=buffer(Loop2CloseTokenEnd+1,trimz(buffer))
-                ;If the trailing code is just whitespace (tabs?) then lose it
+                ;;If the trailing code is just whitespace (tabs?) then lose it
                 if (IsWhitespace(Loop2TrailingData))
                     clear Loop2TrailingData
             end
 
-            ;Extract and save the loop2 template data
+            ;;Extract and save the loop2 template data
             buffer = buffer(TokenEnd+1,Loop2CloseTokenStart-1)
             AlUtil.Add(Loop2TemplateCode,buffer)
 
-            ;Add the leading data, if necessary
+            ;;Add the leading data, if necessary
             if (Loop2LeadingData && !Loop2NoOutput && !Loop2OutputOff) || (Loop2TrailingData) then
             begin
                 if (Loop1IsInline) then
@@ -1187,7 +1189,7 @@ namespace CodeGen.Engine
         end
         else
         begin
-            ;It's a multi-line loop, extract the loop template code
+            ;;It's a multi-line loop, extract the loop template code
             repeat
             begin
                 buffer = (a)Loop1TemplateCode[Loop1Rec+=1]
@@ -1197,7 +1199,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For each item
+        ;;For each item
         for SelNbr from 0 thru Fld.SelectionList.Count-1
         begin
 
@@ -1205,19 +1207,19 @@ namespace CodeGen.Engine
             Loop2ConditionMode = new ArrayList()
             Loop2OutputOff = Loop1OutputOff
 
-            ;Iterate through the loop template and emit code for the current item
+            ;;Iterate through the loop template and emit code for the current item
 
             Loop2Rec=-1
             while ((Loop2Rec+=1)<=Loop2TemplateCode.Count-1)
             begin
                 buffer = (a)Loop2TemplateCode[Loop2Rec]
 
-                ;Are we Looking for the end of a multi-line condition?
+                ;;Are we Looking for the end of a multi-line condition?
                 if (Loop2ConditionApplies.Count)
                     if (CheckExpressionEnd(buffer,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff))
                         nextloop
 
-                ;If no tokens just add the line to the output stream
+                ;;If no tokens just add the line to the output stream
                 if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
                 begin
                     if (!Loop2OutputOff && !Loop2NoOutput)
@@ -1225,16 +1227,16 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;Replace tokens in the line
+                ;;Replace tokens in the line
                 do
                 begin
                     Loop2TokenReplaced = false
 
-                    ;Any more tokens?
+                    ;;Any more tokens?
                     if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
                         exitloop
 
-                    ;Expression?
+                    ;;Expression?
                     if (buffer(TokenStart:4)=="<IF ")
                     begin
                         Loop2TokenReplaced = %ProcessSelectionExpression(Fld,SelNbr,TokenStart,TokenEnd,Loop1OutputOff,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff,buffer,ErrStatus)
@@ -1244,14 +1246,14 @@ namespace CodeGen.Engine
                             nextloop
                     end
 
-                    ;Process the token
+                    ;;Process the token
                     Loop2TokenReplaced = ExpandFieldSelectionToken(Fld,SelNbr,TokenStart,TokenEnd,buffer)
 
-                    ;If not replaced, could it be a field loop token?
+                    ;;If not replaced, could it be a field loop token?
                     if (!Loop2TokenReplaced)
                         Loop2TokenReplaced = ExpandFieldToken(Str,Fld,FldNbr,LogicalFieldNumber,TokenStart,TokenEnd,Loop1OutputOff,buffer,ErrStatus)
 
-                    ;If nothing replaced just move on
+                    ;;If nothing replaced just move on
                     if (!Loop2TokenReplaced)
                     begin
                         DebugLog("     - Skipping unsupported token " + buffer(TokenStart,TokenEnd),false,false)
@@ -1261,7 +1263,7 @@ namespace CodeGen.Engine
                 end
                 until (!Loop2TokenReplaced)
 
-                ;Add the code to the output buffer
+                ;;Add the code to the output buffer
                 if (!Loop2OutputOff & !Loop2NoOutput)
                 begin
                     if (Loop2IsInline) then
@@ -1272,7 +1274,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For in-line loops with trailing data, add back the trailing data
+        ;;For in-line loops with trailing data, add back the trailing data
         if (!Loop2OutputOff&&Loop2IsInline&&Loop2TrailingData)
             AlUtil.AppendToLastItem(Loop1Output,Loop2TrailingData)
 
@@ -1285,13 +1287,11 @@ namespace CodeGen.Engine
         return
 
     ;;=============================================================================
-    ;
-    process_key_loop,
-
+    ;;
         Loop1TemplateCode = new ArrayList()
         clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline, ItemWasRepeated
 
-        ;Look for an end tag in the same line
+        ;;Look for an end tag in the same line
         if (AlternateKeysOnly) then
         begin
             if (Token2Start=instr(TokenEnd,buffer,"</ALTERNATE_KEY_LOOP>"))
@@ -1305,28 +1305,28 @@ namespace CodeGen.Engine
         else if (Token2Start=instr(1,buffer,"</KEY_LOOP>"))
             Token2End=Token2Start+10
 
-        ;Do we have an in-line loop?
+        ;;Do we have an in-line loop?
         if (Token2Start&&Token2End) then
         begin
             Loop1IsInline=true
-            ;Add anything before the open tag to the output buffer
+            ;;Add anything before the open tag to the output buffer
             if (TokenStart>1) then
                 AlUtil.Add(Output,buffer(1:TokenStart-1))
             else
                 AlUtil.Add(Output,"")
-            ;Store anything after the closing tag
+            ;;Store anything after the closing tag
             if (Token2End<trimz(buffer))
                 Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
-            ;Remove the closing tag and any trailing data
+            ;;Remove the closing tag and any trailing data
             clear buffer(Token2Start,^size(buffer))
-            ;Remove any leading data and the opening tag
+            ;;Remove any leading data and the opening tag
             buffer=buffer(TokenEnd+1,^size(buffer))
-            ;What remains is our template code for the in-line loop
+            ;;What remains is our template code for the in-line loop
             AlUtil.Add(Loop1TemplateCode,buffer)
         end
         else
         begin
-            ;It's a multi-line loop, extract the loop template code
+            ;;It's a multi-line loop, extract the loop template code
             repeat
             begin
                 buffer = (a)Template[TemplateCodeIndex+=1]
@@ -1342,12 +1342,12 @@ namespace CodeGen.Engine
             end
         end
 
-        ;Take a copy of the loop template code so that we can modify and restore it
-        ;for each field in the collection. This supports the ability to use level 1
-        ;loop tokens in a level 2 loop.
+        ;;Take a copy of the loop template code so that we can modify and restore it
+        ;;for each field in the collection. This supports the ability to use level 1
+        ;;loop tokens in a level 2 loop.
         AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
 
-        ;Process each key
+        ;;Process each key
         KeyNbr = -1
         while ((KeyNbr+=1) <= Str.Keys.Count-1)
         begin
@@ -1362,18 +1362,18 @@ namespace CodeGen.Engine
 
             Key = Str.Keys[KeyNbr]
 
-            ;Skip any foreign keys
+            ;;Skip any foreign keys
             if (Key.KeyType == RpsKeyType.Foreign)
             begin
                 DebugLog("     - Skipping foreign key " + Key.Name,true,false)
                 nextloop
             end
 
-            ;If primary key only, are we done?
+            ;;If primary key only, are we done?
             if ((PrimaryKeyOnly)&&(KeyNbr>0))
                 exitloop
 
-            ;Skip the primary key if necessary
+            ;;Skip the primary key if necessary
             if (AlternateKeysOnly)
             begin
                 AlternateKeysOnly = false
@@ -1382,17 +1382,17 @@ namespace CodeGen.Engine
 
             DebugLog("     - Processing key " + Key.Name,true,false)
 
-            ;Process the template code
+            ;;Process the template code
             for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
             begin
                 buffer = (a)Loop1TemplateCode[Loop1Rec]
 
-                ;Are we winding forward looking for the end of a multi-line condition?
+                ;;Are we winding forward looking for the end of a multi-line condition?
                 if (Loop1ConditionApplies.Count)
                     if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
                         nextloop
 
-                ;If no tokens just add the line to the output stream
+                ;;If no tokens just add the line to the output stream
                 if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
                 begin
                     if (!Loop1OutputOff)
@@ -1405,17 +1405,17 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;Replace key tokens in the buffer
+                ;;Replace key tokens in the buffer
                 RepeatItem = false
                 do
                 begin
                     Loop1TokenReplaced = false
 
-                    ;Any more tokens?
+                    ;;Any more tokens?
                     if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
                         exitloop
 
-                    ;Expression?
+                    ;;Expression?
                     if (buffer(TokenStart:4)=="<IF ")
                     begin
                         Loop1TokenReplaced = ProcessKeyExpression(Str,Key,KeyNbr,TokenStart,TokenEnd,PrimaryKeyOnly,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
@@ -1425,7 +1425,7 @@ namespace CodeGen.Engine
                             nextloop
                     end
 
-                    ;Replace the token
+                    ;;Replace the token
                     using buffer(TokenStart,TokenEnd) select
                     ("<SEGMENT_LOOP>"),
                     begin
@@ -1447,7 +1447,7 @@ namespace CodeGen.Engine
                         Loop1TokenReplaced = ExpandKeyToken(Str,Key,KeyNbr,TokenStart,TokenEnd,PrimaryKeyOnly,buffer)
                     endusing
 
-                    ;If nothing replaced just move on
+                    ;;If nothing replaced just move on
                     if (!Loop1TokenReplaced)
                     begin
                         TokenStart += 1
@@ -1459,7 +1459,7 @@ namespace CodeGen.Engine
                 if (ErrStatus)
                     exitloop
 
-                ;Add the line to the output buffer
+                ;;Add the line to the output buffer
                 if (!Loop1OutputOff && !instr(1,buffer,"<IF ") && !RepeatItem )
                 begin
                     if (Loop1IsInline) then
@@ -1471,9 +1471,9 @@ namespace CodeGen.Engine
 
             if (RepeatItem) then
             begin
-                ;We just processed a level 2 loop, and that could have left
-                ;behind level 1 loop tokens, so use the output for this item
-                ;as template code and go around again
+                ;;We just processed a level 2 loop, and that could have left
+                ;;behind level 1 loop tokens, so use the output for this item
+                ;;as template code and go around again
                 AlUtil.Clone(Loop1Output,Loop1TemplateCode)
                 KeyNbr-=1
                 clear RepeatItem
@@ -1481,7 +1481,7 @@ namespace CodeGen.Engine
             end
             else
             begin
-                ;We're done with this item, commit the output
+                ;;We're done with this item, commit the output
                 if (Loop1IsInline) then
                     AlUtil.AppendToLastItem(Output,Loop1Output[0])
                 else
@@ -1495,14 +1495,14 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For in-line loops, add back any trailing code
+        ;;For in-line loops, add back any trailing code
         if (Loop1IsInline&&Loop1TrailingData)
             AlUtil.AppendToLastItem(Output,Loop1TrailingData)
 
         clear Key, Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
         DoAnotherPass = true
 
-        ;Advance to the next template record (after the end of the loop token)
+        ;;Advance to the next template record (after the end of the loop token)
         if (TemplateCodeIndex<Template.Count-1)
             buffer = (a)Template[TemplateCodeIndex+=1]
 
@@ -1512,7 +1512,7 @@ namespace CodeGen.Engine
         return
 
     ;;=============================================================================
-    ;
+    ;;
     process_segment_loop,
 
         DebugLog("     - Processing key segment loop",true,false)
@@ -1520,18 +1520,18 @@ namespace CodeGen.Engine
         Loop2TemplateCode = new ArrayList()
         clear Loop2CloseTokenStart, Loop2CloseTokenEnd, Loop2TrailingData, Loop2LeadingData, Loop2NoOutput
 
-        ;We need to process the logic for this loop, even though the loop may not
-        ;apply in this case (e.g. a field selection loop for a field with no
-        ;selections. If we find this to be the case we'll suppress all output
+        ;;We need to process the logic for this loop, even though the loop may not
+        ;;apply in this case (e.g. a field selection loop for a field with no
+        ;;selections. If we find this to be the case we'll suppress all output
         Loop2NoOutput = (!Key.Segments.Count)
 
-        ;If the parent loop's output if off then so is ours
+        ;;If the parent loop's output if off then so is ours
         Loop2OutputOff = Loop1OutputOff
 
-        ;If the parent loop is in-line then so are we
+        ;;If the parent loop is in-line then so are we
         Loop2IsInline = Loop1IsInline
 
-        ;Look for a closing tag in the same line
+        ;;Look for a closing tag in the same line
         if (SkipLastSegment) then
         begin
             if (Loop2CloseTokenStart=instr(TokenEnd,buffer,"</SEGMENT_LOOP_FILTER>"))
@@ -1540,29 +1540,29 @@ namespace CodeGen.Engine
         else if (Loop2CloseTokenStart=instr(1,buffer,"</SEGMENT_LOOP>"))
             Loop2CloseTokenEnd=Loop2CloseTokenStart+14
 
-        ;In-line loop?
+        ;;In-line loop?
         if (Loop2CloseTokenStart&&Loop2CloseTokenEnd) then
         begin
             Loop2IsInline = true
 
-            ;Store any leading code
+            ;;Store any leading code
             if ((TokenStart>1)&&buffer(1:TokenStart-1))
                 Loop2LeadingData = buffer(1:TokenStart-1)
 
-            ;Store any trailing code
+            ;;Store any trailing code
             if (Loop2CloseTokenEnd<trimz(buffer))
             begin
                 Loop2TrailingData=buffer(Loop2CloseTokenEnd+1,trimz(buffer))
-                ;If the trailing code is just whitespace (tabs?) then lose it
+                ;;If the trailing code is just whitespace (tabs?) then lose it
                 if (IsWhitespace(Loop2TrailingData))
                     clear Loop2TrailingData
             end
 
-            ;Extract and save the loop2 template data
+            ;;Extract and save the loop2 template data
             buffer = buffer(TokenEnd+1,Loop2CloseTokenStart-1)
             AlUtil.Add(Loop2TemplateCode,buffer)
 
-            ;Add the leading data, if necessary
+            ;;Add the leading data, if necessary
             if (Loop2LeadingData && !Loop2NoOutput && !Loop2OutputOff) || (Loop2TrailingData) then
             begin
                 if (Loop1IsInline) then
@@ -1577,7 +1577,7 @@ namespace CodeGen.Engine
         end
         else
         begin
-            ;It's a multi-line loop, extract the loop template code
+            ;;It's a multi-line loop, extract the loop template code
             repeat
             begin
                 buffer = (a)Loop1TemplateCode[Loop1Rec+=1]
@@ -1589,7 +1589,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For each key segment
+        ;;For each key segment
         for SegNbr from 0 thru LastSegment
         begin
 
@@ -1597,14 +1597,14 @@ namespace CodeGen.Engine
             Loop2ConditionMode = new ArrayList()
             Loop2OutputOff = Loop1OutputOff
 
-            ;Get the current key segment
+            ;;Get the current key segment
             Segment = Key.Segments[SegNbr]
 
-            ;Get the field associated with the current segment
+            ;;Get the field associated with the current segment
             begin
                 data idx, int
                 data segFound, Boolean, false
-                ;Find the field relating to the current segment
+                ;;Find the field relating to the current segment
                 for idx from 0 thru Str.Fields.Count-1
                 begin
                     if (Str.Fields[idx].Name==Segment.Field)
@@ -1625,19 +1625,19 @@ namespace CodeGen.Engine
                 end
             end
 
-            ;Iterate through the loop template and emit code for the current segment
+            ;;Iterate through the loop template and emit code for the current segment
 
             Loop2Rec=-1
             while ((Loop2Rec+=1)<=Loop2TemplateCode.Count-1)
             begin
                 buffer = (a)Loop2TemplateCode[Loop2Rec]
 
-                ;Are we Looking for the end of a multi-line condition?
+                ;;Are we Looking for the end of a multi-line condition?
                 if (Loop2ConditionApplies.Count)
                     if (CheckExpressionEnd(buffer,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff))
                         nextloop
 
-                ;If no tokens just add the line to the output stream
+                ;;If no tokens just add the line to the output stream
                 if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
                 begin
                     if (!Loop2OutputOff && !Loop2NoOutput)
@@ -1645,16 +1645,16 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;Replace tokens in the line
+                ;;Replace tokens in the line
                 do
                 begin
                     Loop2TokenReplaced = false
 
-                    ;Any more tokens?
+                    ;;Any more tokens?
                     if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
                         exitloop
 
-                    ;Expression?
+                    ;;Expression?
                     if (buffer(TokenStart:4)=="<IF ")
                     begin
                         Loop2TokenReplaced = ProcessSegmentExpression(Segment,Fld,TokenStart,TokenEnd,Loop1OutputOff,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff,buffer,ErrStatus)
@@ -1664,14 +1664,14 @@ namespace CodeGen.Engine
                             nextloop
                     end
 
-                    ;Process the token
+                    ;;Process the token
                     Loop2TokenReplaced = ExpandSegmentToken(Segment,SegNbr,Fld,TokenStart,TokenEnd,LastSegment,buffer)
 
-                    ;If not replaced, could it be a key loop token?
+                    ;;If not replaced, could it be a key loop token?
                     if (!Loop2TokenReplaced)
                         Loop2TokenReplaced = ExpandKeyToken(Str,Key,KeyNbr,TokenStart,TokenEnd,PrimaryKeyOnly,buffer)
 
-                    ;If nothing replaced just move on
+                    ;;If nothing replaced just move on
                     if (!Loop2TokenReplaced)
                     begin
                         TokenStart += 1
@@ -1681,7 +1681,7 @@ namespace CodeGen.Engine
                 end
                 until (!Loop2TokenReplaced)
 
-                ;Add the code to the output buffer
+                ;;Add the code to the output buffer
                 if (!Loop2OutputOff & !Loop2NoOutput)
                 begin
                     if (Loop2IsInline) then
@@ -1692,7 +1692,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For in-line loops with trailing data, add back the trailing data
+        ;;For in-line loops with trailing data, add back the trailing data
         if (!Loop2OutputOff&&Loop2IsInline&&Loop2TrailingData)
             AlUtil.AppendToLastItem(Loop1Output,Loop2TrailingData)
 
@@ -1705,7 +1705,7 @@ namespace CodeGen.Engine
         return
 
     ;;=============================================================================
-    ;
+    ;;
     process_relation_loop,
 
         DebugLog("   - Processing relation loop",true,false)
@@ -1713,32 +1713,32 @@ namespace CodeGen.Engine
         Loop1TemplateCode = new ArrayList()
         clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
 
-        ;Look for an end tag in the same line
+        ;;Look for an end tag in the same line
         if (Token2Start=instr(1,buffer,"</RELATION_LOOP>"))
             Token2End=Token2Start+15
 
-        ;Do we have an in-line loop?
+        ;;Do we have an in-line loop?
         if (Token2Start&&Token2End) then
         begin
             Loop1IsInline=true
-            ;Add anything before the open tag to the output buffer
+            ;;Add anything before the open tag to the output buffer
             if (TokenStart>1) then
                 AlUtil.Add(Output,buffer(1:TokenStart-1))
             else
                 AlUtil.Add(Output,"")
-            ;Store anything after the closing tag
+            ;;Store anything after the closing tag
             if (Token2End<trimz(buffer))
                 Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
-            ;Remove the closing tag and any trailing data
+            ;;Remove the closing tag and any trailing data
             clear buffer(Token2Start,^size(buffer))
-            ;Remove any leading data and the opening tag
+            ;;Remove any leading data and the opening tag
             buffer=buffer(TokenEnd+1,^size(buffer))
-            ;What remains is our template code for the in-line loop
+            ;;What remains is our template code for the in-line loop
             AlUtil.Add(Loop1TemplateCode,buffer)
         end
         else
         begin
-            ;It's a multi-line loop, extract the loop template code
+            ;;It's a multi-line loop, extract the loop template code
             repeat
             begin
                 buffer = (a)Template[TemplateCodeIndex+=1]
@@ -1748,7 +1748,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For each relation
+        ;;For each relation
         for RelNbr from 0 thru Str.Relations.Count-1
         begin
 
@@ -1760,7 +1760,7 @@ namespace CodeGen.Engine
             begin
                 buffer = (a)Loop1TemplateCode[Loop1Rec]
 
-                ;If no tokens just add the line to the output stream
+                ;;If no tokens just add the line to the output stream
                 if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
                 begin
                     if (!Loop1OutputOff)
@@ -1773,19 +1773,19 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;Replace relation tokens in the buffer
+                ;;Replace relation tokens in the buffer
                 do
                 begin
                     Loop1TokenReplaced = false
 
-                    ;Any more tokens?
+                    ;;Any more tokens?
                     if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
                         exitloop
 
-                    ;Replace the token
+                    ;;Replace the token
                     Loop1TokenReplaced = ExpandRelationToken(Str,Relation,RelNbr,TokenStart,TokenEnd,buffer)
 
-                    ;If nothing replaced just move on
+                    ;;If nothing replaced just move on
                     if (!Loop1TokenReplaced)
                     begin
                         TokenStart += 1
@@ -1794,7 +1794,7 @@ namespace CodeGen.Engine
                 end
                 until (!Loop1TokenReplaced)
 
-                ;Add the line to the current output buffer
+                ;;Add the line to the current output buffer
                 if (Loop1IsInline) then
                     AlUtil.AppendToLastItem(Output,buffer)
                 else
@@ -1802,7 +1802,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For in-line loops, add back any trailing code
+        ;;For in-line loops, add back any trailing code
         if (Loop1IsInline&&Loop1TrailingData)
             AlUtil.AppendToLastItem(Output,Loop1TrailingData)
 
@@ -1810,7 +1810,7 @@ namespace CodeGen.Engine
 
         DoAnotherPass = true
 
-        ;Advance to the next template record (after the end of the loop token)
+        ;;Advance to the next template record (after the end of the loop token)
         if (TemplateCodeIndex<Template.Count-1)
             buffer = (a)Template[TemplateCodeIndex+=1]
 
@@ -1820,7 +1820,7 @@ namespace CodeGen.Engine
         return
 
     ;;=============================================================================
-    ;
+    ;;
     process_button_loop,
 
         DebugLog("   - Processing button loop",true,false)
@@ -1828,32 +1828,32 @@ namespace CodeGen.Engine
         Loop1TemplateCode = new ArrayList()
         clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
 
-        ;Look for a closing tag in the same line
+        ;;Look for a closing tag in the same line
         if (Token2Start=instr(1,buffer,"</BUTTON_LOOP>"))
             Token2End=Token2Start+13
 
-        ;Do we have an in-line loop?
+        ;;Do we have an in-line loop?
         if (Token2Start&&Token2End) then
         begin
             Loop1IsInline=true
-            ;Add anything before the open tag to the output buffer
+            ;;Add anything before the open tag to the output buffer
             if (TokenStart>1) then
                 AlUtil.Add(Output,buffer(1:TokenStart-1))
             else
                 AlUtil.Add(Output,"")
-            ;Store anything after the closing tag
+            ;;Store anything after the closing tag
             if (Token2End<trimz(buffer))
                 Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
-            ;Remove the closing tag and any trailing data
+            ;;Remove the closing tag and any trailing data
             clear buffer(Token2Start,^size(buffer))
-            ;Remove any leading data and the opening tag
+            ;;Remove any leading data and the opening tag
             buffer=buffer(TokenEnd+1,^size(buffer))
-            ;What remains is our template code for the in-line loop
+            ;;What remains is our template code for the in-line loop
             AlUtil.Add(Loop1TemplateCode,buffer)
         end
         else
         begin
-            ;It's a multi-line loop, extract the loop template code
+            ;;It's a multi-line loop, extract the loop template code
             repeat
             begin
                 buffer = (a)Template[TemplateCodeIndex+=1]
@@ -1863,7 +1863,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;Process each button
+        ;;Process each button
         for BtnNbr from 0 thru Env.Buttons.Count-1
         begin
 
@@ -1873,17 +1873,17 @@ namespace CodeGen.Engine
 
             DebugLog("     - Processing button " + Env.Buttons[BtnNbr].Name ,true,false)
 
-            ;Process the template code
+            ;;Process the template code
             for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
             begin
                 buffer = (a)Loop1TemplateCode[Loop1Rec]
 
-                ;Are we winding forward looking for the end of a multi-line condition?
+                ;;Are we winding forward looking for the end of a multi-line condition?
                 if (Loop1ConditionApplies.Count)
                     if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
                         nextloop
 
-                ;If no tokens just add the line to the output stream
+                ;;If no tokens just add the line to the output stream
                 if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
                 begin
                     if (!Loop1OutputOff)
@@ -1896,16 +1896,16 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;Replace button tokens in the buffer
+                ;;Replace button tokens in the buffer
                 do
                 begin
                     Loop1TokenReplaced = false
 
-                    ;Any more tokens?
+                    ;;Any more tokens?
                     if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
                         exitloop
 
-                    ;Expression?
+                    ;;Expression?
                     if (buffer(TokenStart:4)=="<IF ")
                     begin
                         Loop1TokenReplaced = ProcessButtonExpression(BtnNbr,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
@@ -1915,10 +1915,10 @@ namespace CodeGen.Engine
                             nextloop
                     end
 
-                    ;Replace the token
+                    ;;Replace the token
                     Loop1TokenReplaced = ExpandButtonToken(BtnNbr,TokenStart,TokenEnd,buffer,Str)
 
-                    ;If nothing replaced just move on
+                    ;;If nothing replaced just move on
                     if (!Loop1TokenReplaced)
                     begin
                         TokenStart += 1
@@ -1927,7 +1927,7 @@ namespace CodeGen.Engine
                 end
                 until (!Loop1TokenReplaced)
 
-                ;Add the line to the output buffer
+                ;;Add the line to the output buffer
                 if ((!Loop1ConditionApplies.Count) || ((!Loop1OutputOff)&&(!instr(1,buffer,"<IF "))))
                     if (Loop1IsInline) then
                         AlUtil.AppendToLastItem(Output,buffer)
@@ -1936,14 +1936,14 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For in-line loops, add back any trailing code
+        ;;For in-line loops, add back any trailing code
         if (Loop1IsInline&&Loop1TrailingData)
             AlUtil.AppendToLastItem(Output,Loop1TrailingData)
 
         clear Loop1TemplateCode
         DoAnotherPass = true
 
-        ;Advance to the next template record (after the end of the loop token)
+        ;;Advance to the next template record (after the end of the loop token)
         if (TemplateCodeIndex<Template.Count-1)
             buffer = (a)Template[TemplateCodeIndex+=1]
 
@@ -1953,7 +1953,7 @@ namespace CodeGen.Engine
         return
 
     ;;=============================================================================
-    ;
+    ;;
     process_enum_loop,
 
         DebugLog("   - Processing ENUM loop",true,false)
@@ -1961,7 +1961,7 @@ namespace CodeGen.Engine
         Loop1TemplateCode = new ArrayList()
         clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline, ItemWasRepeated
 
-        ;Look for an end tag in the same line
+        ;;Look for an end tag in the same line
         if (StructureEnumsOnly) then
         begin
             if (Token2Start=instr(TokenEnd,buffer,"</ENUM_LOOP_STRUCTURE>"))
@@ -1982,16 +1982,16 @@ namespace CodeGen.Engine
             ;;Store anything after the closing tag
             if (Token2End<trimz(buffer))
                 Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
-            ;Remove the closing tag and any trailing data
+            ;;Remove the closing tag and any trailing data
             clear buffer(Token2Start,^size(buffer))
-            ;Remove any leading data and the opening tag
+            ;;Remove any leading data and the opening tag
             buffer=buffer(TokenEnd+1,^size(buffer))
-            ;What remains is our template code for the in-line loop
+            ;;What remains is our template code for the in-line loop
             AlUtil.Add(Loop1TemplateCode,buffer)
         end
         else
         begin
-            ;It's a multi-line loop, extract the loop template code
+            ;;It's a multi-line loop, extract the loop template code
             repeat
             begin
                 buffer = (a)Template[TemplateCodeIndex+=1]
@@ -2004,9 +2004,9 @@ namespace CodeGen.Engine
             end
         end
 
-        ;Take a copy of the loop template code so that we can modify and restore it
-        ;for each field in the collection. This supports the ability to use level 1
-        ;loop tokens in a level 2 loop.
+        ;;Take a copy of the loop template code so that we can modify and restore it
+        ;;for each field in the collection. This supports the ability to use level 1
+        ;;loop tokens in a level 2 loop.
         AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
 
         ;Process each enumeration
@@ -2034,7 +2034,7 @@ namespace CodeGen.Engine
                     if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
                         nextloop
 
-                ;If no tokens just add the line to the output stream
+                ;;If no tokens just add the line to the output stream
                 if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
                 begin
                     if (!Loop1OutputOff)
@@ -2079,7 +2079,7 @@ namespace CodeGen.Engine
                         Loop1TokenReplaced = ExpandEnumToken(Enums,EnumNbr,TokenStart,TokenEnd,buffer)
                     endusing
 
-                    ;If nothing replaced just move on
+                    ;;If nothing replaced just move on
                     if (!Loop1TokenReplaced)
                     begin
                         TokenStart += 1
@@ -2091,7 +2091,7 @@ namespace CodeGen.Engine
                 if (ErrStatus)
                     exitloop
 
-                ;Add the line to the output buffer
+                ;;Add the line to the output buffer
                 if (!Loop1OutputOff && !instr(1,buffer,"<IF ") && !RepeatItem )
                 begin
                     if (Loop1IsInline) then
@@ -2103,9 +2103,9 @@ namespace CodeGen.Engine
 
             if (RepeatItem) then
             begin
-                ;We just processed a level 2 loop, and that could have left
-                ;behind level 1 loop tokens, so use the output for this item
-                ;as template code and go around again
+                ;;We just processed a level 2 loop, and that could have left
+                ;;behind level 1 loop tokens, so use the output for this item
+                ;;as template code and go around again
                 AlUtil.Clone(Loop1Output,Loop1TemplateCode)
                 EnumNbr-=1
                 clear RepeatItem
@@ -2113,7 +2113,7 @@ namespace CodeGen.Engine
             end
             else
             begin
-                ;We're done with this item, commit the output
+                ;;We're done with this item, commit the output
                 if (Loop1IsInline) then
                     AlUtil.AppendToLastItem(Output,Loop1Output[0])
                 else
@@ -2127,14 +2127,14 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For in-line loops, add back any trailing code
+        ;;For in-line loops, add back any trailing code
         if (Loop1IsInline&&Loop1TrailingData)
             AlUtil.AppendToLastItem(Output,Loop1TrailingData)
 
         clear Key, Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
         DoAnotherPass = true
 
-        ;Advance to the next template record (after the end of the loop token)
+        ;;Advance to the next template record (after the end of the loop token)
         if (TemplateCodeIndex<Template.Count-1)
             buffer = (a)Template[TemplateCodeIndex+=1]
 
@@ -2144,7 +2144,7 @@ namespace CodeGen.Engine
         return
 
     ;;=============================================================================
-    ;
+    ;;
     process_enum_member_loop,
 
         DebugLog("   - Processing ENUM member loop",true,false)
@@ -2152,44 +2152,44 @@ namespace CodeGen.Engine
         Loop2TemplateCode = new ArrayList()
         clear Loop2CloseTokenStart, Loop2CloseTokenEnd, Loop2TrailingData, Loop2LeadingData, Loop2NoOutput
 
-        ;We need to process the logic for this loop, even though the loop may not
-        ;apply in this case (e.g. a field selection loop for a field with no
-        ;selections. If we find this to be the case we'll suppress all output
+        ;;We need to process the logic for this loop, even though the loop may not
+        ;;apply in this case (e.g. a field selection loop for a field with no
+        ;;selections. If we find this to be the case we'll suppress all output
         Loop2NoOutput = (!Enums[EnumNbr].Members.Count)
 
-        ;If the parent loop's output if off then so is ours
+        ;;If the parent loop's output if off then so is ours
         Loop2OutputOff = Loop1OutputOff
 
-        ;If the parent loop is in-line then so are we
+        ;;If the parent loop is in-line then so are we
         Loop2IsInline = Loop1IsInline
 
-        ;Look for a closing tag in the same line
+        ;;Look for a closing tag in the same line
         if (Loop2CloseTokenStart=instr(1,buffer,"</ENUM_MEMBER_LOOP>"))
             Loop2CloseTokenEnd=Loop2CloseTokenStart+18
 
-        ;In-line loop?
+        ;;In-line loop?
         if (Loop2CloseTokenStart&&Loop2CloseTokenEnd) then
         begin
             Loop2IsInline = true
 
-            ;Store any leading code
+            ;;Store any leading code
             if ((TokenStart>1)&&buffer(1:TokenStart-1))
                 Loop2LeadingData = buffer(1:TokenStart-1)
 
-            ;Store any trailing code
+            ;;Store any trailing code
             if (Loop2CloseTokenEnd<trimz(buffer))
             begin
                 Loop2TrailingData=buffer(Loop2CloseTokenEnd+1,trimz(buffer))
-                ;If the trailing code is just whitespace (tabs?) then lose it
+                ;;If the trailing code is just whitespace (tabs?) then lose it
                 if (IsWhitespace(Loop2TrailingData))
                     clear Loop2TrailingData
             end
 
-            ;Extract and save the loop2 template data
+            ;;Extract and save the loop2 template data
             buffer = buffer(TokenEnd+1,Loop2CloseTokenStart-1)
             AlUtil.Add(Loop2TemplateCode,buffer)
 
-            ;Add the leading data, if necessary
+            ;;Add the leading data, if necessary
             if (Loop2LeadingData && !Loop2NoOutput && !Loop2OutputOff) || (Loop2TrailingData) then
             begin
                 if (Loop1IsInline) then
@@ -2204,7 +2204,7 @@ namespace CodeGen.Engine
         end
         else
         begin
-            ;It's a multi-line loop, extract the loop template code
+            ;;It's a multi-line loop, extract the loop template code
             repeat
             begin
                 buffer = (a)Loop1TemplateCode[Loop1Rec+=1]
@@ -2221,7 +2221,7 @@ namespace CodeGen.Engine
             Loop2ConditionMode = new ArrayList()
             Loop2OutputOff = Loop1OutputOff
 
-            ;Iterate through the loop template and emit code for the current segment
+            ;;Iterate through the loop template and emit code for the current segment
 
             Loop2Rec=-1
             while ((Loop2Rec+=1)<=Loop2TemplateCode.Count-1)
@@ -2233,7 +2233,7 @@ namespace CodeGen.Engine
                     if (CheckExpressionEnd(buffer,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff))
                         nextloop
 
-                ;If no tokens just add the line to the output stream
+                ;;If no tokens just add the line to the output stream
                 if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
                 begin
                     if (!Loop2OutputOff && !Loop2NoOutput)
@@ -2241,12 +2241,12 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;Replace tokens in the line
+                ;;Replace tokens in the line
                 do
                 begin
                     Loop2TokenReplaced = false
 
-                    ;Any more tokens?
+                    ;;Any more tokens?
                     if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
                         exitloop
 
@@ -2263,11 +2263,11 @@ namespace CodeGen.Engine
                     ;;Process the token
                     Loop2TokenReplaced = ExpandEnumMemberToken(Enums,EnumNbr,EnumMemberNbr,TokenStart,TokenEnd,buffer)
 
-                    ;If not replaced, could it be an enum loop token?
+                    ;;If not replaced, could it be an enum loop token?
                     if (!Loop2TokenReplaced)
                         Loop2TokenReplaced = ExpandEnumToken(Enums,EnumNbr,TokenStart,TokenEnd,buffer)
 
-                    ;If nothing replaced just move on
+                    ;;If nothing replaced just move on
                     if (!Loop2TokenReplaced)
                     begin
                         TokenStart += 1
@@ -2277,7 +2277,7 @@ namespace CodeGen.Engine
                 end
                 until (!Loop2TokenReplaced)
 
-                ;Add the code to the output buffer
+                ;;Add the code to the output buffer
                 if (!Loop2OutputOff & !Loop2NoOutput)
                 begin
                     if (Loop2IsInline) then
@@ -2288,7 +2288,7 @@ namespace CodeGen.Engine
             end
         end
 
-        ;For in-line loops with trailing data, add back the trailing data
+        ;;For in-line loops with trailing data, add back the trailing data
         if (!Loop2OutputOff&&Loop2IsInline&&Loop2TrailingData)
             AlUtil.AppendToLastItem(Loop1Output,Loop2TrailingData)
 
@@ -2309,32 +2309,32 @@ namespace CodeGen.Engine
 		Loop1TemplateCode = new ArrayList()
 		clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
 		
-		;Look for an end tag in the same line
+		;;Look for an end tag in the same line
 		if (Token2Start=instr(1,buffer,"</FILE_LOOP>"))
 			Token2End=Token2Start+11
 			
-		;Do we have an in-line loop?
+		;;Do we have an in-line loop?
 		if (Token2Start&&Token2End) then
 		begin
 			Loop1IsInline=true
-			;Add anything before the open tag to the output buffer
+			;;Add anything before the open tag to the output buffer
 			if (TokenStart>1) then
 				AlUtil.Add(Output,buffer(1:TokenStart-1))
 			else
 				AlUtil.Add(Output,"")
-			;Store anything after the closing tag
+			;;Store anything after the closing tag
 			if (Token2End<trimz(buffer))
 				Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
-			;Remove the closing tag and any trailing data
+			;;Remove the closing tag and any trailing data
 			clear buffer(Token2Start,^size(buffer))
-			;Remove any leading data and the opening tag
+			;;Remove any leading data and the opening tag
 			buffer=buffer(TokenEnd+1,^size(buffer))
-			;What remains is our template code for the in-line loop
+			;;What remains is our template code for the in-line loop
 			AlUtil.Add(Loop1TemplateCode,buffer)
 		end
 		else
 		begin
-			;It's a multi-line loop, extract the loop template code
+			;;It's a multi-line loop, extract the loop template code
 			repeat
 			begin
 				buffer = (a)Template[TemplateCodeIndex+=1]
@@ -2344,16 +2344,15 @@ namespace CodeGen.Engine
 			end
 		end
 		
-		;Take a copy of the loop template code so that we can modify and restore it
-		;for each field in the collection. This supports the ability to use level 1
-		;loop tokens in a level 2 loop.
+		;;Take a copy of the loop template code so that we can modify and restore it
+		;;for each field in the collection. This supports the ability to use level 1
+		;;loop tokens in a level 2 loop.
 		AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
 		
-		;Now process the loop template for each file
+		;;Now process the loop template for each file
 		
 		clear LogicalFieldNumber
 		
-		;for FldNbr from 0 thru Str.Fields.Count-1
 		FileNbr = -1
 		while ((FileNbr+=1) < Str.Files.Count)
 		begin
@@ -2369,7 +2368,7 @@ namespace CodeGen.Engine
 			if (Loop1IsInline)
 				AlUtil.Add(Loop1Output,"")
 				
-			;Process the template code
+			;;Process the template code
 			for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
 			begin
 				buffer = (a)Loop1TemplateCode[Loop1Rec]
@@ -2379,7 +2378,7 @@ namespace CodeGen.Engine
 					if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
 						nextloop
 						
-				;If no tokens just add the line to the output stream
+				;;If no tokens just add the line to the output stream
 				if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
 				begin
 					if (!Loop1OutputOff)
@@ -2392,16 +2391,16 @@ namespace CodeGen.Engine
 					nextloop
 				end
 				
-				;Replace any tokens in the buffer
+				;;Replace any tokens in the buffer
 				do
 				begin
 					Loop1TokenReplaced = false
 					
-					;Any more tokens?
+					;;Any more tokens?
 					if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
 						exitloop
 						
-					;Expression?
+					;;Expression?
 					if (buffer(TokenStart:4)=="<IF ")
 					begin
 						Loop1TokenReplaced = ProcessFileExpression(Str,File,FileNbr,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
@@ -2411,7 +2410,7 @@ namespace CodeGen.Engine
 							nextloop
 					end
 					
-					;Replace file loop tokens
+					;;Replace file loop tokens
 					Loop1TokenReplaced = ExpandFileToken(Str,File,FileNbr,TokenStart,TokenEnd,Loop1OutputOff,buffer,ErrStatus)
 					
 					;If nothing replaced just move on
@@ -2426,7 +2425,7 @@ namespace CodeGen.Engine
 				if (ErrStatus)
 					exitloop
 					
-				;Add the line to the output buffer
+				;;Add the line to the output buffer
 				if (!Loop1OutputOff && !instr(1,buffer,"<IF "))
 				begin
 					if (Loop1IsInline) then
@@ -2439,7 +2438,7 @@ namespace CodeGen.Engine
 			if (ErrStatus)
 				exitloop
 				
-			;We're done with this item, commit the output
+			;;We're done with this item, commit the output
 			if (Loop1IsInline) then
 				AlUtil.AppendToLastItem(Output,Loop1Output[0])
 			else
@@ -2451,14 +2450,14 @@ namespace CodeGen.Engine
 				
 		end
 		
-		;For in-line loops, add back any trailing code
+		;;For in-line loops, add back any trailing code
 		if (Loop1IsInline&&Loop1TrailingData)
 			AlUtil.AppendToLastItem(Output,Loop1TrailingData)
 			
 		clear Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
 		DoAnotherPass = true
 		
-		;Advance to the next template record (after the end of the loop token)
+		;;Advance to the next template record (after the end of the loop token)
 		if (TemplateCodeIndex<Template.Count-1)
 			buffer = (a)Template[TemplateCodeIndex+=1]
 			
