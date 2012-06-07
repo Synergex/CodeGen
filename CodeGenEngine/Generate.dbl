@@ -148,6 +148,7 @@ namespace CodeGen.Engine
             DoingLastRecord         ,boolean        ;;Are we processing the last record
             RepeatItem              ,boolean        ;;Repeat an item in a level 1 loop after processing a level 2 loop
             ItemWasRepeated         ,boolean        ;;We were repeating an item
+            backFromStructureLoop   ,boolean        ;;Just returned from processing a structure loop
             outfile                 ,a80            ;;Output file name
 
         endrecord
@@ -497,8 +498,11 @@ namespace CodeGen.Engine
                     until (!TokenReplaced||ErrStatus)
 
                     ;;Add the record to the output file buffer
-                    if (!ErrStatus)
+                    if (!ErrStatus&&!backFromStructureLoop)
                         Output.Add((@a)(atrim(buffer)))
+
+                    if (backFromStructureLoop)
+                        backFromStructureLoop = false
                 end
                 until ((TemplateCodeIndex==Template.Count-1)||ErrStatus)
 
@@ -557,6 +561,98 @@ namespace CodeGen.Engine
         ;;Do we have any tokens in the line
         if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
             return
+
+        ;;Do we have the start of a structure loop?
+        if (instr(1,buffer,"<STRUCTURE_LOOP>"))
+        begin
+            ;;The plan is to extract the template code for the structure loop and
+            ;;then repeat it for the number of structures being processed, inserting
+            ;;<STRUCTURE#n> tokens between each section of repeated code.
+            data structureLoopCode, @ArrayList
+            data structureLoopStartIndex, int
+            data structureLoopEndIndex, int
+            data tmpBuffer, a CODEGEN_BUFSZ
+            data ix, int
+            data iy, int
+
+            structureLoopCode = new ArrayList()
+            structureLoopStartIndex = TemplateCodeIndex
+            structureLoopEndIndex = TemplateCodeIndex
+
+            ;;Make sure we have multiple structures to work with
+            if (Env.CurrentStructures==^null)
+            begin
+                ErrorLog("Token <STRUCTURE_LOOP> requires multiple structures to be processed")
+                ErrStatus = 1
+                return
+            end
+            
+            DebugLog(" - Processing structure loop with " + string(Env.CurrentStructures.Count) + " structures",true,false)
+            
+            repeat
+            begin
+                tmpBuffer = (a)Template[structureLoopEndIndex+=1]
+                if (%instr(1,tmpBuffer,"</STRUCTURE_LOOP>")) then
+                    exitloop
+                else
+                begin
+                    ;;Haven't found the end of the structure loop yet
+
+                    ;;Make sure we don't have any nested structure loops
+                    if (instr(1,tmpBuffer,"<STRUCTURE_LOOP>"))
+                    begin
+                        ErrorLog("Structure loops may not be nested")
+                        ErrStatus = 1
+                        return
+                    end
+
+                    ;;Save this line of template code
+                    structureLoopCode.Add((@a)atrim(tmpBuffer))
+                end
+            end
+
+            ;;We now have the template code for each structure in structureLoopCode
+            ;;and we know where the structure loop starts and ends in the main
+            ;;template code
+
+            ;;Remove the original structure loop from the main template code
+            for ix from 1 thru (structureLoopEndIndex-structureLoopStartIndex+1)
+                Template.RemoveAt(structureLoopStartIndex)
+
+            ;;Add back an instance of the structure loop code for each structure
+            ;;being processed, adding a <STRUCTURE#n> token before each
+            for ix from 1 thru Env.CurrentStructures.Count
+            begin
+                data structureLoopLine, @a
+                Template.Insert(structureLoopStartIndex,(@a)("<STRUCTURE#"+string(ix)+">"))
+                structureLoopStartIndex+=1
+                foreach structureLoopLine in structureLoopCode
+                begin
+                    Template.Insert(structureLoopStartIndex,structureLoopLine)
+                    structureLoopStartIndex+=1
+                end
+            end
+
+            ;;We're done, now we need to return and reprocess the same template code line.
+
+            begin
+                data tplindex, int, -1
+                delet("D:\temp\template.txt")
+                data structureLoopLine, @a
+                open(67,o:s,"D:\temp\template.txt")
+                writes(67,"Processing resumes at line "+string(TemplateCodeIndex))
+                foreach structureLoopLine in Template
+                begin
+                    writes(67,string(tplindex+=1)+": "+(a)structureLoopLine)
+                end
+                close 67
+            end
+            
+            TemplateCodeIndex-=1
+            backFromStructureLoop = true
+            
+            return
+        end
 
         ;;First process any user defined tokens
         if (Env.UserTokens!=^null)
