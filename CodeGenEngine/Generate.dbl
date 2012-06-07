@@ -438,12 +438,27 @@ namespace CodeGen.Engine
 
                 DebugLog(" - Starting token replacement pass " + string(PassCount) + " with " + string(Template.Count) + " records",true,false)
 
+                if (Env.DeveloperDebug)
+                begin
+                    data tmpChn, int, 0
+                    data tmpFile, String, "TEMP:"+%datetime()+"-"+Env.CurrentTemplate+"-Before-Pass-"+string(PassCount)+".tpl"
+                    data tplRec, @a
+                    DebugLog("DEVDBG: Saving template data to "+tmpFile,false,false)
+                    open(tmpChn,O:S,tmpFile)
+                    foreach tplRec in Template
+                        writes(tmpChn,(a)tplRec)
+                    close tmpChn
+                end
+
                 do
                 begin
                     data tmpPos, int
 
                     ;;Get the next record to process
                     buffer = (a)Template[TemplateCodeIndex+=1]
+
+                    if (Env.DeveloperDebug)
+                        DebugLog("DEVDBG: Template code: "+atrim(buffer),false,false)
 
                     ;;Do we have an instruction to switch strcuture context (<STRUCTURE#n>)?
                     if (tmpPos = instr(1,buffer,"<STRUCTURE#"))
@@ -489,6 +504,10 @@ namespace CodeGen.Engine
                         Env.CurrentStructure = Env.CurrentStructures[tmpStrNum-1]
                         Env.FileIndex = Env.FileIndexes[tmpStrNum]
                         Str = Env.CurrentStructure
+
+                        ;;Leave the <STRUCTURE#n> token in the output file, they'll all get stripped out before the file is written
+                        Output.Add((@a)(atrim(buffer)))
+                        
                         DebugLog(" - Switched context to structure " + string(tmpStrNum) + " (" + Env.CurrentStructure.Name + ")",true,true)
                         nextloop
                     end
@@ -499,7 +518,11 @@ namespace CodeGen.Engine
 
                     ;;Add the record to the output file buffer
                     if (!ErrStatus&&!backFromStructureLoop)
+                    begin
                         Output.Add((@a)(atrim(buffer)))
+                        if (Env.DeveloperDebug)
+                            DebugLog("DEVDBG: Output code:   "+atrim(buffer),false,false)
+                    end
 
                     if (backFromStructureLoop)
                         backFromStructureLoop = false
@@ -525,7 +548,10 @@ namespace CodeGen.Engine
         begin
             data sourceLine, @a
             foreach sourceLine in Output
-                writes(OutCh,atrim((a)sourceLine))
+            begin
+                if (!instr(1,(a)sourceLine,"<STRUCTURE#"))
+                    writes(OutCh,atrim((a)sourceLine))
+            end
             Env.FilesCreated = Env.FilesCreated + 1
             if (Env.OutputFiles != ^null)
                 Env.OutputFiles.Add((string)atrim(outfile))
@@ -571,6 +597,7 @@ namespace CodeGen.Engine
             data structureLoopCode, @ArrayList
             data structureLoopStartIndex, int
             data structureLoopEndIndex, int
+            data currentStructureBeforeLoop, int
             data tmpBuffer, a CODEGEN_BUFSZ
             data ix, int
             data iy, int
@@ -589,6 +616,19 @@ namespace CodeGen.Engine
             
             DebugLog(" - Processing structure loop with " + string(Env.CurrentStructures.Count) + " structures",true,false)
             
+            ;;Save away the current structure index in place before the loop
+            begin
+                for ix from 0 thru Env.CurrentStructures.Count-1
+                begin
+                    if (Env.CurrentStructures[ix].Name.eqs.Env.CurrentStructure.Name)
+                    begin
+                        currentStructureBeforeLoop = ix+1
+                        exitloop
+                    end
+                end
+            end
+
+            ;;Wind forward through the template code, saving the structure loop template code and looking for the end of the loop
             repeat
             begin
                 tmpBuffer = (a)Template[structureLoopEndIndex+=1]
@@ -615,6 +655,18 @@ namespace CodeGen.Engine
             ;;and we know where the structure loop starts and ends in the main
             ;;template code
 
+            if (Env.DeveloperDebug)
+            begin
+                data tmpChn, int, 0
+                data tmpFile, String, "TEMP:"+%datetime()+"-"+Env.CurrentTemplate+"-Before-Structure-Loop-Expansion.tpl"
+                data tplRec, @a
+                DebugLog("DEVDBG: Saving template data to "+tmpFile,false,false)
+                open(tmpChn,O:S,tmpFile)
+                foreach tplRec in Template
+                    writes(tmpChn,(a)tplRec)
+                close tmpChn
+            end
+
             ;;Remove the original structure loop from the main template code
             for ix from 1 thru (structureLoopEndIndex-structureLoopStartIndex+1)
                 Template.RemoveAt(structureLoopStartIndex)
@@ -624,6 +676,8 @@ namespace CodeGen.Engine
             for ix from 1 thru Env.CurrentStructures.Count
             begin
                 data structureLoopLine, @a
+                Template.Insert(structureLoopStartIndex,(@a)"")
+                structureLoopStartIndex+=1
                 Template.Insert(structureLoopStartIndex,(@a)("<STRUCTURE#"+string(ix)+">"))
                 structureLoopStartIndex+=1
                 foreach structureLoopLine in structureLoopCode
@@ -631,6 +685,24 @@ namespace CodeGen.Engine
                     Template.Insert(structureLoopStartIndex,structureLoopLine)
                     structureLoopStartIndex+=1
                 end
+            end
+
+            ;;Reset the current structure to the one that was in place before the structure loop
+            Template.Insert(structureLoopStartIndex,(@a)"")
+            structureLoopStartIndex+=1
+            Template.Insert(structureLoopStartIndex,(@a)("<STRUCTURE#"+string(currentStructureBeforeLoop)+">"))
+            structureLoopStartIndex+=1
+
+            if (Env.DeveloperDebug)
+            begin
+                data tmpChn, int, 0
+                data tmpFile, String, "TEMP:"+%datetime()+"-"+Env.CurrentTemplate+"-After-Structure-Loop-Expansion.tpl"
+                data tplRec, @a
+                DebugLog("DEVDBG: Saving template data to "+tmpFile,false,false)
+                open(tmpChn,O:S,tmpFile)
+                foreach tplRec in Template
+                    writes(tmpChn,(a)tplRec)
+                close tmpChn
             end
 
             ;;We're done, now we need to return and reprocess the same template code line.
