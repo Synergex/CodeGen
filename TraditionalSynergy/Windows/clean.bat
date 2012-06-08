@@ -60,8 +60,5 @@ if exist exe\setenv.bat del /q exe\setenv.bat
 if exist exe\DefaultButtons.xml del /q exe\DefaultButtons.xml
 if exist exe\DataMappingsExample.xml del /q exe\DataMappingsExample.xml
 
-if exist hdr\. rmdir /q hdr
-if exist obj\. rmdir /q obj
-
 popd
 endlocal
