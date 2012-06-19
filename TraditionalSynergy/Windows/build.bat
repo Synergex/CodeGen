@@ -205,7 +205,7 @@ attrib -r "%CODEGEN_EXE%\DefaultButtons.xml"
 rem ---------------------------------------------------------------------------
 echo Verifying DataMappingsExample.xml is present ...
 
-if not exist "%CODEGEN_EXE%\DataMappingsExample.xml" copy "%REPOSITORY_SRC%\DataMappings.xml" "%CODEGEN_EXE%\DataMappingsExample.xml">nul
+if not exist "%CODEGEN_EXE%\DataMappingsExample.xml" copy "%REPOSITORY_SRC%\DataMappingsExample.xml" "%CODEGEN_EXE%\DataMappingsExample.xml">nul
 attrib -r "%CODEGEN_EXE%\DataMappingsExample.xml"
 
 rem ---------------------------------------------------------------------------

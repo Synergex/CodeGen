@@ -109,7 +109,7 @@ $     GOTO RPS_LOOP
 $ !
 $ RPSAPI_DONE:
 $ !
-$ IF F$SEARCH("CODEGEN_EXE:DataMappingsExample.xml").EQS."" THEN COPY/NOLOG REPOSITORY_SRC:DataMappings.xml CODEGEN_EXE:DataMappingsExample.xml
+$ IF F$SEARCH("CODEGEN_EXE:DataMappingsExample.xml").EQS."" THEN COPY/NOLOG REPOSITORY_SRC:DataMappingsExample.xml CODEGEN_EXE:DataMappingsExample.xml
 $ !
 $ IF "''P1'".EQS."RPSAPI" THEN GOTO DONE
 $ !
