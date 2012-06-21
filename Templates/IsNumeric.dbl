@@ -40,26 +40,55 @@
 ;;
 ;;*****************************************************************************
 ;;
-function IsNumeric, boolean
-
-    required in a_string, a
+function IsNumeric, ^val
+    
+    a_number        ,a
     endparams
-
+    
+    .align
     stack record
-        numeric     ,i4
-        d18         ,d18
+        retval          ,boolean
+        posn            ,i4
+        number          ,d28.10
     endrecord
-
+    
 proc
-
-    numeric = false
-    onerror notnum
-    d18 = %atrim(a_string)
-    numeric = true
-
-notnum,
-    offerror
-    freturn numeric
-
+    
+    retval = true
+    
+    posn = ^size(a_number)
+    
+    ;;Is the last character between "p" and "y"
+    if((a_number(posn:1)>='p')&&(a_number(posn:1)<='y')) then
+    begin
+        ;;If it's the first character then it's a single-digit negative
+        if(posn==1)
+            exit
+        ;;Make sure the rest of the value looks OK
+        try
+        begin
+            number=a_number(1:posn-1)
+        end
+        catch (ex, @BadDigitException)
+        begin
+            retval = false
+        end
+        endtry
+    end
+    else
+    begin
+        ;;No "p" through "y", check the whole value
+        try
+        begin
+            number = a_number
+        end
+        catch (ex, @BadDigitException)
+        begin
+            retval = false
+        end
+        endtry
+    end
+    
+    freturn retval
+    
 endfunction
-

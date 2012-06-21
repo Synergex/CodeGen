@@ -216,20 +216,50 @@ namespace <NAMESPACE>
         endproperty
 
         protected method IsNumeric, boolean
-            required in a_string, a
+            a_number        ,a
             endparams
+
+            .align
+            stack record
+                retval          ,boolean
+                posn            ,i4
+                number          ,d28.10
+            endrecord
+
         proc
-            try
+            retval = true
+            posn = ^size(a_number)
+            ;;Is the last character between "p" and "y"
+            if((a_number(posn:1)>='p')&&(a_number(posn:1)<='y')) then
             begin
-                data d18, d18
-                d18 = %atrim(a_string)
-                mreturn true
+                ;;If it's the first character then it's a single-digit negative
+                if(posn==1)
+                    exit
+                ;;Make sure the rest of the value looks OK
+                try
+                begin
+                    number=a_number(1:posn-1)
+                end
+                catch (ex, @BadDigitException)
+                begin
+                    retval = false
+                end
+                endtry
             end
-            catch (ex, @BadDigitException)
+            else
             begin
-                mreturn false
+                ;;No "p" through "y", check the whole value
+                try
+                begin
+                    number = a_number
+                end
+                catch (ex, @BadDigitException)
+                begin
+                    retval = false
+                end
+                endtry
             end
-            endtry
+            mreturn retval
         endmethod
 
         protected method IsDate, boolean
