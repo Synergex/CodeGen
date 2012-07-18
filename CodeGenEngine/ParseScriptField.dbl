@@ -52,10 +52,10 @@ namespace CodeGen.Engine
         endparams
 
         record local_vars
-            ErrStatus   ,int
-            StartPos    ,int
-            EndPos      ,int
-            Attribute   ,a512
+            ErrStatus       ,int
+            StartPos        ,int
+            EndPos          ,int
+            FieldAttribute  ,a512
         endrecord
 		
     proc
@@ -82,43 +82,43 @@ namespace CodeGen.Engine
             else
             begin
 
-                Attribute = FieldParams(StartPos,EndPos-1)
+                FieldAttribute = FieldParams(StartPos,EndPos-1)
 
-                using Attribute select
+                using FieldAttribute select
 
                 ("ALLOW"),
                 begin
                     ;;ALLOW(valid[,...])
                     data CommaPos, int
                     ;;Remove the "ALLOW(" and the ")", leaving just a list of values
-                    Attribute -= "ALLOW("
-                    clear Attribute(trim(Attribute):1)
+                    FieldAttribute = FieldAttribute - "ALLOW("
+                    clear FieldAttribute(trim(FieldAttribute):1)
                     ;;Create the collection
                     Field.AllowList = new ArrayList()
                     repeat
                     begin
                         ;;If this value is quoted then remove the quotes
-                        using Attribute(1:1) select
+                        using FieldAttribute(1:1) select
                         ("'"),
                         begin
-                            Attribute -= "'"
-                            Attribute -= "'"
+                            FieldAttribute = FieldAttribute - "'"
+                            FieldAttribute = FieldAttribute - "'"
                         end
                         ('"'),
                         begin
-                            Attribute -= '"'
-                            Attribute -= '"'
+                            FieldAttribute = FieldAttribute - '"'
+                            FieldAttribute = FieldAttribute - '"'
                         end
                         endusing
                         ;;Add the value to the collection
-                        if (CommaPos=instr(1,Attribute,",")) then
+                        if (CommaPos=instr(1,FieldAttribute,",")) then
                         begin
-                            Field.AllowList.Add((@a)Attribute(1,CommaPos-1))
-                            Attribute = Attribute(CommaPos+1,trim(Attribute))
+                            Field.AllowList.Add((@a)FieldAttribute(1,CommaPos-1))
+                            FieldAttribute = FieldAttribute(CommaPos+1,trim(FieldAttribute))
                         end
                         else
                         begin
-                            Field.AllowList.Add((@a)Attribute(1,trim(Attribute)))
+                            Field.AllowList.Add((@a)FieldAttribute(1,trim(FieldAttribute)))
                             exitloop
                         end
                     end
@@ -146,7 +146,7 @@ namespace CodeGen.Engine
                 ("ARRIVE_METHOD"),
                 begin
                     ;;ARRIVE_METHOD(arrive_method)
-                    Field.ArriveMethod = QuotedString(Attribute)
+                    Field.ArriveMethod = QuotedString(FieldAttribute)
                 end
 
                 ("NOARRIVE_METHOD"),
@@ -179,7 +179,7 @@ namespace CodeGen.Engine
                 ("BREAK"),
                 begin
                     ;;BREAK[(CHANGE|ALWAYS|RETURN)]
-                    using Attribute select
+                    using FieldAttribute select
                     ("BREAK(ALWAYS)"),
                         Field.BreakMode = RpsFieldBreak.Always
                     ("BREAK(CHANGE)"),
@@ -197,7 +197,7 @@ namespace CodeGen.Engine
                 ("CHANGE_METHOD"),
                 begin
                     ;;CHANGE_METHOD(change_method)
-                    Field.ChangeMethod = QuotedString(Attribute)
+                    Field.ChangeMethod = QuotedString(FieldAttribute)
                 end
 
                 ("NOCHANGE_METHOD"),
@@ -212,7 +212,7 @@ namespace CodeGen.Engine
                 ("COLOR"),
                 begin
                     ;;COLOR(palette#)
-                    Field.ColorPalette = (RpsColorPalette)%NumberFromParens(Attribute)
+                    Field.ColorPalette = (RpsColorPalette)%NumberFromParens(FieldAttribute)
                 end
 
                 ("NOCOLOR"),
@@ -255,9 +255,9 @@ namespace CodeGen.Engine
                     end
                     endusing
                     ;;Default to today?
-                    Field.DateDefaultToday = instr(1,Attribute,"TODAY")
+                    Field.DateDefaultToday = instr(1,FieldAttribute,"TODAY")
                     ;;Short date?
-                    Field.AllowShortDate = instr(1,Attribute,"SHORT")
+                    Field.AllowShortDate = instr(1,FieldAttribute,"SHORT")
                 end
 
                 ("NODATE"),
@@ -276,10 +276,10 @@ namespace CodeGen.Engine
                 ("DEFAULT"),
                 begin
                     ;;DEFAULT(default)
-                    if (instr(1,Attribute,"'")||instr(1,Attribute,'"')) then
-                        Field.DefaultValue = QuotedString(Attribute)
+                    if (instr(1,FieldAttribute,"'")||instr(1,FieldAttribute,'"')) then
+                        Field.DefaultValue = QuotedString(FieldAttribute)
                     else
-                        Field.DefaultValue = string(NumberFromParens(Attribute))
+                        Field.DefaultValue = string(NumberFromParens(FieldAttribute))
                     Field.DefaultAction = RpsFieldDefaultAction.Default
                 end
 
@@ -298,7 +298,7 @@ namespace CodeGen.Engine
                 ("DSP_LENGTH"),
                 begin
                     ;;DSP_LENGTH(display_length)
-                    Field.DisplayLength = NumberFromParens(Attribute)
+                    Field.DisplayLength = NumberFromParens(FieldAttribute)
                 end
 
                 ("NODSP_LENGTH"),
@@ -307,7 +307,7 @@ namespace CodeGen.Engine
                 ("DISPLAY_METHOD"),
                 begin
                     ;;DISPLAY_METHOD(display_method)
-                    Field.DisplayMethod = QuotedString(Attribute)
+                    Field.DisplayMethod = QuotedString(FieldAttribute)
                 end
 
                 ("NODISPLAY_METHOD"),
@@ -316,7 +316,7 @@ namespace CodeGen.Engine
                 ("DRILL_METHOD"),
                 begin
                     ;;DRILL_METHOD(drill_method)
-                    Field.DrillMethod = QuotedString(Attribute)
+                    Field.DrillMethod = QuotedString(FieldAttribute)
                 end
 
                 ("NODRILL_METHOD"),
@@ -325,7 +325,7 @@ namespace CodeGen.Engine
                 ("EDITFMT_METHOD"),
                 begin
                     ;;EDITFMT_METHOD(editfmt_method)
-                    Field.EditFormatMethod = QuotedString(Attribute)
+                    Field.EditFormatMethod = QuotedString(FieldAttribute)
                 end
 
                 ("NOEDITFMT_METHOD"),
@@ -338,31 +338,31 @@ namespace CodeGen.Engine
                     data CloseParenPos, int
                     data CommaOnePos, int
                     data CommaTwoPos, int
-                    OpenParenPos = instr(1,Attribute,"(")
-                    CloseParenPos = instr(1,Attribute,")")
-                    CommaOnePos = instr(OpenParenPos,Attribute,",")
-                    CommaTwoPos = instr(CommaOnePos+1,Attribute,",")
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    CommaOnePos = instr(OpenParenPos,FieldAttribute,",")
+                    CommaTwoPos = instr(CommaOnePos+1,FieldAttribute,",")
                     if (!CommaOnePos) then
                     begin
-                        Field.EnumeratedDisplayLength = NumberFromParens(Attribute)
+                        Field.EnumeratedDisplayLength = NumberFromParens(FieldAttribute)
                         ;;No base or step specified
                         Field.EnumeratedBaseValue = 1
                         Field.EnumeratedStepValue = 1
                     end
                     else
                     begin
-                        Field.EnumeratedDisplayLength = integer(Attribute(OpenParenPos+1,CommaOnePos-1))
+                        Field.EnumeratedDisplayLength = integer(FieldAttribute(OpenParenPos+1,CommaOnePos-1))
                         if (!CommaTwoPos) then
                         begin
                             ;;No step value specified
-                            Field.EnumeratedBaseValue = integer(Attribute(CommaOnePos+1,CloseParenPos-1))
+                            Field.EnumeratedBaseValue = integer(FieldAttribute(CommaOnePos+1,CloseParenPos-1))
                             Field.EnumeratedStepValue = 1
                         end
                         else
                         begin
                             ;;We have a step value also
-                            Field.EnumeratedBaseValue = integer(Attribute(CommaOnePos+1,CommaTwoPos-1))
-                            Field.EnumeratedStepValue = integer(Attribute(CommaTwoPos+1,CloseParenPos-1))
+                            Field.EnumeratedBaseValue = integer(FieldAttribute(CommaOnePos+1,CommaTwoPos-1))
+                            Field.EnumeratedStepValue = integer(FieldAttribute(CommaTwoPos+1,CloseParenPos-1))
                         end
                     end
                 end
@@ -380,18 +380,18 @@ namespace CodeGen.Engine
                     data OpenParenPos, int
                     data CommaPos, int
                     data CloseParenPos, int
-                    if (instr(1,Attribute,"CHANGE,")) then
+                    if (instr(1,FieldAttribute,"CHANGE,")) then
                     begin
                         Field.FieldPositionMode = RpsPositionMode.Relative
-                        Attribute -= "CHANGE,"
+                        FieldAttribute = FieldAttribute - "CHANGE,"
                     end
                     else
                         Field.FieldPositionMode = RpsPositionMode.Absolute
-                    OpenParenPos = instr(1,Attribute,"(")
-                    CommaPos = instr(1,Attribute,",")
-                    CloseParenPos = instr(1,Attribute,")")
-                    Field.FieldRow = integer(Attribute(OpenParenPos+1,CommaPos-1))
-                    Field.FieldColumn = integer(Attribute(CommaPos+1,CloseParenPos-1))
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CommaPos = instr(1,FieldAttribute,",")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    Field.FieldRow = integer(FieldAttribute(OpenParenPos+1,CommaPos-1))
+                    Field.FieldColumn = integer(FieldAttribute(CommaPos+1,CloseParenPos-1))
                 end
 
                 ("NOFIELD_POSITION","NOFPOS"),
@@ -403,7 +403,7 @@ namespace CodeGen.Engine
                 ("FONT"),
                 begin
                     ;;FONT(palette_name)
-                    Field.FieldFont = StringFromParens(Attribute)
+                    Field.FieldFont = StringFromParens(FieldAttribute)
                 end
 
                 ("NOFONT"),
@@ -412,7 +412,7 @@ namespace CodeGen.Engine
                 ("FORMAT","FMT"),
                 begin
                     ;;FORMAT(fmt_string) or FMT(fmt_string)
-                    Field.FormatName = QuotedString(Attribute)
+                    Field.FormatName = QuotedString(FieldAttribute)
                 end
 
                 ("NOFORMAT","NOFMT"),
@@ -421,7 +421,7 @@ namespace CodeGen.Engine
                 ("HELP"),
                 begin
                     ;;HELP(help_id)
-                    Field.HelpIdentifier = StringFromParens(Attribute)
+                    Field.HelpIdentifier = StringFromParens(FieldAttribute)
                 end
 
                 ("NOHELP"),
@@ -436,7 +436,7 @@ namespace CodeGen.Engine
                 ("HYPERLINK_METHOD"),
                 begin
                     ;;HYPERLINK_METHOD(hyperlink_method)
-                    Field.HyperlinkMethod = QuotedString(Attribute)
+                    Field.HyperlinkMethod = QuotedString(FieldAttribute)
                 end
 
                 ("NOHYPERLINK_METHOD"),
@@ -451,7 +451,7 @@ namespace CodeGen.Engine
                 ("INFORMATION"),
                 begin
                     ;;INFORMATION(info_string)
-                    Field.InfoLineText = QuotedString(Attribute)
+                    Field.InfoLineText = QuotedString(FieldAttribute)
                 end
 
                 ("NOINFORMATION"),
@@ -460,7 +460,7 @@ namespace CodeGen.Engine
                 ("INPUT_LENGTH"),
                 begin
                     ;;INPUT_LENGTH(input_length)
-                    Field.InputLength = NumberFromParens(Attribute)
+                    Field.InputLength = NumberFromParens(FieldAttribute)
                 end
 
                 ("NOINPUT_LENGTH"),
@@ -469,7 +469,7 @@ namespace CodeGen.Engine
                 ("JUSTIFY"),
                 begin
                     ;;JUSTIFY(LEFT|RIGHT|CENTER)
-                    using Attribute select
+                    using FieldAttribute select
                     ("JUSTIFY(LEFT)"),
                         Field.InputJustification = RpsJustification.Left
                     ("JUSTIFY(RIGHT)"),
@@ -492,7 +492,7 @@ namespace CodeGen.Engine
                 ("LEAVE_METHOD"),
                 begin
                     ;;LEAVE_METHOD(leave_method)
-                    Field.LeaveMethod = QuotedString(Attribute)
+                    Field.LeaveMethod = QuotedString(FieldAttribute)
                 end
 
                 ("NOLEAVE_METHOD"),
@@ -502,20 +502,20 @@ namespace CodeGen.Engine
                 begin
                     ;;MATCH(option[,option])
                     ;;options are CASE or NOCASE and EXACT or NOEXACT
-                    if (instr(1,Attribute,"CASE"))
+                    if (instr(1,FieldAttribute,"CASE"))
                         Field.AllowListMatchCase = true
-                    if (instr(1,Attribute,"NOCASE"))
+                    if (instr(1,FieldAttribute,"NOCASE"))
                         Field.AllowListMatchCase = false
-                    if (instr(1,Attribute,"EXACT"))
+                    if (instr(1,FieldAttribute,"EXACT"))
                         Field.AllowListMatchExact = true
-                    if (instr(1,Attribute,"NOEXACT"))
+                    if (instr(1,FieldAttribute,"NOEXACT"))
                         Field.AllowListMatchExact = false
                 end
 
                 ("NEGATIVE"),
                 begin
                     ;;NEGATIVE[(ALLOWED|ONLY|ORZERO)]
-                    using Attribute select
+                    using FieldAttribute select
                     ("NEGATIVE(ALLOWED)"),
                         Field.NegativeAllowed = RpsFieldNegatives.Allowed
                     ("NEGATIVE(ONLY)"),
@@ -540,7 +540,7 @@ namespace CodeGen.Engine
                 begin
                     ;;NOECHO[(display_character)]
                     Field.NoEcho = True
-                    Field.NoEchoCharacter = StringFromParens(Attribute)
+                    Field.NoEchoCharacter = StringFromParens(FieldAttribute)
                 end
 
                 ("ECHO"),
@@ -559,7 +559,7 @@ namespace CodeGen.Engine
                 begin
                     ;;PAINT(character)
                     Field.PaintCharacterSpecified = true
-                    Field.PaintCharacter = StringFromParens(Attribute)
+                    Field.PaintCharacter = StringFromParens(FieldAttribute)
                 end
 
                 ("NOPAINT"),
@@ -574,18 +574,18 @@ namespace CodeGen.Engine
                     data OpenParenPos, int
                     data CommaPos, int
                     data CloseParenPos, int
-                    if (instr(1,Attribute,"CHANGE,")) then
+                    if (instr(1,FieldAttribute,"CHANGE,")) then
                     begin
                         Field.PromptPositionMode = RpsPositionMode.Relative
-                        Attribute -= "CHANGE,"
+                        FieldAttribute = FieldAttribute - "CHANGE,"
                     end
                     else
                         Field.PromptPositionMode = RpsPositionMode.Absolute
-                    OpenParenPos = instr(1,Attribute,"(")
-                    CommaPos = instr(1,Attribute,",")
-                    CloseParenPos = instr(1,Attribute,")")
-                    Field.PromptRow = integer(Attribute(OpenParenPos+1,CommaPos-1))
-                    Field.PromptColumn = integer(Attribute(CommaPos+1,CloseParenPos-1))
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CommaPos = instr(1,FieldAttribute,",")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    Field.PromptRow = integer(FieldAttribute(OpenParenPos+1,CommaPos-1))
+                    Field.PromptColumn = integer(FieldAttribute(CommaPos+1,CloseParenPos-1))
                 end
 
                 ("NOPOS","NOPOSITION"),
@@ -597,10 +597,10 @@ namespace CodeGen.Engine
                 ("PROMPT"),
                 begin
                     ;;PROMPT(prompt)
-                    Field.Prompt = QuotedString(Attribute)
+                    Field.Prompt = QuotedString(FieldAttribute)
                     ;;if we didn't get anything back from QuotedString then it must be a numeric prompt length
                     if (!Field.Prompt)
-                        Field.Prompt = string(NumberFromParens(Attribute))
+                        Field.Prompt = string(NumberFromParens(FieldAttribute))
                 end
 
                 ("NOPROMPT"),
@@ -609,7 +609,7 @@ namespace CodeGen.Engine
                 ("PROMPTFONT"),
                 begin
                     ;;PROMPTFONT(palette_name)
-                    Field.PromptFont = StringFromParens(Attribute)
+                    Field.PromptFont = StringFromParens(FieldAttribute)
                 end
 
                 ("NOPROMPTFONT"),
@@ -627,12 +627,12 @@ namespace CodeGen.Engine
                     data OpenParenPos, int
                     data CommaPos, int
                     data CloseParenPos, int
-                    OpenParenPos = instr(1,Attribute,"(")
-                    CommaPos = instr(1,Attribute,",")
-                    CloseParenPos = instr(1,Attribute,")")
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CommaPos = instr(1,FieldAttribute,",")
+                    CloseParenPos = instr(1,FieldAttribute,")")
                     Field.NumericRangeExists = 1
-                    Field.NumericRangeMinimum = ^d(Attribute(OpenParenPos+1,CommaPos-1),10)
-                    Field.NumericRangeMaximum = ^d(Attribute(CommaPos+1,CloseParenPos-1),10)
+                    Field.NumericRangeMinimum = ^d(FieldAttribute(OpenParenPos+1,CommaPos-1),10)
+                    Field.NumericRangeMaximum = ^d(FieldAttribute(CommaPos+1,CloseParenPos-1),10)
                 end
 
                 ("NORANGE"),
@@ -673,49 +673,49 @@ namespace CodeGen.Engine
                     data CommaTwoPos, int
                     data CommaThreePos, int
                     ;;Remove the "SELECT(" and ")"
-                    Attribute -= "SELECT("
-                    clear Attribute(trim(Attribute):1)
+                    FieldAttribute = FieldAttribute - "SELECT("
+                    clear FieldAttribute(trim(FieldAttribute):1)
                     ;;Find the required commas
-                    CommaOnePos = instr(1,Attribute,",")
-                    CommaTwoPos = instr(CommaOnePos+1,Attribute,",")
-                    CommaThreePos = instr(CommaTwoPos+1,Attribute,",")
+                    CommaOnePos = instr(1,FieldAttribute,",")
+                    CommaTwoPos = instr(CommaOnePos+1,FieldAttribute,",")
+                    CommaThreePos = instr(CommaTwoPos+1,FieldAttribute,",")
                     ;;Extract the row and column
                     Field.SelectionListType = RpsFieldSelectionType.List
-                    Field.SelectionWindowRow = integer(Attribute(1,CommaOnePos-1))
-                    Field.SelectionWindowColumn = integer(Attribute(CommaOnePos+1,CommaTwoPos-1))
+                    Field.SelectionWindowRow = integer(FieldAttribute(1,CommaOnePos-1))
+                    Field.SelectionWindowColumn = integer(FieldAttribute(CommaOnePos+1,CommaTwoPos-1))
                     ;;Extract the height if present
                     if (CommaThreePos!=(CommaTwoPos+1)) then
-                        Field.SelectionWindowHeight = integer(Attribute(CommaTwoPos+1,CommaThreePos-1))
+                        Field.SelectionWindowHeight = integer(FieldAttribute(CommaTwoPos+1,CommaThreePos-1))
                     else
                         Field.SelectionWindowHeight = 0
                     ;;Remove the row, column and height to leave only the entries
-                    Attribute = Attribute(CommaThreePos+1,trim(Attribute))
+                    FieldAttribute = FieldAttribute(CommaThreePos+1,trim(FieldAttribute))
                     ;;Create the collection of entries
                     Field.SelectionList = new ArrayList()
                     repeat
                     begin
                         ;;If this value is quoted then remove the quotes
-                        using Attribute(1:1) select
+                        using FieldAttribute(1:1) select
                         ("'"),
                         begin
-                            Attribute -= "'"
-                            Attribute -= "'"
+                            FieldAttribute = FieldAttribute - "'"
+                            FieldAttribute = FieldAttribute - "'"
                         end
                         ('"'),
                         begin
-                            Attribute -= '"'
-                            Attribute -= '"'
+                            FieldAttribute = FieldAttribute - '"'
+                            FieldAttribute = FieldAttribute - '"'
                         end
                         endusing
                         ;;Add the value to the collection
-                        if (CommaOnePos=instr(1,Attribute,",")) then
+                        if (CommaOnePos=instr(1,FieldAttribute,",")) then
                         begin
-                            Field.SelectionList.Add((@a)Attribute(1,CommaOnePos-1))
-                            Attribute = Attribute(CommaOnePos+1,trim(Attribute))
+                            Field.SelectionList.Add((@a)FieldAttribute(1,CommaOnePos-1))
+                            FieldAttribute = FieldAttribute(CommaOnePos+1,trim(FieldAttribute))
                         end
                         else
                         begin
-                            Field.SelectionList.Add((@a)Attribute(1,trim(Attribute)))
+                            Field.SelectionList.Add((@a)FieldAttribute(1,trim(FieldAttribute)))
                             exitloop
                         end
                     end
@@ -738,14 +738,14 @@ namespace CodeGen.Engine
                     data CloseParenPos, int
                     data CommaOnePos, int
                     data CommaTwoPos, int
-                    OpenParenPos = instr(1,Attribute,"(")
-                    CloseParenPos = instr(1,Attribute,")")
-                    CommaOnePos = instr(OpenParenPos,Attribute,",")
-                    CommaTwoPos = instr(CommaOnePos+1,Attribute,",")
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    CommaOnePos = instr(OpenParenPos,FieldAttribute,",")
+                    CommaTwoPos = instr(CommaOnePos+1,FieldAttribute,",")
                     Field.SelectionListType = RpsFieldSelectionType.Window
-                    Field.SelectionWindowRow = integer(Attribute(OpenParenPos+1,CommaOnePos-1))
-                    Field.SelectionWindowColumn = integer(Attribute(CommaOnePos+1,CommaTwoPos-1))
-                    Field.SelectionWindowName = Attribute(CommaTwoPos+1,CloseParenPos-1)
+                    Field.SelectionWindowRow = integer(FieldAttribute(OpenParenPos+1,CommaOnePos-1))
+                    Field.SelectionWindowColumn = integer(FieldAttribute(CommaOnePos+1,CommaTwoPos-1))
+                    Field.SelectionWindowName = FieldAttribute(CommaTwoPos+1,CloseParenPos-1)
                 end
 
                 ("NOSELWND"),
@@ -781,9 +781,9 @@ namespace CodeGen.Engine
                     end
                     endusing
                     ;;Default to now?
-                    Field.TimeDefaultNow = instr(1,Attribute,"NOW")
+                    Field.TimeDefaultNow = instr(1,FieldAttribute,"NOW")
                     ;;AM/PM time?
-                    Field.TimeAmPm = instr(1,Attribute,"AMPM")
+                    Field.TimeAmPm = instr(1,FieldAttribute,"AMPM")
                 end
 
                 ("NOTIME"),
@@ -811,13 +811,13 @@ namespace CodeGen.Engine
                     data OpenParenPos, int
                     data CommaPos, int
                     data CloseParenPos, int
-                    OpenParenPos = instr(1,Attribute,"(")
-                    CommaPos = instr(1,Attribute,",")
-                    CloseParenPos = instr(1,Attribute,")")
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CommaPos = instr(1,FieldAttribute,",")
+                    CloseParenPos = instr(1,FieldAttribute,")")
                     if (!CommaPos) then
                     begin
                         ;;No user type specified
-                        Field.UserText = QuotedString(Attribute)
+                        Field.UserText = QuotedString(FieldAttribute)
                         Field.UserFieldType = ""
                     end
                     else
@@ -827,14 +827,14 @@ namespace CodeGen.Engine
                         begin
                             ;;No user text
                             Field.UserText = ""
-                            Field.UserFieldType = QuotedString(Attribute)
+                            Field.UserFieldType = QuotedString(FieldAttribute)
                         end
                         else
                         begin
                             ;;We also have user text
-                            Field.UserText = QuotedString(Attribute)
-                            Attribute = Attribute(CommaPos,CloseParenPos)
-                            Field.UserFieldType = QuotedString(Attribute)
+                            Field.UserText = QuotedString(FieldAttribute)
+                            FieldAttribute = FieldAttribute(CommaPos,CloseParenPos)
+                            Field.UserFieldType = QuotedString(FieldAttribute)
                         end
                     end
                 end
@@ -848,7 +848,7 @@ namespace CodeGen.Engine
                 ("VIEW_LENGTH"),
                 begin
                     ;;VIEW_LENGTH(view_length)
-                    Field.ViewLength = NumberFromParens(Attribute)
+                    Field.ViewLength = NumberFromParens(FieldAttribute)
                 end
 
                 ("NOVIEW_LENGTH"),
@@ -857,7 +857,7 @@ namespace CodeGen.Engine
                 ("WAIT"),
                 begin
                     ;;WAIT(IMMEDIATE|GLOBAL|FOREVER|seconds)
-                    using Attribute select
+                    using FieldAttribute select
                     ("WAIT(IMMEDIATE)"),
                         Field.InputTimeoutMode = RpsFieldTimeout.Immediate
                     ("WAIT(FOREVER)"),
@@ -867,14 +867,14 @@ namespace CodeGen.Engine
                     (),
                     begin
                         Field.InputTimeoutMode = RpsFieldTimeout.Time
-                        Field.InputTimeout = NumberFromParens(Attribute)
+                        Field.InputTimeout = NumberFromParens(FieldAttribute)
                     end
                     endusing
                 end
 
                 (),
                 begin
-                    ErrorLog("Unrecognized input field parameter " + atrim(attribute))
+                    ErrorLog("Unrecognized input field parameter " + atrim(FieldAttribute))
                     ErrStatus = 1
                     exitloop
                 end
