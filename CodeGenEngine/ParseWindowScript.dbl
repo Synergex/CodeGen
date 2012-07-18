@@ -55,6 +55,7 @@ namespace CodeGen.Engine
             WscFields   ,@WscFieldCollection    ;;Collection of input window fields
             ErrStatus   ,int                    ;;Error status
             WindowNum   ,int                    ;;Input window number to process
+            WindowName  ,String                 ;;Input window name to process
             WindowCnt   ,int                    ;;Input windows found so far
             WscChn      ,int                    ;;Window script file channel
             GotWindow   ,int                    ;;We have an input window to process
@@ -71,26 +72,36 @@ namespace CodeGen.Engine
     proc
 
         init local_data
+        WindowName = ""
         aErrorMessage = ""
 
-        ;;Is there a window number specified?
+        ;;Is there a window number or name specified?
         begin
             data pos1, int
             if (pos1=instr(1,WscFile,"#"))
             begin
                 ;;Make sure there is data after the # and it is numeric
-                if ((pos1==trim(WscFile)) || (!IsNumeric(WscFile(pos1+1,trim(WscFile)))))
+                if (pos1==trim(WscFile))
                 begin
-                    data mtx, a132
-                    s_bld(mtx,,"Can't open window script %a!",WscFile)
+                    data mtx, String, "No window number or name following # in script file name!"
                     ErrorLog(mtx)
                     ErrStatus=54
                     aErrorMessage = atrim(mtx)
                     freturn ErrStatus
                 end
-                ;;Extract the window number
-                WindowNum = integer(WscFile(pos1+1,trim(WscFile)))
-                ;;Remove the window number from the script file name
+                ;;Is the data after the # numeric?
+                if (IsNumeric(WscFile(pos1+1,trim(WscFile)))) then
+                begin
+                    ;;Extract the window number
+                    WindowNum = integer(WscFile(pos1+1,trim(WscFile)))
+                end
+                else
+                begin
+                    ;;Extract the window name
+                    WindowName = WscFile(pos1+1,trim(WscFile))
+                    WindowName = WindowName.ToUpper()
+                end
+                ;;Remove the window number or name from the script file name
                 WscFile = WscFile(1:pos1-1)
             end
         end
@@ -101,11 +112,10 @@ namespace CodeGen.Engine
 
         DebugLog("Parsing window script "+UpperCase(WscFile),true,false)
 
-        ;;If no window number specified, go for the first one
-        if (!WindowNum)
-            WindowNum=1
-
-        DebugLog(" - Searching for input window #" + string(WindowNum),false,false)
+        if (WindowNum!=0) then
+            DebugLog(" - Searching for input window #" + string(WindowNum),false,false)
+        else if (WindowName.Length>0)
+            DebugLog(" - Searching for input window " + WindowName,false,false)
 
         ;;Open the file, fail if can't
         try
@@ -170,7 +180,10 @@ namespace CodeGen.Engine
             begin
                 if (InWindow) then
                 begin
-                    DebugLog(" - Found end of input window #" + string(WindowCnt),false,false)
+                    if (WindowNum>0) then
+                        DebugLog(" - Found end of input window #" + string(WindowCnt) + " " + UpperCase(InpWnd),false,false)
+                    else
+                        DebugLog(" - Found end of input window " + atrim(InpWnd),false,false)
                     GotWindow=1
                     exitloop
                 end
@@ -182,22 +195,31 @@ namespace CodeGen.Engine
             if (LowerCase(wscrec1)==".input")
             begin
                 data pos1, int
-                ;;Is this the one we were looking for?
-                if ((WindowCnt+=1) != WindowNum)
-                begin
-                    DebugLog(" - Skipping input window #" + string(WindowCnt),false,false)
-                    nextloop
-                end
-                ;;Yes
-                InWindow=1
+                WindowCnt += 1
+
                 ;;Remove the .input
                 locase wscrec1(1:6)
                 wscrec1 = wscrec1 - ".input "
                 ;;Find the , for the end of the window name and extract the name
                 pos1=instr(1,wscrec1,",")
                 InpWnd = wscrec1(1:pos1-1)
+                upcase InpWnd
                 wscrec1 = wscrec1(pos1+1,trim(wscrec1))
                 wscrec1 = RemoveLeading(wscrec1)
+                
+                ;;Is this the one we were looking for?
+                if (((WindowNum>0)&&(WindowCnt != WindowNum)) || ((WindowName.Length>0)&&(WindowName.nes.atrim(InpWnd))))
+                begin
+;                    if (WindowNum>0) then
+;                        DebugLog(" - Skipping input window #" + string(WindowCnt),false,false)
+;                    else if (WindowName.Length>0) 
+;                        DebugLog(" - Skipping input window " + atrim(InpWnd),false,false)
+                    nextloop
+                end
+                
+                ;;Yes
+                InWindow=1
+
                 ;;Find the , for the end of the height
                 pos1=instr(1,wscrec1,",")
                 WndHeight = integer(atrim(wscrec1(1:pos1-1)))
@@ -205,7 +227,10 @@ namespace CodeGen.Engine
                 wscrec1 = RemoveLeading(wscrec1)
                 ;;All that is left should be the width
                 WndWidth = integer(atrim(wscrec1))
-                DebugLog(" - Found start of input window #" + string(WindowCnt) + " " + UpperCase(InpWnd),false,false)
+                if (WindowNum>0) then
+                    DebugLog(" - Found start of input window #" + string(WindowCnt) + " " + UpperCase(InpWnd),false,false)
+                else 
+                    DebugLog(" - Found start of input window " + atrim(InpWnd),false,false)
                 nextloop
             end
 
@@ -472,12 +497,17 @@ eowsc,  close WscChn
                     exitloop
                 end
                 endtry
+
                 ;;Apply script file customizations to the field
-                if (ErrStatus = ParseScriptField(Field,WscField.Attributes))
+                if (!Env.NoWscAttributes)
                 begin
-                    aErrorMessage = "Failed to apply script file customizations to repository field."
-                    exitloop
+                    if (ErrStatus = ParseScriptField(Field,WscField.Attributes))
+                    begin
+                        aErrorMessage = "Failed to apply script file customizations to repository field."
+                        exitloop
+                    end
                 end
+
                 ;;Add the field to the fields collection
                 Fields.Add(Field)
             end
