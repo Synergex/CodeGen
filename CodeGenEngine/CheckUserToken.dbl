@@ -1,0 +1,117 @@
+;;*****************************************************************************
+;;
+;; Title:       CheckUserToken.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Checks if a required user-defined token has been provided.
+;;
+;; Date:        26th July 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+    
+    function CheckUserToken, boolean
+        
+        required in  buffer, a
+        endparams
+        
+        stack record
+            ok              ,boolean
+            pos1            ,int
+            pos2            ,int
+            tokenName       ,string
+            tokenFound      ,Boolean
+        endrecord
+        
+    proc
+        
+        ok = true
+        tokenFound = false
+        
+        pos1 = instr(1,buffer,"<REQUIRES_USERTOKEN>") + 20
+        pos2 = instr(pos1,buffer,"</REQUIRES_USERTOKEN>") -1
+        
+        if (!pos2||(pos2<pos1))
+        begin
+            ErrorLog("Invalid <REQUIRES_USERTOKEN> token syntax")
+            ok = false
+        end
+
+        if (ok)
+        begin
+        end
+
+        
+        if (ok)
+        begin
+            data token, @UserToken
+
+            tokenName = "<" + atrim(buffer(pos1,pos2)) + ">"
+            tokenName = tokenName.ToUpper()
+            DebugLog(" - Checking for user token " + tokenName,false,false)
+
+            ;;Check if we have ANY user tokens
+            if (Env.UserTokens==^null)
+            begin
+                ErrorLog("Template " + Env.CurrentTemplate + " requires user-defined token " + tokenName)
+                ok = false
+            end
+
+            if (ok)
+            begin
+                ;;We have user tokens, check if we have the one we need
+                foreach token in Env.UserTokens.GetEnumerator()
+                begin
+                    if (token.Name==tokenName)
+                    begin
+                        tokenFound = true
+                        exitloop
+                    end
+                end
+                
+                if (!tokenFound)
+                    ErrorLog("Template " + Env.CurrentTemplate + " requires user-defined token " + tokenName)
+            end
+        end
+        
+        freturn tokenFound
+        
+    endfunction
+    
+endnamespace
+
