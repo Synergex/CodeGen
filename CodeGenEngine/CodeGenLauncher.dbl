@@ -988,11 +988,14 @@ namespace CodeGen.Engine
 			data customFileSpec, a256
 			data tmpLen, i4
 			data libraries, @ArrayList
-			data loadCustomTokens, Boolean, false
+            data loadCustomTokens, Boolean, false
+            data usingExtDir, Boolean, false
 
 			;;Do we have a CODEGEN_EXTDIR environment variable?
 			xcall getlog("CODEGEN_EXTDIR",customFileSpec,tmpLen)
-            if (!tmpLen)
+            if (tmpLen) then
+                usingExtDir = true
+            else
             begin
                 ;;No CODEGEN_EXTDIR so we'll look in CODEGEN_EXE
                 xcall getlog("CODEGEN_EXE",customFileSpec,tmpLen)
@@ -1026,8 +1029,10 @@ namespace CodeGen.Engine
 				data file, @a
 				foreach file in libraries
 				begin
-					data libSpec, String, "CODEGEN_EXE:"+(a)file
-					try
+                    data libSpec, String, "CODEGEN_EXE:"+(a)file
+                    if (usingExtDir)
+                        libSpec = "CODEGEN_EXTDIR:"+(a)file
+                    try
 					begin
 						DebugLog(" - Activating " + libSpec,false,false)
 						xcall openelb(libSpec)
@@ -1038,8 +1043,7 @@ namespace CodeGen.Engine
 						ErrorLog("Failed to open custom token library " + libSpec)
 					end
 					endtry
-				end
-				
+				end				
 			end
 			
 			;;Load any custom token processor extensions
