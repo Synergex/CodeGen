@@ -40,6 +40,7 @@
 ;;
 ;;*****************************************************************************
 
+import System.Collections
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
 
@@ -52,21 +53,20 @@ namespace CodeGen.Engine
         endparams
 
         record local_data
-            WscFields   ,@WscFieldCollection    ;;Collection of input window fields
-            ErrStatus   ,int                    ;;Error status
-            WindowNum   ,int                    ;;Input window number to process
-            WindowName  ,String                 ;;Input window name to process
-            WindowCnt   ,int                    ;;Input windows found so far
-            WscChn      ,int                    ;;Window script file channel
-            GotWindow   ,int                    ;;We have an input window to process
-            WndHeight   ,int                    ;;Height of input window
-            WndWidth    ,int                    ;;Width of input window
-            InWindow    ,int                    ;;We are processing an input window
-            wscrec1     ,a2048                  ;;Temp I/O buffer
-            wscrec2     ,a2048                  ;;Temp I/O buffer
-            InpWnd      ,a15                    ;;Input window being processed
-            InpWndStr   ,a30                    ;;Input window repository structure
-            FirstStr    ,a30                    ;;First repository structure we encountered in the window
+            CurrentFieldSet ,@WscFieldCollection    ;;Collection of input window fields for current structure
+            FieldSets       ,@ArrayList             ;;Collection of field collections for multiple structures
+            ErrStatus       ,int                    ;;Error status
+            WindowNum       ,int                    ;;Input window number to process
+            WindowName      ,String                 ;;Input window name to process
+            WindowCnt       ,int                    ;;Input windows found so far
+            WscChn          ,int                    ;;Window script file channel
+            GotWindow       ,int                    ;;We have an input window to process
+            WndHeight       ,int                    ;;Height of input window
+            WndWidth        ,int                    ;;Width of input window
+            InWindow        ,int                    ;;We are processing an input window
+            wscrec1         ,a2048                  ;;Temp I/O buffer
+            wscrec2         ,a2048                  ;;Temp I/O buffer
+            InpWnd          ,a15                    ;;Input window being processed
         endrecord
 
     proc
@@ -131,12 +131,14 @@ namespace CodeGen.Engine
         end
         endtry
 
-        WscFields = new WscFieldCollection()
-
+        CurrentFieldSet = new WscFieldCollection("_LOCAL_")
+        FieldSets = new ArrayList()
+        FieldSets.Add(CurrentFieldSet)
+        
         clear InWindow
+
         repeat
         begin
-
             ;;Read a record
             reads(WscChn,wscrec1,eowsc)
 
@@ -148,7 +150,7 @@ namespace CodeGen.Engine
             if (wscrec1==";")
                 nextloop
 
-            ;;Check for continuation lines
+            ;;Check for continuation lines and concatenate them into single lines
             repeat
             begin
                 data ix, int
@@ -209,15 +211,9 @@ namespace CodeGen.Engine
                 
                 ;;Is this the one we were looking for?
                 if (((WindowNum>0)&&(WindowCnt != WindowNum)) || ((WindowName.Length>0)&&(WindowName.nes.atrim(InpWnd))))
-                begin
-;                    if (WindowNum>0) then
-;                        DebugLog(" - Skipping input window #" + string(WindowCnt),false,false)
-;                    else if (WindowName.Length>0) 
-;                        DebugLog(" - Skipping input window " + atrim(InpWnd),false,false)
                     nextloop
-                end
                 
-                ;;Yes
+                ;;Yes, found it!
                 InWindow=1
 
                 ;;Find the , for the end of the height
@@ -225,43 +221,65 @@ namespace CodeGen.Engine
                 WndHeight = integer(atrim(wscrec1(1:pos1-1)))
                 wscrec1 = wscrec1(pos1+1,trim(wscrec1))
                 wscrec1 = RemoveLeading(wscrec1)
+
                 ;;All that is left should be the width
                 WndWidth = integer(atrim(wscrec1))
                 if (WindowNum>0) then
-                    DebugLog(" - Found start of input window #" + string(WindowCnt) + " " + UpperCase(InpWnd),false,false)
+                    DebugLog(" - Found input window #" + string(WindowCnt) + " " + UpperCase(InpWnd),false,false)
                 else 
-                    DebugLog(" - Found start of input window " + atrim(InpWnd),false,false)
+                    DebugLog(" - Found input window " + atrim(InpWnd),false,false)
+
                 nextloop
             end
 
             if (InWindow&&LowerCase(wscrec1)==".repository_structure")
             begin
                 data pos1, int
+                data InpWndStr, String
+                data foundStr, Boolean, false
+                data fieldSet, @WscFieldCollection
 
-                ;;Are we already processing a structure?
-                if (InpWndStr)
+                upcase wscrec1
+                wscrec1 = wscrec1 - ".REPOSITORY_STRUCTURE "
+                
+                ;;Look for a , which would indicate the presence of repository file specs
+                if (pos1=instr(1,wscrec1,","))
+                    wscrec1 = wscrec1(1:pos1-1)
+                
+                ;;What remains should be the structure name
+                InpWndStr = UpperCase(wscrec1)
+
+                DebugLog(" - Found repository structure " + atrim(InpWndStr),false,false)
+
+                ;;Do we already have a field set for this structure?
+                foreach fieldSet in FieldSets
                 begin
-                    if (!Env.MultipleStructures)
+                    if (fieldSet.StructureName.Equals(InpWndStr))
                     begin
-                        ErrorLog("Input window references multiple repository structures!!")
-                        ErrStatus=1
-                        aErrorMessage = "Input window references multiple repositoryu structures!!"
+                        CurrentFieldSet = fieldSet
+                        foundStr = true
+                        DebugLog(" - Adding fields to existing structure " + atrim(InpWndStr),false,false)
                         exitloop
                     end
                 end
 
-                upcase wscrec1
-                wscrec1 = wscrec1 - ".REPOSITORY_STRUCTURE "
-                ;;Look for a , which would indicate the presence of repository file specs
-                if (pos1=instr(1,wscrec1,","))
-                    wscrec1 = wscrec1(1:pos1-1)
-                ;;What remains should be the structure name
-                InpWndStr = UpperCase(wscrec1)
+                ;;If we didn't find an existing fieldset for the structure then we need to add a new one
+                if (!foundStr)
+                begin
+                    ;;First check that we're not going to process multiple structures unless we've been asked to
+                    if ((FieldSets.Count>1)&&(!Env.MultipleStructures))
+                    begin
+                        aErrorMessage = "Input window references multiple repository structures!!"
+                        ErrorLog(aErrorMessage)
+                        ErrStatus=1
+                        exitloop
+                    end
+                    
+                    DebugLog(" - Adding fields to new structure " + atrim(InpWndStr),false,false)
+                    CurrentFieldSet = new WscFieldCollection(InpWndStr)
+                    FieldSets.Add(CurrentFieldSet)
+                end
 
-                if (!FirstStr)
-                    FirstStr = InpWndStr
-
-                DebugLog(" - Repository structure is " + atrim(InpWndStr),false,false)
                 nextloop
             end
 
@@ -278,34 +296,22 @@ namespace CodeGen.Engine
                 pos1=instr(1,wscrec1,",")
 
                 ;;Add the field to the fields collection
-                WscField = new WscField(InpWndStr, wscrec1(1:pos1-1),CleanScriptField(wscrec1(pos1+1,trim(wscrec1))))
-                WscFields.Add(WscField)
+                WscField = new WscField(CurrentFieldSet.StructureName, wscrec1(1:pos1-1),CleanScriptField(wscrec1(pos1+1,trim(wscrec1))))
+                CurrentFieldSet.Add(WscField)
 
                 DebugLog(" - Found field "+WscField.Name+" params "+WscField.Attributes,false,false)
                 nextloop
             end
 
-            ;;If we find local fields then give up
+            ;;If we find local fields then switch to the local fields set
             if (InWindow&&LowerCase(wscrec1)==".local")
             begin
-                data mtx, a132
-                s_bld(mtx,,"Unsupported local fields found in window script %a!",WscFile)
-                ErrorLog(mtx)
-                ErrStatus=55
-                aErrorMessage = atrim(mtx)
-                exitloop
+                DebugLog(" - Adding fields to LOCAL structure",false,false)
+                CurrentFieldSet = (@WscFieldCollection)FieldSets[0]
             end
 
-            ;;If we find a local structure then give up
             if (InWindow&&LowerCase(wscrec1)==".structure")
-            begin
-                data mtx, a132
-                s_bld(mtx,,"Unsupported local structure found in window script %a!",WscFile)
-                ErrorLog(mtx)
-                ErrStatus=56
-                aErrorMessage = atrim(mtx)
-                exitloop
-            end
+                nextloop
 
             ;;Ignore .blank
             if (LowerCase(wscrec1)==".blank")
@@ -433,115 +439,122 @@ eowsc,  close WscChn
             ErrorLog(mtx)
             ErrStatus=57
             aErrorMessage = atrim(mtx)
-            clear WscFields
+            clear FieldSets
         end
 
-        ;;Did it have any fields
-        if ((!ErrStatus)&&(!WscFields.Count))
+        ;;Iterate through the structures we found, ignoring local fields
+        if ((!ErrStatus)&&(FieldSets.Count>1))
         begin
-            data mtx, a132
-            s_bld(mtx,,"Input window %a in script file %a contains no fields!",InpWnd,WscFile)
-            ErrorLog(mtx)
-            ErrStatus=58
-            aErrorMessage = atrim(mtx)
-            clear WscFields
-        end
+            data fsix, int
 
-        if (!ErrStatus)
-        begin
-            ;;We have a structure to process
-            data Fields     ,@RpsFieldCollection
-            data WscField   ,@WscField
-            data Struct     ,@RpsStructure
-            data ix, int
+            Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
 
-            ;;Create an collection of repository fields containing only the
-            ;;fields from the input window
-
-            Fields = new RpsFieldCollection()
-            foreach WscField in WscFields.GetEnumerator()
+            for fsix from 1 thru FieldSets.Count-1
             begin
-                data Field, @RpsField
-                ;;Create a new field containing the repository data
-                try
-                begin
-                    ;;This code is a bit of a cludge.  Basically script files
-                    ;;can now contain array elements, so we need to suppress
-                    ;;that and treat them like individual fields
-                    data Bracket1Pos, int
-                    Bracket1Pos = instr(1,WscField.Name,"[")
-                    if (Bracket1Pos) then
-                    begin
-                        data Bracket2Pos, int
-                        data TmpArrayDim, [#]int
-                        Field = new RpsField(WscField.Structure,WscField.Name(1,Bracket1Pos-1))
-                        ;;Suffix the field name with the old array element #
-                        Bracket2Pos = instr(Bracket1Pos,WscField.Name,"]")
-                        Field.Name = Field.Name + WscField.Name(Bracket1Pos+1,Bracket2Pos-1)
-                        ;;Now stop the field being treated as an array by CodeGen
-                        TmpArrayDim = new int[4]
-                        TmpArrayDim[1] = 1
-                        TmpArrayDim[2] = 0
-                        TmpArrayDim[3] = 0
-                        TmpArrayDim[4] = 0
-                        Field.ArrayDimension = TmpArrayDim
-                    end
-                    else
-                        Field = new RpsField(WscField.Structure,WscField.Name)
-                end
-                catch (ex)
-                begin
-                    ErrorLog(ex.ToString())
-                    ErrStatus=1
-                    aErrorMessage = ex.ToString()
-                    exitloop
-                end
-                endtry
+                CurrentFieldSet = (@WscFieldCollection)FieldSets[fsix]
 
-                ;;Apply script file customizations to the field
-                if (!Env.NoWscAttributes)
-                begin
-                    if (ErrStatus = ParseScriptField(Field,WscField.Attributes))
-                    begin
-                        aErrorMessage = "Failed to apply script file customizations to repository field."
-                        exitloop
-                    end
-                end
-
-                ;;Add the field to the fields collection
-                Fields.Add(Field)
-            end
-
-            if (!ErrStatus)
-            begin
-                ;;If we're using multiple structures then report the structure name as the FIRST one that we encountered
-
-
-                ;;Now create a structure containing the fields from the input window
-                try
-                    Struct = new RpsStructure(FirstStr,Fields)
-                catch (ex)
+                ;;Did it have any fields
+                if (!CurrentFieldSet.Count)
                 begin
                     data mtx, a132
-                    s_bld(mtx,,"Structure %a not found!",Env.CurrentStructure.Name)
+                    s_bld(mtx,,"Structure %a in window %a in script %a contains no fields!",(a)CurrentFieldSet.StructureName,InpWnd,WscFile)
                     ErrorLog(mtx)
-                    ErrStatus=33
+                    ErrStatus=58
                     aErrorMessage = atrim(mtx)
+                    exitloop
                 end
-                endtry
-
-                ;;Load the structure into a structure collection and return it
+                
                 if (!ErrStatus)
                 begin
-                    Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
-                    Structures.Add(Struct)
+                    ;;We have a structure to process
+                    data Fields     ,@RpsFieldCollection
+                    data WscField   ,@WscField
+                    data Struct     ,@RpsStructure
+                    data ix, int
+                    
+                    ;;Create an collection of repository fields containing only the
+                    ;;fields from the input window
+                    
+                    Fields = new RpsFieldCollection()
+                    foreach WscField in CurrentFieldSet.GetEnumerator()
+                    begin
+                        data Field, @RpsField
+                        ;;Create a new field containing the repository data
+                        try
+                        begin
+                            ;;This code is a bit of a cludge.  Basically script files
+                            ;;can now contain array elements, so we need to suppress
+                            ;;that and treat them like individual fields
+                            data Bracket1Pos, int
+                            Bracket1Pos = instr(1,WscField.Name,"[")
+                            if (Bracket1Pos) then
+                            begin
+                                data Bracket2Pos, int
+                                data TmpArrayDim, [#]int
+                                Field = new RpsField(WscField.Structure,WscField.Name(1,Bracket1Pos-1))
+                                ;;Suffix the field name with the old array element #
+                                Bracket2Pos = instr(Bracket1Pos,WscField.Name,"]")
+                                Field.Name = Field.Name + WscField.Name(Bracket1Pos+1,Bracket2Pos-1)
+                                ;;Now stop the field being treated as an array by CodeGen
+                                TmpArrayDim = new int[4]
+                                TmpArrayDim[1] = 1
+                                TmpArrayDim[2] = 0
+                                TmpArrayDim[3] = 0
+                                TmpArrayDim[4] = 0
+                                Field.ArrayDimension = TmpArrayDim
+                            end
+                            else
+                                Field = new RpsField(WscField.Structure,WscField.Name)
+                        end
+                        catch (ex)
+                        begin
+                            ErrorLog(ex.ToString())
+                            ErrStatus=1
+                            aErrorMessage = ex.ToString()
+                            exitloop
+                        end
+                        endtry
+                        
+                        ;;Apply script file customizations to the field
+                        if (!Env.NoWscAttributes)
+                        begin
+                            if (ErrStatus = ParseScriptField(Field,WscField.Attributes))
+                            begin
+                                aErrorMessage = "Failed to apply script file customizations to repository field."
+                                exitloop
+                            end
+                        end
+                        
+                        ;;Add the field to the fields collection
+                        Fields.Add(Field)
+                    end
+                    
+                    if (ErrStatus)
+                        exitloop
+                    
+                    ;;Now create a structure containing the fields from the input window
+                    try
+                        Struct = new RpsStructure(CurrentFieldSet.StructureName,Fields)
+                    catch (ex)
+                    begin
+                        data mtx, a132
+                        s_bld(mtx,,"Structure %a not found!",Env.CurrentStructure.Name)
+                        ErrorLog(mtx)
+                        ErrStatus=33
+                        aErrorMessage = atrim(mtx)
+                        exitloop
+                    end
+                    endtry
+                        
+                    ;;Load the structure into a structure collection
+                    if (!ErrStatus)
+                        Structures.Add(Struct)
                 end
             end
         end
 
         if (!ErrStatus)
         begin
-
             Env.RpsInUse = true
             Env.GenFromWsc = true
             Env.WindowHeight = WndHeight
@@ -550,8 +563,11 @@ eowsc,  close WscChn
 
             if (Env.Verbose)
             begin
+                data Struct, @RpsStructure
                 VerboseLog("Processing UI Toolkit Window Script, input window " + UpperCase(InpWnd),true,false)
-                VerboseLog(" - Height " + string(WndHeight) + " Width " + string(WndWidth) + " Structure "+atrim(FirstStr) + " Fields " + string(WscFields.Count),false,false)
+                VerboseLog(" - Height "+string(WndHeight)+" Width "+string(WndWidth),false,false)
+                foreach Struct in Structures.GetEnumerator()
+                    VerboseLog(" - Structure "+Struct.Name+" Fields "+string(Struct.Fields.Count),false,false)
             end
         end
 
