@@ -688,6 +688,46 @@ namespace CodeGen.Engine
                 Env.NoWscAttributes = true
         end
 		
+        ;;-------------------------------------------------------------------------
+        ;;Are we provided with a UI Toolkit window script to search for selection
+        ;;windows in?
+
+        if (!ErrStatus)
+        begin
+            data WscCount, int
+            if (CommandLine("ws ",1,ClBuffer,WscCount))
+            begin
+                if (WscCount!=1) then
+                begin
+                    ErrorLog("Must specify exactly one window script name after the -ws option!")
+                    ErrStatus=1
+                end
+                else
+                begin
+                    ;;Open the file, fail if can't
+                    try
+                    begin
+                        data WscChn, int
+                        open(WscChn=0,i:s,ClBuffer[1])
+                        close WscChn
+                    end
+                    catch (ex)
+                    begin
+                        ErrorLog("Can't open selection window script " + atrim(ClBuffer[1]) + " Check your -ws option!")
+                        ErrStatus=1
+                    end
+                    endtry
+
+                    ;;Store the selection windows script file for later
+                    if (!ErrStatus)
+                    begin
+                        Env.SelectionWindowScript = atrim(ClBuffer[1])
+                        DebugLog("Selection window processing enabled from file "+Env.SelectionWindowScript,false,false)
+                    end
+                end
+            end
+        end
+        
 		;;-------------------------------------------------------------------------
 		;;Do we have Repository structures specified?
 		
@@ -753,8 +793,17 @@ namespace CodeGen.Engine
 							for ix from 1 thru ClStrCount
 							begin
 								try
-								begin
-									Structures.Add(new RpsStructure(ClBuffer[ix]))
+                                begin
+                                    data newStructure = new RpsStructure(ClBuffer[ix])
+                                    data errorText, String
+                                    if (Env.SelectionWindowScript!=^null)
+                                        if (!ProcessSelectionWindows(newStructure,errorText))
+                                        begin
+                                            ErrorLog("Failed to resolve selection windows for structure " + newStructure.Name + char(13) + char(10) + "       " + errorText)
+                                            ErrStatus = 1
+                                            exitloop
+                                        end
+									Structures.Add(newStructure)
 								end
 								catch (ex)
 								begin
@@ -765,7 +814,8 @@ namespace CodeGen.Engine
 							end
 						end
 						
-						;;Default all structures to use the first file assigned
+                        ;;Default all structures to use the first file assigned
+                        if (!ErrStatus)
 						begin
 							data ix, int
 							FileIndex = new int[Structures.Count]

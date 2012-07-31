@@ -44,15 +44,15 @@ import System.Collections
 
 namespace CodeGen.Engine
     
-    function ParseSelectionWindow       ,^val
+    function ParseSelectionWindow       ,Boolean
         required in  WscFile            ,String
         required in  SelectionWindow    ,String
         required out Selections         ,@ArrayList
-        required out ErrorMessage       ,string
+        required out ErrorMessage       ,String
         endparams
         
         record local_data
-            ErrStatus       ,int                    ;;Error status
+            ok              ,Boolean                ;;Return value
             ScriptFile      ,String                 ;;Script file spec
             WscChn          ,int                    ;;Script file channel
             WscRec          ,a1024                  ;;A record from the script file
@@ -62,10 +62,10 @@ namespace CodeGen.Engine
         endrecord
         
     proc
-        
         init local_data
-        ErrorMessage = ""
         ScriptFile = WscFile
+        ok = true
+        ErrorMessage = ""
         
         ;;Add default file extension if needed
         if (!instr(1,ScriptFile,"."))
@@ -79,9 +79,8 @@ namespace CodeGen.Engine
         end
         catch (ex)
         begin
-            data mtx, a132
             ErrorMessage = "Can't open window script " + ScriptFile
-            freturn 54
+            freturn false
         end
         endtry
         
@@ -201,13 +200,18 @@ namespace CodeGen.Engine
         close WscChn
         
         ;;Did we find an input window
-        if ((!errstatus)&&(!GotWindow))
+        if (!GotWindow) then
         begin
-            ErrStatus=57
             ErrorMessage = "Selection window " + SelectionWindow + " was not found in window script " + ScriptFile
+            ok = false
+        end
+        else if (Selections.Count==0)
+        begin
+            ErrorMessage = "Selection window " + SelectionWindow + " contained no items!"
+            ok = false
         end
         
-        freturn ErrStatus
+        freturn ok
         
     endfunction
     
