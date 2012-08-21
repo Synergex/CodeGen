@@ -46,6 +46,9 @@
 
 import CodeGen.RepositoryAPI
 import System.Collections
+.ifdef DBLNET
+import System.ComponentModel
+.endc
 
 namespace CodeGen.RepositoryAPI
 
@@ -613,6 +616,10 @@ namespace CodeGen.RepositoryAPI
         ;;Public properties to expose field attributes
 
         ;; Structure name (a30)
+        .ifdef DBLNET
+        {Browsable(false)}
+        {ReadOnly(true)}
+        .endc
         public property StructureName, a
             method get
             proc
@@ -625,6 +632,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Field name (a30)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The unique name of the repository field.")}
+        {ReadOnly(true)}
+        .endc
         public property Name, a
             method get
             proc
@@ -636,91 +648,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Field original name (a30) (used by CodeGen)
-        public property OriginalName, a
-            method get
-            proc
-                mreturn %atrim(mOriginalName)
-            endmethod
-            method set
-            proc
-                mOriginalName = value
-            endmethod
-        endproperty
-
-        ;; Field base name (used by CodeGen)
-        public property BaseName, a
-            method get
-            proc
-                mreturn %atrim(mBaseName)
-            endmethod
-            method set
-            proc
-                mBaseName = value
-            endmethod
-        endproperty
-
-        ;; Sequence number (d3)
-        public property SequenceNumber, int
-            method get
-            proc
-                mreturn mf_info.fi_seqnm
-            endmethod
-            method set
-            proc
-                mf_info.fi_seqnm = value
-            endmethod
-        endproperty
-
-        ;; Starting position within the record or group (d5)
-        public property StartPosition, int
-            method get
-            proc
-                mreturn mf_info.fi_pos
-            endmethod
-            method set
-            proc
-                mf_info.fi_pos = value
-            endmethod
-        endproperty
-
-        ;; Name of the field being overlaid (a30)
-        public property OverlaysField, a
-            method get
-            proc
-                mreturn %atrim(mf_info.fi_ovrfld)
-            endmethod
-            method set
-            proc
-                mf_info.fi_ovrfld = value
-            endmethod
-        endproperty
-
-        ;; Overlay offset within the above field (d5)
-        public property OverlayOffset, int
-            method get
-            proc
-                mreturn mf_info.fi_ovroff
-            endmethod
-            method set
-            proc
-                mf_info.fi_ovroff = value
-            endmethod
-        endproperty
-
-        ;; Template referenced by this field (a30)
-        public property Template, a
-            method get
-            proc
-                mreturn %atrim(mf_info.fi_template)
-            endmethod
-            method set
-            proc
-                mf_info.fi_template = value
-            endmethod
-        endproperty
-
         ;; Description (a40)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The description of the field.")}
+        {ReadOnly(true)}
+        .endc
         public property Description, a
             method get
             proc
@@ -731,28 +664,13 @@ namespace CodeGen.RepositoryAPI
                 mDescription = value
             endmethod
         endproperty
-
-        ;; Long description (a1800)
-        public property LongDescription, a
-            method get
-            proc
-                mreturn %atrim(mLongDescription)
-            endmethod
-            method set
-            proc
-                mLongDescription = value
-            endmethod
-        endproperty
-
+        
         ;; Data type (enum RpsFieldDataType)
-        ;;   .Alpha      ,1
-        ;;   .Decimal    ,2
-        ;;   .Integer    ,3
-        ;;   .User       ,4
-        ;;   .Boolean    ,5
-        ;;   .Enum       ,6
-        ;;   .Binary     ,7
-        ;;   .StructField,8
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The data type of the field.")}
+        {ReadOnly(true)}
+        .endc
         public property DataType, RpsFieldDataType
             method get
                 record
@@ -823,9 +741,14 @@ namespace CodeGen.RepositoryAPI
                 endusing
             endmethod
         endproperty
-
+        
         ;; Data type code (a1)
         ;;   "A", "D", "I" or "U"
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The data type code of the field, e.g. A, D, I or U.")}
+        {ReadOnly(true)}
+        .endc
         public property DataTypeCode, a1
             method get
             proc
@@ -840,19 +763,163 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; DBL type subclass (enum RpsFieldSubclass)
-        ;;   RpsFieldSubclass.DateYYMMDD     ,1
-        ;;   RpsFieldSubclass.DateYYYYMMDD   ,2
-        ;;   RpsFieldSubclass.DateYYJJJ      ,3
-        ;;   RpsFieldSubclass.DateYYYYJJJ    ,4
-        ;;   RpsFieldSubclass.DateYYPP       ,5
-        ;;   RpsFieldSubclass.DateYYYYPP     ,6
-        ;;   RpsFieldSubclass.TimeHHMMSS     ,7
-        ;;   RpsFieldSubclass.TimeHHMM       ,8
-        ;;   RpsFieldSubclass.Binary         ,9
-        ;;   RpsFieldSubclass.UserAlpha      ,10
-        ;;   RpsFieldSubclass.UserNumeric    ,11
-        ;;   RpsFieldSubclass.UserDate       ,12
+        ;; Field size (d5)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The size of the field in bytes.")}
+        {ReadOnly(true)}
+        .endc
+        public property Size, int
+            method get
+            proc
+                ;TODO: BUG workaround, tracker 33563
+                ;Implicit D to I conversion failing in CodeGen.RepositoryAPI.DataMapping.SetFieldAttributes()
+                ;on traditional 32-bit Synergy
+                .ifndef DBLNET
+                mreturn %integer(mf_info.fi_size)
+                .else
+                mreturn mf_info.fi_size
+                .endc
+            endmethod
+            method set
+            proc
+                mf_info.fi_size = value
+            endmethod
+        endproperty
+        
+        ;; Digits to right of decimal point (d2)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The precision of an impled decimal field.")}
+        {ReadOnly(true)}
+        .endc
+        public property Precision, int
+            method get
+            proc
+                ;TODO: BUG workaround, tracker 33563
+                ;Implicit D to I conversion failing in CodeGen.RepositoryAPI.DataMapping.SetFieldAttributes()
+                ;on traditional 32-bit Synergy
+                .ifndef DBLNET
+                mreturn %integer(mf_info.fi_prec)
+                .else
+                mreturn mf_info.fi_prec
+                .endc
+            endmethod
+            method set
+            proc
+                mf_info.fi_prec = value
+            endmethod
+        endproperty
+        
+        ;; Array dimensions ([4]d3)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The array dimensions of an array field.")}
+        {ReadOnly(true)}
+        .endc
+        public property ArrayDimension, [#]int
+            method get
+            proc
+                mreturn mArrayDimension
+            endmethod
+            method set
+            proc
+                mArrayDimension = value
+            endmethod
+        endproperty
+
+        ;; Template referenced by this field (a30)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The repository template that this field inherits attributes from.")}
+        {ReadOnly(true)}
+        .endc
+        public property Template, a
+            method get
+            proc
+                mreturn %atrim(mf_info.fi_template)
+            endmethod
+            method set
+            proc
+                mf_info.fi_template = value
+            endmethod
+        endproperty
+        
+        
+        ;; Sequence number (d3)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The one-based sequence number of this field in the record.")}
+        {ReadOnly(true)}
+        .endc
+        public property SequenceNumber, int
+            method get
+            proc
+                mreturn mf_info.fi_seqnm
+            endmethod
+            method set
+            proc
+                mf_info.fi_seqnm = value
+            endmethod
+        endproperty
+
+        ;; Starting position within the record or group (d5)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The one-based starting position of this field within the record.")}
+        {ReadOnly(true)}
+        .endc
+        public property StartPosition, int
+            method get
+            proc
+                mreturn mf_info.fi_pos
+            endmethod
+            method set
+            proc
+                mf_info.fi_pos = value
+            endmethod
+        endproperty
+
+        ;; Name of the field being overlaid (a30)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The name of the field which this field overlays.")}
+        {ReadOnly(true)}
+        .endc
+        public property OverlaysField, a
+            method get
+            proc
+                mreturn %atrim(mf_info.fi_ovrfld)
+            endmethod
+            method set
+            proc
+                mf_info.fi_ovrfld = value
+            endmethod
+        endproperty
+
+        ;; Overlay offset within the above field (d5)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The offset from the beginning of the field being overlayed.")}
+        {ReadOnly(true)}
+        .endc
+        public property OverlayOffset, int
+            method get
+            proc
+                mreturn mf_info.fi_ovroff
+            endmethod
+            method set
+            proc
+                mf_info.fi_ovroff = value
+            endmethod
+        endproperty
+
+        ;; DBL type subclass
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The data subclass of the field.")}
+        {ReadOnly(true)}
+        .endc
         public property DataTypeSubclass, RpsFieldSubclass
             method get
                 record
@@ -969,6 +1036,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; User defined field type (a30)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The user defined type of a user defined field.")}
+        {ReadOnly(true)}
+        .endc
         public property UserFieldType, a
             method get
             proc
@@ -980,57 +1052,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Field size (d5)
-        public property Size, int
-            method get
-			proc
-				;TODO: BUG workaround, tracker 33563
-				;Implicit D to I conversion failing in CodeGen.RepositoryAPI.DataMapping.SetFieldAttributes()
-				;on traditional 32-bit Synergy
-				.ifndef DBLNET
-				mreturn %integer(mf_info.fi_size)
-				.else
-				mreturn mf_info.fi_size
-				.endc
-			endmethod
-            method set
-            proc
-                mf_info.fi_size = value
-            endmethod
-        endproperty
-
-        ;; Digits to right of decimal point (d2)
-        public property Precision, int
-            method get
-            proc
-				;TODO: BUG workaround, tracker 33563
-				;Implicit D to I conversion failing in CodeGen.RepositoryAPI.DataMapping.SetFieldAttributes()
-				;on traditional 32-bit Synergy
-				.ifndef DBLNET
-				mreturn %integer(mf_info.fi_prec)
-				.else
-				mreturn mf_info.fi_prec
-				.endc
-			endmethod
-            method set
-            proc
-                mf_info.fi_prec = value
-            endmethod
-        endproperty
-
-        ;; Array dimensions ([4]d3)
-       public property ArrayDimension, [#]int
-           method get
-           proc
-                mreturn mArrayDimension
-           endmethod
-            method set
-            proc
-                mArrayDimension = value
-            endmethod
-       endproperty
-
         ;; Native data size (d5)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The native size of the field.")}
+        {ReadOnly(true)}
+        .endc
         public property NativeSize, int
             method get
             proc
@@ -1042,7 +1069,184 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
+        ;Enum name (real language enum name) (a30)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The name of the repository enumeration referenced by an enum field. This refers to a Synergy language enumeration, not a UI Toolkit enumeration.")}
+        {ReadOnly(true)}
+        .endc
+        public property EnumName, a
+            method get
+            proc
+                mreturn %atrim(mEnumName)
+            endmethod
+            method set
+            proc
+                mEnumName = value
+            endmethod
+        endproperty
+        
+        ;Group structure name
+        ;Only used for implicit groups, i.e. groups based on a different repository structure.
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The structure that defines the fields for an implicit group field.")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupStructure, string
+            method get
+            proc
+                mreturn mGroupStructure
+            endmethod
+            method set
+            proc
+                mGroupStructure = value
+            endmethod
+        endproperty
+        
+        ;Group member prefix (a30)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The prefix to be applied to members of the group field.")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupMemberPrefix, a
+            method get
+            proc
+                mreturn %atrim(mGroupMemberPrefix)
+            endmethod
+            method set
+            proc
+                mGroupMemberPrefix = value
+            endmethod
+        endproperty
+        
+        ;GroupFields collection (@RpsGroupFieldsCollection)
+        ;If this field is not a group then this collection will be empty
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The collection of fields within this group field.")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupFields, @RpsFieldCollection
+            method get
+            proc
+                mreturn mGroupFields
+            endmethod
+            method set
+            proc
+                mGroupFields = value
+            endmethod
+        endproperty
+        
+        ;;; <summary>
+        ;;; Indicates whether or not the field is a group. See the
+        ;;; GroupType property to determine the type of group.
+        ;;; </summary>
+        ;;; <returns>True indicates that the field is a group</returns>
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("Indicates whether the current field is a group field.")}
+        {ReadOnly(true)}
+        .endc
+        public property IsGroup, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_group!=0)
+            endmethod
+        endproperty
+        
+        ;; Group flag
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("Indicates the type of group referred to by the field (implicit or explicit).")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupType, RpsFieldGroup
+            method get
+            proc
+                mreturn (RpsFieldGroup)integer(mf_info.fi_group)
+            endmethod
+            method set
+            proc
+                mf_info.fi_group = (int)value
+            endmethod
+        endproperty
+        
+        ;; TRUE if group size = size of all members (boolean)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("Is the size of the group field equal to the sum of the sizes of all members of the group?")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupSizeEqualsMembers, boolean
+            method get
+            proc
+                mreturn mf_info.fi_nosize
+            endmethod
+            method set
+            proc
+                mf_info.fi_nosize = value
+            endmethod
+        endproperty
+        
+        ;; Group member prefix used by compiler (boolean)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("Does the compiler use the group member prefix?")}
+        {ReadOnly(true)}
+        .endc
+        public property CompilerUsesGroupMemberPrefix, boolean
+            method get
+            proc
+                mreturn mf_info.fi_cmppref
+            endmethod
+            method set
+            proc
+                mf_info.fi_cmppref = value
+            endmethod
+        endproperty
+        
+        ;; Coerced type
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The coreced data type of the field.")}
+        {ReadOnly(true)}
+        .endc
+        public property CorecedType, RpsFieldCorecedType
+            method get
+            proc
+                mreturn mCorecedType
+            endmethod
+            method set
+            proc
+                mCorecedType = value
+            endmethod
+        endproperty
+        
+        ;; Struct field structure name (a30)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The name of the structure that defines the type of this struct field.")}
+        {ReadOnly(true)}
+        .endc
+        public property StructFieldStructure, a
+            method get
+            proc
+                mreturn %atrim(mStructFieldStructure)
+            endmethod
+            method set
+            proc
+                mStructFieldStructure = value
+            endmethod
+        endproperty
+
         ;; Excluded by language (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Is the current field excluded by the compiler?")}
+        {ReadOnly(true)}
+        .endc
         public property ExcludedByLanguage, boolean
             method get
             proc
@@ -1055,6 +1259,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Excluded by ReportWriter (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Is the current field invisible to the ReportWriter product?")}
+        {ReadOnly(true)}
+        .endc
         public property ExcludedByReportWriter, boolean
             method get
             proc
@@ -1067,6 +1276,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Excluded by Toolkit (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Is the current field invisible to the UI Toolkit product?")}
+        {ReadOnly(true)}
+        .endc
         public property ExcludedByToolkit, boolean
             method get
             proc
@@ -1079,6 +1293,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Excluded by Web? (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Is the current field invisible to the Web products?")}
+        {ReadOnly(true)}
+        .endc
         public property ExcludedByWeb, boolean
             method get
             proc
@@ -1091,6 +1310,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Field name is the name link (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Shoult the current field be excluded from 'link by name' processing?")}
+        {ReadOnly(true)}
+        .endc
         public property NoNameLink, boolean
             method get
             proc
@@ -1102,19 +1326,46 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;Report heading (a40)
-        public property ReportHeading, a
+        ;; Field original name (a30) (used by CodeGen)
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("The original name of the field, before any renaming by CodeGen.")}
+        {ReadOnly(true)}
+        .endc
+        public property OriginalName, a
             method get
             proc
-                mreturn %atrim(mReportHeading)
+                mreturn %atrim(mOriginalName)
             endmethod
             method set
             proc
-                mReportHeading = value
+                mOriginalName = value
             endmethod
         endproperty
-
+        
+        ;; Field base name (used by CodeGen)
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property BaseName, a
+            method get
+            proc
+                mreturn %atrim(mBaseName)
+            endmethod
+            method set
+            proc
+                mBaseName = value
+            endmethod
+        endproperty
+        
         ;; Display format name (a30)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property FormatName, a
             method get
             proc
@@ -1126,25 +1377,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Report field justification (enum RpsJustification)
-        ;;   RpsJustification.Left, 0
-        ;;   RpsJustification.Right, 1
-        ;;   RpsJustification.Center, 2
-        public property ReportJustification, RpsJustification
-            method get
-            proc
-                mreturn (RpsJustification)integer(mf_info.fi_rptjust)
-            endmethod
-            method set
-            proc
-                mf_info.fi_rptjust = (int)value
-            endmethod
-        endproperty
-
-        ;; Input field justification (enum RpsJustification)
-        ;;   RpsJustification.Left, 0
-        ;;   RpsJustification.Right, 1
-        ;;   RpsJustification.Center, 2
+        ;; Input field justification
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property InputJustification, RpsJustification
             method get
             proc
@@ -1156,10 +1394,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Input field position mode (enum RpsPositionMode)
-        ;;   RpsPositionMode.None, 0
-        ;;   RpsPositionMode.Absolute, 1
-        ;;   RpsPositionMode.Relative, 2
+        ;; Input field position mode
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property FieldPositionMode, RpsPositionMode
             method get
             proc
@@ -1172,6 +1412,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Input field row (d3)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property FieldRow, int
             method get
             proc
@@ -1184,6 +1429,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Input field column (d3)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property FieldColumn, int
             method get
             proc
@@ -1195,46 +1445,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Prompt position mode (enum RpsPositionMode)
-        ;;   RpsPositionMode.None, 0
-        ;;   RpsPositionMode.Absolute, 1
-        ;;   RpsPositionMode.Relative, 2
-        public property PromptPositionMode, RpsPositionMode
-            method get
-            proc
-                mreturn (RpsPositionMode)integer(mf_info.fi_postyp)
-            endmethod
-            method set
-            proc
-                mf_info.fi_postyp = (int)value
-            endmethod
-        endproperty
-
-        ;; Prompt row (d3)
-        public property PromptRow, int
-            method get
-            proc
-                mreturn mf_info.fi_inprow
-            endmethod
-            method set
-            proc
-                mf_info.fi_inprow = value
-            endmethod
-        endproperty
-
-        ;; Prompt column (d3)
-        public property PromptColumn, int
-            method get
-            proc
-                mreturn mf_info.fi_inpcol
-            endmethod
-            method set
-            proc
-                mf_info.fi_inpcol = value
-            endmethod
-        endproperty
-
         ;; Blank if zero? (boolean)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property BlankIfZero, boolean
             method get
             proc
@@ -1247,6 +1463,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Custom paint character specified (boolean)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property PaintCharacterSpecified, boolean
             method get
             proc
@@ -1259,6 +1480,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Custom paint character (a1)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property PaintCharacter, a
             method get
             proc
@@ -1270,10 +1496,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; View field as (enum RpsFieldViewAs)
-        ;;   Field, 0
-        ;;   RadioButtons, 2
-        ;;   CheckBox ,3
+        ;; View field as
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property ViewAs, RpsFieldViewAs
             method get
             proc
@@ -1285,83 +1513,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Color palette (enum RpsColorPalette)
-        ;;   Palette1, 1
-        ;;   Palette2, 2
-        ;;   Palette3, 3
-        ;;   Palette4, 4
-        ;;   Palette5, 5
-        ;;   Palette6, 6
-        ;;   Palette7, 7
-        ;;   Palette8, 8
-        ;;   Palette9, 9
-        ;;   Palette10, 10
-        ;;   Palette11, 11
-        ;;   Palette12, 12
-        ;;   Palette13, 13
-        ;;   Palette14, 14
-        ;;   Palette15, 15
-        ;;   Palette16, 16
-        public property ColorPalette, RpsColorPalette
-            method get
-            proc
-                mreturn (RpsColorPalette)integer(mf_info.fi_color)
-            endmethod
-            method set
-            proc
-                mf_info.fi_color = (int)value
-            endmethod
-        endproperty
-
-        ;; Override the highlight attribute (boolean)
-        public property RenditionHighlight, boolean
-            method get
-            proc
-                mreturn (mf_info.fi_attrib&&mf_info.fi_highlight)
-            endmethod
-            method set
-            proc
-                mf_info.fi_highlight = value
-            endmethod
-        endproperty
-
-        ;; Override the reverse attribute (boolean)
-        public property RenditionReverse, boolean
-            method get
-            proc
-                mreturn (mf_info.fi_attrib&&mf_info.fi_reverse)
-            endmethod
-            method set
-            proc
-                mf_info.fi_reverse = value
-            endmethod
-        endproperty
-
-        ;; Override the blink attribute (boolea)
-        public property RenditionBlink, boolean
-            method get
-            proc
-                mreturn (mf_info.fi_attrib&&mf_info.fi_blink)
-            endmethod
-            method set
-            proc
-                mf_info.fi_blink = value
-            endmethod
-        endproperty
-
-        ;; Override the underline attribute (boolean)
-        public property RenditionUnderline, boolean
-            method get
-            proc
-                mreturn (mf_info.fi_attrib&&mf_info.fi_underline)
-            endmethod
-            method set
-            proc
-                mf_info.fi_underline = value
-            endmethod
-        endproperty
-
         ;; Read-only (boolean)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property ReadOnly, boolean
             method get
             proc
@@ -1374,6 +1531,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Disabled (boolean)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property Disabled, boolean
             method get
             proc
@@ -1386,6 +1548,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Display length (d5)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property DisplayLength, int
             method get
             proc
@@ -1398,6 +1565,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; View length (d5)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property ViewLength, int
             method get
             proc
@@ -1409,7 +1581,318 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
+        ;; Help identifier
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property HelpIdentifier, a
+            method get
+            proc
+                mreturn %atrim(mHelpIdentifier)
+            endmethod
+            method set
+            proc
+                mHelpIdentifier = value
+            endmethod
+        endproperty
+        
+        ;; Information line text
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property InfoLineText, a
+            method get
+            proc
+                mreturn %atrim(mInfoLineText)
+            endmethod
+            method set
+            proc
+                mInfoLineText = value
+            endmethod
+        endproperty
+        
+        ;User text string
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property UserText, a
+            method get
+            proc
+                mreturn %atrim(mUserText)
+            endmethod
+            method set
+            proc
+                mUserText = value
+            endmethod
+        endproperty
+        
+        ;; Long description (a1800)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property LongDescription, a
+            method get
+            proc
+                mreturn %atrim(mLongDescription)
+            endmethod
+            method set
+            proc
+                mLongDescription = value
+            endmethod
+        endproperty
+        
+        ;; Alternate name
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property AlternateName, a
+            method get
+            proc
+                mreturn %atrim(mAlternateName)
+            endmethod
+            method set
+            proc
+                mAlternateName = value
+            endmethod
+        endproperty
+        
+        ;; Field font palette name
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property FieldFont, a
+            method get
+            proc
+                mreturn %atrim(mFieldFont)
+            endmethod
+            method set
+            proc
+                mFieldFont = value
+            endmethod
+        endproperty
+        
+        ;; Field prompt
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property Prompt, a
+            method get
+            proc
+                mreturn %atrim(mPrompt)
+            endmethod
+            method set
+            proc
+                mPrompt = value
+            endmethod
+        endproperty
+        
+        ;; Prompt position mode
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PromptPositionMode, RpsPositionMode
+            method get
+            proc
+                mreturn (RpsPositionMode)integer(mf_info.fi_postyp)
+            endmethod
+            method set
+            proc
+                mf_info.fi_postyp = (int)value
+            endmethod
+        endproperty
+        
+        ;; Prompt row (d3)
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PromptRow, int
+            method get
+            proc
+                mreturn mf_info.fi_inprow
+            endmethod
+            method set
+            proc
+                mf_info.fi_inprow = value
+            endmethod
+        endproperty
+        
+        ;; Prompt column (d3)
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PromptColumn, int
+            method get
+            proc
+                mreturn mf_info.fi_inpcol
+            endmethod
+            method set
+            proc
+                mf_info.fi_inpcol = value
+            endmethod
+        endproperty
+        
+        ;; Prompt font palette name
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PromptFont, a
+            method get
+            proc
+                mreturn %atrim(mPromptFont)
+            endmethod
+            method set
+            proc
+                mPromptFont = value
+            endmethod
+        endproperty
+        
+        ;Report heading (a40)
+        .ifdef DBLNET
+        {Category("Display - Report")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ReportHeading, a
+            method get
+            proc
+                mreturn %atrim(mReportHeading)
+            endmethod
+            method set
+            proc
+                mReportHeading = value
+            endmethod
+        endproperty
+        
+        ;; Report field justification
+        .ifdef DBLNET
+        {Category("Display - Report")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ReportJustification, RpsJustification
+            method get
+            proc
+                mreturn (RpsJustification)integer(mf_info.fi_rptjust)
+            endmethod
+            method set
+            proc
+                mf_info.fi_rptjust = (int)value
+            endmethod
+        endproperty
+        
+        ;; Color palette
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ColorPalette, RpsColorPalette
+            method get
+            proc
+                mreturn (RpsColorPalette)integer(mf_info.fi_color)
+            endmethod
+            method set
+            proc
+                mf_info.fi_color = (int)value
+            endmethod
+        endproperty
+        
+        ;; Override the highlight attribute (boolean)
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property RenditionHighlight, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_attrib&&mf_info.fi_highlight)
+            endmethod
+            method set
+            proc
+                mf_info.fi_highlight = value
+            endmethod
+        endproperty
+        
+        ;; Override the reverse attribute (boolean)
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property RenditionReverse, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_attrib&&mf_info.fi_reverse)
+            endmethod
+            method set
+            proc
+                mf_info.fi_reverse = value
+            endmethod
+        endproperty
+        
+        ;; Override the blink attribute (boolea)
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property RenditionBlink, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_attrib&&mf_info.fi_blink)
+            endmethod
+            method set
+            proc
+                mf_info.fi_blink = value
+            endmethod
+        endproperty
+        
+        ;; Override the underline attribute (boolean)
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property RenditionUnderline, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_attrib&&mf_info.fi_underline)
+            endmethod
+            method set
+            proc
+                mf_info.fi_underline = value
+            endmethod
+        endproperty
+        
         ;; Don't echo characters typed (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property NoEcho, boolean
             method get
             proc
@@ -1423,6 +1906,11 @@ namespace CodeGen.RepositoryAPI
 
         ;; Echo character for characters typed (a1)
         ;; (Only used if NoEcho = true)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property NoEchoCharacter, a
             method get
             proc
@@ -1435,11 +1923,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Default action (enum RpsFieldDefaultAction)
-        ;;   None, 0
-        ;;   Default, 1
-        ;;   Copy, 2
-        ;;   Increment, 3
-        ;;   Decrement, 4
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property DefaultAction, RpsFieldDefaultAction
             method get
             proc
@@ -1452,6 +1940,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Automatic default action? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property DefaultAuotmatic, boolean
             method get
             proc
@@ -1464,6 +1957,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Default date to current date? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property DateDefaultToday, boolean
             method get
             proc
@@ -1476,6 +1974,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Allow short date? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property AllowShortDate, boolean
             method get
             proc
@@ -1488,6 +1991,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Default time to current time? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property TimeDefaultNow, boolean
             method get
             proc
@@ -1500,6 +2008,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Display meridian indicator? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property TimeAmPm, boolean
             method get
             proc
@@ -1512,11 +2025,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Input timeout mode (enum RpsFieldTimeout)
-        ;;   None, 0
-        ;;   Time, 1
-        ;;   Immediate, 2
-        ;;   Global, 3
-        ;;   Forever, 4
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property InputTimeoutMode, RpsFieldTimeout
             method get
             proc
@@ -1530,6 +2043,11 @@ namespace CodeGen.RepositoryAPI
 
         ;; Input timeout delay (d5)
         ;; (Only used if InputTimeoutMode = RpsFieldTimeout.Time)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property InputTimeout, int
             method get
             proc
@@ -1542,6 +2060,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Convert input to uppercase (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property Uppercase, boolean
             method get
             proc
@@ -1554,6 +2077,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; No decimal needs to be entered (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property NoDecimalRequired, boolean
             method get
             proc
@@ -1566,6 +2094,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Field terminates automatically when filled (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property NoTerminatorRequired, boolean
             method get
             proc
@@ -1578,6 +2111,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Cursor position is retained (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property RetainPosition, boolean
             method get
             proc
@@ -1590,6 +2128,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Input length (d5)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property InputLength, int
             method get
             proc
@@ -1602,6 +2145,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Required field (boolean)
+        .ifdef DBLNET
+        {Category("Validation")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property Required, boolean
             method get
             proc
@@ -1614,10 +2162,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Break field (enum RpsFieldBreak)
-        ;;   None, 0
-        ;;   Break, 1
-        ;;   Always, 2
-        ;;   OnReturn, 3
+        .ifdef DBLNET
+        {Category("Validation")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property BreakMode, RpsFieldBreak
             method get
             proc
@@ -1630,11 +2179,12 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Negatives allowed (enum RpsFieldNegatives)
-        ;;   None ,0
-        ;;   Allowed ,1
-        ;;   Only, 2
-        ;;   OrZero, 3
         ;; (Only used for numeric fields)
+        .ifdef DBLNET
+        {Category("Validation")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property NegativeAllowed, RpsFieldNegatives
             method get
             proc
@@ -1647,6 +2197,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Allowed values list (@ArrayList)
+        .ifdef DBLNET
+        {Category("Validation - Allowed Values")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property AllowList, @ArrayList
             method get
             proc
@@ -1659,6 +2214,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Length of longest allow list entry (d3)
+        .ifdef DBLNET
+        {Category("Validation - Allowed Values")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property AllowListMaxLength, int
             method get
             proc
@@ -1671,6 +2231,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Case sensitive matches for allow list values (boolean)
+        .ifdef DBLNET
+        {Category("Validation - Allowed Values")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property AllowListMatchCase, boolean
             method get
             proc
@@ -1683,6 +2248,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Exact matches for allow list values (boolean)
+        .ifdef DBLNET
+        {Category("Validation - Allowed Values")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property AllowListMatchExact, boolean
             method get
             proc
@@ -1695,6 +2265,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Selection List (@ArrayList)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property SelectionList, @ArrayList
             method get
             proc
@@ -1707,6 +2282,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Length of longest selection list entry (d3)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property SelectionListMaxLength, int
             method get
             proc
@@ -1718,9 +2298,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Selection list type (enum RpsFieldSelectionType)
-        ;;   Window, 1
-        ;;   List, 2
+        ;; Selection list type
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property SelectionListType, RpsFieldSelectionType
             method get
             proc
@@ -1733,6 +2316,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Selection window row (d2)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property SelectionWindowRow, int
             method get
             proc
@@ -1745,6 +2333,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Selection window column (d2)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property SelectionWindowColumn, int
             method get
             proc
@@ -1758,6 +2351,11 @@ namespace CodeGen.RepositoryAPI
 
         ;; Selection window name (a15)
         ;; (Only used if SelectionListType = RpsFieldSelectionType.Window)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property SelectionWindowName, a
             method get
             proc
@@ -1771,6 +2369,11 @@ namespace CodeGen.RepositoryAPI
 
         ;; Selection window height (d2)
         ;; (Only used if SelectionListType = RpsFieldSelectionType.List)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property SelectionWindowHeight, int
             method get
             proc
@@ -1782,91 +2385,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Field prompt
-        public property Prompt, a
-            method get
-            proc
-                mreturn %atrim(mPrompt)
-            endmethod
-            method set
-            proc
-                mPrompt = value
-            endmethod
-        endproperty
-
-        ;; Help identifier
-        public property HelpIdentifier, a
-            method get
-            proc
-                mreturn %atrim(mHelpIdentifier)
-            endmethod
-            method set
-            proc
-                mHelpIdentifier = value
-            endmethod
-        endproperty
-
-        ;; Information line text
-        public property InfoLineText, a
-            method get
-            proc
-                mreturn %atrim(mInfoLineText)
-            endmethod
-            method set
-            proc
-                mInfoLineText = value
-            endmethod
-        endproperty
-
-        ;User text string
-        public property UserText, a
-            method get
-            proc
-                mreturn %atrim(mUserText)
-            endmethod
-            method set
-            proc
-                mUserText = value
-            endmethod
-        endproperty
-
-        ;; Alternate name
-        public property AlternateName, a
-            method get
-            proc
-                mreturn %atrim(mAlternateName)
-            endmethod
-            method set
-            proc
-                mAlternateName = value
-            endmethod
-        endproperty
-
-        ;; Field font palette name
-        public property FieldFont, a
-            method get
-            proc
-                mreturn %atrim(mFieldFont)
-            endmethod
-            method set
-            proc
-                mFieldFont = value
-            endmethod
-        endproperty
-
-        ;; Prompt font palette name
-        public property PromptFont, a
-            method get
-            proc
-                mreturn %atrim(mPromptFont)
-            endmethod
-            method set
-            proc
-                mPromptFont = value
-            endmethod
-        endproperty
-
         ;; Default value
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property DefaultValue, a
             method get
             proc
@@ -1879,6 +2403,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Arrive method name (a30)
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property ArriveMethod, a
             method get
             proc
@@ -1891,6 +2420,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Leave method name (a30)
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property LeaveMethod, a
             method get
             proc
@@ -1903,6 +2437,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Drill method name (a30)
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property DrillMethod, a
             method get
             proc
@@ -1915,6 +2454,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Hyperlink method name (a30)
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property HyperlinkMethod, a
             method get
             proc
@@ -1927,6 +2471,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Change method name (a30)
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property ChangeMethod, a
             method get
             proc
@@ -1939,6 +2488,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Display method name (a30)
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property DisplayMethod, a
             method get
             proc
@@ -1951,6 +2505,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;; Edit format method name (a30)
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property EditFormatMethod, a
             method get
             proc
@@ -1963,6 +2522,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;Numeric range exists (d2)
+        .ifdef DBLNET
+        {Category("Validation - Numeric Range")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property NumericRangeExists, i
             method get
             proc
@@ -1975,6 +2539,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;Numeric field range minimum (decimal)
+        .ifdef DBLNET
+        {Category("Validation - Numeric Range")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property NumericRangeMinimum, decimal
             method get
             proc
@@ -1987,6 +2556,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;Numeric field range maximum (decimal)
+        .ifdef DBLNET
+        {Category("Validation - Numeric Range")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property NumericRangeMaximum, decimal
             method get
             proc
@@ -1999,6 +2573,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;Enumerated (Toolkit) (d2)
+        .ifdef DBLNET
+        {Category("Validation - Enumeration")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property Enumerated, int
             method get
             proc
@@ -2011,6 +2590,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;Enumerated field display length (Toolkit) (d2)
+        .ifdef DBLNET
+        {Category("Validation - Enumeration")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property EnumeratedDisplayLength, int
             method get
             proc
@@ -2023,6 +2607,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;Enumerated field base value (Toolkit) (d2)
+        .ifdef DBLNET
+        {Category("Validation - Enumeration")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property EnumeratedBaseValue, int
             method get
             proc
@@ -2035,6 +2624,11 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;Enumerated field step value (Toolkit) (d2)
+        .ifdef DBLNET
+        {Category("Validation - Enumeration")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
         public property EnumeratedStepValue, int
             method get
             proc
@@ -2043,133 +2637,6 @@ namespace CodeGen.RepositoryAPI
             method set
             proc
                 mfti_enum.fti_enmstep = value
-            endmethod
-        endproperty
-
-        ;Enum name (real language enum name) (a30)
-        public property EnumName, a
-            method get
-            proc
-                mreturn %atrim(mEnumName)
-            endmethod
-            method set
-            proc
-                mEnumName = value
-            endmethod
-        endproperty
-
-        ;; Things below here are unique to fields (not included in templates)
-
-        ;Group structure name
-        ;Only used for implicit groups, i.e. groups based on a different repository structure.
-        public property GroupStructure, string
-            method get
-            proc
-                mreturn mGroupStructure
-            endmethod
-            method set
-            proc
-                mGroupStructure = value
-            endmethod
-        endproperty
-
-        ;Group member prefix (a30)
-        public property GroupMemberPrefix, a
-            method get
-            proc
-                mreturn %atrim(mGroupMemberPrefix)
-            endmethod
-            method set
-            proc
-                mGroupMemberPrefix = value
-            endmethod
-        endproperty
-
-        ;GroupFields collection (@RpsGroupFieldsCollection)
-        ;If this field is not a group then this collection will be empty
-        public property GroupFields, @RpsFieldCollection
-            method get
-            proc
-                mreturn mGroupFields
-            endmethod
-            method set
-            proc
-                mGroupFields = value
-            endmethod
-        endproperty
-
-        ;;; <summary>
-        ;;; Indicates whether or not the field is a group. See the
-        ;;; GroupType property to determine the type of group.
-        ;;; </summary>
-        ;;; <returns>True indicates that the field is a group</returns>
-        public property IsGroup, boolean
-            method get
-            proc
-                mreturn (mf_info.fi_group!=0)
-            endmethod
-        endproperty
-
-        ;; Group flag (enum RpsFieldGroup)
-        ;;   No, 0
-        ;;   Yes, 1
-        ;;   Overlay, 2
-        public property GroupType, RpsFieldGroup
-            method get
-            proc
-                mreturn (RpsFieldGroup)integer(mf_info.fi_group)
-            endmethod
-            method set
-            proc
-                mf_info.fi_group = (int)value
-            endmethod
-        endproperty
-
-        ;; TRUE if group size = size of all members (boolean)
-        public property GroupSizeEqualsMembers, boolean
-            method get
-            proc
-                mreturn mf_info.fi_nosize
-            endmethod
-            method set
-            proc
-                mf_info.fi_nosize = value
-            endmethod
-        endproperty
-
-        ;; Group member prefix used by compiler (boolean)
-        public property CompilerUsesGroupMemberPrefix, boolean
-            method get
-            proc
-                mreturn mf_info.fi_cmppref
-            endmethod
-            method set
-            proc
-                mf_info.fi_cmppref = value
-            endmethod
-        endproperty
-
-        ;; Coerced type (RpsFieldCorecedType)
-        public property CorecedType, RpsFieldCorecedType
-            method get
-            proc
-                mreturn mCorecedType
-            endmethod
-            method set
-            proc
-                mCorecedType = value
-            endmethod
-        endproperty
-
-        ;; Struct field structure name (a30)
-        public property StructFieldStructure, a
-            method get
-            proc
-                mreturn %atrim(mStructFieldStructure)
-            endmethod
-            method set
-            proc
-                mStructFieldStructure = value
             endmethod
         endproperty
 
@@ -3265,7 +3732,10 @@ namespace CodeGen.RepositoryAPI
 		;; using this class in CodeGen. In most other scenarios these properties
 		;; should be removed.
 		
-		protected property FieldData, f_info
+        .ifdef DBLNET
+        {Browsable(false)}
+        .endc
+        protected property FieldData, f_info
 			method get
 			proc
 				mreturn mf_info
@@ -3273,7 +3743,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; Synergy data type code
-		public property TypeCode, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property TypeCode, string
 			method get
 			proc
 				mreturn mTypeCode
@@ -3285,7 +3760,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; Synergy data type name
-		public property TypeName, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property TypeName, string
 			method get
 			proc
 				mreturn mTypeName
@@ -3297,7 +3777,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; C# data type
-		public property CsType, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property CsType, string
 			method get
 			proc
 				mreturn mCsType
@@ -3309,7 +3794,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; C# numeric conversion function
-		public property CsNumericConvert, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property CsNumericConvert, string
 			method get
 			proc
 				mreturn mCsNumericConvert
@@ -3321,7 +3811,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; VB data type
-		public property VbType, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property VbType, string
 			method get
 			proc
 				mreturn mVbType
@@ -3333,7 +3828,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; C# default value (based on data type)
-		public property CsDefault, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property CsDefault, string
 			method get
 			proc
 				mreturn mCsDefault
@@ -3345,7 +3845,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; VB default value (based on data type)
-		public property VbDefault, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property VbDefault, string
 			method get
 			proc
 				mreturn mVbDefault
@@ -3357,7 +3862,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; SQL data type (a20)
-		public property SqlType, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SqlType, string
 			method get
 			proc
 				mreturn mSqlType
@@ -3369,7 +3879,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; Mapped field name
-		public property MappedField, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property MappedField, string
 			method get
 			proc
 				mreturn mMappedField
@@ -3381,7 +3896,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; Mapping conversion function
-		public property MappingFunction, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property MappingFunction, string
 			method get
 			proc
 				mreturn mMappingFunction
@@ -3393,7 +3913,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; Mapping unconversion function
-		public property UnmappingFunction, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property UnmappingFunction, string
 			method get
 			proc
 				mreturn mUnmappingFunction
@@ -3405,7 +3930,13 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; Auto incrmenting numeric field
-		public property AutoIncrement, boolean
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        {ReadOnly(true)}
+        .endc
+        public property AutoIncrement, boolean
 			method get
 			proc
 				mreturn mAutoIncrement
@@ -3417,7 +3948,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; Objective-C data type
-		public property OcType, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OcType, string
 			method get
 			proc
 				mreturn mOcType
@@ -3429,7 +3965,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; Objective-C default value type
-		public property OcDefault, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OcDefault, string
 			method get
 			proc
 				mreturn mOcDefault
@@ -3441,7 +3982,12 @@ namespace CodeGen.RepositoryAPI
 		endproperty
 		
 		;; Objective-C data type is an object
-		public property OcObject, boolean
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OcObject, boolean
 			method get
 			proc
 				mreturn mOcObject
@@ -3457,7 +4003,12 @@ namespace CodeGen.RepositoryAPI
 		;;; Indicates that the field was created when an array field
 		;;; was expanded into multiple individual fields
 		;;; </summary>
-		public property WasArrayElement, boolean
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property WasArrayElement, boolean
 			method get
 			proc
 				mreturn mWasArrayElement
@@ -3475,7 +4026,12 @@ namespace CodeGen.RepositoryAPI
 		;;; array element number. A value of 0 indicates that the field
 		;;; is not an expanded array field.
 		;;; </summary>
-		public property OriginalElement, [#]int
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OriginalElement, [#]int
 			method get
 			proc
 				mreturn mOriginalElement
@@ -3492,7 +4048,12 @@ namespace CodeGen.RepositoryAPI
 		;;; and other environments where path names and array dimensions
 		;;; are not allowed.
 		;;; </summary>
-		public property SqlName, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SqlName, string
 			method get
 			proc
 				mreturn mSqlName
@@ -3507,7 +4068,12 @@ namespace CodeGen.RepositoryAPI
 		;;; (CodeGen Specific)
 		;;; A name for the field which is compatible with xfODBC column names.
 		;;; </summary>
-		public property OdbcName, string
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OdbcName, string
 			method get
 			proc
 				mreturn mOdbcName
