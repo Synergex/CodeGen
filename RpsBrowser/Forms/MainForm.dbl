@@ -1,0 +1,408 @@
+import System
+import System.Collections.Generic
+import System.ComponentModel
+import System.Drawing
+import System.Windows.Forms
+import CodeGen.RepositoryAPI
+import RpsBrowser.Profiles
+
+.Array 0
+namespace RpsBrowser.Forms
+    
+    public partial class MainForm extends Form
+        
+        private mRps			,@Repository
+        private mProfileManager	,@ProfileManager
+        
+        public method MainForm
+            endparams
+        proc
+            this.InitializeComponent()
+
+            ;;Configure the UI based on user preferences
+            
+            if (Properties.Settings.Default.StartMaximized) then
+                WindowState = WindowState.Maximized
+            else if (Properties.Settings.Default.StartCentered)
+                StartPosition = StartPosition.CenterScreen
+                
+            toolStrip1.Visible = Properties.Settings.Default.ToolbarVisible
+            mnuViewToolbar.Checked = toolStrip1.Visible
+            
+            statusBar.Visible = Properties.Settings.Default.StatusBarVisible
+            mnuViewStatusBar.Checked = statusBar.Visible
+            
+            filesGrid.AutoGenerateColumns = false
+            
+        endmethod
+        
+        private method MainForm_Load, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            
+            ;;Initialize the profile manager and load existing profiles
+            try
+            begin
+                mProfileManager = new ProfileManager()
+            end
+            catch (ex, @ApplicationException)
+            begin
+                MessageBox.Show(ex.Message)
+                this.Close()
+            end
+            endtry
+            
+            ;;Make sure we have at least one profile
+            repeat
+            begin
+                if (mProfileManager.Profiles.Count>0)
+                    exitloop
+                    
+                if (MessageBox.Show("No profiles are defined. Would you like to configure a profile now?","Configure Profiles",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button1)==DialogResult.Yes) then
+                begin
+                    mProfileManager.ShowProfileManager()
+                end	
+                else
+                begin
+                    this.close()
+                    mreturn
+                end
+            end
+            
+            ;;If we don't have a current profile then default to the first profile
+            if (Properties.Settings.Default.CurrentProfile.Length==0) then
+            begin
+                MessageBox.Show(String.Format("Setting default profile to {0}.",mProfileManager.Profiles[0].Name),"Configuration Check")
+                Properties.Settings.Default.CurrentProfile = mProfileManager.Profiles[0].Name
+                Properties.Settings.Default.Save()
+            end
+            else
+            begin
+                ;;If we do, make sure it still exists
+                if (!mProfileManager.ProfileExists(Properties.Settings.Default.CurrentProfile))
+                begin
+                    ;;It doesn't, default to the first profile
+                    MessageBox.Show(String.Format("Your default profile {0} no longer exists. Setting default profile to {1}.",Properties.Settings.Default.CurrentProfile,mProfileManager.Profiles[0].Name),"Configuration Check")
+                    Properties.Settings.Default.CurrentProfile = mProfileManager.Profiles[0].Name
+                    Properties.Settings.Default.Save()
+                end
+            end
+            
+            ;;Load the profiles into the profile selector combo
+            loadProfilesCombo()
+            
+        endmethod
+        
+        private method loadProfilesCombo, Void
+            endparams
+            record
+                profile, @Profile
+                newItemIndex, int
+            endrecord
+        proc
+            cboProfile.Items.Clear()
+            foreach profile in mProfileManager.Profiles
+            begin
+                newItemIndex = cboProfile.Items.Add(profile.Name)
+                if (profile.Name.Equals(Properties.Settings.Default.CurrentProfile))
+                    cboProfile.SelectedIndex = newItemIndex
+            end
+            ;Shouldn't need to do this because setting SelectedIndex above should take care of it
+            ;;Set the logicals for the current profile
+            ;;switchProfile(Properties.Settings.Default.CurrentProfile,False)
+        endmethod
+        
+        private method mnuFileExit_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            this.Close()
+        endmethod
+        
+        private method MainForm_FormClosed, void
+            byval sender, @System.Object
+            byval e, @System.Windows.Forms.FormClosedEventArgs
+            endparams
+        proc
+            if (mRps!=^null)
+                mRps.Dispose()
+            clear mRps
+            clear mProfileManager
+        endmethod
+        
+        private method mnuViewFiles_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            mainTabControl.SelectedIndex = 0
+        endmethod
+        
+        private method mnuFileOpen_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            openFile()
+        endmethod
+        
+        private method filesGrid_CellMouseDoubleClick, void
+            byval sender, @System.Object
+            byval e, @System.Windows.Forms.DataGridViewCellMouseEventArgs
+            endparams
+        proc
+            openFile()
+        endmethod
+        
+        private method openFile, void
+            endparams
+            record
+                fl, @RpsFile
+                tp, @TabPage
+            endrecord
+        proc
+            
+            ;;Get the details of the selected file
+            fl = (RpsFile)filesGrid.SelectedRows[0].DataBoundItem
+            
+            ;;Check we dont already have this file open
+            if (mainTabControl.TabPages.Count>1)
+            begin
+                data ix, int
+                for ix from 1 thru mainTabControl.TabPages.Count -1
+                begin
+                    if (mainTabControl.TabPages[ix].Tag == fl)
+                    begin
+                        ;;Yep, it's open, bring it to the front
+                        mainTabControl.SelectedTab = mainTabControl.TabPages[ix]
+                        mreturn
+                    end
+                end
+            end
+            
+            ;;Nope - not already open - open it
+            
+            tp = new TabPage(fl.FileSpec)
+            tp.Tag = fl
+            tp.Controls.Add(new FileView(fl))
+            
+            mainTabControl.TabPages.Add(tp)
+            mainTabControl.SelectedTab = tp
+            
+            ;;And add it to the View menu
+            begin
+                data mi, @ToolStripMenuItem, new ToolStripMenuItem()
+                mi.Name = string.Format("mnuFile{0}",fl.Name)
+                mi.Text = fl.FileSpec
+                mi.Tag = (String)fl.Name
+                addhandler(mi.Click,mnuSomeFileClick)
+                mnuView.DropDownItems.Add(mi)
+            end
+        endmethod
+        
+        private method mnuSomeFileClick, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+            record
+                mi, @ToolStripMenuItem
+                ix, int
+            endrecord
+        proc
+            mi = (ToolStripMenuItem)sender
+            
+            ;;Go looking for the tab page that matches the selected menu item
+            for ix from 1 thru mainTabControl.TabPages.Count -1
+            begin
+                if (((RpsFile)mainTabControl.TabPages[ix].Tag).Name == mi.Tag.ToString() )
+                begin
+                    ;;Yep, it's open, bring it to the front
+                    mainTabControl.SelectedTab = mainTabControl.TabPages[ix]
+                    exitloop
+                end
+            end
+        endmethod
+        
+        private method mainTabControl_SelectedIndexChanged, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            if (mainTabControl.SelectedIndex==0) then
+            begin
+                ;;Load info into the status bar
+                statusBarFileLabel.Text = ""
+                statusBarDescriptionLabel.Text = ""
+                statusBarSpecLabel.Text = ""				
+            end
+            else
+            begin
+                ;;Load info into the status bar
+                data file, @RpsFile
+                file = (RpsFile)mainTabControl.SelectedTab.Tag
+                statusBarFileLabel.Text = String.Format("FILE: {0}",file.Name)
+                statusBarDescriptionLabel.Text = String.Format("DESCRIPTION: {0}",file.Description)
+                statusBarSpecLabel.Text = String.Format("FILE SPEC: {0}",file.FileSpec)
+            end
+            
+            ;;Configure the open and close menu items and toolbar buttons
+            mnuFileOpen.Enabled = ((mainTabControl.SelectedIndex == 0)&&(filesGrid.SelectedRows.Count == 1))
+            mnuFileListOpen.Enabled = mnuFileOpen.Enabled
+            toolStripButtonOpen.Enabled = mnuFileOpen.Enabled
+            
+            mnuFileClose.Enabled = (mainTabControl.SelectedIndex != 0)
+            mnuFileListClose.Enabled = mnuFileClose.Enabled
+            toolStripButtonClose.Enabled = mnuFileClose.Enabled
+            
+        endmethod
+        
+        private method mnuFileClose_Click, void
+            byval sender			,@System.Object
+            byval e					,@System.EventArgs
+            endparams
+            record
+                closedFileName		,@String
+                ix					,int
+            endrecord
+        proc
+            closedFileName = ((RpsFile)mainTabControl.SelectedTab.Tag).Name
+            ;;Go looking for the corresponding item in the View menu
+            for ix from 5 thru mnuView.DropDownItems.Count - 1
+            begin
+                if (mnuView.DropDownItems[ix].Tag.ToString() == closedFileName )
+                begin
+                    ;;Yep, that's the one, remove it
+                    mnuView.DropDownItems.Remove(mnuView.DropDownItems[ix])
+                    exitloop
+                end
+            end
+            mainTabControl.TabPages.Remove(mainTabControl.SelectedTab)
+        endmethod
+        
+        private method mnuHelpAbout_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+            record
+                dlg, @AboutBox
+            endrecord
+        proc
+            dlg = new AboutBox()
+            dlg.ShowDialog()
+        endmethod
+        
+        private method mnuToolsOptions_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+            record
+                dlg, @OptionsForm
+            endrecord
+        proc
+            dlg = new OptionsForm()
+            dlg.ShowDialog()
+        endmethod
+        
+        private method mnuViewToolbar_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            mnuViewToolbar.Checked = !mnuViewToolbar.Checked
+            toolStrip1.Visible = mnuViewToolbar.Checked
+        endmethod
+        
+        private method mnuViewStatusBar_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            mnuViewStatusBar.Checked = !mnuViewStatusBar.Checked
+            statusBar.Visible = mnuViewStatusBar.Checked
+        endmethod
+        
+        private method mnuEditProfiles_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            ;;Display the profile manager
+            if (cboProfile.SelectedItem!=^null) then
+                mProfileManager.ShowProfileManager(cboProfile.SelectedItem.ToString())
+            else
+                mProfileManager.ShowProfileManager()
+            ;;And re-load the profiles drop-down list in the toolbar
+            loadProfilesCombo()
+
+            ;;If we came back from the profile manager with no profiles then close anything that we were working with before
+            if (mProfileManager.Profiles.Count==0)
+            begin
+                if (mRps!=^null)
+                begin
+                    mRps.Dispose()
+                    clear mRps
+                end
+                filesGrid.DataSource = ^null
+            end
+
+        endmethod
+        
+        private method cboProfile_SelectedIndexChanged, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            switchProfile(cboProfile.SelectedItem.ToString(),True)
+        endmethod
+        
+        private method switchProfile, Void
+            required in aProfileName	,@String
+            required in aSaveAsDefault	,Boolean
+            endparams
+        proc
+            ;;Close any open files
+            if (mainTabControl.TabPages.Count>1)
+            begin
+                data ix, int
+                for ix from mainTabControl.TabPages.Count -1 thru 1 by -1
+                    mainTabControl.TabPages.RemoveAt(ix)
+                for ix from mnuView.DropDownItems.Count - 1 thru 5 by -1
+                    mnuView.DropDownItems.RemoveAt(ix)
+            end
+            
+            ;;Close the repository
+            if (mRps!=^null)
+            begin
+                mRps.Dispose()
+                clear mRps
+                filesGrid.DataSource = ^null
+            end
+            
+            ;;Activate the newly selected profile
+            if (mProfileManager.ActivateProfile(aProfileName)) then
+            begin
+                if (aSaveAsDefault)
+                begin
+                    Properties.Settings.Default.CurrentProfile = aProfileName
+                    Properties.Settings.Default.Save()
+                end
+                
+                ;;Open the repository and load the file definitions
+                mRps = new Repository()
+                filesGrid.DataSource = mRps.Files.GetEnumerator()
+            end
+            else   
+            begin
+                MessageBox.Show(string.Format("Failed to switch profile. Please check the settings for profile {0}.",aProfileName))
+                mProfileManager.ShowProfileManager(aProfileName)
+            end
+            
+        endmethod
+        
+    endclass
+    
+endnamespace
+

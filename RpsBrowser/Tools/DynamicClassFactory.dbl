@@ -1,0 +1,516 @@
+import System
+import System.CodeDom
+import System.CodeDom.Compiler
+import System.ComponentModel
+import System.IO
+import System.Reflection
+import System.Text
+import Microsoft.CSharp
+import CodeGen.RepositoryAPI
+
+.Array 0
+namespace RpsBrowser.Tools
+	
+	;;; <summary>
+	;;; The CodeGenerationHelper class allows you to easily define and create dynamic class instances.
+	;;; The class is static and contains only two method members: GetCodeString, and InstantiateClass.
+	;;; To create a class first call the GetCodeString method with the appropriate arguments, then
+	;;; store the returned code string for re-use as it can be thought of as your dynamic class’s
+	;;; definition. When you want to create an instance of your dynamic class pass the generated
+	;;; code string into the InstantiateClass method, and a new instance of the class will be returned.
+	;;; This class is not intended to be used directly because it's functionality is wrapped by the 
+	;;; DynamicClassFactory class.
+	;;; </summary>
+	
+	public static class CodeGenerationHelper
+		
+		public static method GetCodeString, string
+			byval aNamespaceName	,@String
+			byval aClassName		,@String
+			byval aProperties		,[#]@String
+			byval aTypes			,[#]@Type
+			byval aInitFields		,Boolean
+			byval aPropertyChanged	,Boolean
+			endparams
+		proc
+			
+			;;Create a namespace
+            data newNamespace, @CodeNamespace, new CodeNamespace(aNamespaceName)
+            
+            ;;If the new type implements INotifyPropertyChanged then import System.ComponentModel
+            if (aPropertyChanged)
+				newNamespace.Imports.Add(new CodeNamespaceImport("System.ComponentModel"))
+			
+			;;Define a new class
+            data newClass, @CodeTypeDeclaration, new CodeTypeDeclaration(aClassName)
+			newClass.IsClass = true
+
+            ;;If the new type needs to implement INotifyPropertyChanged then do so, and
+            ;;add a PropertyChanged event and a notifyPropertyChanged method 
+            if (aPropertyChanged)
+            begin
+                ;;Implement INotifyPropertyChanged
+				newClass.BaseTypes.Add(new CodeTypeReference("INotifyPropertyChanged"))
+				
+				;;Add a PropertyChanged event
+                data pcEvent, @CodeMemberEvent, new CodeMemberEvent()
+                pcEvent.Name = "PropertyChanged"
+                pcEvent.Type = new CodeTypeReference("PropertyChangedEventHandler")
+                pcEvent.Attributes = MemberAttributes.Public
+                newClass.Members.Add(pcEvent)
+			
+				;;Add a notifyPropertyChanged method
+                data npcMethod, @CodeMemberMethod, new CodeMemberMethod()
+                npcMethod.Name = "notifyPropertyChanged"
+                npcMethod.Attributes = MemberAttributes.Family | MemberAttributes.Final
+                npcMethod.Parameters.Add(new CodeParameterDeclarationExpression(new CodeTypeReference(^typeof(String)), "propertyName"))
+
+                ;;Old code - works but produces ugly results!
+                ;npcMethod.Statements.Add(new CodeSnippetStatement("if (PropertyChanged != null) { PropertyChanged(this, new PropertyChangedEventArgs(propertyName)); }"));
+
+                ;New code - produces neater code
+                ;;Declare a temp variable to reference the PropertyChanged event
+                data vardec,@CodeVariableDeclarationStatement, new CodeVariableDeclarationStatement(new CodeTypeReference(^typeof(PropertyChangedEventHandler)), "temp")
+                ;;Set the initial value of the variable to the PropertyChanged event
+                vardec.InitExpression =  new CodeEventReferenceExpression(new CodeThisReferenceExpression(), "PropertyChanged")
+                ;;Add the variable declaration to the method
+                npcMethod.Statements.Add(vardec);
+                ;;Define the arguments used to raise the PropertyChanged event
+                data fred, [#]@CodeExpression, new CodeExpression[1]
+                fred[0] = new CodeArgumentReferenceExpression("propertyName")
+                data createArgs, @CodeObjectCreateExpression, new CodeObjectCreateExpression(new CodeTypeReference(^typeof(PropertyChangedEventArgs)), fred)
+                ;;Define the code to raise the event, using the arguments
+                data jim, [#]@CodeExpression, new CodeExpression[2]
+                jim[0] = new CodeThisReferenceExpression()
+                jim[1] = createArgs
+                data raiseTheEvent, @CodeDelegateInvokeExpression, new CodeDelegateInvokeExpression(new CodeVariableReferenceExpression("temp"), jim)
+                ;;Define an expression to test if the variable (event) is null
+                data condition, @CodeExpression, new CodeBinaryOperatorExpression(new CodeVariableReferenceExpression("temp"),CodeBinaryOperatorType.IdentityInequality,new CodePrimitiveExpression(^null))
+                ;;Define an if statement to be used to test the expression
+                data ifTempIsNull, @CodeConditionStatement, new CodeConditionStatement()
+                ;;Set the condition of the if statement to the expression which tests if the event is not null
+                ifTempIsNull.Condition = condition
+                ;;Set the statement to be executed by the if statement
+                ifTempIsNull.TrueStatements.Add(raiseTheEvent)
+                ;;Add the if statement to the method
+                npcMethod.Statements.Add(ifTempIsNull)
+                
+                newClass.Members.Add(npcMethod)
+			end
+
+            data ix, int
+			for ix from 0 thru aProperties.Length - 1
+				addPublicProperty(newClass,aProperties[ix],aTypes[ix],aPropertyChanged)
+			
+			;;Add the new class to the new namespace
+			newNamespace.Types.Add(newClass)
+			
+			;;Create a compile unit and add the namespace to it
+            data compileUnit, @CodeCompileUnit, new CodeCompileUnit()
+			compileUnit.Namespaces.Add(newNamespace)
+			
+			;;Generate C# code for the new class
+			;;Note: We have to use C# because although we could use the Synergy CodeDom to generate
+			;;Synergy code, the Synergy compiler doesn't currently support compiling code on the fly
+            data provider, @CodeDomProvider, CodeDomProvider.CreateProvider("CSharp")
+            data sw, @StringWriter, new StringWriter()
+			provider.GenerateCodeFromCompileUnit(compileUnit, sw, new CodeGeneratorOptions())
+			sw.Close()
+			
+			;;Return the generated C# code
+			mreturn sw.ToString()
+			
+		endmethod
+		
+        ;;; <summary>
+        ;;; Adds a new public property to a class. Also adds a private field to propagate the
+        ;;; properties value.
+        ;;;</summary>
+        private static method addPublicProperty, void
+            required in aClass		        ,@CodeTypeDeclaration
+            required in aName		        ,@String
+            required in aType		        ,@Type
+            required in aPropertyChanged	,Boolean
+            endparams
+        proc
+            ;;Define the name of the private field to back the public property
+            data fieldName, String, String.Format("m{0}",aName)
+            
+            ;;Create the private field
+            addPrivateField(aClass,fieldName,aType,false)
+            
+            ;;Create the public property
+            data newProperty, @CodeMemberProperty, new CodeMemberProperty()
+            newProperty.Attributes = (MemberAttributes.Public | MemberAttributes.Final)
+            newProperty.Name = aName
+            newProperty.Type = new CodeTypeReference(aType)
+            
+            ;;Add a get method statement to return the content of the private field
+            newProperty.GetStatements.Add(
+            &   new CodeMethodReturnStatement(
+            &       new CodeFieldReferenceExpression(new CodeThisReferenceExpression(),fieldName)
+            &   )
+            & )
+            
+            ;;Add a set method statement to assign the value to the private field
+            newProperty.SetStatements.Add(
+            &   new CodeAssignStatement(
+            &       new CodeFieldReferenceExpression(new CodeThisReferenceExpression(),fieldName),
+            &       new CodePropertySetValueReferenceExpression()
+            &   )
+            & )
+            
+            if (aPropertyChanged)
+            begin
+                ;;Add a set method statement to call the notifyPropertyChanged method
+                newProperty.SetStatements.Add(
+                &   new CodeMethodInvokeExpression(
+                &       new CodeThisReferenceExpression(),"notifyPropertyChanged",
+                &       new CodeExpression[#] { new CodeSnippetExpression('"'+aName+'"') }
+                &   )
+                & )
+            end
+            
+            aClass.Members.Add(newProperty)
+            
+        endmethod
+        
+        ;;; <summary>
+        ;;; Adds a new private field to a class, and optionally initializes it to a default value
+        ;;;</summary>
+        private static method addPrivateField, void
+            required in aClass		,@CodeTypeDeclaration
+            required in aName		,@String
+            required in aType		,@Type
+            required in aInit		,Boolean
+            endparams
+        proc
+            data newField, @CodeMemberField, new CodeMemberField(aType, aName)
+            if (aInit)
+                newField.InitExpression = new CodeDefaultValueExpression(new CodeTypeReference(aType))
+            aClass.Members.Add(newField)
+        endmethod
+        
+        public static method InstantiateClass, @Object
+			byval aCodeString		,@String		;;Code to be compiled
+			byval aFQTypeName		,@String		;;Fully qualified type name
+			endparams
+		proc
+            data compiler, @CSharpCodeProvider, new CSharpCodeProvider()
+            data compilerParams, @CompilerParameters, new CompilerParameters(new string[#] { "System.dll" })
+			compilerParams.GenerateInMemory = true
+            data results, @CompilerResults, compiler.CompileAssemblyFromSource(compilerParams, new string[#] { aCodeString })
+			mreturn results.CompiledAssembly.CreateInstance(aFQTypeName)
+		endmethod
+		
+		public static method InstantiateType, @Type
+			byval aCodeString		,@String		;;Code to be compiled
+			byval aFQTypeName		,@String		;;Fully qualified type name
+			endparams
+		proc
+            data compiler, @CSharpCodeProvider, new CSharpCodeProvider()
+            data compilerParams, @CompilerParameters, new CompilerParameters(new string[#] { "System.dll" })
+			compilerParams.GenerateInMemory = true
+            data results, @CompilerResults, compiler.CompileAssemblyFromSource(compilerParams, new string[#] { aCodeString })
+			mreturn results.CompiledAssembly.GetType(aFQTypeName)
+		endmethod
+		
+        public static method CreateClassFactory, @DynamicClassFactory
+			required in aStructure	,@RpsStructure
+			endparams
+		proc
+			;;Make arrays of field names and types so we can dynamically create a class
+            data fieldNames, [#]String, new String[aStructure.Fields.Count]
+            data fieldTypes, [#]@Type,  new Type[aStructure.Fields.Count]
+			
+            ;;Iterate through the fields and store name and .NET data type
+            data ix, int
+			for ix from 0 thru aStructure.Fields.Count - 1
+			begin
+				
+				;;Get the repository field
+				data fld, @RpsField, aStructure.Fields[ix]
+				
+				;;Store the field name
+				fieldNames[ix] = fld.Name
+				
+				;;Store the data type
+				using fld.DataType select
+				
+				(RpsFieldDataType.Alpha),
+					using fld.DataTypeSubclass select
+					(RpsFieldSubclass.Binary),
+						fieldTypes[ix] = ^typeof(System.String)
+					(),
+						fieldTypes[ix] = ^typeof(System.String)
+					endusing
+				
+				(RpsFieldDataType.User),
+					using fld.DataTypeSubclass select
+					(RpsFieldSubclass.UserAlpha),
+						fieldTypes[ix] = ^typeof(System.String)
+					(RpsFieldSubclass.UserNumeric),
+						fieldTypes[ix] = ^typeof(System.String)
+					(RpsFieldSubclass.UserDate),
+						fieldTypes[ix] = ^typeof(System.String)
+					endusing
+				
+				(RpsFieldDataType.Decimal),
+					using fld.DataTypeSubclass select
+					(RpsFieldSubclass.DateYYYYMMDD),
+						fieldTypes[ix] = ^typeof(System.DateTime)
+					(RpsFieldSubclass.DateYYMMDD),
+						fieldTypes[ix] = ^typeof(System.DateTime)
+					(RpsFieldSubclass.DateYYYYJJJ),
+						fieldTypes[ix] = ^typeof(System.DateTime)
+					(RpsFieldSubclass.DateYYJJJ),
+						fieldTypes[ix] = ^typeof(System.DateTime)
+					(RpsFieldSubclass.DateYYYYPP),
+						fieldTypes[ix] = ^typeof(System.String)
+					(RpsFieldSubclass.DateYYPP),
+						fieldTypes[ix] = ^typeof(System.String)
+					(RpsFieldSubclass.TimeHHMMSS),
+						fieldTypes[ix] = ^typeof(System.DateTime)
+					(RpsFieldSubclass.TimeHHMM),
+						fieldTypes[ix] = ^typeof(System.DateTime)
+					(),
+					begin
+						if (fld.Precision) then
+							fieldTypes[ix] = ^typeof(System.Decimal)
+						else
+							fieldTypes[ix] = ^typeof(System.Long)
+					end
+					endusing
+				
+				(RpsFieldDataType.Integer),
+					using fld.Size select
+					(1),
+						fieldTypes[ix] = ^typeof(System.SByte)
+					(2),
+						fieldTypes[ix] = ^typeof(System.Int16)
+					(4),
+						fieldTypes[ix] = ^typeof(System.Int32)
+					(8),
+						fieldTypes[ix] = ^typeof(System.Int64)
+					endusing
+				
+				(RpsFieldDatatype.Boolean),
+					fieldTypes[ix] = ^typeof(System.Boolean)
+				
+				(RpsFieldDataType.Enum),
+					fieldTypes[ix] = ^typeof(System.Int32)
+				
+				(RpsFieldDataType.Binary),
+					fieldTypes[ix] = ^typeof(System.String)
+				
+				(RpsFieldDataType.Structfield),
+					fieldTypes[ix] = ^typeof(System.String)
+				
+				endusing
+				
+			end
+			
+			;;Create a class factory
+			mreturn new DynamicClassFactory("RpsBrowser.Data",aStructure.Name,fieldNames,fieldTypes)
+			
+		endmethod
+
+	endclass
+	
+	;;; <summary>
+	;;; The DynamicClassFactory class wraps the functionality of the CodeGenerationHelper class, and
+	;;; provides methods for getting and setting properties, and registering / de-registering
+	;;; propertychanged event handlers.
+	;;; 
+	;;; NOTE: There is one minor issue that I have not yet resolved: Anytime a property needs to be get
+	;;; or set, an object instance must be passed in. The DynamicFactory then takes that object instance 
+	;;; and gets it’s type, then uses the type to get its properties as propertyinfos’. The property info 
+	;;; is then used to either get or set the property. My intention was to only do this once and save 
+	;;; the propertyinfos for re-use, however I end up with a type-mismatch error everytime I call 
+	;;; SetValue on them. Therefore, the propertyinfos are retrieved on every call to SetProperty and 
+	;;; GetProperty… keep that in mind.
+	;;; 
+	;;; The most important methods on this class are Create, GetProperty, SetProperty, and 
+	;;; AddPropertyChangedEventHandler. The constructor takes all the arguments you give it and passes 
+	;;; them along to the CodeGenerationHelper to get a code string for the dynamic class and stores 
+	;;; them for re-use. After you have an instance of the DynamicFactory you’ll be all set to start 
+	;;; creating instances of your dynamic class. This is achieved by calling the Create method, which 
+	;;; simply passes the stored code string generated during the constructor to the CodeGenerationHelper. 
+	;;; The Create method will return a new instance of your dynamic class. If you intended to be notified 
+	;;; of propertychange events you’ll want to make a call to the AddPropertyChangedEventHandler which 
+	;;; simply takes a PropertyChangedEventHandler. This handler will be called anytime a property on your 
+	;;; dynamic class is changed. The GetProperty and SetProperty methods get and set properties on your 
+	;;; dynamic class.
+	;;;  </summary>
+	
+	public class DynamicClassFactory
+		
+		.region "Private data"
+		
+        private mNamespaceName		,@String        ;;Namespace for new type
+        private mClassName			,@String        ;;Name of new type
+        private mPropertyNames		,[#]@String     ;;Array of public property names for the new type
+		private mPropertyTypes		,[#]@Type       ;;Array of public property data types for the new type
+        
+        private mCodeString			,@String        ;;Generated code for the new type
+		private mCustomType			,@Type          ;;The new type
+		
+		.endregion
+		
+		.region "Constructors"
+		
+		public method DynamicClassFactory
+			aNamespaceName			,@String
+			aClassName				,@String
+			aPropertyNames			,[#]@String
+			aPropertyTypes			,[#]@Type
+			endparams
+        proc
+            ;;Save the data we were provided with
+			mNamespaceName = aNamespaceName
+			mClassName = aClassName
+			mPropertyNames = aPropertyNames
+			mPropertyTypes = aPropertyTypes
+            
+            ;;Build the code for the new type
+            mCodeString = CodeGenerationHelper.GetCodeString(NamespaceName, ClassName, mPropertyNames, mPropertyTypes, False, True)
+			
+            ;;Compile the code and make an instance of the new type
+			mCustomType = CodeGenerationHelper.InstantiateType(mCodeString,FullyQualifiedName)
+			
+		endmethod
+		
+		.endregion
+		
+		.region "Public methods"
+		
+		public method Create, @Object
+			endparams
+		proc
+			mreturn mCustomType.Assembly.CreateInstance(FullyQualifiedName)
+		endmethod
+		
+		public method GetPropertyNames, [#]@String
+			endparams
+		proc
+			mreturn ([#]@String)(mPropertyNames.Clone())
+		endmethod
+		
+		public method GetPropertyTypes, [#]@Type
+			endparams
+		proc
+			mreturn ([#]@Type)(mPropertyTypes.Clone())
+		endmethod
+		
+		public method FindPropertyInfo, @PropertyInfo
+			aObjectInstance			,@Object
+			aPropertyName			,@String
+			endparams
+        proc
+            data pi, @PropertyInfo
+			foreach pi in aObjectInstance.GetType().GetProperties()
+			if (pi.Name == aPropertyName)
+				mreturn pi
+			mreturn ^null
+		endmethod
+		
+		public method GetProperty	,@Object
+			aObjectInstance			,@Object
+			aPropertyName			,@String
+			endparams
+		proc
+			data pi, @PropertyInfo, FindPropertyInfo(aObjectInstance, aPropertyName)
+			if (pi == ^null)
+				throw new ArgumentException(string.Format("The property '{0}' does not exist.", aPropertyName))
+			mreturn pi.GetValue(aObjectInstance, ^null)
+		endmethod
+		
+		public method SetProperty	,void
+			aObjectInstance			,@Object
+			aPropertyName			,@String
+			aPropertyValue			,@Object
+			endparams
+		proc
+			data pi, @PropertyInfo, FindPropertyInfo(aObjectInstance, aPropertyName)
+			if (pi == ^null)
+				throw new ArgumentException(string.Format("The property '{0}' does not exist.", aPropertyName))		
+			pi.SetValue(aObjectInstance, aPropertyValue, ^null)
+		endmethod
+		
+		public method AddPropertyChangedEventHandler, void
+			aObjectInstance			,@Object
+			aHandler				,@PropertyChangedEventHandler
+			endparams
+        proc
+            data ei, @EventInfo
+			foreach ei in aObjectInstance.GetType().GetEvents()
+			begin
+				if (ei.EventHandlerType == ^typeof(PropertyChangedEventHandler))
+				begin
+					ei.AddEventHandler(aObjectInstance, aHandler)
+					exitloop
+				end
+			end
+		endmethod
+		
+		public method RemovePropertyChangedEventHandler, void
+			aObjectInstance			,@Object
+			aHandler				,@PropertyChangedEventHandler
+			endparams
+        proc
+            data ei, @EventInfo
+			foreach ei in aObjectInstance.GetType().GetEvents()
+			begin
+				if (ei.EventHandlerType == ^typeof(PropertyChangedEventHandler))
+				begin
+					ei.RemoveEventHandler(aObjectInstance, aHandler)
+					exitloop
+				end
+			end
+		endmethod
+		
+		.endregion
+		
+		.region "Public properties"
+		
+		public property NamespaceName, String
+			method get
+			proc
+				mreturn mNamespaceName
+			endmethod
+			private method set
+			proc
+				mNamespaceName = value
+			endmethod
+		endproperty
+		
+		public property ClassName, string
+			method get
+			proc
+				mreturn mClassName
+			endmethod
+			private method set
+			proc
+				mClassName = value
+			endmethod
+		endproperty
+		
+		public property FullyQualifiedName, String
+			method get
+			proc
+				mreturn String.Format("{0}.{1}", mNamespaceName, mClassName)
+			endmethod
+		endproperty
+		
+		public property CodeString, string
+			method get
+			proc
+				mreturn mCodeString
+			endmethod
+		endproperty		
+
+		.endregion
+		
+	endclass
+	
+endnamespace
