@@ -74,7 +74,7 @@ namespace RpsBrowser.Forms
             statusBar.Visible = Properties.Settings.Default.StatusBarVisible
             mnuViewStatusBar.Checked = statusBar.Visible
             
-            filesGrid.AutoGenerateColumns = false
+            grid.AutoGenerateColumns = false
             
         endmethod
         
@@ -175,7 +175,7 @@ namespace RpsBrowser.Forms
             clear mProfileManager
         endmethod
         
-        private method mnuViewFiles_Click, void
+        private method mnuViewStructures_Click, void
             byval sender, @System.Object
             byval e, @System.EventArgs
             endparams
@@ -188,35 +188,35 @@ namespace RpsBrowser.Forms
             byval e, @System.EventArgs
             endparams
         proc
-            openFile()
+            openStructure()
         endmethod
         
-        private method filesGrid_CellMouseDoubleClick, void
+        private method grid_CellMouseDoubleClick, void
             byval sender, @System.Object
             byval e, @System.Windows.Forms.DataGridViewCellMouseEventArgs
             endparams
         proc
-            openFile()
+            openStructure()
         endmethod
         
-        private method openFile, void
+        private method openStructure, void
             endparams
             record
-                fl, @RpsFile
+                str, @RpsStructure
                 tp, @TabPage
             endrecord
         proc
             
-            ;;Get the details of the selected file
-            fl = (RpsFile)filesGrid.SelectedRows[0].DataBoundItem
+            ;;Get the details of the selected structure
+            str = (RpsStructure)grid.SelectedRows[0].DataBoundItem
             
-            ;;Check we dont already have this file open
+            ;;Check we dont already have this structure open
             if (mainTabControl.TabPages.Count>1)
             begin
                 data ix, int
                 for ix from 1 thru mainTabControl.TabPages.Count -1
                 begin
-                    if (mainTabControl.TabPages[ix].Tag == fl)
+                    if (mainTabControl.TabPages[ix].Tag == str)
                     begin
                         ;;Yep, it's open, bring it to the front
                         mainTabControl.SelectedTab = mainTabControl.TabPages[ix]
@@ -227,9 +227,9 @@ namespace RpsBrowser.Forms
             
             ;;Nope - not already open - open it
             
-            tp = new TabPage(fl.FileSpec)
-            tp.Tag = fl
-            tp.Controls.Add(new FileView(fl))
+            tp = new TabPage(str.Name)
+            tp.Tag = str
+            tp.Controls.Add(new StructureViewControl(str))
             
             mainTabControl.TabPages.Add(tp)
             mainTabControl.SelectedTab = tp
@@ -237,9 +237,9 @@ namespace RpsBrowser.Forms
             ;;And add it to the View menu
             begin
                 data mi, @ToolStripMenuItem, new ToolStripMenuItem()
-                mi.Name = string.Format("mnuFile{0}",fl.Name)
-                mi.Text = fl.FileSpec
-                mi.Tag = (String)fl.Name
+                mi.Name = string.Format("mnuFile{0}",str.Name)
+                mi.Text = str.Name
+                mi.Tag = (String)str.Name
                 addhandler(mi.Click,mnuSomeFileClick)
                 mnuView.DropDownItems.Add(mi)
             end
@@ -259,7 +259,7 @@ namespace RpsBrowser.Forms
             ;;Go looking for the tab page that matches the selected menu item
             for ix from 1 thru mainTabControl.TabPages.Count -1
             begin
-                if (((RpsFile)mainTabControl.TabPages[ix].Tag).Name == mi.Tag.ToString() )
+                if (((RpsStructure)mainTabControl.TabPages[ix].Tag).Name == mi.Tag.ToString() )
                 begin
                     ;;Yep, it's open, bring it to the front
                     mainTabControl.SelectedTab = mainTabControl.TabPages[ix]
@@ -283,15 +283,15 @@ namespace RpsBrowser.Forms
             else
             begin
                 ;;Load info into the status bar
-                data file, @RpsFile
-                file = (RpsFile)mainTabControl.SelectedTab.Tag
-                statusBarFileLabel.Text = String.Format("FILE: {0}",file.Name)
-                statusBarDescriptionLabel.Text = String.Format("DESCRIPTION: {0}",file.Description)
-                statusBarSpecLabel.Text = String.Format("FILE SPEC: {0}",file.FileSpec)
+                data str, @RpsStructure
+                str = (RpsStructure)mainTabControl.SelectedTab.Tag
+                statusBarFileLabel.Text = String.Format("STRUCTURE: {0}",str.Name)
+                statusBarDescriptionLabel.Text = String.Format("DESCRIPTION: {0}",str.Description)
+                ;statusBarSpecLabel.Text = String.Format("FILE SPEC: {0}",file.FileSpec)
             end
             
             ;;Configure the open and close menu items and toolbar buttons
-            mnuFileOpen.Enabled = ((mainTabControl.SelectedIndex == 0)&&(filesGrid.SelectedRows.Count == 1))
+            mnuFileOpen.Enabled = ((mainTabControl.SelectedIndex == 0)&&(grid.SelectedRows.Count == 1))
             mnuFileListOpen.Enabled = mnuFileOpen.Enabled
             toolStripButtonOpen.Enabled = mnuFileOpen.Enabled
             
@@ -306,22 +306,34 @@ namespace RpsBrowser.Forms
             byval e					,@System.EventArgs
             endparams
             record
-                closedFileName		,@String
+                closedStructureName	,@String
                 ix					,int
             endrecord
         proc
-            closedFileName = ((RpsFile)mainTabControl.SelectedTab.Tag).Name
-            ;;Go looking for the corresponding item in the View menu
+            data closedTabName, String
+            closedTabName = ((RpsStructure)mainTabControl.SelectedTab.Tag).Name
+            
+            data closedTabIndex, int, mainTabControl.SelectedIndex
+ 
+            ;;Remove the closed structure from the View menu
             for ix from 5 thru mnuView.DropDownItems.Count - 1
             begin
-                if (mnuView.DropDownItems[ix].Tag.ToString() == closedFileName )
+                if (mnuView.DropDownItems[ix].Tag.ToString() == closedTabName )
                 begin
                     ;;Yep, that's the one, remove it
                     mnuView.DropDownItems.Remove(mnuView.DropDownItems[ix])
                     exitloop
                 end
             end
+
+            ;;Remove the closed structure from the tab control
             mainTabControl.TabPages.Remove(mainTabControl.SelectedTab)
+
+            ;;Set the newly selected tab
+            if (mainTabControl.TabCount>closedTabIndex) then
+                mainTabControl.SelectedIndex = closedTabIndex
+            else
+                mainTabControl.SelectedIndex = mainTabControl.TabCount - 1
         endmethod
         
         private method mnuHelpAbout_Click, void
@@ -387,7 +399,7 @@ namespace RpsBrowser.Forms
                     mRps.Dispose()
                     clear mRps
                 end
-                filesGrid.DataSource = ^null
+                grid.DataSource = ^null
             end
 
         endmethod
@@ -405,7 +417,10 @@ namespace RpsBrowser.Forms
             required in aSaveAsDefault	,Boolean
             endparams
         proc
-            ;;Close any open files
+            ;;Display the wait cursor
+            this.Cursor = Cursors.WaitCursor
+
+            ;;Close any open structures
             if (mainTabControl.TabPages.Count>1)
             begin
                 data ix, int
@@ -420,7 +435,7 @@ namespace RpsBrowser.Forms
             begin
                 mRps.Dispose()
                 clear mRps
-                filesGrid.DataSource = ^null
+                grid.DataSource = ^null
             end
             
             ;;Activate the newly selected profile
@@ -432,9 +447,9 @@ namespace RpsBrowser.Forms
                     Properties.Settings.Default.Save()
                 end
                 
-                ;;Open the repository and load the file definitions
+                ;;Open the repository and load the structure definitions
                 mRps = new Repository()
-                filesGrid.DataSource = mRps.Files.GetEnumerator()
+                grid.DataSource = mRps.Structures.GetEnumerator()
             end
             else   
             begin
@@ -442,6 +457,9 @@ namespace RpsBrowser.Forms
                 mProfileManager.ShowProfileManager(aProfileName)
             end
             
+            ;;Display the wait cursor
+            this.Cursor = Cursors.Default
+
         endmethod
         
     endclass
