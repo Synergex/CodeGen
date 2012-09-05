@@ -125,7 +125,8 @@ namespace CodeGen.Engine
             SegNbr                  ,int            ;;Current key segment number
             LastSegment             ,int            ;;Last segment number to process
             SkipLastSegment         ,boolean        ;;Skip the last segment in a segment loop
-
+            FirstSegmentOnly        ,boolean        ;;Only process the first segment in a segment loop
+            
             ;;Relation loop data
             RelNbr                  ,int            ;;Current relation number
 
@@ -1710,7 +1711,6 @@ namespace CodeGen.Engine
                     using buffer(TokenStart,TokenEnd) select
                     ("<SEGMENT_LOOP>"),
                     begin
-                        SkipLastSegment = false
                         LastSegment = Key.Segments.Count-1
                         call process_segment_loop
                         RepeatItem = true
@@ -1720,6 +1720,14 @@ namespace CodeGen.Engine
                     begin
                         SkipLastSegment = true
                         LastSegment = Key.Segments.Count-2
+                        call process_segment_loop
+                        RepeatItem = true
+                        exitloop
+                    end
+                    ("<FIRST_SEGMENT>"),
+                    begin
+                        FirstSegmentOnly = true
+                        LastSegment = 0
                         call process_segment_loop
                         RepeatItem = true
                         exitloop
@@ -1829,6 +1837,22 @@ namespace CodeGen.Engine
                 end
             end
         end
+        else if (FirstSegmentOnly) then
+        begin
+            if (Loop2CloseTokenStart=instr(TokenEnd,buffer,"</FIRST_SEGMENT>")) then
+                Loop2CloseTokenEnd=Loop2CloseTokenStart+15
+            else
+            begin
+                ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+                ;;Make sure there is nothing else on the line after the opening token
+                if (buffer(TokenEnd+1,^size(buffer)))
+                begin
+                    ErrorLog("No code allowed on line after <FIRST_SEGMENT> token. Did you mis-type a </FIRST_SEGMENT> token?")
+                    ErrStatus = 1
+                    return
+                end
+            end
+        end
         else
         begin
             if (Loop2CloseTokenStart=instr(1,buffer,"</SEGMENT_LOOP>")) then
@@ -1890,6 +1914,8 @@ namespace CodeGen.Engine
                 begin
                     if (SkipLastSegment) then
                         ErrorLog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP_FILTER> token?")
+                    else if (FirstSegmentOnly) then
+                        ErrorLog("Can't find the end of a key segment loop. Are you missing a </FIRST_SEGMENT> token?")
                     else
                         ErrorLog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP> token?")
                     ErrStatus = 1
@@ -1897,9 +1923,11 @@ namespace CodeGen.Engine
                 end
                 
                 buffer = (a)Loop1TemplateCode[Loop1Rec+=1]
-                if ((!SkipLastSegment)&&(instr(1,buffer,"</SEGMENT_LOOP>"))) then
+                if ((SkipLastSegment)&&(instr(1,buffer,"</SEGMENT_LOOP_FILTER>"))) then
                     exitloop
-                else if ((SkipLastSegment)&&(instr(1,buffer,"</SEGMENT_LOOP_FILTER>")))
+                else if ((FirstSegmentOnly)&&(instr(1,buffer,"</FIRST_SEGMENT>"))) then
+                    exitloop
+                else if (instr(1,buffer,"</SEGMENT_LOOP>"))
                     exitloop
                 AlUtil.Add(Loop2TemplateCode,buffer)
             end
@@ -2013,6 +2041,8 @@ namespace CodeGen.Engine
             AlUtil.AppendToLastItem(Loop1Output,Loop2TrailingData)
 
         clear Loop2TemplateCode, Loop2OutputOff, Loop2ConditionApplies, Loop2ConditionMode, Loop2NoOutput, Fld
+        clear FirstSegmentOnly, SkipLastSegment
+        
         DoAnotherPass = true
 
         if (!ErrStatus)
