@@ -960,7 +960,15 @@ namespace <NAMESPACE>
             if (mSelectByKeyStatement==^null)
                 mSelectByKeyStatement = "SELECT "
                 <FIELD_LOOP>
+                <IF NOTDATE>
                 & "<FieldSqlName><,>"
+                </IF>
+                <IF DATE_YYYYMMDD>
+                & "CONVERT(VARCHAR(8),<FieldSqlName>,112) AS [YYYYMMDD]<,>"
+                </IF>
+                <IF DATE_YYMMDD>
+                & "CONVERT(VARCHAR(6),<FieldSqlName>,12) AS [YYMMDD]<,>"
+                </IF>
                 </FIELD_LOOP>
                 & " FROM <StructureName>"
                 & " WHERE <PRIMARY_KEY><SEGMENT_LOOP> <SegmentName>=:<SEGMENT_NUMBER> <AND></SEGMENT_LOOP></PRIMARY_KEY>"
@@ -968,7 +976,15 @@ namespace <NAMESPACE>
             if (mSelectAllStatement==^null)
                 mSelectAllStatement = "SELECT "
                 <FIELD_LOOP>
+                <IF NOTDATE>
                 & "<FieldSqlName><,>"
+                </IF>
+                <IF DATE_YYYYMMDD>
+                & "CONVERT(VARCHAR(8),<FieldSqlName>,112) AS [YYYYMMDD]<,>"
+                </IF>
+                <IF DATE_YYMMDD>
+                & "CONVERT(VARCHAR(6),<FieldSqlName>,12) AS [YYMMDD]<,>"
+                </IF>
                 </FIELD_LOOP>
                 & " FROM <StructureName>"
 

@@ -1150,7 +1150,15 @@ proc
     begin
         sql = "SELECT "
         <FIELD_LOOP>
+        <IF NOTDATE>
         &    "<FIELD_SQLNAME><,>"
+        </IF>
+        <IF DATE_YYYYMMDD>
+        &    "CONVERT(VARCHAR(8),<FIELD_SQLNAME>,112) AS [YYYYMMDD]<,>"
+        </IF>
+        <IF DATE_YYMMDD>
+        &    "CONVERT(VARCHAR(6),<FIELD_SQLNAME>,12) AS [YYMMDD]<,>"
+        </IF>
         </FIELD_LOOP>
         &    " FROM <STRUCTURE_NAME>"
         &    " WHERE <PRIMARY_KEY><SEGMENT_LOOP> <SEGMENT_NAME>=:<SEGMENT_NUMBER> <AND></SEGMENT_LOOP></PRIMARY_KEY>"
@@ -1298,7 +1306,15 @@ function <StructureName>SelectRows ,^val
     ;;
     sql = "SELECT "
     <FIELD_LOOP>
-    &   "<FIELD_SQLNAME><,>"
+    <IF NOTDATE>
+    &    "<FIELD_SQLNAME><,>"
+    </IF>
+    <IF DATE_YYYYMMDD>
+    &    "CONVERT(VARCHAR(8),<FIELD_SQLNAME>,112) AS [YYYYMMDD]<,>"
+    </IF>
+    <IF DATE_YYMMDD>
+    &    "CONVERT(VARCHAR(6),<FIELD_SQLNAME>,12) AS [YYMMDD]<,>"
+    </IF>
     </FIELD_LOOP>
     &   " FROM <STRUCTURE_NAME> "
 
