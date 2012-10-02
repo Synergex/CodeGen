@@ -42,9 +42,207 @@
 
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
+.ifdef DBLNET
+import System.Collections.ObjectModel
+.else
 import System.Collections
+.endc
 
 namespace CodeGen.Engine
+
+.ifdef DBLNET
+
+	public static sealed class UserTokenCollection
+
+		;;; <summary>
+		;;;	This method is used to do an initial load of user defined tokens in a token file
+		;;; into the Env.UserTokens collection.
+		;;; </summary>
+		public static method LoadTokensFromFile, void
+			required in UserTokenFile, String
+			endparams
+			record Local_Data
+				tmpch       ,int
+				RecCount    ,int
+				tmpbuf      ,a256
+				tokenFile	,String
+			endrecord
+		proc
+			init Local_Data
+			tokenFile = UserTokenFile.Trim()
+
+			if (!tokenFile.ToLower().EndsWith(".tkn"))
+				tokenFile = tokenFile + ".tkn"
+				
+			try
+				open(tmpch=0,i:s,Env.TemplateDir+tokenFile)
+			catch (ex)
+				throw new CodegenException("Failed to open user defined token file "+Env.TemplateDir+tokenFile)
+			endtry
+			
+			VerboseLog("Loading user defined tokens from "+tokenFile,true,false)
+			
+			Env.UserTokens = new ObservableCollection<UserToken>()
+
+			repeat
+			begin
+				
+				data pos1, int, 0
+				data pos2, int, 0
+				data pos3, int, 0
+				data pos4, int, 0
+				data lastRec, boolean, false
+				
+				begin
+					reads(tmpch,tmpbuf,eout)
+					exit
+		eout,       if (rdlen()) then
+						lastRec = true
+					else
+						exitloop
+				end
+				
+				;;Ignore blank lines
+				if (!tmpbuf)
+				begin
+					if (lastRec) then
+						exitloop
+					else
+						nextloop
+				end
+				
+				;;Ignore comment lines
+				if (tmpbuf==";")
+				begin
+					if (lastRec) then
+						exitloop
+					else
+						nextloop
+				end
+				
+				RecCount += 1
+				
+				pos1=instr(1,tmpbuf,"<")
+				if (pos1) pos2=instr(pos1,tmpbuf,">")
+				if (pos2) pos3=instr(pos2,tmpbuf,"</")
+				if (pos3) pos4=instr(pos3,tmpbuf,">")
+					
+				;;Make sure the record looks like a open/close tag record
+				if ((!pos1)||(!pos2)||(!pos3)||(!pos4))
+					throw new CodegenException("Record " + string(RecCount) + " in user defined token file is invalid!")
+					
+				;;Make sure the open and close tags match
+				if (tmpbuf(pos1+1,pos2-1)!=tmpbuf(pos3+2,pos4-1))
+					throw new CodegenException("Record " + string(RecCount) + " in user defined token file is invalid!")
+					
+				;;Store details of this user token
+				Env.UserTokens.Add(new UserToken(tmpbuf(pos1,pos2),tmpbuf(pos2+1,pos3-1)))
+				
+				if (lastRec)
+					exitloop
+			end
+			
+			close tmpch
+			if (Env.UserTokens.Count&&Env.Verbose)
+			begin
+				data tmpToken, @UserToken
+				foreach tmpToken in Env.UserTokens
+					Log(" - User token " + tmpToken.Name + " = " + tmpToken.Value,false,false)
+			end
+
+		endmethod
+
+		;;; <summary>
+		;;; This method adds user defined tokens passed in via a papameter to the tokens already
+		;;; present in Env.UserTokens. If a named token already exists then its value is replaced.
+		;;; </summary>
+		public static method AddTokens, void
+			required in tokens, @ObservableCollection<UserToken>
+			endparams
+		proc
+			data token, @UserToken
+			foreach token in tokens
+			begin
+				;;Does the token already exist?
+				data existingToken, @UserToken
+				data existingTokenUpdated, Boolean, false
+				foreach existingToken in Env.UserTokens
+				begin
+					if existingToken.Name.Equals(token.Name)
+					begin
+						;;Yes, update it's value
+						existingToken.value = token.value
+						existingTokenUpdated = true
+						exitloop
+					end
+				end
+				;;No, add the new token
+				if (!existingTokenUpdated)
+					Env.UserTokens.Add(token)
+				VerboseLog(" - User token " + token.Name + " = " + token.value,false,false)
+			end
+
+		endmethod
+
+		;;; <summary>
+		;;; This method adds user defined tokens passed in via a papameter to the tokens already
+		;;; present in Env.UserTokens. If a named token already exists then its value is replaced.
+		;;; </summary>
+		public static method AddTokens, void
+			required in TokenArray, [*]a
+			required in TokenCount, n
+			endparams
+			record
+				ix      ,int
+				delim   ,int
+				token   ,string
+				value   ,string
+			endrecord
+		proc
+			
+			VerboseLog("Loading user defined tokens from command line:",true,false)
+			
+			if (Env.UserTokens == ^null)
+				Env.UserTokens = new ObservableCollection<UserToken>()
+
+			for ix from 1 thru TokenCount
+			begin
+				
+				;;Make sure the token looks right (name=value)
+				if (((delim=instr(1,TokenArray[ix],"="))<2) || (delim==trim(TokenArray[ix])) )
+					throw new CodegenException("Command line token " + atrim(TokenArray[ix]) + " is invalid!")
+					
+				token = "<" + atrim(TokenArray[ix](1:delim-1)) + ">"
+				value = atrim(TokenArray[ix](delim+1:trim(TokenArray[ix])))
+				
+				;;If the token is already in the collection then update its value
+				;;Otherwise add a new user token
+				begin
+					data existingToken, @UserToken
+					data existingTokenUpdated, Boolean, false
+					foreach existingToken in Env.UserTokens
+					begin
+						if (existingToken.Name.eqs.token)
+						begin
+							existingToken.Value = value
+							existingTokenUpdated = true
+							exitloop
+						end
+					end
+					if (!existingTokenUpdated)
+						Env.UserTokens.Add(new UserToken(token,value))
+				end
+				
+				VerboseLog(" - User token " + token + " = " + value,false,false)
+			end
+			
+		endmethod
+		
+
+	endclass
+		
+
+.else
 
     public sealed class UserTokenCollection
 
@@ -377,5 +575,7 @@ eout,               if (rdlen()) then
         endmethod
 
     endclass
+
+.endc
 
 endnamespace

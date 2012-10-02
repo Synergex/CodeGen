@@ -1,0 +1,690 @@
+
+import System
+.ifdef DBLNET
+import System.Collections.ObjectModel
+import System.ComponentModel
+import System.Text
+.endc
+
+namespace CodeGen.Engine
+
+.ifndef DBLNET
+
+	public class CodeGenTask
+
+		public method CodeGenTask
+			endparams
+		proc
+			throw new Exception("The CodeGenTask class is only available in Synergy .NET!")
+		endmethod
+
+	endclass
+
+.else
+
+	public class CodeGenTask implements INotifyPropertyChanged
+		
+		private mDescription,					String,					String.Empty
+		private mEchoCommand,					Boolean,				false
+		private mTemplateFolder,				String,					String.Empty
+		private mOutputFolder,					String,					String.Empty
+		private mReplaceFiles,					Boolean,				false
+		private mNamespace,						String,					String.Empty
+		private mFieldPrefix,					String,					String.Empty
+		private mCharacterWidth,				int,					12
+		private mCharacterHeight,				int,					25
+		private mTemplates,						@ObservableCollection<String>,	new ObservableCollection<String>()
+		private mRepositoryFile,				String,					String.Empty
+		private mWindowScript,					String,					String.Empty
+		private mIgnoreScriptFieldAttributes,	Boolean,				false
+		private mSelectionWindowScript,			String,					String.Empty
+		private mStructures,					@ObservableCollection<String>,			new ObservableCollection<String>()
+		private mSubset,						String,					String.Empty
+		private mAlwaysLoadDefaultButtons,		Boolean,				false
+		private mNeverLoadDefaultButtons,		Boolean,				false
+		private mNeverLoadAnyButtons,			Boolean,				false
+		private mAliases,						@ObservableCollection<String>,			new ObservableCollection<String>()
+		private mFileOverrides,					@ObservableCollection<String>,			new ObservableCollection<String>()
+		private mUserTokenFile,					String,					String.Empty
+		private mUserTokens,					@ObservableCollection<UserToken>,		new ObservableCollection<UserToken>()
+		private mIncludeOverlayFields,			Boolean,				false
+		private mIgnoreExcludeLanguage,			Boolean,				false
+		private mHonorExcludeToolkit,			Boolean,				false
+		private mHonorExcludeReportWriter,		Boolean,				false
+		private mHonorExcludeWeb,				Boolean,				false
+		private mGroupFieldNoGroupPrefix,		Boolean,				false
+		private mGroupNoExpand,					Boolean,				false
+		private mGroupFieldNoRpsPrefix,			Boolean,				false
+		private mMultipleStructures,			Boolean,				false
+
+		;;; <summary>
+		;;; Description of this task
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Description")}
+		public property Description, String
+			method get
+			proc
+				mreturn mDescription
+			endmethod
+			method set
+			proc
+				mDescription = value
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;;  Echo the command line to the output log
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Echo the CodeGen command line to the output message log.")}
+		{DefaultValue(false)}
+		public property EchoCommand, Boolean
+			method get
+			proc
+				mreturn mEchoCommand
+			endmethod
+			method set
+			proc
+				mEchoCommand = value
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;;	Template folder. If not specified then the folder defined by the environment variable
+		;;; CODEGEN_TPLDIR is used. If that is not defined then the current folder is used.
+		;;; Setting this property is equivalent to using the -i command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Template folder.")}
+		public property TemplateFolder, String
+			method get
+			proc
+				mreturn mTemplateFolder
+			endmethod
+			method set
+			proc
+				mTemplateFolder = value
+				NotifyPropertyChanged("TemplateFolder")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Output folder. If not specified then the folder defined by the environment variable
+		;;; CODEGEN_OUTDIR is used. If that is not defined then the current folder is used.
+		;;; Setting this property is equivalent to using the -o command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Output file folder.")}
+		public property OutputFolder, String
+			method get
+			proc
+				mreturn mOutputFolder
+			endmethod
+			method set
+			proc
+				mOutputFolder = value
+				NotifyPropertyChanged("OutputFolder")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Replace existing files. Default is to not replace existing files.
+		;;; Setting this property is equivalent to using the -r command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Replace output files.")}
+		{DefaultValue(false)}
+		public property ReplaceFiles, Boolean
+			method get
+			proc
+				mreturn mReplaceFiles
+			endmethod
+			method set
+			proc
+				mReplaceFiles = value
+				NotifyPropertyChanged("ReplaceFiles")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Namespace to be used if the <NAMESPACE> token is used. If not specified
+		;;; then the namespace defined by the environment variable SYNDEFNS is used.
+		;;; Setting this property is equivalent to using the -n command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Namespace to be used if the <NAMESPACE> token is used.")}
+		public property Namespace, String
+			method get
+			proc
+				mreturn mNamespace
+			endmethod
+			method set
+			proc
+				mNamespace = value
+				NotifyPropertyChanged("Namespace")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Optional prefix to apply to field names when the <FIELD_NAME> token is used.
+		;;; Setting this property is equivalent to using the -prefix command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Optional prefix to apply to field names when the <FIELD_NAME> token is used.")}
+		public property FieldPrefix, String
+			method get
+			proc
+				mreturn mFieldPrefix
+			endmethod
+			method set
+			proc
+				mFieldPrefix = value
+				NotifyPropertyChanged("FieldPrefix")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	The width of a character in pixels. The default width is 12 pixels.
+		;;; Setting this property is equivalent to using the -cw command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("The width of a character in pixels.")}
+		{DefaultValue(12)}
+		public property CharacterWidth, int
+			method get
+			proc
+				mreturn mCharacterWidth
+			endmethod
+			method set
+			proc
+				mCharacterWidth = value
+				NotifyPropertyChanged("CharacterWidth")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	The height of a character (or row) in pixels. The default height is 25 pixels.
+		;;; Setting this property is equivalent to using the -ch command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("The height of a character (or row) in pixels.")}
+		{DefaultValue(25)}
+		public property CharacterHeight, int
+			method get
+			proc
+				mreturn mCharacterHeight
+			endmethod
+			method set
+			proc
+				mCharacterHeight = value
+				NotifyPropertyChanged("CharacterHeight")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Templates to process. Setting this property is mandatory for all operations.
+		;;; Setting this property is equivalent to using the -t command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Templates to process.")}
+		public property Templates, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mTemplates
+			endmethod
+			method set
+			proc
+				mTemplates = value
+				NotifyPropertyChanged("Templates")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Repository file name to process. Setting this property makes all of the structures
+		;;; associated with the file definition to be available during code generation, as if
+		;;; you had specified those structures via the Structures property and also set the
+		;;; MultipleStructures property to true.
+		;;; Setting this property is equivalent to using the -file command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Repository file name to process.")}
+		public property RepositoryFile, String
+			method get
+			proc
+				mreturn mRepositoryFile
+			endmethod
+			method set
+			proc
+				mRepositoryFile = value
+				NotifyPropertyChanged("RepositoryFile")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Process input from a UI Toolkit Window script file.  By default the fields and
+		;;; buttons collection will be based on the first input window found in the script file,
+		;;; but this can be overridden by specifying the name of number or name of the window to
+		;;; use following a # character after the script file name.
+		;;; Setting this property is equivalent to using the -w command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Process input from a UI Toolkit Window script file.")}
+		public property WindowScript, String
+			method get
+			proc
+				mreturn mWindowScript
+			endmethod
+			method set
+			proc
+				mWindowScript = value
+				NotifyPropertyChanged("WindowScript")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	When processing input from a UI Toolkit Window script file this option prevents script
+		;;; file input window field attributes from being used to override repository field attributes.
+		;;; This allows you to generate code based on only the fields listed in an input window, but
+		;;; using only the repository field definitions.
+		;;; Setting this property is equivalent to using the -wn command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Window script field attributes do not override repository field attributes.")}
+		{DefaultValue(false)}
+		public property IgnoreScriptFieldAttributes, Boolean
+			method get
+			proc
+				mreturn mIgnoreScriptFieldAttributes
+			endmethod
+			method set
+			proc
+				mIgnoreScriptFieldAttributes = value
+				NotifyPropertyChanged("IgnoreScriptFieldAttributes")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Window script selection list processing. When this option is used CodeGen will examine
+		;;; any fields which have selection windows specified and will attempt to populate the field
+		;;; selections property based on the selection items defined in the named selection window.
+		;;; Setting this property is equivalent to using the -ws command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Window script selection list processing.")}
+		public property SelectionWindowScript, String
+			method get
+			proc
+				mreturn mSelectionWindowScript
+			endmethod
+			method set
+			proc
+				mSelectionWindowScript = value
+				NotifyPropertyChanged("SelectionWindowScript")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Strcutures to process. To process all structures add an * as the first structure name.
+		;;; Setting this property is equivalent to using the -s command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Strcutures to process.")}
+		public property Structures, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mStructures
+			endmethod
+			method set
+			proc
+				mStructures = value
+				NotifyPropertyChanged("Structures")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Subset of fields to use. Specify subsets in field user text strings with @SUB=name;
+		;;; syntax. This option is only valid when processing a single repository structure.
+		;;; Setting this property is equivalent to using the -subset command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Subset of fields to use.")}
+		public property Subset, String
+			method get
+			proc
+				mreturn mSubset
+			endmethod
+			method set
+			proc
+				mSubset = value
+				NotifyPropertyChanged("Subset")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Always use the default buttons defined in DefaultButtons.xml.
+		;;; Setting this property is equivalent to using the -b a command line option.
+		;;; </summary>
+		{Category("Window Button Options")}
+		{Description("Always use the default buttons defined in DefaultButtons.xml.")}
+		{DefaultValue(false)}
+		public property AlwaysLoadDefaultButtons, Boolean
+			method get
+			proc
+				mreturn mAlwaysLoadDefaultButtons
+			endmethod
+			method set
+			proc
+				mAlwaysLoadDefaultButtons = value
+				NotifyPropertyChanged("AlwaysLoadDefaultButtons")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Never use the default buttons defined in DefaultButtons.xml.
+		;;; Setting this property is equivalent to using the -b d command line option.
+		;;; </summary>
+		{Category("Window Button Options")}
+		{Description("Never use the default buttons defined in DefaultButtons.xml.")}
+		{DefaultValue(false)}
+		public property NeverLoadDefaultButtons, Boolean
+			method get
+			proc
+				mreturn mNeverLoadDefaultButtons
+			endmethod
+			method set
+			proc
+				mNeverLoadDefaultButtons = value
+				NotifyPropertyChanged("NeverLoadDefaultButtons")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Never load any buttons (DefaultButtons.xml or window script).
+		;;; Setting this property is equivalent to using the -b n command line option.
+		;;; </summary>
+		{Category("Window Button Options")}
+		{Description("Never load any buttons.")}
+		{DefaultValue(false)}
+		public property NeverLoadAnyButtons, Boolean
+			method get
+			proc
+				mreturn mNeverLoadAnyButtons
+			endmethod
+			method set
+			proc
+				mNeverLoadAnyButtons = value
+				NotifyPropertyChanged("NeverLoadAnyButtons")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Structure aliases. The number of aliases should be less than or equal to the
+		;;; number of structures being processed.
+		;;; Setting this property is equivalent to using the -a command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Structure aliases.")}
+		public property Aliases, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mAliases
+			endmethod
+			method set
+			proc
+				mAliases = value
+				NotifyPropertyChanged("Aliases")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	File Overrides. This option allows you to specify which repository file definition is
+		;;; used for each structure that you are processing. This option is useful if the structure
+		;;; that you are using is assigned to multiple files, because CodeGen will by default will
+		;;; always select the first assigned file. The number of file overrides must be less than
+		;;; or equal to the number of structures being processed.
+		;;; Setting this property is equivalent to using the -fo command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("File Overrides.")}
+		public property FileOverrides, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mFileOverrides
+			endmethod
+			method set
+			proc
+				mFileOverrides = value
+				NotifyPropertyChanged("FileOverrides")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	User defined token file. Optionally specify the name of a file which contains user
+		;;; defined token definitions. The file must reside in the input file directory. User defined
+		;;; token files have an extension of .tkn.
+		;;; Setting this property is equivalent to using the -u command line option.
+		;;; </summary>
+		{Category("User Defined Token Options")}
+		{Description("User defined token file.")}
+		public property UserTokenFile, String
+			method get
+			proc
+				mreturn mUserTokenFile
+			endmethod
+			method set
+			proc
+				mUserTokenFile = value
+				NotifyPropertyChanged("UserTokenFile")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	User defined tokens.
+		;;; Setting this property is equivalent to using the -ut command line option.
+		;;; </summary>
+		{Category("User Defined Token Options")}
+		{Description("User defined tokens.")}
+		public property UserTokens, @ObservableCollection<UserToken>
+			method get
+			proc
+				mreturn mUserTokens
+			endmethod
+			method set
+			proc
+				mUserTokens = value
+				NotifyPropertyChanged("UserTokens")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Include overlay fields.
+		;;; Setting this property is equivalent to using the -f o command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Include overlay fields.")}
+		{DefaultValue(false)}
+		public property IncludeOverlayFields, Boolean
+			method get
+			proc
+				mreturn mIncludeOverlayFields
+			endmethod
+			method set
+			proc
+				mIncludeOverlayFields = value
+				NotifyPropertyChanged("IncludeOverlayFields")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Include fields which are 'Excluded by Language'.
+		;;; Setting this property is equivalent to using the -f l command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Include fields which are 'Excluded by Language'.")}
+		{DefaultValue(false)}
+		public property IgnoreExcludeLanguage, Boolean
+			method get
+			proc
+				mreturn mIgnoreExcludeLanguage
+			endmethod
+			method set
+			proc
+				mIgnoreExcludeLanguage = value
+				NotifyPropertyChanged("IgnoreExcludeLanguage")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Exclude fields which are 'Excluded by Toolkit'.
+		;;; Setting this property is equivalent to using the -f t command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Exclude fields which are 'Excluded by Toolkit'.")}
+		{DefaultValue(false)}
+		public property HonorExcludeToolkit, Boolean
+			method get
+			proc
+				mreturn mHonorExcludeToolkit
+			endmethod
+			method set
+			proc
+				mHonorExcludeToolkit = value
+				NotifyPropertyChanged("HonorExcludeToolkit")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Exclude fields which are 'Excluded by ReportWriter'.
+		;;; Setting this property is equivalent to using the -f r command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Exclude fields which are 'Excluded by ReportWriter'.")}
+		{DefaultValue(false)}
+		public property HonorExcludeReportWriter, Boolean
+			method get
+			proc
+				mreturn mHonorExcludeReportWriter
+			endmethod
+			method set
+			proc
+				mHonorExcludeReportWriter = value
+				NotifyPropertyChanged("HonorExcludeReportWriter")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Exclude fields which are 'Excluded by Web'.
+		;;; Setting this property is equivalent to using the -f w command line option.
+		;;; </summary>
+		{Category("Code Generation Options")}
+		{Description("Exclude fields which are 'Excluded by Web'.")}
+		{DefaultValue(false)}
+		public property HonorExcludeWeb, Boolean
+			method get
+			proc
+				mreturn mHonorExcludeWeb
+			endmethod
+			method set
+			proc
+				mHonorExcludeWeb = value
+				NotifyPropertyChanged("HonorExcludeWeb")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Don't prefix group fields with group name.
+		;;; Setting this property is equivalent to using the -g f command line option.
+		;;; </summary>
+		{Category("Group Field Options")}
+		{Description("Don't prefix group fields with group name.")}
+		{DefaultValue(false)}
+		public property GroupFieldNoGroupPrefix, Boolean
+			method get
+			proc
+				mreturn mGroupFieldNoGroupPrefix
+			endmethod
+			method set
+			proc
+				mGroupFieldNoGroupPrefix = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Don't use repository group field prefix.
+		;;; Setting this property is equivalent to using the -g r command line option.
+		;;; </summary>
+		{Category("Group Field Options")}
+		{Description("Don't use repository group field prefix.")}
+		{DefaultValue(false)}
+		public property GroupFieldNoRpsPrefix, Boolean
+			method get
+			proc
+				mreturn mGroupFieldNoRpsPrefix
+			endmethod
+			method set
+			proc
+				mGroupFieldNoRpsPrefix = value
+				NotifyPropertyChanged("GroupFieldNoRpsPrefix")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Don't expand implicit groups to individual fields.
+		;;; Setting this property is equivalent to using the -g i command line option.
+		;;; </summary>
+		{Category("Group Field Options")}
+		{Description("Don't expand implicit groups to individual fields.")}
+		{DefaultValue(false)}
+		public property GroupNoExpand, Boolean
+			method get
+			proc
+				mreturn mGroupNoExpand
+			endmethod
+			method set
+			proc
+				mGroupNoExpand = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Multiple Structures. Specifies that the structures specified via the Structures
+		;;; property should all be available to templates being processed at the same time.
+		;;; Setting this property is equivalent to using the -ms command line option.
+		;;; </summary>
+		{Category("Code Generation Context")}
+		{Description("Process multiple structures at the same time.")}
+		{DefaultValue(false)}
+		public property MultipleStructures, Boolean
+			method get
+			proc
+				mreturn mMultipleStructures
+			endmethod
+			method set
+			proc
+				mMultipleStructures = value
+				NotifyPropertyChanged("MultipleStructures")
+			endmethod
+		endproperty
+		
+.region "INotifyPropertyChanged"
+		
+		public event PropertyChanged, @PropertyChangedEventHandler
+		
+		private method NotifyPropertyChanged, void
+			required in propertyName, String
+			endparams
+		proc
+			if (PropertyChanged!=^null)
+				PropertyChanged(this, new PropertyChangedEventArgs(propertyName))
+		endmethod
+		
+.endregion
+
+	endclass
+	
+.endc
+
+
+endnamespace
+
