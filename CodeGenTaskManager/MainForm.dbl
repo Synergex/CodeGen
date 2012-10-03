@@ -1,0 +1,268 @@
+
+import System
+import System.Collections.Generic
+import System.ComponentModel
+import System.Data
+import System.Drawing
+import System.IO
+import System.Windows.Forms
+import System.Xml
+import System.Xml.Serialization
+
+import CodeGen.Engine
+
+namespace CodeGenTaskManager
+
+	public partial class MainForm extends System.Windows.Forms.Form
+
+		private taskset, @CodeGenTaskSet
+		private task, @CodeGenTask
+		private taskSetOpen, Boolean, false
+		private taskSetFile, String
+
+		private const appName	,String, "CodeGen Task Manager"
+		private const fileName	,String, "CodeGen Task Set File"
+		private const fileFilter,String, "CodeGen Task Set (*.cts)|*.cts"
+
+		public method MainForm
+			endparams
+		proc
+			this.InitializeComponent()
+			taskGrid.AutoGenerateColumns = false
+			this.Text = appName
+
+			data sts, int
+			setlog("RPSMFIL","C:\Users\Steve Ives\AppData\Roaming\SymphonyFrameworkExamples\Rps\rpsmain.ism",sts)
+			setlog("RPSTFIL","C:\Users\Steve Ives\AppData\Roaming\SymphonyFrameworkExamples\Rps\rpstext.ism",sts)
+
+            configureUiNoFileOpen()
+
+		endmethod
+		
+        private method configureUiNoFileOpen, void
+            endparams
+        proc
+            mnuFileNew.Enabled = true
+            mnuFileOpen.Enabled = true
+            mnuFileClose.Enabled = false
+            mnuFileSave.Enabled = false
+            mnuFileSaveAs.Enabled = false
+            newToolStripButton.Enabled = true
+            openToolStripButton.Enabled = true
+			saveToolStripButton.Enabled = false
+			txtTaskSetDescription.Enabled = false
+			txtTaskSetDescription.Text = ""
+			LoggingLevelComboBox.Enabled = false
+			taskGrid.Enabled = false
+			taskProperties.Enabled = false
+            this.Text = appName
+        endmethod
+        
+        private method configureUiFileOpen, void
+            endparams
+        proc
+            mnuFileNew.Enabled = false
+            mnuFileOpen.Enabled = false
+            mnuFileClose.Enabled = true
+            mnuFileSave.Enabled = true
+            mnuFileSaveAs.Enabled = true
+            newToolStripButton.Enabled = false
+            openToolStripButton.Enabled = false
+            saveToolStripButton.Enabled = true
+			txtTaskSetDescription.Enabled = true
+			LoggingLevelComboBox.Enabled = true
+			taskGrid.Enabled = true
+			taskProperties.Enabled = true
+			this.Text = String.Format("{0} [{1}]",appName,taskset.Description)
+        endmethod
+
+        private method taskGrid_SelectionChanged, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			if (taskGrid.SelectedRows.Count>0)
+				taskProperties.SelectedObject = taskGrid.SelectedRows[0].DataBoundItem
+		endmethod
+
+		private method btnGenerateCode_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			Cursor = Cursors.WaitCursor
+
+			log.Items.Clear()
+			this.Refresh()
+
+			data cg, @CodeGenerator
+			cg = new CodeGenerator(taskset,messageLogger)
+			cg.GenerateCode()			
+			cg.Dispose()
+			cg = ^null
+			
+			Cursor = Cursors.Default
+
+		endmethod
+		
+		private method messageLogger, void
+			required in messageToLog, String
+			required in blankLineBefore, Boolean
+			required in blankLineAfter, Boolean
+			endparams
+		proc
+			if (blankLineBefore)
+				log.Items.Add("")
+			log.Items.Add(messageToLog)
+			if (blankLineAfter)
+				log.Items.Add("")
+			this.Update()
+		endmethod
+		
+		private method mnuFileNew_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			taskset = new CodeGenTaskSet()
+			taskSetOpen = true
+			configureUiFileOpen()
+		endmethod
+
+		private method mnuFileOpen_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			disposable data dlg, @OpenFileDialog, new OpenFileDialog()
+			dlg.Filter = fileFilter
+			dlg.RestoreDirectory = true
+			dlg.Multiselect = false
+            dlg.Title = (String)"Open " + fileName
+			if(dlg.ShowDialog() == DialogResult.OK)
+			begin
+				data stm, @Stream
+				try
+				begin
+					stm = dlg.OpenFile()
+					if (stm!=^null)
+					begin
+						taskSetOpen = true
+						taskSetFile = dlg.FileName
+						data xs, @XmlSerializer, new XmlSerializer(^typeof(CodeGenTaskSet))
+						data xr, @XmlReader, new XmlTextReader(stm)
+						taskset = (CodeGenTaskSet)xs.Deserialize(xr)
+						stm.Close()
+
+						taskSetBindingSource.DataSource = taskset
+
+                        configureUiFileOpen()
+                    end
+				end
+				catch (ex, @Exception)
+				begin
+					MessageBox.Show("Error: Could not read file from disk. Original error: " + ex.Message)
+				end
+				endtry
+			end
+		endmethod
+		
+		private method mnuFileSave_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			if (taskSetOpen)
+			begin
+				if (!String.IsNullOrEmpty(taskSetFile)) then
+				begin
+					data stm, @StreamWriter, File.CreateText(taskSetFile)
+					if(stm!=^null)
+					begin
+						data xs, @XmlSerializer, new XmlSerializer(taskset.GetType())
+						xs.Serialize(stm,taskset)
+						stm.Close()
+					end
+				end
+				else
+					mnuFileSaveAs_Click(sender,e)
+			end
+		endmethod
+		
+		private method mnuFileSaveAs_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+            disposable data dlg, @SaveFileDialog, new SaveFileDialog()
+			dlg.Filter = fileFilter
+			dlg.RestoreDirectory = true
+			dlg.Title = (String)"Save " + fileName
+			if (dlg.ShowDialog() == DialogResult.OK)
+			begin
+				data stm, @Stream
+				if((stm = dlg.OpenFile()) != ^null)
+				begin
+					data xs, @XmlSerializer, new XmlSerializer(taskset.GetType())
+					xs.Serialize(stm,taskset)
+					stm.Close()
+				end
+			end
+		endmethod
+		
+		private method mnuFileClose_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			;TODO: Need to save if changed?
+
+			taskSetBindingSource.DataSource = ^null
+			taskset = ^null
+			taskSetOpen = false
+			taskSetFile = ^null
+
+			taskProperties.SelectedObject = ^null
+			
+            configureUiNoFileOpen()
+            
+		endmethod
+		
+		private method mnuFileExit_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			this.Close()
+		endmethod
+
+		private method MainForm_FormClosing, void
+			sender, @object 
+			e, @System.Windows.Forms.FormClosingEventArgs 
+			endparams
+		proc
+			;TODO: Do we need to save an open item before closing?
+		endmethod
+        
+        
+        private method MainForm_Load, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            
+        endmethod
+		
+		private method txtTaskSetDescription_TextChanged, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			if (taskset!=^null)
+				taskset.Description = txtTaskSetDescription.Text
+		endmethod
+		
+	endclass
+
+endnamespace
+
