@@ -81,6 +81,10 @@ $ CREATE/DIR CODEGEN_OUTDIR:
 $ ON ERROR THEN EXIT
 $ SET MESSAGE/FAC/SEV/ID/TEXT
 $ !
+$ ! Make sure we're using traditional command-line parsing
+$ !
+$ SET PROCESS/PARSE_STYLE=TRADITIONAL
+$ !
 $ ! Create global symbols to allow the user to execute the programs
 $ !
 $ CODEGEN    :== $CODEGEN_EXE:CODEGEN.EXE
