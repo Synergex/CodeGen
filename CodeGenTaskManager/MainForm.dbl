@@ -19,6 +19,7 @@ namespace CodeGenTaskManager
 		private task, @CodeGenTask
 		private taskSetOpen, Boolean, false
 		private taskSetFile, String
+		private taskSetFolder, String
 		
 		private const appName	,String, "CodeGen Task Manager"
 		private const fileName	,String, "CodeGen Task Set File"
@@ -28,14 +29,33 @@ namespace CodeGenTaskManager
 			endparams
 		proc
 			this.InitializeComponent()
-			taskGrid.AutoGenerateColumns = false
-			LoggingLevelComboBox.DataSource = (Enum.GetValues(^TypeOf(CodeGen.Engine.LoggingLevel)))
+
+			;;Set the main window title
 			this.Text = appName
-				
+			
+			;;Setup the data binding for the task grid. This can't be done at design time
+			;;because all the other columns constantly get re-added by the designer!
+			taskGrid.AutoGenerateColumns = false
+			taskGrid.DataSource = tasksBindingSource
+			
+			bindComboValues()
+
+			;;Implement user UI preferences			
+			if (Properties.Settings.Default.StartMaximized)
+				this.WindowState = WindowState.Maximized
+
+			;;Make sure the tasksets folder exists
+			taskSetFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\CodeGen Tasks"
+			if (!Directory.Exists(taskSetFolder))
+				Directory.CreateDirectory(taskSetFolder)
+
+			;For the time being, hard code a repository
+			;TODO: implement repository selection?
 			data sts, int
 			setlog("RPSMFIL","C:\Users\Steve Ives\AppData\Roaming\SymphonyFrameworkExamples\Rps\rpsmain.ism",sts)
 			setlog("RPSTFIL","C:\Users\Steve Ives\AppData\Roaming\SymphonyFrameworkExamples\Rps\rpstext.ism",sts)
 				
+			;;Configure the initial state of the UI	
 			configureUiNoFileOpen()
 				
 		endmethod
@@ -139,8 +159,9 @@ namespace CodeGenTaskManager
 		proc
 			disposable data dlg, @OpenFileDialog, new OpenFileDialog()
 			dlg.Filter = fileFilter
-			dlg.RestoreDirectory = true
+			dlg.InitialDirectory = taskSetFolder
 			dlg.Multiselect = false
+			dlg.RestoreDirectory = true
 			dlg.Title = (String)"Open " + fileName
 			if(dlg.ShowDialog() == DialogResult.OK)
 			begin
@@ -156,8 +177,11 @@ namespace CodeGenTaskManager
 						data xr, @XmlReader, new XmlTextReader(stm)
 						taskset = (CodeGenTaskSet)xs.Deserialize(xr)
 						stm.Close()
-								
+						
 						taskSetBindingSource.DataSource = taskset
+						
+						;TODO: shouldn't have to do this stuff, and it's not working anyway!!!
+						LoggingLevelComboBox.SelectedIndex = (int)taskset.LoggingLevel
 								
 						configureUiFileOpen()
 					end
@@ -179,6 +203,9 @@ namespace CodeGenTaskManager
 			begin
 				if (!String.IsNullOrEmpty(taskSetFile)) then
 				begin
+					;Shouldn't have to do this, but data binding isn't doing it right now.
+					taskset.LoggingLevel = (LoggingLevel)LoggingLevelComboBox.SelectedIndex
+
 					data stm, @StreamWriter, File.CreateText(taskSetFile)
 					if(stm!=^null)
 					begin
@@ -199,6 +226,7 @@ namespace CodeGenTaskManager
 		proc
 			disposable data dlg, @SaveFileDialog, new SaveFileDialog()
 			dlg.Filter = fileFilter
+			dlg.InitialDirectory = taskSetFolder
 			dlg.RestoreDirectory = true
 			dlg.Title = (String)"Save " + fileName
 			if (dlg.ShowDialog() == DialogResult.OK)
@@ -291,6 +319,29 @@ namespace CodeGenTaskManager
 			taskSetOpen = true
 			configureUiFileOpen()
 					
+		endmethod
+				
+		private method mnuToolsOptions_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			disposable data dlg, @CodeGenTaskManager.Dialogs.OptionsDialog, new CodeGenTaskManager.Dialogs.OptionsDialog()
+			dlg.ShowDialog()
+		endmethod
+
+
+
+
+
+
+		;LEAVE THIS AT THE BOTTOM!!!
+		private method bindComboValues, void
+			endparams
+		proc
+			;;Bind the logging level combo box to the Logging level enumeration
+			;;Doing this here because the Enum.GetValues screws up indentation
+			LoggingLevelComboBox.DataSource = (Enum.GetValues(^TypeOf(CodeGen.Engine.LoggingLevel)))
 		endmethod
 				
 	endclass
