@@ -15,100 +15,133 @@ namespace CodeGenTaskManager
 	
 	public partial class MainForm extends System.Windows.Forms.Form
 		
-		private taskset, @CodeGenTaskSet
-		private task, @CodeGenTask
-		private taskSetOpen, Boolean, false
-		private taskSetFile, String
-		private taskSetFolder, String
+		private mTaskSet			,@CodeGenTaskSet
+		private mTaskSetOpen		,Boolean			,false
+		private mTaskSetFile		,String
+		private mTaskSetFolder		,String
 		
-		private const appName	,String, "CodeGen Task Manager"
-		private const fileName	,String, "CodeGen Task Set File"
-		private const fileFilter,String, "CodeGen Task Set (*.cts)|*.cts"
+		private const appName		,String				,"CodeGen Task Manager"
+		private const fileName		,String				,"CodeGen Task Set File"
+		private const fileFilter	,String				,"CodeGen Task Set (*.cts)|*.cts"
 		
 		public method MainForm
 			endparams
 		proc
 			this.InitializeComponent()
 
-			;;Set the main window title
-			this.Text = appName
+			;;Implement user UI preferences			
+			if (Properties.Settings.Default.StartMaximized)
+				this.WindowState = WindowState.Maximized
+				
+			;;Load the options in the logging level combo from the LoggingLevel enumeration
+			bindComboValues()
 			
 			;;Setup the data binding for the task grid. This can't be done at design time
 			;;because all the other columns constantly get re-added by the designer!
 			taskGrid.AutoGenerateColumns = false
 			taskGrid.DataSource = tasksBindingSource
-			
-			bindComboValues()
-
-			;;Implement user UI preferences			
-			if (Properties.Settings.Default.StartMaximized)
-				this.WindowState = WindowState.Maximized
 
 			;;Make sure the tasksets folder exists
-			taskSetFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\CodeGen Tasks"
-			if (!Directory.Exists(taskSetFolder))
-				Directory.CreateDirectory(taskSetFolder)
+			mTaskSetFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\CodeGen Tasks"
+			if (!Directory.Exists(mTaskSetFolder))
+				Directory.CreateDirectory(mTaskSetFolder)
 
-			;For the time being, hard code a repository
-			;TODO: implement repository selection?
-			data sts, int
-			setlog("RPSMFIL","C:\Users\Steve Ives\AppData\Roaming\SymphonyFrameworkExamples\Rps\rpsmain.ism",sts)
-			setlog("RPSTFIL","C:\Users\Steve Ives\AppData\Roaming\SymphonyFrameworkExamples\Rps\rpstext.ism",sts)
+			;;If we have a default repository then activate it
+			if (!String.IsNullOrEmpty(Properties.Settings.Default.RpsMainFile)&&(!String.IsNullOrEmpty(Properties.Settings.Default.RpsTextFile)))
+			begin
+				;;Make sure the files exist
+				if (File.Exists(Properties.Settings.Default.RpsMainFile)&&File.Exists(Properties.Settings.Default.RpsTextFile)) then
+				begin
+					data sts, int
+					setlog("RPSMFIL",Properties.Settings.Default.RpsMainFile,sts)
+					setlog("RPSTFIL",Properties.Settings.Default.RpsTextFile,sts)
+				end
+				else
+				begin
+					;;Default repository specified, but files don't exist. Clear out the data.
+					MessageBox.Show(this,"Default repository settings were found, but the files don't exist. Please specify default repository files via Tools > Options.")
+					Properties.Settings.Default.RpsMainFile = String.Empty
+					Properties.Settings.Default.RpsTextFile = String.Empty
+					Properties.Settings.Default.Save()
+				end
+
+			end
 				
 			;;Configure the initial state of the UI	
-			configureUiNoFileOpen()
+			TaskSetOpen = false
 				
 		endmethod
 				
-		private method configureUiNoFileOpen, void
-			endparams
-		proc
-			mnuFileNew.Enabled = true
-			mnuFileOpen.Enabled = true
-			mnuFileClose.Enabled = false
-			mnuFileSave.Enabled = false
-			mnuFileSaveAs.Enabled = false
-			newToolStripButton.Enabled = true
-			openToolStripButton.Enabled = true
-			saveToolStripButton.Enabled = false
-			txtTaskSetDescription.Enabled = false
-			txtTaskSetDescription.Text = ""
-			LoggingLevelComboBox.Enabled = false
-			taskGrid.Enabled = false
-			taskProperties.Enabled = false
-			this.Text = appName
-		endmethod
+		public property TaskSetOpen, Boolean
+			method get
+			proc
+				mreturn mTaskSetOpen
+			endmethod
+			method set
+			proc
+				mTaskSetOpen = value
+
+				mnuFileNew.Enabled = !mTaskSetOpen
+				newToolStripButton.Enabled = !mTaskSetOpen
 				
-		private method configureUiFileOpen, void
-			endparams
-		proc
-			mnuFileNew.Enabled = false
-			mnuFileOpen.Enabled = false
-			mnuFileClose.Enabled = true
-			mnuFileSave.Enabled = true
-			mnuFileSaveAs.Enabled = true
-			newToolStripButton.Enabled = false
-			openToolStripButton.Enabled = false
-			saveToolStripButton.Enabled = true
-			txtTaskSetDescription.Enabled = true
-			LoggingLevelComboBox.Enabled = true
-			taskGrid.Enabled = true
-			taskProperties.Enabled = true
-			this.Text = String.Format("{0} [{1}]",appName,taskset.Description)
-		endmethod
+				mnuFileOpen.Enabled = !mTaskSetOpen
+				openToolStripButton.Enabled = !mTaskSetOpen
 				
-		private method taskGrid_SelectionChanged, void
+				mnuFileClose.Enabled = mTaskSetOpen
+
+				mnuFileSave.Enabled = mTaskSetOpen
+				saveToolStripButton.Enabled = mTaskSetOpen
+				
+				mnuFileSaveAs.Enabled = mTaskSetOpen
+
+				log.Enabled = mTaskSetOpen
+				if (!log.Enabled)
+					log.Items.Clear()
+
+				txtTaskSetDescription.Enabled = mTaskSetOpen
+
+				LoggingLevelComboBox.Enabled = mTaskSetOpen
+
+				taskGrid.Enabled = mTaskSetOpen
+
+				taskProperties.Enabled = mTaskSetOpen
+
+				btnClearLog.Enabled = mTaskSetOpen
+
+				btnGenerateCode.Enabled = (mTaskSetOpen&&mTaskSet.Tasks.Count>0)
+				mnuGenerateCode.Enabled = (mTaskSetOpen&&mTaskSet.Tasks.Count>0)
+
+				if (mTaskSetOpen) then
+				begin
+					this.Text = String.Format("{0} [{1}]",appName,mTaskSet.Description)
+				end
+				else
+				begin
+					txtTaskSetDescription.Text = ""
+					this.Text = appName
+				end
+
+			endmethod
+		endproperty
+		
+		private method tasksBindingSource_CurrentItemChanged, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
 		proc
-			if (taskGrid.SelectedRows.Count>0) then
-				taskProperties.SelectedObject = taskGrid.SelectedRows[0].DataBoundItem
-			else
-				taskProperties.SelectedObject = ^null
+			taskProperties.SelectedObject = tasksBindingSource.Current
 		endmethod
-				
-		private method btnGenerateCode_Click, void
+		
+		private method tasksBindingSource_ListChanged, void
+			sender, @object 
+			e, @System.ComponentModel.ListChangedEventArgs 
+			endparams
+		proc
+			btnGenerateCode.Enabled = (tasksBindingSource.Count>0)
+			mnuGenerateCode.Enabled = (tasksBindingSource.Count>0)
+		endmethod
+		
+		private method doGenerateCode, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
@@ -119,7 +152,7 @@ namespace CodeGenTaskManager
 			this.Refresh()
 					
 			data cg, @CodeGenerator
-			cg = new CodeGenerator(taskset,messageLogger)
+			cg = new CodeGenerator(mTaskSet,messageLogger)
 			cg.GenerateCode()			
 			cg.Dispose()
 			cg = ^null
@@ -134,32 +167,39 @@ namespace CodeGenTaskManager
 			required in blankLineAfter, Boolean
 			endparams
 		proc
+			;;Log the message
 			if (blankLineBefore)
 				log.Items.Add("")
 			log.Items.Add(messageToLog)
 			if (blankLineAfter)
 				log.Items.Add("")
+
+			;;Make sure the newly added item is visible
+			log.SelectedIndex = log.Items.Count - 1
+			log.SelectedIndex = - 1
+
+			;;Refresh the UI
 			this.Update()
+
 		endmethod
 				
-		private method mnuFileNew_Click, void
+		private method newTaskSet, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
 		proc
-			taskset = new CodeGenTaskSet()
-			taskSetOpen = true
-			configureUiFileOpen()
+			mTaskSet = new CodeGenTaskSet()
+			displayTaskSet()
 		endmethod
 				
-		private method mnuFileOpen_Click, void
+		private method openTaskSet, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
 		proc
 			disposable data dlg, @OpenFileDialog, new OpenFileDialog()
 			dlg.Filter = fileFilter
-			dlg.InitialDirectory = taskSetFolder
+			dlg.InitialDirectory = mTaskSetFolder
 			dlg.Multiselect = false
 			dlg.RestoreDirectory = true
 			dlg.Title = (String)"Open " + fileName
@@ -171,19 +211,12 @@ namespace CodeGenTaskManager
 					stm = dlg.OpenFile()
 					if (stm!=^null)
 					begin
-						taskSetOpen = true
-						taskSetFile = dlg.FileName
+						mTaskSetFile = dlg.FileName
 						data xs, @XmlSerializer, new XmlSerializer(^typeof(CodeGenTaskSet))
 						data xr, @XmlReader, new XmlTextReader(stm)
-						taskset = (CodeGenTaskSet)xs.Deserialize(xr)
+						mTaskSet = (CodeGenTaskSet)xs.Deserialize(xr)
 						stm.Close()
-						
-						taskSetBindingSource.DataSource = taskset
-						
-						;TODO: shouldn't have to do this stuff, and it's not working anyway!!!
-						LoggingLevelComboBox.SelectedIndex = (int)taskset.LoggingLevel
-								
-						configureUiFileOpen()
+						displayTaskSet()
 					end
 				end
 				catch (ex, @Exception)
@@ -193,40 +226,48 @@ namespace CodeGenTaskManager
 				endtry
 			end
 		endmethod
+
+		private method displayTaskSet, void
+			endparams
+		proc
+			taskSetBindingSource.DataSource = mTaskSet
+			LoggingLevelComboBox.SelectedIndex = (int)mTaskSet.LoggingLevel
+			TaskSetOpen = true
+		endmethod
 				
-		private method mnuFileSave_Click, void
+		private method saveTaskSet, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
 		proc
-			if (taskSetOpen)
+			if (TaskSetOpen)
 			begin
-				if (!String.IsNullOrEmpty(taskSetFile)) then
+				if (String.IsNullOrEmpty(mTaskSetFile)) then
+					saveTaskSetAs(sender,e)
+				else
 				begin
 					;Shouldn't have to do this, but data binding isn't doing it right now.
-					taskset.LoggingLevel = (LoggingLevel)LoggingLevelComboBox.SelectedIndex
+					mTaskSet.LoggingLevel = (LoggingLevel)LoggingLevelComboBox.SelectedIndex
 
-					data stm, @StreamWriter, File.CreateText(taskSetFile)
+					data stm, @StreamWriter, File.CreateText(mTaskSetFile)
 					if(stm!=^null)
 					begin
-						data xs, @XmlSerializer, new XmlSerializer(taskset.GetType())
-						xs.Serialize(stm,taskset)
+						data xs, @XmlSerializer, new XmlSerializer(mTaskSet.GetType())
+						xs.Serialize(stm,mTaskSet)
 						stm.Close()
 					end
 				end
-				else
-					mnuFileSaveAs_Click(sender,e)
 			end
 		endmethod
 				
-		private method mnuFileSaveAs_Click, void
+		private method saveTaskSetAs, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
 		proc
 			disposable data dlg, @SaveFileDialog, new SaveFileDialog()
 			dlg.Filter = fileFilter
-			dlg.InitialDirectory = taskSetFolder
+			dlg.InitialDirectory = mTaskSetFolder
 			dlg.RestoreDirectory = true
 			dlg.Title = (String)"Save " + fileName
 			if (dlg.ShowDialog() == DialogResult.OK)
@@ -234,32 +275,31 @@ namespace CodeGenTaskManager
 				data stm, @Stream
 				if((stm = dlg.OpenFile()) != ^null)
 				begin
-					data xs, @XmlSerializer, new XmlSerializer(taskset.GetType())
-					xs.Serialize(stm,taskset)
+					data xs, @XmlSerializer, new XmlSerializer(mTaskSet.GetType())
+					xs.Serialize(stm,mTaskSet)
 					stm.Close()
 				end
 			end
 		endmethod
 				
-		private method mnuFileClose_Click, void
+		private method closeTaskSet, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
 		proc
 			;TODO: Need to save if changed?
 					
-			;taskSetBindingSource.DataSource = ^null
-			taskset = ^null
-			taskSetOpen = false
-			taskSetFile = ^null
-					
+			taskSetBindingSource.Clear()
+			mTaskSet = ^null
+			mTaskSetFile = ^null
+			LoggingLevelComboBox.SelectedIndex = -1
 			taskProperties.SelectedObject = ^null
 					
-			configureUiNoFileOpen()
-					
+			TaskSetOpen = false
+
 		endmethod
 				
-		private method mnuFileExit_Click, void
+		private method closeApplication, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
@@ -275,53 +315,17 @@ namespace CodeGenTaskManager
 			;TODO: Do we need to save an open item before closing?
 		endmethod
 				
-				
-		private method MainForm_Load, void
+		private method descriptionChanged, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
 		proc
-					
+			;TODO: Shouldn't have to do this???
+			if (mTaskSet!=^null)
+				mTaskSet.Description = txtTaskSetDescription.Text
 		endmethod
 				
-		private method txtTaskSetDescription_TextChanged, void
-			sender, @object 
-			e, @System.EventArgs 
-			endparams
-		proc
-			if (taskset!=^null)
-				taskset.Description = txtTaskSetDescription.Text
-		endmethod
-				
-		private method mnuSimulateTaskSet_Click, void
-			sender, @object 
-			e, @System.EventArgs 
-			endparams
-		proc
-			taskset = new CodeGenTaskSet()
-			taskset.Description = "Simulated Task Set"
-			taskset.LoggingLevel = LoggingLevel.Verbose
-					
-			task = new CodeGenTask()
-			task.Description = "Model"
-			task.Structures.Add("PART")
-			task.Templates.Add("Symphony_Data")
-			task.Namespace = "MyApp.Model"
-			task.OutputFolder = "D:\Temp\CodeGenUI\"
-			task.FieldPrefix = "m"
-			task.ReplaceFiles = true
-			task.EchoCommand = true
-			taskset.tasks.Add(task)
-					
-			tasksBindingSource.DataSource = taskset
-			taskSetBindingSource.ResetBindings(false)
-					
-			taskSetOpen = true
-			configureUiFileOpen()
-					
-		endmethod
-				
-		private method mnuToolsOptions_Click, void
+		private method showOptionsDialog, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
@@ -330,12 +334,55 @@ namespace CodeGenTaskManager
 			dlg.ShowDialog()
 		endmethod
 
-
-
-
+		private method showAboutDialog, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			disposable data dlg, @CodeGenTaskManager.Dialogs.AboutBox, new CodeGenTaskManager.Dialogs.AboutBox()
+			dlg.ShowDialog()
+		endmethod
+		
+		private method clearLog, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			log.Items.Clear()
+		endmethod
+		
+		
 
 
 		;LEAVE THIS AT THE BOTTOM!!!
+
+		private method mnuSimulateTaskSet_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			mTaskSet = new CodeGenTaskSet()
+			mTaskSet.Description = "Simulated Task Set"
+			mTaskSet.LoggingLevel = LoggingLevel.Verbose
+			
+			data newTask, @CodeGenTask, new CodeGenTask()
+			newTask.Description = "Model"
+			newTask.Structures.Add("PART")
+			newTask.Templates.Add("Symphony_Data")
+			newTask.Namespace = "MyApp.Model"
+			newTask.OutputFolder = "D:\Temp\CodeGenUI\"
+			newTask.FieldPrefix = "m"
+			newTask.ReplaceFiles = true
+			newTask.EchoCommand = true
+			mTaskSet.tasks.Add(newTask)
+			
+			tasksBindingSource.DataSource = mTaskSet
+			taskSetBindingSource.ResetBindings(false)
+			
+			TaskSetOpen = true
+			
+		endmethod
+		
 		private method bindComboValues, void
 			endparams
 		proc
@@ -343,6 +390,7 @@ namespace CodeGenTaskManager
 			;;Doing this here because the Enum.GetValues screws up indentation
 			LoggingLevelComboBox.DataSource = (Enum.GetValues(^TypeOf(CodeGen.Engine.LoggingLevel)))
 		endmethod
+				
 				
 	endclass
 				

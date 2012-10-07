@@ -4,6 +4,7 @@ import System.Collections.Generic
 import System.ComponentModel
 import System.Data
 import System.Drawing
+import System.IO
 import System.Windows.Forms
 
 namespace CodeGenTaskManager.Dialogs
@@ -15,23 +16,99 @@ namespace CodeGenTaskManager.Dialogs
 		proc
 			this.InitializeComponent()
 
+			txtRpsMain.Text = Properties.Settings.Default.RpsMainFile
+			txtRpsText.Text = Properties.Settings.Default.RpsTextFile
 			chkStartMaximized.Checked = Properties.Settings.Default.StartMaximized
 
+			;;Check that any repository files that are specified actually exist
+			checkRpsFiles()
+
 		endmethod
-		
+
 		private method btnOK_Click, void
 			sender, @object 
 			e, @System.EventArgs 
 			endparams
 		proc
+			;;Check that any repository files that are specified actually exist
+			checkRpsFiles()
 			
+			;;Save the settings
+			Properties.Settings.Default.RpsMainFile = txtRpsMain.Text
+			Properties.Settings.Default.RpsTextFile = txtRpsText.Text
 			Properties.Settings.Default.StartMaximized = chkStartMaximized.Checked
 			Properties.Settings.Default.Save()
+
+			;;If we have repository files, activate the repository
+			if (!String.IsNullOrEmpty(txtRpsMain.Text)&&!String.IsNullOrEmpty(txtRpsText.Text))
+			begin
+				data sts, int
+				setlog("RPSMFIL",txtRpsMain.Text,sts)
+				setlog("RPSTFIL",txtRpsText.Text,sts)
+			end
 
 			this.DialogResult = DialogResult.OK
 
 		endmethod
 		
+		
+		private method findRpsFile, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			
+			disposable data dlg, @OpenFileDialog, new OpenFileDialog()
+			dlg.Multiselect = false
+			dlg.RestoreDirectory = true
+			
+			data theTextBox, @TextBox
+			if (sender==btnRpsMain) then
+			begin
+				theTextBox = txtRpsMain
+				dlg.Title = "Open Repository Main File"
+				dlg.Filter = "Repository Main Files (rpsmain.ism)|rpsmain.ism|All ISAM Files (*.ism)|*.ism|All Files (*.*)|*.*"
+			end
+			else if (sender==btnRpsText) then
+			begin
+				theTextBox = txtRpsText
+				dlg.Title = "Open Repository Text File"
+				dlg.Filter = "Repository Text Files (rpstext.ism)|rpstext.ism|All ISAM Files (*.ism)|*.ism|All Files (*.*)|*.*"
+			end
+			else
+				mreturn
+
+			if ((theTextBox.TextLength>0)&&(File.Exists(theTextBox.Text)))
+				dlg.FileName = theTextBox.Text
+
+			if(dlg.ShowDialog() == DialogResult.OK)
+			begin
+				;;Save the file that was selected to the appropriate text box
+				theTextBox.Text = dlg.FileName
+
+				;;If we picked a main file, see if we can auto detect the text file
+				if ((theTextBox==txtRpsMain)&&(theTextBox.Text.ToLower().Contains("rpsmain.ism")))
+				begin
+					data tmpTextFile = String.Format("{0}\rpstext.ism",Path.GetDirectoryName(theTextBox.Text))
+					if (File.Exists(tmpTextFile))
+						txtRpsText.Text = tmpTextFile
+				end
+			end
+			
+		endmethod
+		
+		private method checkRpsFiles, void
+			endparams
+		proc
+			;;Check that any repository files that are specified actually exist
+			if (!String.IsNullOrEmpty(txtRpsMain.Text)&&!File.Exists(txtRpsMain.Text))
+				txtRpsMain.Clear()
+			
+			if (!String.IsNullOrEmpty(txtRpsText.Text)&&!File.Exists(txtRpsText.Text))
+				txtRpsText.Clear()
+		endmethod
+		
 	endclass
+
 endnamespace
 
