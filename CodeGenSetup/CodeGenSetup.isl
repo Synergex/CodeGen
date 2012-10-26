@@ -347,6 +347,7 @@
 		<row><td>CodeGen.chm</td><td>{8797F556-82A6-4426-8C17-0DE8E316EBDB}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegen.chm</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>CodeGen.exe</td><td>{1042A5AC-9443-450C-AF94-399694968599}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegen.exe</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>CodeGenEngine.dll</td><td>{D53359B4-7963-4D99-A949-6A260C3E9123}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegenengine.dll</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>CodeGenTaskManager.exe</td><td>{D33292A2-E119-47AB-947F-57671014C33E}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegentaskmanager.exe</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>CreateFile.exe</td><td>{F401A6B5-5698-41C8-B90F-15D19B6DA480}</td><td>INSTALLDIR</td><td>2</td><td/><td>createfile.exe</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>ISX_DEFAULTCOMPONENT</td><td>{5A09C67F-4992-481C-8CCB-6BCC4DBD2FB9}</td><td>TEMPLATES</td><td>2</td><td/><td/><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>ISX_DEFAULTCOMPONENT1</td><td>{92A9A473-8726-4262-919A-28631B9CB6AB}</td><td>INSTALLDIR</td><td>2</td><td/><td/><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
@@ -1878,6 +1879,7 @@
 		<row><td>AlwaysInstall</td><td>CodeGen.chm</td></row>
 		<row><td>AlwaysInstall</td><td>CodeGen.exe</td></row>
 		<row><td>AlwaysInstall</td><td>CodeGenEngine.dll</td></row>
+		<row><td>AlwaysInstall</td><td>CodeGenTaskManager.exe</td></row>
 		<row><td>AlwaysInstall</td><td>CreateFile.exe</td></row>
 		<row><td>AlwaysInstall</td><td>ISX_DEFAULTCOMPONENT</td></row>
 		<row><td>AlwaysInstall</td><td>ISX_DEFAULTCOMPONENT1</td></row>
@@ -1905,6 +1907,8 @@
 		<row><td>codegen.exe</td><td>CodeGen.exe</td><td>CodeGen.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGen.exe</td><td>1</td><td/></row>
 		<row><td>codegen.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>CodeGen.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\CodeGen\CodeGen.ico</td><td>1</td><td/></row>
 		<row><td>codegenengine.dll</td><td>CodeGenEngine.dll</td><td>CODEGE~1.DLL|CodeGenEngine.dll</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenEngine.dll</td><td>1</td><td/></row>
+		<row><td>codegentaskmanager.exe</td><td>CodeGenTaskManager.exe</td><td>CODEGE~1.EXE|CodeGenTaskManager.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenTaskManager.exe</td><td>1</td><td/></row>
+		<row><td>codegentaskmanager.exe.confi</td><td>ISX_DEFAULTCOMPONENT1</td><td>CODEGE~1.CON|CodeGenTaskManager.exe.config</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenTaskManager.exe.config</td><td>1</td><td/></row>
 		<row><td>createfile.exe</td><td>CreateFile.exe</td><td>CREATE~1.EXE|CreateFile.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CreateFile.exe</td><td>1</td><td/></row>
 		<row><td>cs_annotated_class.tkn</td><td>ISX_DEFAULTCOMPONENT</td><td>CS_ANN~1.TKN|cs_annotated_class.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_annotated_class.tkn</td><td>5</td><td/></row>
 		<row><td>cs_annotated_class.tpl</td><td>ISX_DEFAULTCOMPONENT</td><td>CS_ANN~1.TPL|cs_annotated_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_annotated_class.tpl</td><td>5</td><td/></row>
@@ -2288,6 +2292,7 @@
 		<row><td>CodeGen.chm</td><td/><td/><td>_82B25E7F_7C31_4F7E_8635_1407B9C5E679_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>CodeGen.exe</td><td/><td/><td>_B270DB34_15A8_467A_BF26_B2604E4C57A6_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>CodeGenEngine.dll</td><td/><td/><td>_B04CF17F_244D_4A3B_96FA_494270555765_FILTER</td><td/><td/><td/><td/></row>
+		<row><td>CodeGenTaskManager.exe</td><td/><td/><td>_62A81838_AC68_44D3_BE82_124E54FFC13A_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>CreateFile.exe</td><td/><td/><td>_D6A6220B_5D56_4718_B16E_15157A70C68C_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>ISX_DEFAULTCOMPONENT</td><td/><td/><td>_95A7AC28_F837_4759_9B2A_7DAF3D39DDF0_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>ISX_DEFAULTCOMPONENT1</td><td/><td/><td>_98D27662_01E6_4856_B40E_BC8590FDAF28_FILTER</td><td/><td/><td/><td/></row>
@@ -4032,6 +4037,7 @@
 		<row><td>ID_STRING13</td><td>1033</td><td>UNINST~1|Uninstall CodeGen</td><td>0</td><td/><td>-719315764</td></row>
 		<row><td>ID_STRING14</td><td>1033</td><td>*=-PATH</td><td>0</td><td/><td>-719270548</td></row>
 		<row><td>ID_STRING15</td><td>1033</td><td>[~];[INSTALLDIR]</td><td>0</td><td/><td>-719272596</td></row>
+		<row><td>ID_STRING16</td><td>1033</td><td>TASKMA~1|Task Manager (Experimental)</td><td>0</td><td/><td>-719275666</td></row>
 		<row><td>ID_STRING2</td><td>1033</td><td>Synergex PSG</td><td>0</td><td/><td>-719271284</td></row>
 		<row><td>ID_STRING3</td><td>1033</td><td>CodeGen</td><td>0</td><td/><td>-719283572</td></row>
 		<row><td>ID_STRING4</td><td>1033</td><td>CodeGen</td><td>0</td><td/><td>-719279476</td></row>
@@ -4039,7 +4045,7 @@
 		<row><td>ID_STRING6</td><td>1033</td><td>http://codegen.codeplex.com/workitem/list/basic</td><td>0</td><td/><td>-719291700</td></row>
 		<row><td>ID_STRING7</td><td>1033</td><td>http://codegen.codeplex.com/releases</td><td>0</td><td/><td>-719267124</td></row>
 		<row><td>ID_STRING8</td><td>1033</td><td>CodeGen</td><td>0</td><td/><td>-719313876</td></row>
-		<row><td>ID_STRING9</td><td>1033</td><td>REPOSI~1|Repository Browser Utility</td><td>0</td><td/><td>-719291316</td></row>
+		<row><td>ID_STRING9</td><td>1033</td><td>REPOSI~1|Repository Browser Utility (Experimental)</td><td>0</td><td/><td>-719273554</td></row>
 		<row><td>IIDS_UITEXT_FeatureUninstalled</td><td>1033</td><td>This feature will remain uninstalled.</td><td>0</td><td/><td>-719269396</td></row>
 	</table>
 
@@ -4151,6 +4157,7 @@
 		<row><td>NewShortcut1_52857EEEF919419F8E82903568856A0A.exe</td><td/><td>D:\Dev\CodeGen\RpsBrowser\RpsBrowser.ico</td><td>0</td></row>
 		<row><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td/><td>D:\Dev\CodeGen\Documentation\Help.ico</td><td>0</td></row>
 		<row><td>NewShortcut3_03205AF37A81465394AE55B698774BAA.exe</td><td/><td>D:\Dev\CodeGen\Installer\Uninstall.ico</td><td>0</td></row>
+		<row><td>NewShortcut4_68297511CBF3417280B7307AA1429096.exe</td><td/><td>D:\Dev\CodeGen\CodeGenTaskManager\CodeGen.ico</td><td>0</td></row>
 	</table>
 
 	<table name="IniFile">
@@ -4756,6 +4763,7 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<row><td>NewShortcut1</td><td>RpsBrowser.exe</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut2</td><td>CodeGen.chm</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut3</td><td>CodeGen.exe</td><td/><td>newfolder1</td><td>2</td></row>
+		<row><td>NewShortcut4</td><td>CodeGenTaskManager.exe</td><td/><td>newfolder1</td><td>2</td></row>
 	</table>
 
 	<table name="RemoveIniFile">
@@ -4844,6 +4852,7 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<row><td>NewShortcut1</td><td>newfolder1</td><td>##ID_STRING9##</td><td>RpsBrowser.exe</td><td>[INSTALLDIR]RpsBrowser.exe</td><td/><td>##ID_STRING10##</td><td/><td>NewShortcut1_52857EEEF919419F8E82903568856A0A.exe</td><td>0</td><td>1</td><td>WindowsVolume</td><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut2</td><td>newfolder1</td><td>##ID_STRING11##</td><td>CodeGen.chm</td><td>[INSTALLDIR]CodeGen.chm</td><td/><td>##ID_STRING12##</td><td/><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td>0</td><td>3</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut3</td><td>newfolder1</td><td>##ID_STRING13##</td><td>CodeGen.exe</td><td>[SystemFolder]MsiExec.exe</td><td>/x [ProductCode]</td><td/><td/><td>NewShortcut3_03205AF37A81465394AE55B698774BAA.exe</td><td>0</td><td>1</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
+		<row><td>NewShortcut4</td><td>newfolder1</td><td>##ID_STRING16##</td><td>CodeGenTaskManager.exe</td><td>[INSTALLDIR]CodeGenTaskManager.exe</td><td/><td/><td/><td>NewShortcut4_68297511CBF3417280B7307AA1429096.exe</td><td>0</td><td>1</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 	</table>
 
 	<table name="Signature">
