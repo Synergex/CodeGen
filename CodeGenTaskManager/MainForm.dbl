@@ -231,10 +231,18 @@ namespace CodeGenTaskManager
 			endparams
 		proc
 			taskSetBindingSource.DataSource = mTaskSet
-			LoggingLevelComboBox.SelectedIndex = (int)mTaskSet.LoggingLevel
+			LoggingLevelComboBox.SelectedText = mTaskSet.LoggingLevel.ToString()
 			TaskSetOpen = true
 		endmethod
 				
+		private method loggingLevelChanged, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			mTaskSet.LoggingLevel = (LoggingLevel)LoggingLevelComboBox.SelectedIndex
+		endmethod
+		
 		private method saveTaskSet, void
 			sender, @object 
 			e, @System.EventArgs 
@@ -246,9 +254,6 @@ namespace CodeGenTaskManager
 					saveTaskSetAs(sender,e)
 				else
 				begin
-					;Shouldn't have to do this, but data binding isn't doing it right now.
-					mTaskSet.LoggingLevel = (LoggingLevel)LoggingLevelComboBox.SelectedIndex
-
 					data stm, @StreamWriter, File.CreateText(mTaskSetFile)
 					if(stm!=^null)
 					begin
@@ -351,6 +356,23 @@ namespace CodeGenTaskManager
 			log.Items.Clear()
 		endmethod
 		
+		private method changeBaseFolder, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			disposable data dlg, @FolderBrowserDialog, new FolderBrowserDialog()
+			if (!string.IsNullOrEmpty(mTaskSet.BaseFolder))
+				dlg.SelectedPath = mTaskSet.BaseFolder
+
+			if (dlg.ShowDialog()==DialogResult.OK)
+			begin
+				mTaskSet.BaseFolder = dlg.SelectedPath
+				taskSetBindingSource.ResetBindings(false)
+			end
+
+		endmethod
+		
 		
 
 
@@ -390,7 +412,6 @@ namespace CodeGenTaskManager
 			;;Doing this here because the Enum.GetValues screws up indentation
 			LoggingLevelComboBox.DataSource = (Enum.GetValues(^TypeOf(CodeGen.Engine.LoggingLevel)))
 		endmethod
-				
 				
 	endclass
 				
