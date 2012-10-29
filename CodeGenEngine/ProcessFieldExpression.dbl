@@ -429,9 +429,6 @@ namespace CodeGen.Engine
         ("NOTSTRUCTFIELD "),
             if (Fld.DataType!=RpsFieldDataType.StructField)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-		("NOTSYMPHONY_IGNORE "),
-			if ((!instr(1,UpperCase(Fld.UserText),"@SYMPHONY_IGNORE;"))&&(!instr(1,UpperCase(Fld.LongDescription),"@SYMPHONY_IGNORE;")))
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		("NOTTIME "),
             if ((Fld.TypeName!="TIME"))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
@@ -548,9 +545,6 @@ namespace CodeGen.Engine
 		("STRUCTFIELD "),
             if (Fld.DataType==RpsFieldDataType.StructField)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-		("SYMPHONY_IGNORE "),
-			if ((instr(1,UpperCase(Fld.UserText),"@SYMPHONY_IGNORE;"))||(instr(1,UpperCase(Fld.LongDescription),"@SYMPHONY_IGNORE;")))
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		("TEXTBOX "),
             if ((Fld.ViewAs==RpsFieldViewAs.Field)&&(!Fld.SelectionList.Count))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
@@ -603,14 +597,58 @@ namespace CodeGen.Engine
             &   &&(Fld.UserFieldType=="^CLASS^=YYYYMMDDHHMISSUUUUUU"))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 
-        (),
+		;;Custom expressions
+		
+		("CUSTOM_"),
+		begin
+			data customTextStart	,int
+			data customTextEnd		,int, TokenEnd - 1
+			data customTextLen		,int
+
+			using ((a)Loop1ConditionMode[Loop1ConditionMode.Count-1]) select
+			("CUSTOM_NOT_"),
+				customTextStart = TokenStart + 15
+			(),
+				customTextStart = TokenStart + 11
+			endusing
+			
+			customTextLen = customTextEnd - customTextStart + 1
+			
+			if (customTextLen<1) then
+			begin
+				ErrorLog("Invalid custom expression " + buffer(TokenStart+4,TokenEnd-1))
+				ErrStatus = 1
+			end
+			else
+			begin
+				data customExpression, String, buffer(customTextStart,customTextEnd)
+				data userText, String, Fld.UserText
+				data longDescription, String, Fld.LongDescription
+
+				customExpression = customExpression.ToUpper()
+				userText = userText.ToUpper()
+				longDescription = longDescription.ToUpper()
+
+				using ((a)Loop1ConditionMode[Loop1ConditionMode.Count-1]) select
+				("CUSTOM_NOT_"),
+					if (!instr(1,userText,customExpression)&&!instr(1,longDescription,customExpression))
+						Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+				(),
+					if (instr(1,userText,customExpression)||instr(1,longDescription,customExpression))
+						Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+				endusing
+			end
+		end
+
+		(),
         begin
             ;;If we get an invalid condition mode we'll set ErrStatus, which
             ;;will bail us out of this entire call to process_field_loop
-            ErrorLog("Invalid type "+(a)Loop1ConditionMode[Loop1ConditionMode.Count-1]+" in <IF> token")
+			ErrorLog("Invalid field loop expression " + buffer(TokenStart,TokenEnd))
             ErrStatus = 1
         end
-        endusing
+
+		endusing
 
         if (!ErrStatus)
         begin
