@@ -4,18 +4,19 @@ import System.Collections.ObjectModel
 import System.ComponentModel
 import System.Data
 import System.Drawing
+import System.IO
 import System.Windows.Forms
 
 import CodeGen.RepositoryAPI
 
 namespace CodeGen.Engine.PropertyEditors
-
-	public partial class StructureEditorForm extends System.Windows.Forms.Form
-		
-        public method StructureEditorForm
+    
+    public partial class TemplateEditorForm extends System.Windows.Forms.Form
+        
+        public method TemplateEditorForm
             required in initialNames, @ObservableCollection<String>
-			endparams
-		proc
+            endparams
+        proc
             this.InitializeComponent()
 
             ;;Load any existing selected items into the selected names list
@@ -23,17 +24,15 @@ namespace CodeGen.Engine.PropertyEditors
             foreach iName in initialNames
                 listSelected.Items.Add(iName)
             
-            ;;Get a collection of all repository structures 
-            data structures = new RpsStructureCollection(RpsLoadMode.Load)
-
             ;;Add names that are NOT already in the selected list to the available list
-            data str, @RpsStructure
-            foreach str in structures.GetEnumerator()
+            data templatePath, String
+            foreach templatePath in Directory.GetFiles(TemplateFolder,"*.tpl")
             begin
-                if (!initialNames.Contains(str.Name))
-                    listAvailable.Items.Add((String)str.Name)
+                data templateName = Path.GetFileName(templatePath)
+                if (!initialNames.Contains(templateName))
+                    listAvailable.Items.Add(templateName)
             end
-
+            
             ;;Configure the initial state of the buttons
             if (listAvailable.Items.Count>0)
                 listAvailable.SelectedIndex = 0
@@ -43,7 +42,7 @@ namespace CodeGen.Engine.PropertyEditors
             btnRemoveAll.Enabled = (listSelected.Items.Count > 0)
             
         endmethod
-		
+        
         private method listAvailable_SelectedIndexChanged, void
             sender, @object 
             e, @System.EventArgs 
@@ -61,7 +60,7 @@ namespace CodeGen.Engine.PropertyEditors
             btnRemove.Enabled = (listSelected.SelectedIndex>-1)
             btnRemoveAll.Enabled = (listSelected.Items.Count > 0)
         endmethod
-
+        
         private method btnAdd_Click, void
             sender, @object 
             e, @System.EventArgs 
@@ -114,7 +113,7 @@ namespace CodeGen.Engine.PropertyEditors
             listSelected.Items.AddRange(listAvailable.Items)
             listAvailable.Items.Clear()
             listAvailable.SelectedIndex = -1
-
+            
             btnAdd.Enabled = (listAvailable.Items.Count > 0)
             btnAddAll.Enabled = (listAvailable.Items.Count > 0)
             btnRemoveAll.Enabled = (listSelected.Items.Count > 0)
@@ -128,7 +127,7 @@ namespace CodeGen.Engine.PropertyEditors
         proc
             listAvailable.Items.AddRange(listSelected.Items)
             listSelected.Items.Clear()
-                       
+            
             btnRemove.Enabled = (listSelected.Items.Count > 0)
             btnAddAll.Enabled = (listAvailable.Items.Count > 0)
             btnRemoveAll.Enabled = (listSelected.Items.Count > 0)
@@ -144,7 +143,7 @@ namespace CodeGen.Engine.PropertyEditors
             data strName, String
             foreach strName in listSelected.Items
                 mSelectedNames.Add(strName)
-
+                
             DialogResult = DialogResult.OK
             this.Close()
         endmethod
@@ -157,8 +156,21 @@ namespace CodeGen.Engine.PropertyEditors
                 mreturn mSelectedNames
             endmethod
         endproperty
+
+        private static mTemplateFolder, String
+
+        public static property TemplateFolder, String
+            private method get
+            proc
+                mreturn mTemplateFolder
+            endmethod
+            method set
+            proc
+                mTemplateFolder = value
+            endmethod
+        endproperty
+        
         
     endclass
-
 endnamespace
 
