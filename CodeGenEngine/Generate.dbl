@@ -179,7 +179,7 @@ namespace CodeGen.Engine
         ;;during this pass. It's a collection in case the first template
         ;;lists other templates to be processed at the same time.
         Templates = new ArrayList()
-        Templates.Add((@a)Env.CurrentTemplate)
+        Templates.Add(Env.CurrentTemplate)
 
         ;;TemplatesDone is a STATIC collection, it records the structure/template
         ;;combinations that have already been processed during this execution of
@@ -194,13 +194,13 @@ namespace CodeGen.Engine
         ;;Process each template against the structure
         do
         begin
-            Env.CurrentTemplate = (a)Templates[0]
+            Env.CurrentTemplate = (String)Templates[0]
             call process_template
             ;;Record what we just did
             if (Env.RpsInUse) then
-                TemplatesDone.Add((@a)(LowerCase(Str.Name+"|"+Env.CurrentTemplate)))
+                TemplatesDone.Add((String)(LowerCase(Str.Name+"|"+Env.CurrentTemplate)))
             else
-                TemplatesDone.Add((@a)("|"+Env.CurrentTemplate))
+                TemplatesDone.Add((String)("|"+Env.CurrentTemplate))
             Templates.RemoveAt(0)
         end
         until (!Templates.Count)
@@ -227,9 +227,7 @@ namespace CodeGen.Engine
         end
         catch (ex)
         begin
-            data msg, a132
-            s_bld(msg,,"Template %a.tpl not found!",Env.CurrentTemplate)
-            ErrorLog(msg)
+            ErrorLog("Template "+Env.CurrentTemplate+".tpl not found!")
             ErrStatus=1
         end
         endtry
@@ -272,7 +270,7 @@ namespace CodeGen.Engine
                         ;;Not there?
                         if (!TokenEnd)
                         begin
-                            ErrorLog("Token </CODEGEN_FILENAME> not found in template "+UpperCase(Env.CurrentTemplate))
+                            ErrorLog("Token </CODEGEN_FILENAME> not found in template "+Env.CurrentTemplate)
                             ErrStatus = 1
                             exitloop
                         end
@@ -299,9 +297,9 @@ namespace CodeGen.Engine
                     else
                     begin
                         if (Env.RpsInUse) then
-                            s_bld(outfile,,"%a_%a.dbl",LowerCase(Str.Alias),LowerCase(Env.CurrentTemplate))
+                            outfile=Str.Alias.ToLower()+"_"+Env.CurrentTemplate.ToLower()+".dbl"
                         else
-                            s_bld(outfile,,"%a.dbl",LowerCase(Env.CurrentTemplate))
+                            outfile=Env.CurrentTemplate.ToLower()+".dbl"
                         DebugLog(" - Output file name is " + atrim(outfile),false,false)
                     end
                 end
@@ -385,7 +383,7 @@ namespace CodeGen.Engine
                 if (TokenStart=instr(1,buffer,"<PROCESS_TEMPLATE>"))
                 begin
 
-                    data tmpTemplate, @a
+                    data tmpTemplate, String
                     data tplfound, boolean, false
 
                     ;;Find the end tag and extract the file spec
@@ -409,12 +407,12 @@ namespace CodeGen.Engine
                     ;;Is this template already in the done list?
                     if (!tplfound)
                     begin
-                        data doneTemplate, @a
+                        data doneTemplate, String
                         foreach doneTemplate in TemplatesDone
                         begin
                             if (Env.RpsInUse) then
                             begin
-                                if (((a)doneTemplate).eqs.(LowerCase(Str.Name+"|"+buffer)))
+                                if (doneTemplate.eqs.LowerCase(Str.Name+"|"+buffer))
                                 begin
                                     tplfound = true
                                     exitloop
@@ -422,7 +420,7 @@ namespace CodeGen.Engine
                             end
                             else
                             begin
-                                if (((a)doneTemplate).eqs.(LowerCase("|"+buffer)))
+                                if (doneTemplate.eqs.LowerCase("|"+buffer))
                                 begin
                                     tplfound = true
                                     exitloop
@@ -434,7 +432,7 @@ namespace CodeGen.Engine
                     ;;If not in the to do or done lists, add it to the to do list
                     if (!tplfound)
                     begin
-                        Templates.Add((@a)(atrim(buffer)))
+                        Templates.Add((String)atrim(buffer))
                         DebugLog(" - This template defines that an additional template (" + atrim(buffer) + ") is processed",false,false)
                     end
 
@@ -815,11 +813,8 @@ namespace CodeGen.Engine
                 begin
                     if (!NoFileOk) then
                     begin
-                        data msg, a132
-                        s_bld(msg,,"Token <ENV:%a> in template %a requires an environment variable!",envVar,UpperCase(Env.CurrentTemplate))
-                        ErrorLog(msg)
-                        s_bld(msg,,"       Define the environment variable %a and try again.",envVar)
-                        Log(msg,false,false)
+                        ErrorLog("Token <ENV:"+atrim(envVar)+"> in template "+Env.CurrentTemplate+" requires an environment variable!")
+                        Log("       Define the environment variable "+atrim(envVar)+" and try again.",false,false)
                         ErrStatus=1
                     end
                     else
@@ -1078,11 +1073,8 @@ namespace CodeGen.Engine
             begin
                 if (!NoFileOk) then
                 begin
-                    data msg, a132
-                    s_bld(msg,,"File %a not found!",Env.TemplateDir+atrim(includeFileName))
-                    ErrorLog(msg)
-                    s_bld(msg,,"       Referenced in template %a by <FILE:%a>",UpperCase(Env.CurrentTemplate),includeFileName)
-                    Log(msg,false,false)
+                    ErrorLog("File "+Env.TemplateDir+atrim(includeFileName)+" not found!")
+                    Log("       Referenced in template "+Env.CurrentTemplate+" by <FILE:"+atrim(includeFileName)+">",false,false)
                     ErrStatus=1
                 end
                 else
@@ -1967,7 +1959,7 @@ namespace CodeGen.Engine
                 ;;Find the field relating to the current segment
                 for idx from 0 thru Str.Fields.Count-1
                 begin
-                    if (Str.Fields[idx].Name==Segment.Field)
+                    if (Str.Fields[idx].Name.eqs.Segment.Field)
                     begin
                         Fld = Str.Fields[idx]
                         segFound = true
@@ -1978,11 +1970,7 @@ namespace CodeGen.Engine
                 ;;likely reason is that the segment refers to an overlay field
                 ;;which has been removed from the fields collection in CodeGen
                 if (!segFound)
-                begin
-                    data msg, a128
-                    s_bld(msg,,"Structure %a key %a segment %a not found. Is it an excluded overlay?",Str.Name,Key.Name,Segment.Field)
-                    throw new CodeGenException(msg)
-                end
+                    throw new CodeGenException("Structure "+Str.Name+" key "+Key.Name+" segment "+Segment.Field+" not found. Is it an excluded overlay?")
             end
 
             ;;Iterate through the loop template and emit code for the current segment

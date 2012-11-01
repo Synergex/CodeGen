@@ -51,15 +51,16 @@ namespace CodeGen.RepositoryAPI
     public class RpsRelation
 
         ;;Relation attribute data
-        protected mRelationName ,a30
-        protected mFromKey      ,a30
-        protected mToStructure  ,a30
-        protected mToKey        ,a30
+        protected mRelationName     ,String
+        protected mFromStructure    ,String
+        protected mFromKey          ,String
+        protected mToStructure      ,String
+        protected mToKey            ,String
 
         ;; Constructor
         public method RpsRelation
-            required in StructureName, a
-            required in RelationName, a
+            required in StructureName, String
+            required in RelationName, String
             endparams
         proc
             RpsUtils.DbgLog("RpsRelation(StructureName,RelationName) constructor")
@@ -69,25 +70,31 @@ namespace CodeGen.RepositoryAPI
 
         ;; Load relation
         private method LoadRelation, void
-            required in StructureName, a
-            required in RelationName, a
+            required in StructureName, String
+            required in RelationName, String
             endparams
         proc
-            ;;Save the relation name
-            mRelationName = RpsUtils.UpperCase(RelationName)
+            ;;Save the structure and relation names
+            mFromStructure = atrim(StructureName.ToUpper())
+            mRelationName = atrim(RelationName.ToUpper())
             begin
                 data ms_info, s_info
+                data fromKey, a30
+                data toStructure, a30
+                data toKey, a30
                 ;;Set the current structure?
-                dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
+                dd_struct(Repository.RpsControl,DDS_INFO,mFromStructure,ms_info)
                 if (Repository.RpsControl.error)
-                    throw new RpsRelationException("Failed to set current repository structure to "+StructureName)
+                    throw new RpsRelationException("Failed to set current repository structure to "+mFromStructure)
                 ;;Load the relation information
-                dd_relation(Repository.RpsControl,DDR_INFO,mRelationName,mFromKey,mToStructure,mToKey)
-                if (Repository.RpsControl.error)
+                dd_relation(Repository.RpsControl,DDR_INFO,mRelationName,fromKey,toStructure,toKey)
+                if (Repository.RpsControl.error) then
+                    throw new RpsRelationException("Failed to get information for repository relation "+mFromStructure+"."+mRelationName)
+                else
                 begin
-                    data msg, a120
-                    s_bld(msg,,"Failed to get information for repository relation %a.%a",StructureName,RelationName)
-                    throw new RpsRelationException(atrim(msg))
+                    mFromKey = atrim(fromKey)
+                    mToStructure = atrim(toStructure)
+                    mToKey = atrim(toKey)
                 end
             end
         endmethod
@@ -95,35 +102,43 @@ namespace CodeGen.RepositoryAPI
         ;;---------------------------------------------------------------------
         ;;Public properties to expose the attributes to the outside world
 
-        ;; Relation name (a30)
-        public property Name, a
+        ;; Relation name
+        public property Name, String
             method get
             proc
-                mreturn atrim(mRelationName)
+                mreturn mRelationName
             endmethod
         endproperty
 
-        ;; From key (a30)
-        public property FromKey, a
+        ;; From Structure
+        public property FromStructure, String
             method get
             proc
-                mreturn atrim(mFromKey)
+                mreturn mFromStructure
+            endmethod
+        endproperty
+        
+        ;; From key
+        public property FromKey, String
+            method get
+            proc
+                mreturn mFromKey
             endmethod
         endproperty
 
-        ;; To structure (a30)
-        public property ToStructure, a
+        ;; To structure
+        public property ToStructure, String
             method get
             proc
-                mreturn atrim(mToStructure)
+                mreturn mToStructure
             endmethod
         endproperty
 
-        ;; To key (a30)
-        public property ToKey, a
+        ;; To key
+        public property ToKey, String
             method get
             proc
-                mreturn atrim(mToKey)
+                mreturn mToKey
             endmethod
         endproperty
 

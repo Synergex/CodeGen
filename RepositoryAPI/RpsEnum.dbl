@@ -51,11 +51,15 @@ namespace CodeGen.RepositoryAPI
     public class RpsEnum
 
         ;;Enumeration attribute data
-        protected mMembers             ,@RpsEnumMemberCollection
+        protected me_info               ,e_info
+        protected mName                 ,String     ;;Name
+        protected mDescription          ,String     ;;Description
+        protected mLongDescription      ,String     ;;Long description
+        protected mMembers              ,@RpsEnumMemberCollection
 
         ;;Constructor, load enum by name, load all members
         public method RpsEnum
-            required in EnumName, a
+            required in EnumName, String
             endparams
         proc
             RpsUtils.DbgLog("RpsEnum(EnumName) constructor")
@@ -69,18 +73,13 @@ namespace CodeGen.RepositoryAPI
             clear mMembers
         endmethod
 
-        protected me_info               ,e_info
-        protected mName                 ,a30        ;;Name
-        protected mDescription          ,a40        ;;Description
-        protected mLongDescription      ,a1800      ;;Long description
-
         ;;Load the details of an enum
         private method LoadEnum, void
-            required in EnumName, a
+            required in EnumName, String
             endparams
         proc
             ;;Save enum name
-            mName = RpsUtils.UpperCase(EnumName)
+            mName = atrim(EnumName.ToUpper())
 
             ;;Load enum information
             dd_enum(Repository.RpsControl,DDE_INFO,mName,^a(me_info))
@@ -90,20 +89,31 @@ namespace CodeGen.RepositoryAPI
             ;;Load the enums text-based attributes
 
             ;;Description
-            if (me_info.ei_desc)
+            if (me_info.ei_desc) then
             begin
-                xcall dd_enum(Repository.RpsControl,DDE_TEXT,me_info.ei_desc,mDescription)
-                if (Repository.RpsControl.error)
+                data tmpDescription, a40
+                xcall dd_enum(Repository.RpsControl,DDE_TEXT,me_info.ei_desc,tmpDescription)
+                if (Repository.RpsControl.error) then
                     throw new RpsEnumException("Failed to get description for repository enumeration "+mName)
+                else
+                    mDescription = atrim(tmpDescription)
             end
+            else
+                mDescription = ""
 
             ;;Long description
-            if (me_info.ei_ldesc)
+            if (me_info.ei_ldesc) then
             begin
-                dd_enum(Repository.RpsControl,DDE_TEXT,me_info.ei_ldesc,mLongDescription)
-                if (Repository.RpsControl.error)
+                data tmpLongDescription, a1800
+                dd_enum(Repository.RpsControl,DDE_TEXT,me_info.ei_ldesc,tmpLongDescription)
+                if (Repository.RpsControl.error) then
                     throw new RpsEnumException("Failed to get long description for repository enumeration "+mName)
+                else
+                    mLongDescription = tmpLongDescription
             end
+            else
+                mLongDescription = ""
+
         endmethod
 
         ;;---------------------------------------------------------------------
@@ -120,27 +130,27 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;;Enumeration name (a30)
-        public property Name, a
+        ;;Enumeration name
+        public property Name, String
             method get
             proc
-                mreturn %atrim(mName)
+                mreturn mName
             endmethod
         endproperty
 
-        ;;Description (a40)
-        public property Description, a
+        ;;Description
+        public property Description, String
             method get
             proc
-                mreturn %atrim(mDescription)
+                mreturn mDescription
             endmethod
         endproperty
 
-        ;;Long description (a1800)
-        public property LongDescription, a
+        ;;Long description
+        public property LongDescription, String
             method get
             proc
-                mreturn %atrim(mLongDescription)
+                mreturn mLongDescription
             endmethod
         endproperty
 

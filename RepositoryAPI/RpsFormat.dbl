@@ -55,12 +55,12 @@ namespace CodeGen.RepositoryAPI
         ;;Format attribute data
         protected mFormatName       ,a30
         protected mFormatType       ,RpsFormatType
-        protected mFormatString     ,a30
+        protected mFormatString     ,String
 
         ;; Constructor (for structure formats)
         public method RpsFormat
-            required in StructureName, a
-            required in FormatName, a
+            required in StructureName, String
+            required in FormatName, String
             endparams
         proc
             RpsUtils.DbgLog("RpsFormat(StructureName,FormatName) constructor")
@@ -70,7 +70,7 @@ namespace CodeGen.RepositoryAPI
 
         ;; Constructor (for global formats)
         public method RpsFormat
-            required in FormatName, a
+            required in FormatName, String
             endparams
         proc
             RpsUtils.DbgLog("RpsFormat(FormatName) constructor")
@@ -80,62 +80,71 @@ namespace CodeGen.RepositoryAPI
 
         ;; LoadStructureFormat method
         private method LoadStructureFormat, void
-            required in StructureName, a
-            required in FormatName, a
+            required in StructureName, String
+            required in FormatName, String
             endparams
         proc
             try
             begin
                 data ms_info, s_info
-                data tmp_FormatType, a1
+                data tmpFormatType, a1
+                data tmpFormatString, a30
+
                 ;;Set the current structure?
                 dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
                 if (Repository.RpsControl.error)
-                begin
-                    data errtxt, a120
-                    s_bld(errtxt,,"Failed to set current repository structure to %a",StructureName)
-                    throw new RpsFormatException(%atrim(errtxt))
-                end
+                    throw new RpsFormatException("Failed to set current repository structure to "+StructureName)
+
                 ;;Save the format name
-                mFormatName = RpsUtils.UpperCase(FormatName)
+                mFormatName = atrim(FormatName.ToUpper())
+
                 ;;Load the format information
-                dd_format(Repository.RpsControl,DDM_SINFO,mFormatName,tmp_FormatType,mFormatString)
-                if (Repository.RpsControl.error)
-                begin
-                    data errtxt, a120
-                    s_bld(errtxt,,"Failed to get repository structure format %a.%a",StructureName,FormatName)
-                    throw new RpsFormatException(%atrim(errtxt))
-                end
-                using tmp_FormatType select
-                ("A"), mFormatType = RpsFormatType.Alpha
-                ("N"), mFormatType = RpsFormatType.Numeric
+                dd_format(Repository.RpsControl,DDM_SINFO,mFormatName,tmpFormatType,tmpFormatString)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFormatException("Failed to get repository structure format "+StructureName+"."+FormatName)
+                else
+                    mFormatString = atrim(tmpFormatString)
+
+                ;;Set the format type
+                using tmpFormatType select
+                ("A"),
+                    mFormatType = RpsFormatType.Alpha
+                ("N"),
+                    mFormatType = RpsFormatType.Numeric
                 endusing
             end
             catch (ex)
             begin
-                data errtxt, a120
-                s_bld(errtxt,,"Unexected error while retrieving structure %a format %a.",StructureName,FormatName)
-                throw new RpsFormatException(%atrim(errtxt))
+                throw new RpsFormatException("Unexected error while retrieving structure "+StructureName+" format "+mFormatName)
             end
             endtry
         endmethod
 
         ;; LoadGlobalFormat method
         private method LoadGlobalFormat, void
-            required in FormatName, a
+            required in FormatName, String
             endparams
         proc
             begin
-                data tmp_FormatType, a1
+                data tmpFormatType, a1
+                data tmpFormatString, a30
+
                 ;;Save the format name
-                mFormatName = FormatName
+                mFormatName = atrim(FormatName.ToUpper())
+                
                 ;;Load format information
-                dd_format(Repository.RpsControl,DDM_INFO,mFormatName,tmp_FormatType,mFormatString)
-                if (Repository.RpsControl.error)
+                dd_format(Repository.RpsControl,DDM_INFO,mFormatName,tmpFormatType,tmpFormatString)
+                if (Repository.RpsControl.error) then
                     throw new RpsFormatException("Failed to get information for repository global format "+FormatName)
-                using tmp_FormatType select
-                ("A"), mFormatType = RpsFormatType.Alpha
-                ("N"), mFormatType = RpsFormatType.Numeric
+                else
+                    mFormatString = atrim(tmpFormatString)
+                
+                ;;Set the format type
+                using tmpFormatType select
+                ("A"),
+                    mFormatType = RpsFormatType.Alpha
+                ("N"),
+                    mFormatType = RpsFormatType.Numeric
                 endusing
             end
         endmethod
@@ -143,11 +152,11 @@ namespace CodeGen.RepositoryAPI
         ;;---------------------------------------------------------------------
         ;;Public properties to expose the formats attributes to the outside world
 
-        ;; Format name (a30)
-        public property Name, a
+        ;; Format name
+        public property Name, String
             method get
             proc
-                mreturn %atrim(mFormatName)
+                mreturn mFormatName
             endmethod
         endproperty
 
@@ -161,11 +170,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Format string (a30)
-        public property FormatString, a
+        ;; Format string
+        public property FormatString, String
             method get
             proc
-                mreturn %atrim(mFormatString)
+                mreturn mFormatString
             endmethod
         endproperty
 

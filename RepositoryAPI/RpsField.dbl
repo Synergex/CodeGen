@@ -61,41 +61,41 @@ namespace CodeGen.RepositoryAPI
         ;;
         ;;IMPARTANT: If more properties are added, remember to update the cloneField method
         ;;
-        protected mStructureName        ,a30
+        protected mStructureName        ,String
         protected mf_info               ,f_info
-        protected mName                 ,a128
-        protected mOriginalName         ,a30
-        protected mBaseName             ,a128
-        protected mDescription          ,a40
-        protected mLongDescription      ,a1800
-        protected mUserFieldType        ,a30
-        protected mReportHeading        ,a40
-        protected mPrompt               ,a80
-        protected mHelpIdentifier       ,a80
-        protected mInfoLineText         ,a80
-        protected mUserText             ,a80
-        protected mAlternateName        ,a128
-        protected mFieldFont            ,a30
-        protected mPromptFont           ,a30
-        protected mDefaultValue         ,a80
-        protected mArriveMethod         ,a30
-        protected mLeaveMethod          ,a30
-        protected mDrillMethod          ,a30
-        protected mHyperlinkMethod      ,a30
-        protected mChangeMethod         ,a30
-        protected mDisplayMethod        ,a30
-        protected mEditFormatMethod     ,a30
-        protected mStructFieldStructure ,a30
+        protected mName                 ,String
+        protected mOriginalName         ,String
+        protected mBaseName             ,String
+        protected mDescription          ,String
+        protected mLongDescription      ,String
+        protected mUserFieldType        ,String
+        protected mReportHeading        ,String
+        protected mPrompt               ,String
+        protected mHelpIdentifier       ,String
+        protected mInfoLineText         ,String
+        protected mUserText             ,String
+        protected mAlternateName        ,String
+        protected mFieldFont            ,String
+        protected mPromptFont           ,String
+        protected mDefaultValue         ,String
+        protected mArriveMethod         ,String
+        protected mLeaveMethod          ,String
+        protected mDrillMethod          ,String
+        protected mHyperlinkMethod      ,String
+        protected mChangeMethod         ,String
+        protected mDisplayMethod        ,String
+        protected mEditFormatMethod     ,String
+        protected mStructFieldStructure ,String
         protected mArrayDimension       ,[#]int
         protected mfti_range            ,fti_range
         protected mfti_enum             ,fti_enum
         protected mAllowList            ,@ArrayList
         protected mSelectionList        ,@ArrayList
         protected mCorecedType          ,RpsFieldCorecedType
-        protected mEnumName             ,a30
+        protected mEnumName             ,String
         protected mGroupFields          ,@RpsFieldCollection
-        protected mGroupStructure       ,string
-        protected mGroupMemberPrefix    ,a30
+        protected mGroupStructure       ,String
+        protected mGroupMemberPrefix    ,String
 
         ;;; <summary>
         ;;; Constructs a new field based on the name of a structure and a field.
@@ -103,8 +103,8 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="StructureName">Name of the structure containing the field.</param>
         ;;; <param name="FieldName">Name of the field.</param>
         public method RpsField
-            required in StructureName, a
-            required in FieldName, a
+            required in StructureName, String
+            required in FieldName, String
             endparams
         proc
             RpsUtils.DbgLog("RpsField(StructureName,FieldName) constructor")
@@ -117,7 +117,7 @@ namespace CodeGen.RepositoryAPI
         ;;; </summary>
         ;;; <param name="FieldName">Name of the field.</param>
         public method RpsField
-            required in FieldName, a
+            required in FieldName, String
             endparams
         proc
             RpsUtils.DbgLog("RpsField(FieldName) constructor")
@@ -149,8 +149,8 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="StructureName">Repository structure name</param>
         ;;; <param name="FieldName">Name of field to load</param>
         private method LoadField, void
-            required in StructureName, a
-            required in FieldName, a
+            required in StructureName, String
+            required in FieldName, String
             endparams
             record
                 ms_info ,s_info
@@ -168,19 +168,19 @@ namespace CodeGen.RepositoryAPI
         ;;; </summary>
         ;;; <param name="FieldName">Name of field to load</param>
         private method LoadCurrentStructureField, void
-            required in FieldName, a
+            required in FieldName, String
             endparams
         proc
             ;;Save the structure and field names
             mStructureName = RpsUtils.UpperCase(Repository.RpsControl.sname)
-            mName = RpsUtils.UpperCase(FieldName)
+            mName = atrim(FieldName.ToUpper())
             mOriginalName = mName
             mBaseName = mName
 
             ;;Load the field information structure
             dd_field(Repository.RpsControl,DDF_INFO,FieldName,^a(mf_info))
             if (Repository.RpsControl.error)
-                throw new RpsFieldException("Failed to get repository information for " + atrim(mStructureName) +  "." + atrim(FieldName))
+                throw new RpsFieldException("Failed to get repository information for " + mStructureName +  "." + atrim(FieldName))
 
             ;;Load extended data
 
@@ -190,160 +190,253 @@ namespace CodeGen.RepositoryAPI
             mArrayDimension[3] = mf_info.fi_dim[3]
             mArrayDimension[4] = mf_info.fi_dim[4]
 
-            ;;Load description (a40)
-            if (mf_info.fi_desc)
+            ;;Load description
+            if (mf_info.fi_desc) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_desc,mDescription)
-                if (Repository.RpsControl.error)
+                data tmpDescription, a40
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_desc,tmpDescription)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get description for repository field "+FieldName)
+                else
+                    mDescription = atrim(tmpDescription)
             end
+            else
+                mDescription = ""
 
-            ;;Load long description (a1800)
-            if (mf_info.fi_ldesc)
+            ;;Load long description
+            if (mf_info.fi_ldesc) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_ldesc,mLongDescription)
-                if (Repository.RpsControl.error)
+                data tmpLongDescription, a1800
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_ldesc,tmpLongDescription)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get long description for repository field "+FieldName)
+                else
+                    mLongDescription = atrim(tmpLongDescription)
             end
+            else
+                mLongDescription = ""
 
-            ;;Load user defined field type (a30)
-            if (mf_info.fi_usrtyp)
+            ;;Load user defined field type
+            if (mf_info.fi_usrtyp) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_usrtyp,mUserFieldType)
-                if (Repository.RpsControl.error)
+                data tmpUserFieldType, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_usrtyp,tmpUserFieldType)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get user defined type for repository field "+FieldName)
+                else
+                    mUserFieldType = atrim(tmpUserFieldType)
             end
+            else
+                mUserFieldType = ""
 
-            ;;Load report heading (a40)
-            if (mf_info.fi_heading)
+            ;;Load report heading
+            if (mf_info.fi_heading) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_heading,mReportHeading)
-                if (Repository.RpsControl.error)
+                data tmpReportHeading, a40
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_heading,tmpReportHeading)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get report heading for repository field "+FieldName)
+                else
+                    mReportHeading = atrim(tmpReportHeading)
             end
+            else
+                mReportHeading = ""
 
-            ;;Load prompt (a80)
-            if (mf_info.fi_prompt)
+            ;;Load prompt
+            if (mf_info.fi_prompt) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prompt,mPrompt)
-                if (Repository.RpsControl.error)
+                data tmpPrompt, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prompt,tmpPrompt)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get prompt for repository field "+FieldName)
+                else
+                    mPrompt = atrim(tmpPrompt)
             end
+            else
+                mPrompt = ""
 
-            ;;Load help identifier (a80)
-            if (mf_info.fi_help)
+            ;;Load help identifier
+            if (mf_info.fi_help) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_help,mHelpIdentifier)
-                if (Repository.RpsControl.error)
+                data tmpHelpIdentifier, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_help,tmpHelpIdentifier)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get help identifier for repository field "+FieldName)
+                else
+                    mHelpIdentifier = atrim(tmpHelpIdentifier)
             end
+            else
+                mHelpIdentifier = ""
 
-            ;;Load information line text (a80)
-            if (mf_info.fi_infoln)
+            ;;Load information line text
+            if (mf_info.fi_infoln) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_infoln,mInfoLineText)
-                if (Repository.RpsControl.error)
+                data tmpInfoLineText, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_infoln,tmpInfoLineText)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get information line text for repository field "+FieldName)
+                else
+                    mInfoLineText = tmpInfoLineText
             end
+            else
+                mInfoLineText = ""
 
-            ;;Load user text string (a80)
-            if (mf_info.fi_utext)
+            ;;Load user text string
+            if (mf_info.fi_utext) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_utext,mUserText)
-                if (Repository.RpsControl.error)
+                data tmpUserText, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_utext,tmpUserText)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get user text for repository field "+FieldName)
+                else
+                    mUserText = atrim(tmpUserText)
             end
+            else
+                mUserText = ""
 
-            ;;Load alternate name (a30)
+            ;;Load alternate name
             if (mf_info.fi_altnm) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_altnm,mAlternateName)
-                if (Repository.RpsControl.error)
+                data tmpalternateName, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_altnm,tmpAlternateName)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get alternate name for repository field "+FieldName)
+                else
+                    mAlternateName = atrim(tmpalternateName)
             end
             else
                 mAlternateName = mName
 
 
-            ;;Load field font (a30)
-            if (mf_info.fi_font)
+            ;;Load field font
+            if (mf_info.fi_font) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_font,mFieldFont)
-                if (Repository.RpsControl.error)
+                data tmpFieldFont, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_font,tmpFieldFont)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get field font for repository field "+FieldName)
+                else
+                    mFieldFont = atrim(tmpFieldFont)
             end
+            else
+                mFieldFont = ""
 
-            ;;Load prompt font (a30)
-            if (mf_info.fi_prmptfont)
+            ;;Load prompt font
+            if (mf_info.fi_prmptfont) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prmptfont,mPromptFont)
-                if (Repository.RpsControl.error)
+                data tmpPromptFont, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prmptfont,tmpPromptFont)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get prompt font for repository field "+FieldName)
+                else
+                    mPromptFont = atrim(tmpPromptFont)
             end
+            else
+                mPromptFont = ""
 
-            ;;Load default value (a80)
-            if (mf_info.fi_def)
+            ;;Load default value
+            if (mf_info.fi_def) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_def,mDefaultValue)
-                if (Repository.RpsControl.error)
+                data tmpDefaultValue, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_def,tmpDefaultValue)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get default value for repository field "+FieldName)
+                else
+                    mDefaultValue = atrim(tmpDefaultValue)
             end
+            else
+                mDefaultValue = ""
 
-            ;;Load arrive method (a30)
-            if (mf_info.fi_arrivemeth)
+            ;;Load arrive method
+            if (mf_info.fi_arrivemeth) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_arrivemeth,mArriveMethod)
-                if (Repository.RpsControl.error)
+                data tmpArriveMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_arrivemeth,tmpArriveMethod)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get arrive method for repository field "+FieldName)
+                else
+                    mArriveMethod = atrim(tmpArriveMethod)
             end
+            else
+                mArriveMethod = ""
 
-            ;;Load leave method (a30)
-            if (mf_info.fi_leavemeth)
+            ;;Load leave method
+            if (mf_info.fi_leavemeth) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_leavemeth,mLeaveMethod)
-                if (Repository.RpsControl.error)
+                data tmpLeaveMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_leavemeth,tmpLeaveMethod)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get leave method for repository field "+FieldName)
+                else
+                    mLeaveMethod = atrim(tmpLeaveMethod)
             end
+            else
+                mLeaveMethod = ""
 
-            ;;Load drill method (a30)
-            if (mf_info.fi_drillmeth)
+            ;;Load drill method
+            if (mf_info.fi_drillmeth) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_drillmeth,mDrillMethod)
-                if (Repository.RpsControl.error)
+                data tmpDrillMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_drillmeth,tmpDrillMethod)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get drill method for repository field "+FieldName)
+                else
+                    mDrillMethod = atrim(tmpDrillMethod)
             end
+            else
+                mDrillMethod = ""
 
-            ;;Load hyperlink method (a30)
-            if (mf_info.fi_hypermeth)
+            ;;Load hyperlink method
+            if (mf_info.fi_hypermeth) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_hypermeth,mHyperlinkMethod)
-                if (Repository.RpsControl.error)
+                data tmpHyperlinkMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_hypermeth,tmpHyperlinkMethod)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get hyperlink method for repository field "+FieldName)
+                else
+                    mHyperlinkMethod = atrim(tmpHyperlinkMethod)
             end
+            else
+                mHyperlinkMethod = ""
 
-            ;;Load change method (a30)
-            if (mf_info.fi_changemeth)
+            ;;Load change method
+            if (mf_info.fi_changemeth) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_changemeth,mChangeMethod)
-                if (Repository.RpsControl.error)
+                data tmpChangeMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_changemeth,tmpChangeMethod)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get change method for repository field "+FieldName)
+                else
+                    mChangeMethod = atrim(tmpChangeMethod)
             end
+            else
+                mChangeMethod = ""
 
-            ;;Load display format method (a30)
-            if (mf_info.fi_dispmeth)
+            ;;Load display format method
+            if (mf_info.fi_dispmeth) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_dispmeth,mDisplayMethod)
-                if (Repository.RpsControl.error)
+                data tmpDisplayMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_dispmeth,tmpDisplayMethod)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get display method for repository field "+FieldName)
+                else
+                    mDisplayMethod = atrim(tmpDisplayMethod)
             end
+            else
+                mDisplayMethod = ""
 
-            ;;Load edit format method (a30)
-            if (mf_info.fi_editfmtmeth)
+            ;;Load edit format method
+            if (mf_info.fi_editfmtmeth) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_editfmtmeth,mEditFormatMethod)
-                if (Repository.RpsControl.error)
+                data tmpEditFormatMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_editfmtmeth,tmpEditFormatMethod)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get edit format method for repository field "+FieldName)
+                else
+                    mEditFormatMethod = atrim(tmpEditFormatMethod)
             end
+            else
+                mEditFormatMethod = ""
 
             ;;Load allowed value list (@ArrayList)
             mAllowList = new ArrayList()
@@ -394,40 +487,59 @@ namespace CodeGen.RepositoryAPI
             end
 
             ;;Load enumerated field name
-            if ((mf_info.fi_type==T_INT)&&(mf_info.fi_class==C_ENUM)&&(mf_info.fi_enmfld))
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enmfld,mEnumName)
-                if (Repository.RpsControl.error)
+            if ((mf_info.fi_type==T_INT)&&(mf_info.fi_class==C_ENUM)&&(mf_info.fi_enmfld)) then
+            begin
+                data tmpEnumName, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enmfld,tmpEnumName)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get emumeration name for repository field "+FieldName)
+                else
+                    mEnumName = atrim(tmpEnumName)
+            end
+            else
+                mEnumName = ""
 
             ;; Things below here are unique to fields (not included in templates)
 
-            ;;Load a struct fields structure name (a30)
-            if ((mf_info.fi_type=="A")&&(mf_info.fi_class==C_STRFLD))
+            ;;Load a struct fields structure name
+            if ((mf_info.fi_type=="A")&&(mf_info.fi_class==C_STRFLD)) then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_strfld,mStructFieldStructure)
-                if (Repository.RpsControl.error)
+                data tmpStructFieldStructure, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_strfld,tmpStructFieldStructure)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get structure for repository struct field "+FieldName)
+                else
+                    mStructFieldStructure = atrim(tmpStructFieldStructure)
             end
+            else
+                mStructFieldStructure = ""
 
-            ;;Load group structure name (a30)
+            ;;Load group structure name
             mGroupStructure = ""
-            if (mf_info.fi_struct)
+            if (mf_info.fi_struct) then
             begin
-                data tmpa, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,tmpa)
+                data tmpGroupStructure, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,tmpGroupStructure)
                 if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get group structure for repository field "+FieldName)
                 else
-                    mGroupStructure = %atrim(tmpa)
+                    mGroupStructure = atrim(tmpGroupStructure)
             end
+            else
+                mGroupStructure = ""
 
-            ;;Load group member prefix (a30)
-            if (mf_info.fi_prefix)
+            ;;Load group member prefix
+            if (mf_info.fi_prefix)  then
             begin
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prefix,mGroupMemberPrefix)
-                if (Repository.RpsControl.error)
+                data tmpGroupMemberPrefix, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prefix,tmpGroupMemberPrefix)
+                if (Repository.RpsControl.error) then
                     throw new RpsFieldException("Failed to get group prefix for repository field "+FieldName)
+                else
+                    mGroupMemberPrefix = atrim(tmpGroupMemberPrefix)
             end
+            else
+                mGroupMemberPrefix = ""
 
             ;;Is this field a group?
             if (mf_info.fi_group) then
@@ -588,7 +700,7 @@ namespace CodeGen.RepositoryAPI
                 data item, @a
                 mAllowList = new ArrayList()
                 foreach item in SourceField.AllowList
-                    mAllowList.Add((@a)((a)item))
+                    mAllowList.Add(item)
             end
 
             ;;Clone the SelectionList collection
@@ -596,7 +708,7 @@ namespace CodeGen.RepositoryAPI
                 data item, @a
                 mSelectionList = new ArrayList()
                 foreach item in SourceField.SelectionList
-                    mSelectionList.Add((@a)((a)item))
+                    mSelectionList.Add(item)
             end
 
             ;;Clone the GroupFields collection
@@ -615,53 +727,53 @@ namespace CodeGen.RepositoryAPI
         ;;---------------------------------------------------------------------
         ;;Public properties to expose field attributes
 
-        ;; Structure name (a30)
+        ;; Structure name
         .ifdef DBLNET
         {Browsable(false)}
         {ReadOnly(true)}
         .endc
-        public property StructureName, a
+        public property StructureName, String
             method get
             proc
-                mreturn %atrim(mStructureName)
+                mreturn mStructureName
             endmethod
             method set
             proc
-                mStructureName = value
+                mStructureName = atrim(value.ToUpper())
             endmethod
         endproperty
 
-        ;; Field name (a30)
+        ;; Field name
         .ifdef DBLNET
         {Category("Basic Details")}
         {Description("The unique name of the repository field.")}
         {ReadOnly(true)}
         .endc
-        public property Name, a
+        public property Name, String
             method get
             proc
-                mreturn %atrim(mName)
+                mreturn mName
             endmethod
             method set
             proc
-                mName = value
+                mName = atrim(value.ToUpper())
             endmethod
         endproperty
 
-        ;; Description (a40)
+        ;; Description
         .ifdef DBLNET
         {Category("Basic Details")}
         {Description("The description of the field.")}
         {ReadOnly(true)}
         .endc
-        public property Description, a
+        public property Description, String
             method get
             proc
-                mreturn %atrim(mDescription)
+                mreturn mDescription
             endmethod
             method set
             proc
-                mDescription = value
+                mDescription = atrim(value)
             endmethod
         endproperty
         
@@ -1035,20 +1147,20 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; User defined field type (a30)
+        ;; User defined field type
         .ifdef DBLNET
         {Category("Basic Details")}
         {Description("The user defined type of a user defined field.")}
         {ReadOnly(true)}
         .endc
-        public property UserFieldType, a
+        public property UserFieldType, String
             method get
             proc
-                mreturn %atrim(mUserFieldType)
+                mreturn mUserFieldType
             endmethod
             method set
             proc
-                mUserFieldType = value
+                mUserFieldType = atrim(value)
             endmethod
         endproperty
 
@@ -1069,20 +1181,20 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;Enum name (real language enum name) (a30)
+        ;Enum name (real language enum name)
         .ifdef DBLNET
         {Category("Basic Details")}
         {Description("The name of the repository enumeration referenced by an enum field. This refers to a Synergy language enumeration, not a UI Toolkit enumeration.")}
         {ReadOnly(true)}
         .endc
-        public property EnumName, a
+        public property EnumName, String
             method get
             proc
-                mreturn %atrim(mEnumName)
+                mreturn mEnumName
             endmethod
             method set
             proc
-                mEnumName = value
+                mEnumName = atrim(value.ToUpper())
             endmethod
         endproperty
         
@@ -1103,20 +1215,20 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Struct field structure name (a30)
+        ;; Struct field structure name
         .ifdef DBLNET
         {Category("Basic Details")}
         {Description("The name of the structure that defines the type of this struct field.")}
         {ReadOnly(true)}
         .endc
-        public property StructFieldStructure, a
+        public property StructFieldStructure, String
             method get
             proc
-                mreturn %atrim(mStructFieldStructure)
+                mreturn mStructFieldStructure
             endmethod
             method set
             proc
-                mStructFieldStructure = value
+                mStructFieldStructure = atrim(value.ToUpper())
             endmethod
         endproperty
 
@@ -1190,20 +1302,20 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;Group member prefix (a30)
+        ;Group member prefix
         .ifdef DBLNET
         {Category("Basic Details - Group")}
         {Description("The prefix to be applied to members of the group field.")}
         {ReadOnly(true)}
         .endc
-        public property GroupMemberPrefix, a
+        public property GroupMemberPrefix, String
             method get
             proc
-                mreturn %atrim(mGroupMemberPrefix)
+                mreturn mGroupMemberPrefix
             endmethod
             method set
             proc
-                mGroupMemberPrefix = value
+                mGroupMemberPrefix = atrim(value)
             endmethod
         endproperty
         
@@ -1326,37 +1438,37 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Field original name (a30) (used by CodeGen)
+        ;; Field original name
         .ifdef DBLNET
         {Category("CodeGen Extensions")}
         {Description("The original name of the field, before any renaming by CodeGen.")}
         {ReadOnly(true)}
         .endc
-        public property OriginalName, a
+        public property OriginalName, String
             method get
             proc
-                mreturn %atrim(mOriginalName)
+                mreturn mOriginalName
             endmethod
             method set
             proc
-                mOriginalName = value
+                mOriginalName = atrim(value.ToUpper())
             endmethod
         endproperty
         
-        ;; Field base name (used by CodeGen)
+        ;; Field base name
         .ifdef DBLNET
         {Category("CodeGen Extensions")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property BaseName, a
+        public property BaseName, String
             method get
             proc
-                mreturn %atrim(mBaseName)
+                mreturn mBaseName
             endmethod
             method set
             proc
-                mBaseName = value
+                mBaseName = atrim(value.ToUpper())
             endmethod
         endproperty
         
@@ -1587,14 +1699,14 @@ namespace CodeGen.RepositoryAPI
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property HelpIdentifier, a
+        public property HelpIdentifier, String
             method get
             proc
-                mreturn %atrim(mHelpIdentifier)
+                mreturn mHelpIdentifier
             endmethod
             method set
             proc
-                mHelpIdentifier = value
+                mHelpIdentifier = atrim(value)
             endmethod
         endproperty
         
@@ -1604,14 +1716,14 @@ namespace CodeGen.RepositoryAPI
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property InfoLineText, a
+        public property InfoLineText, String
             method get
             proc
-                mreturn %atrim(mInfoLineText)
+                mreturn mInfoLineText
             endmethod
             method set
             proc
-                mInfoLineText = value
+                mInfoLineText = atrim(value)
             endmethod
         endproperty
         
@@ -1621,31 +1733,31 @@ namespace CodeGen.RepositoryAPI
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property UserText, a
+        public property UserText, String
             method get
             proc
-                mreturn %atrim(mUserText)
+                mreturn mUserText
             endmethod
             method set
             proc
-                mUserText = value
+                mUserText = atrim(value)
             endmethod
         endproperty
         
-        ;; Long description (a1800)
+        ;; Long description
         .ifdef DBLNET
         {Category("Display - Field")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property LongDescription, a
+        public property LongDescription, String
             method get
             proc
-                mreturn %atrim(mLongDescription)
+                mreturn mLongDescription
             endmethod
             method set
             proc
-                mLongDescription = value
+                mLongDescription = atrim(value)
             endmethod
         endproperty
         
@@ -1655,14 +1767,14 @@ namespace CodeGen.RepositoryAPI
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property AlternateName, a
+        public property AlternateName, String
             method get
             proc
-                mreturn %atrim(mAlternateName)
+                mreturn mAlternateName
             endmethod
             method set
             proc
-                mAlternateName = value
+                mAlternateName = atrim(value.ToUpper())
             endmethod
         endproperty
         
@@ -1672,14 +1784,14 @@ namespace CodeGen.RepositoryAPI
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property FieldFont, a
+        public property FieldFont, String
             method get
             proc
-                mreturn %atrim(mFieldFont)
+                mreturn mFieldFont
             endmethod
             method set
             proc
-                mFieldFont = value
+                mFieldFont = atrim(value)
             endmethod
         endproperty
         
@@ -1689,14 +1801,14 @@ namespace CodeGen.RepositoryAPI
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property Prompt, a
+        public property Prompt, String
             method get
             proc
-                mreturn %atrim(mPrompt)
+                mreturn mPrompt
             endmethod
             method set
             proc
-                mPrompt = value
+                mPrompt = atrim(value)
             endmethod
         endproperty
         
@@ -1757,31 +1869,31 @@ namespace CodeGen.RepositoryAPI
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property PromptFont, a
+        public property PromptFont, String
             method get
             proc
-                mreturn %atrim(mPromptFont)
+                mreturn mPromptFont
             endmethod
             method set
             proc
-                mPromptFont = value
+                mPromptFont = atrim(value)
             endmethod
         endproperty
         
-        ;Report heading (a40)
+        ;Report heading
         .ifdef DBLNET
         {Category("Display - Report")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property ReportHeading, a
+        public property ReportHeading, String
             method get
             proc
-                mreturn %atrim(mReportHeading)
+                mreturn mReportHeading
             endmethod
             method set
             proc
-                mReportHeading = value
+                mReportHeading = atrim(value)
             endmethod
         endproperty
         
@@ -2391,133 +2503,133 @@ namespace CodeGen.RepositoryAPI
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property DefaultValue, a
+        public property DefaultValue, String
             method get
             proc
-                mreturn %atrim(mDefaultValue)
+                mreturn mDefaultValue
             endmethod
             method set
             proc
-                mDefaultValue = value
+                mDefaultValue = atrim(value)
             endmethod
         endproperty
 
-        ;; Arrive method name (a30)
+        ;; Arrive method name
         .ifdef DBLNET
         {Category("Input - Methods")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property ArriveMethod, a
+        public property ArriveMethod, String
             method get
             proc
-                mreturn %atrim(mArriveMethod)
+                mreturn mArriveMethod
             endmethod
             method set
             proc
-                mArriveMethod = value
+                mArriveMethod = atrim(value.ToUpper())
             endmethod
         endproperty
 
-        ;; Leave method name (a30)
+        ;; Leave method name
         .ifdef DBLNET
         {Category("Input - Methods")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property LeaveMethod, a
+        public property LeaveMethod, String
             method get
             proc
-                mreturn %atrim(mLeaveMethod)
+                mreturn mLeaveMethod
             endmethod
             method set
             proc
-                mLeaveMethod = value
+                mLeaveMethod = atrim(value.ToUpper())
             endmethod
         endproperty
 
-        ;; Drill method name (a30)
+        ;; Drill method name
         .ifdef DBLNET
         {Category("Input - Methods")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property DrillMethod, a
+        public property DrillMethod, String
             method get
             proc
-                mreturn %atrim(mDrillMethod)
+                mreturn mDrillMethod
             endmethod
             method set
             proc
-                mDrillMethod = value
+                mDrillMethod = atrim(value.ToUpper())
             endmethod
         endproperty
 
-        ;; Hyperlink method name (a30)
+        ;; Hyperlink method name
         .ifdef DBLNET
         {Category("Input - Methods")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property HyperlinkMethod, a
+        public property HyperlinkMethod, String
             method get
             proc
-                mreturn %atrim(mHyperlinkMethod)
+                mreturn mHyperlinkMethod
             endmethod
             method set
             proc
-                mHyperlinkMethod = value
+                mHyperlinkMethod = atrim(value.ToUpper())
             endmethod
         endproperty
 
-        ;; Change method name (a30)
+        ;; Change method name
         .ifdef DBLNET
         {Category("Input - Methods")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property ChangeMethod, a
+        public property ChangeMethod, String
             method get
             proc
-                mreturn %atrim(mChangeMethod)
+                mreturn mChangeMethod
             endmethod
             method set
             proc
-                mChangeMethod = value
+                mChangeMethod = atrim(value.ToUpper())
             endmethod
         endproperty
 
-        ;; Display method name (a30)
+        ;; Display method name
         .ifdef DBLNET
         {Category("Input - Methods")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property DisplayMethod, a
+        public property DisplayMethod, String
             method get
             proc
-                mreturn %atrim(mDisplayMethod)
+                mreturn mDisplayMethod
             endmethod
             method set
             proc
-                mDisplayMethod = value
+                mDisplayMethod = atrim(value.ToUpper())
             endmethod
         endproperty
 
-        ;; Edit format method name (a30)
+        ;; Edit format method name
         .ifdef DBLNET
         {Category("Input - Methods")}
         {Description("")}
         {ReadOnly(true)}
         .endc
-        public property EditFormatMethod, a
+        public property EditFormatMethod, String
             method get
             proc
-                mreturn %atrim(mEditFormatMethod)
+                mreturn mEditFormatMethod
             endmethod
             method set
             proc
-                mEditFormatMethod = value
+                mEditFormatMethod = atrim(value.ToUpper())
             endmethod
         endproperty
 
@@ -3085,10 +3197,10 @@ namespace CodeGen.RepositoryAPI
 			mAutoIncrement = false
 			begin
 				data pos1, int
-				if (pos1=instr(1,RpsUtils.UpperCase(mUserText),"@AUTOINCREMENT;")) then
-				mAutoIncrement = true
-			else if (pos1=instr(1,RpsUtils.UpperCase(mLongDescription),"@AUTOINCREMENT;"))
-					mAutoIncrement = true
+				if (pos1=instr(1,mUserText.ToUpper(),"@AUTOINCREMENT;")) then
+				    mAutoIncrement = true
+			    else if (pos1=instr(1,mLongDescription.ToUpper(),"@AUTOINCREMENT;"))
+				    mAutoIncrement = true
 			end
 			
 			mWasArrayElement = false
@@ -4083,86 +4195,6 @@ namespace CodeGen.RepositoryAPI
 				mOdbcName = value
 			endmethod
 		endproperty
-		
-		; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[1] = 1 !!!
-		; Tracker 33206 2/24/12
-		; Used by CodeGenEngine.CheckStructure
-		public method SetArrayDim1, void
-			required in newVal, int
-			endparams
-		proc
-			mArrayDimension[1] = newVal
-		endmethod
-		
-		; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[2] = 1 !!!
-		; Tracker 33206 2/24/12
-		; Used by CodeGenEngine.CheckStructure
-		public method SetArrayDim2, void
-			required in newVal, int
-			endparams
-		proc
-			mArrayDimension[2] = newVal
-		endmethod
-		
-		; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[3] = 1 !!!
-		; Tracker 33206 2/24/12
-		; Used by CodeGenEngine.CheckStructure
-		public method SetArrayDim3, void
-			required in newVal, int
-			endparams
-		proc
-			mArrayDimension[3] = newVal
-		endmethod
-		
-		; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[4] = 1 !!!
-		; Tracker 33206 2/24/12
-		; Used by CodeGenEngine.CheckStructure
-		public method SetArrayDim4, void
-			required in newVal, int
-			endparams
-		proc
-			mArrayDimension[4] = newVal
-		endmethod
-		
-		; BUG WORKAROUND - CAN'T SET Field.OriginalElement[1] = 1 !!!
-		; Tracker 33206 2/24/12
-		; Used by CodeGenEngine.CheckStructure
-		public method SetOriginalElement1, void
-			required in newVal, int
-			endparams
-		proc
-			mOriginalElement[1] = newVal
-		endmethod
-		
-		; BUG WORKAROUND - CAN'T SET Field.OriginalElement[2] = 1 !!!
-		; Tracker 33206 2/24/12
-		; Used by CodeGenEngine.CheckStructure
-		public method SetOriginalElement2, void
-			required in newVal, int
-			endparams
-		proc
-			mOriginalElement[2] = newVal
-		endmethod
-		
-		; BUG WORKAROUND - CAN'T SET Field.OriginalElement[3] = 1 !!!
-		; Tracker 33206 2/24/12
-		; Used by CodeGenEngine.CheckStructure
-		public method SetOriginalElement3, void
-			required in newVal, int
-			endparams
-		proc
-			mOriginalElement[3] = newVal
-		endmethod
-		
-		; BUG WORKAROUND - CAN'T SET Field.OriginalElement[4] = 1 !!!
-		; Tracker 33206 2/24/12
-		; Used by CodeGenEngine.CheckStructure
-		public method SetOriginalElement4, void
-			required in newVal, int
-			endparams
-		proc
-			mOriginalElement[4] = newVal
-		endmethod
 		
 	endclass
 

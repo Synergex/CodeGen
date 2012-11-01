@@ -45,26 +45,27 @@ import CodeGen.RepositoryAPI
 
 namespace CodeGen.Engine
 
-    function PrimaryKeyField, a
+    function PrimaryKeyField, String
 
         required in a_key           ,@RpsKeyCollection
         required out a_errnum, int
-        optional in a_multiple      ,n      ;;Return all segemnts, comma-seperated
-        optional in a_withorder     ,n      ;;Include order (ASC or DESC)
-        optional in a_seperator     ,a      ;;Seperator to use (default is comma)
-        optional in a_prefix        ,a      ;;Prefix for each key segment
+        optional in a_multiple      ,n          ;;Return all segemnts, comma-seperated
+        optional in a_withorder     ,n          ;;Include order (ASC or DESC)
+        optional in a_seperator     ,a          ;;Seperator to use (default is comma)
+        optional in a_prefix        ,a          ;;Prefix for each key segment
         endparams
 
         stack record local_data
             keynbr          ,i4
-            keynames        ,a1024
-            seperator       ,a1
-            prefix          ,a10
+            keynames        ,String
+            seperator       ,String
+            prefix          ,String
         endrecord
 
     proc
 
         init local_data
+        keynames=""
 
         ;;Determine seperator
         if (^passed(a_seperator)) then
@@ -73,8 +74,10 @@ namespace CodeGen.Engine
             seperator = ","
 
         ;;Determine prefix
-        if (^passed(a_prefix))
+        if (^passed(a_prefix)) then
             prefix = a_prefix
+        else
+            prefix=""
 
         ;;Iterate through access keys creating database indexes
 
@@ -106,37 +109,35 @@ namespace CodeGen.Engine
                     begin
                         ;;Add prefix
                         if (prefix)
-                            keynames = atrim(keynames) + atrim(prefix)
+                            keynames = keynames + prefix
                         ;;Add segment name
-                        keynames = atrim(keynames) + seg.Field
+                        keynames = keynames + seg.Field
                         ;;Add order if requested
                         if (^passed(a_withorder)&&a_withorder)
                         begin
                             using seg.Order select
                             (RpsKeySegmentOrder.Ascending),
-                                keynames = atrim(keynames) + " ASC"
+                                keynames = keynames + " ASC"
                             (RpsKeySegmentOrder.Descending),
-                                keynames = atrim(keynames) + " DESC"
+                                keynames = keynames + " DESC"
                             (),
                             begin
                                 using ky.SortOrder select
                                 (RpsKeyOrder.Ascending),
-                                    keynames = atrim(keynames) + " ASC"
+                                    keynames = keynames + " ASC"
                                 (RpsKeyOrder.Descending),
-                                    keynames = atrim(keynames) + " DESC"
+                                    keynames = keynames + " DESC"
                                 endusing
                             end
                             endusing
                         end
                         ;;Add seperator
                         if (segnum<ky.Segments.Count-1)
-                            keynames = atrim(keynames) + seperator
+                            keynames = keynames + seperator
                     end
                     else
                     begin
-                        data mtx, a132
-                        s_bld(mtx,,"Structure %a key %a has an unsupported segment",Env.CurrentStructure.Name,ky.Name)
-                        ErrorLog(mtx)
+                        ErrorLog("Structure "+Env.CurrentStructure.Name+" key "+ky.Name+" has an unsupported segment")
                         a_errnum=9
                         exitloop
                     end
@@ -150,9 +151,7 @@ namespace CodeGen.Engine
                     keynames = ky.Segments[0].Field
                 else
                 begin
-                    data mtx, a132
-                    s_bld(mtx,,"Structure %a key %a has an unsupported segment",Env.CurrentStructure.Name,ky.Name)
-                    ErrorLog(mtx)
+                    ErrorLog("Structure "+Env.CurrentStructure.Name+" key "+ky.Name+" has an unsupported segment")
                     a_errnum=9
                     exitloop
                 end
@@ -162,7 +161,7 @@ namespace CodeGen.Engine
 
         end
 
-        freturn atrim(keynames)
+        freturn keynames
 
     endfunction
 

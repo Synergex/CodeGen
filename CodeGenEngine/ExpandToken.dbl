@@ -365,11 +365,8 @@ namespace CodeGen.Engine
                     ReplacedToken=ReplaceToken(buffer,"<DISPLAY_FIELD>",Str.DisplayField)
                 else
                 begin
-                    data msg, a132
-                    s_bld(msg,,"Token <DISPLAY_FIELD> in template %a requires a display field!",UpperCase(Env.CurrentTemplate))
-                    ErrorLog(msg)
-                    s_bld(msg,,"       Error occurred while processing structure %a.",Str.Name)
-                    Log(msg,false,false)
+                    ErrorLog("Token <DISPLAY_FIELD> in template "+Env.CurrentTemplate+" requires a display field!")
+                    Log("       Error occurred while processing structure "+Str.Name+".",false,false)
                     Log("       Add @CODEGEN_DISPLAY_FIELD to the display fields user text string.",false,false)
                     ErrStatus=1
                 end
@@ -729,10 +726,7 @@ namespace CodeGen.Engine
                 ReplacedToken=ReplaceToken(buffer,"<NAMESPACE>",Env.DefaultNamespace)
             else
             begin
-                data msg, a132
-                s_bld(msg,,"Template %a uses a <NAMESPACE> token!",UpperCase(Env.CurrentTemplate))
-                ErrorLog(msg)
-                Log("       Default namespace required, use SYNDEFNS or -n",false,false)
+                ErrorLog("Template "+Env.CurrentTemplate+" uses a <NAMESPACE> token. Use -n or set SYNDEFNS.")
                 ErrStatus=1
             end
         end
@@ -778,7 +772,7 @@ namespace CodeGen.Engine
             ;;Make sure we have a repository
             if (Env.RpsInUse) then
             begin
-                data replacementText, a CODEGEN_BUFSZ, " "
+                data replacementText, String, ""
                 data FldNbr, int
                 data Fld, @RpsField
                 ;;Iterate through the structure fields
@@ -786,7 +780,7 @@ namespace CodeGen.Engine
                 begin
                     Fld = Str.Fields[FldNbr]
                     ;;Skip the primary key field
-                    if (Fld.Name==PrimaryKeyField(Str.Keys,ErrStatus))
+                    if (Fld.Name.eqs.PrimaryKeyField(Str.Keys,ErrStatus))
                         nextloop
                     ;;Skip fields excluded by Toolkit
                     if (Fld.ExcludedByToolkit)
@@ -830,12 +824,12 @@ namespace CodeGen.Engine
             StructureToken=buffer(TokenStart,TokenEnd)
             if (Env.RpsInUse)  then
             begin
-                data StructureStruct, a30
+                data StructureStruct, String
                 using StructureToken select
                 ("<STRUCTURE_NAME>"),
                     StructureStruct = Str.Alias
                 ("<structure_name>"),
-                    StructureStruct = LowerCase(Str.Alias)
+                    StructureStruct = Str.Alias.ToLower()
                 ("<Structure_Name>"),
                     StructureStruct = MixedCase(Str.Alias)
                 ("<Structure_name>"),
@@ -865,7 +859,7 @@ namespace CodeGen.Engine
                 ("<STRUCTURE_NOALIAS>"),
                     StructureStruct = Str.Name
                 ("<structure_noalias>"),
-                    StructureStruct = LowerCase(Str.Name)
+                    StructureStruct = Str.Name.ToLower()
                 ("<Structure_Noalias>"),
                     StructureStruct = MixedCase(Str.Name)
                 ("<Structure_noalias>"),
@@ -952,14 +946,13 @@ namespace CodeGen.Engine
 
         ("<TEMPLATE>","<template>"),
         begin
-            data TemplateToken, a10
-            data tmptemplate, a30
-            TemplateToken = buffer(TokenStart,TokenEnd)
-            tmptemplate = Env.CurrentTemplate
-            upcase tmptemplate
-            if (TemplateToken=="<template>")
-                locase tmptemplate
-            ReplacedToken=ReplaceToken(buffer,TemplateToken,atrim(tmptemplate))
+            data templateToken, String
+            data tmptemplate, String
+            templateToken = buffer(TokenStart,TokenEnd)
+            tmptemplate = Env.CurrentTemplate.ToUpper()
+            if (templateToken=="<template>")
+                tmptemplate = tmptemplate.ToLower()
+            ReplacedToken=ReplaceToken(buffer,templateToken,tmptemplate)
         end
 
         ("<TIME>"),
@@ -999,16 +992,16 @@ namespace CodeGen.Engine
 
         ("<WINDOW_NAME>","<window_name>","<Window_Name>","<Window_name>","<WindowName>","<windowName>"),
         begin
-            data tmpName, a30
+            data tmpName, String
             if (Env.WindowName) then
-                tmpName = Env.WindowName
+                tmpName = atrim(Env.WindowName)
             else
                 tmpName = Str.Name
             using buffer(TokenStart,TokenEnd) select
             ("<WINDOW_NAME>"),
-                ReplacedToken=ReplaceToken(buffer,"<WINDOW_NAME>",UpperCase(tmpName))
+                ReplacedToken=ReplaceToken(buffer,"<WINDOW_NAME>",tmpName.ToUpper())
             ("<window_name>"),
-                ReplacedToken=ReplaceToken(buffer,"<window_name>",LowerCase(tmpName))
+                ReplacedToken=ReplaceToken(buffer,"<window_name>",tmpName.ToLower())
             ("<Window_Name>"),
                 ReplacedToken=ReplaceToken(buffer,"<Window_Name>",MixedCase(tmpName))
             ("<Window_name>"),

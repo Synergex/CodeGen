@@ -69,8 +69,8 @@ namespace CodeGen.RepositoryAPI
 
             mc_info                 ,c_info
 
-            mMainFile               ,a255
-            mTextFile               ,a255
+            mMainFile               ,String
+            mTextFile               ,String
 
         endrecord
 
@@ -93,8 +93,8 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="MainFile">Repository main file</param>
         ;;; <param name="TextFile">Repository text file</param>
         public method Repository
-            required in MainFile, a
-            required in TextFile, a
+            required in MainFile, String
+            required in TextFile, String
             endparams
         proc
             RpsUtils.DbgLog("Repository(MainFile,TextFile) constructor")
@@ -126,10 +126,19 @@ namespace CodeGen.RepositoryAPI
         ;;; </summary>
         private method OpenRps, void
             endparams
+            record
+                tmpMainFile, a255
+                tmpTextFile, a255
+            endrecord
         proc
-            dd_init(RpsControl,,,mMainFile,mTextFile)
-            if (RpsControl.error)
+            dd_init(RpsControl,,,tmpMainFile,tmpTextFile)
+            if (RpsControl.error) then
                 throw new RpsException("Failed to open repository")
+            else
+            begin
+                mMainFile = atrim(tmpMainFile)
+                mTextFile = atrim(tmpTextFile)
+            end
             GetControlRecord()
         endmethod
 
@@ -139,13 +148,22 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="MainFile">Repository main file</param>
         ;;; <param name="TextFile">Repository text file</param>
         private method OpenRps, void
-            required in MainFile, a
-            required in TextFile, a
+            required in aMainFile, a
+            required in aTextFile, a
             endparams
-        proc
-            dd_init(RpsControl,MainFile,TextFile,mMainFile,mTextFile)
-            if (RpsControl.error)
+            record
+                tmpMainFile, a255
+                tmpTextFile, a255
+            endrecord
+            proc
+            dd_init(RpsControl,aMainFile,aTextFile,tmpMainFile,tmpTextFile)
+            if (RpsControl.error) then
                 throw new RpsException("Failed to open repository")
+            else
+            begin
+                mMainFile = atrim(tmpMainFile)
+                mTextFile = atrim(tmpTextFile)
+            end
             GetControlRecord()
         endmethod
 
@@ -221,41 +239,41 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="MainFile">Repository main file</param>
         ;;; <param name="TextFile">Repository text file</param>
         public method Open, void
-            required in MainFile, a
-            required in TextFile, a
+            required in aMainFile, a
+            required in aTextFile, a
             endparams
         proc
             CloseRps()
-            OpenRps(MainFile,TextFile)
+            OpenRps(aMainFile,aTextFile)
         endmethod
 
         ;;---------------------------------------------------------------------
         ;;Public properties
 
         ;;; <summary>
-        ;;; Repository main file spec (a255)
+        ;;; Repository main file spec
         ;;; </summary>
-        public property MainFile, a
+        public property MainFile, String
             method get
             proc
-                mreturn %atrim(mMainFile)
+                mreturn mMainFile
             endmethod
         endproperty
 
         ;;; <summary>
-        ;;; Repository text file spec (a255)
+        ;;; Repository text file spec
         ;;; </summary>
-        public property TextFile, a
+        public property TextFile, String
             method get
             proc
-                mreturn %atrim(mTextFile)
+                mreturn mTextFile
             endmethod
         endproperty
 
         ;;; <summary>
         ;;; Last modification timestamp (a14, YYYYMMDDHHMMSS)
         ;;; </summary>
-        public property LastModified, a
+        public property LastModified, String
             method get
             proc
                 mreturn mc_info.ci_tstamp
@@ -265,7 +283,7 @@ namespace CodeGen.RepositoryAPI
         ;;; <summary>
         ;;; Last structure addition / deletion (a14, YYYYMMDDHHMMSS)
         ;;; </summary>
-        public property LastStructureAddDelete, a
+        public property LastStructureAddDelete, String
             method get
             proc
                 mreturn mc_info.ci_str_tstamp
@@ -273,12 +291,12 @@ namespace CodeGen.RepositoryAPI
         endproperty
 
         ;;; <summary>
-        ;;; Repository version (a8)
+        ;;; Repository version
         ;;; </summary>
-        public property Version, a
+        public property Version, String
             method get
             proc
-                mreturn mc_info.ci_ver
+                mreturn atrim(mc_info.ci_ver)
             endmethod
         endproperty
 
@@ -304,7 +322,7 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="StructureName">Name of structure to retrieve</param>
         ;;; <returns>Repository structure object</returns>
         public method GetStructure, @RpsStructure
-            required in StructureName, a
+            required in StructureName, String
             endparams
         proc
             mreturn new RpsStructure(StructureName)
@@ -332,7 +350,7 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="FileName">Name of file definition to retrieve</param>
         ;;; <returns>Repository file object</returns>
         public method GetFile, @RpsFile
-            required in FileName, a
+            required in FileName, String
             endparams
         proc
             mreturn new RpsFile(FileName)
@@ -360,7 +378,7 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="TemplateName">Name of template to retrieve</param>
         ;;; <returns>Repository template object</returns>
         public method GetTemplate, @RpsTemplate
-            required in TemplateName, a
+            required in TemplateName, String
             endparams
         proc
             mreturn new RpsTemplate(TemplateName)
@@ -414,7 +432,7 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="FormatName">Name of format to retrieve</param>
         ;;; <returns>Repository format object</returns>
         public method GetFormat, @RpsFormat
-            required in FormatName, a
+            required in FormatName, String
             endparams
         proc
             mreturn new RpsFormat(FormatName)

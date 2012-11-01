@@ -58,7 +58,7 @@ namespace CodeGen.RepositoryAPI
         endmethod
 
         ;;---------------------------------------------------------------------
-        ;;Convert an alpha string to lowercase
+        ;;Convert an alpha to lowercase
         ;;
         public static method LowerCase, a
             required in InText, a
@@ -72,9 +72,19 @@ namespace CodeGen.RepositoryAPI
             locase ^m(MemHandle)
             mreturn ^m(MemHandle)
         endmethod
-
+        
         ;;---------------------------------------------------------------------
-        ;;Convert an alpha string to UPPERCASE
+        ;;Convert a string to lowercase
+        ;;
+        public static method LowerCase, String
+            required in InText, String
+            endparams
+        proc
+            mreturn atrim(InText.ToLower())
+        endmethod
+        
+        ;;---------------------------------------------------------------------
+        ;;Convert an alpha to UPPERCASE
         ;;
         public static method UpperCase, a
             required in InText, a
@@ -90,7 +100,17 @@ namespace CodeGen.RepositoryAPI
         endmethod
 
         ;;---------------------------------------------------------------------
-        ;;Convert an alpha string to Mixed_Case
+        ;;Convert a string to UPPERCASE
+        ;;
+        public static method UpperCase, String
+            required in InText, String
+            endparams
+        proc
+            mreturn atrim(InText.ToUpper())
+        endmethod
+        
+        ;;---------------------------------------------------------------------
+        ;;Convert an alpha to Mixed_Case
         ;;
         public static method MixedCase, a
             required in InText, a
@@ -193,9 +213,9 @@ namespace CodeGen.RepositoryAPI
 		;;Get the mapped structure name for a structure
 		;;
 		public static method GetMappedStructure, String
-			required in aStructureName, a
-			required in aUserText, a
-			required in aLongDescription, a
+			required in aStructureName, String
+			required in aUserText, String
+			required in aLongDescription, String
 			endparams
 			record
 				mappedStructure, String
@@ -204,31 +224,23 @@ namespace CodeGen.RepositoryAPI
 			endrecord
 		proc
 			mappedStructure = ""
-			if (pos1=%instr(1,RpsUtils.UpperCase(aUserText),"@MAP=")) then
+			if (pos1=%instr(1,aUserText.ToUpper(),"@MAP=")) then
 			begin
 				pos2=%instr(pos1,aUserText,";")
 				if ((!pos2)||(pos2<pos1+6)) then
-				begin
-					data tmpbuf, a128
-					xcall s_bld(tmpbuf,,"Structure %a has an invalid @MAP specification in user text.",aStructureName)
-					throw new RpsStructureException(tmpbuf)
-				end
+                    throw new RpsStructureException("Structure "+aStructureName+" has an invalid @MAP specification in user text.")
 				else
-					mappedStructure = RpsUtils.UpperCase(aUserText(pos1+5,pos2-1))
-			end
+                    mappedStructure = aUserText(pos1+5,pos2-1).ToUpper()
+            end
 			else
 			begin
-				if (pos1=%instr(1,RpsUtils.UpperCase(aLongDescription),"@MAP="))
+                if (pos1=%instr(1,aLongDescription.ToUpper(),"@MAP="))
 				begin
 					pos2=%instr(pos1,aLongDescription,";")
 					if ((!pos2)||(pos2<pos1+6)) then
-					begin
-						data tmpbuf, a128
-						xcall s_bld(tmpbuf,,"Structure %a has an invalid @MAP specification in long description.",aStructureName)
-						throw new RpsStructureException(tmpbuf)
-					end
+                        throw new RpsStructureException("Structure "+aStructureName+" has an invalid @MAP specification in long description.")
 					else
-						mappedStructure = RpsUtils.UpperCase(aLongDescription(pos1+5,pos2-1))
+						mappedStructure = aLongDescription(pos1+5,pos2-1).ToUpper()
 				end
 			end
 			mreturn mappedStructure
@@ -238,10 +250,10 @@ namespace CodeGen.RepositoryAPI
 		;;Get the mapped field name for a field
 		;;
 		public static method GetMappedField, String
-			required in aStructureName, a
-			required in aFieldName, a
-			required in aUserText, a
-			required in aLongDescription, a
+			required in aStructureName, String
+			required in aFieldName, String
+			required in aUserText, String
+			required in aLongDescription, String
 			endparams
 			record
 				mappedField, String
@@ -250,31 +262,23 @@ namespace CodeGen.RepositoryAPI
 			endrecord
 		proc
 			mappedField = ""
-			if (pos1=instr(1,UpperCase(aUserText),"@MAP=")) then
+			if (pos1=instr(1,aUserText.ToUpper(),"@MAP=")) then
 			begin
 				pos2=instr(pos1,aUserText,";")
 				if (pos2>=pos1+6) then
 					mappedField = RpsUtils.UpperCase(aUserText(pos1+5,pos2-1))
 				else
-				begin
-					data mtx, a132
-					s_bld(mtx,,"Field %a.%a has an invalid @MAP specification in user text",aStructureName,aFieldName)
-					throw new RpsFieldException(mtx)
-				end
+                    throw new RpsFieldException("Field "+aStructureName+"."+aFieldName+" has an invalid @MAP specification in user text")
 			end
 			else
 			begin
-				if (pos1=instr(1,UpperCase(aLongDescription),"@MAP="))
+				if (pos1=instr(1,aLongDescription.ToUpper(),"@MAP="))
 				begin
 					pos2=instr(pos1,aLongDescription,";")
 					if (pos2>=pos1+6) then
 						mappedField = RpsUtils.UpperCase(aLongDescription(pos1+5,pos2-1))
 					else
-					begin
-						data mtx, a132
-						s_bld(mtx,,"Field %a.%a has an invalid @MAP specification in long description",aStructureName,aFieldName)
-						throw new RpsFieldException(mtx)
-					end
+                        throw new RpsFieldException("Field "+aStructureName+"."+aFieldName+" has an invalid @MAP specification in long description")
 				end
 			end
 			mreturn mappedField
@@ -284,10 +288,10 @@ namespace CodeGen.RepositoryAPI
 		;;Get the mapping conversion function for a field
 		;;
 		public static method GetMappingFunction, String
-			required in aStructureName, a
-			required in aFieldName, a
-			required in aUserText, a
-			required in aLongDescription, a
+			required in aStructureName, String
+			required in aFieldName, String
+			required in aUserText, String
+			required in aLongDescription, String
 			endparams
 			record
 				functionName, String
@@ -302,11 +306,7 @@ namespace CodeGen.RepositoryAPI
 				if (pos2>=pos1+7) then
 					functionName = aUserText(pos1+6,pos2-1)
 				else
-				begin
-					data mtx, a128
-					s_bld(mtx,,"Field %a.%a has an invalid @MAPF=func; specification in user text",aStructureName,aFieldName)
-					throw new RpsFieldException(mtx)
-				end
+                    throw new RpsFieldException("Field "+aStructureName+"."+aFieldName+" has an invalid @MAPF=func; specification in user text")
 			end
 			else
 			begin
@@ -316,11 +316,7 @@ namespace CodeGen.RepositoryAPI
 					if (pos2>=pos1+7) then
 						functionName = aLongDescription(pos1+6,pos2-1)
 					else
-					begin
-						data mtx, a128
-						s_bld(mtx,,"Field %a.%a has an invalid @MAPF=func; specification in long description",aStructureName,aFieldName)
-						throw new RpsFieldException(mtx)
-					end
+                        throw new RpsFieldException("Field "+aStructureName+"."+aFieldName+" has an invalid @MAPF=func; specification in long description")
 				end
 			end
 			mreturn functionName
@@ -330,10 +326,10 @@ namespace CodeGen.RepositoryAPI
 		;;Get the mapping unconversion function for a field
 		;;
 		public static method GetUnMappingFunction, String
-			required in aStructureName, a
-			required in aFieldName, a
-			required in aUserText, a
-			required in aLongDescription, a
+			required in aStructureName, String
+			required in aFieldName, String
+			required in aUserText, String
+			required in aLongDescription, String
 			endparams
 			record
 				functionName, String
@@ -348,11 +344,7 @@ namespace CodeGen.RepositoryAPI
 				if (pos2>=pos1+9) then
 					functionName = aUserText(pos1+8,pos2-1)
 				else
-				begin
-					data mtx, a132
-					s_bld(mtx,,"Field %a.%a has an invalid @UNMAPF=func; specification in user text",aStructureName,aFieldName)
-					throw new RpsFieldException(mtx)
-				end
+                    throw new RpsFieldException("Field "+aStructureName+"."+aFieldName+" has an invalid @UNMAPF=func; specification in user text")
 			end
 			else
 			begin
@@ -362,11 +354,7 @@ namespace CodeGen.RepositoryAPI
 					if (pos2>=pos1+9) then
 						functionName = aLongDescription(pos1+8,pos2-1)
 					else
-					begin
-						data mtx, a132
-						s_bld(mtx,,"Field %a.%a has an invalid @UNMAPF=func; specification in long description",aStructureName,aFieldName)
-						throw new RpsFieldException(mtx)
-					end
+                        throw new RpsFieldException("Field "+aStructureName+"."+aFieldName+" has an invalid @UNMAPF=func; specification in long description")
 				end
 			end
 			mreturn functionName

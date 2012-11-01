@@ -47,14 +47,14 @@ namespace CodeGen.RepositoryAPI
     class RpsKeySegment
 
         ;;Key segment attribute data
-        protected mSegmentType  ,a1     ;;Segment type (see .defines above)
-        protected mPosition     ,d5     ;;Segment field position
-        protected mLength       ,d3     ;;Segment field/literal length
-        protected mField        ,a30    ;;Segment field name
-        protected mStructure    ,a30    ;;Segment structure name
-        protected mLiteralValue ,a30    ;;Segment literal value (length in ki_seglen)
-        protected mDataType     ,d1     ;;Optional, segment data type
-        protected mOrder        ,d1     ;;Optional, segment order
+        protected mSegmentType  ,RpsKeySegmentType  ;;Segment type (see .defines above)
+        protected mPosition     ,int                ;;Segment field position
+        protected mLength       ,int                ;;Segment field/literal length
+        protected mField        ,String             ;;Segment field name
+        protected mStructure    ,String             ;;Segment structure name
+        protected mLiteralValue ,String             ;;Segment literal value (length in ki_seglen)
+        protected mDataType     ,int                ;;Optional, segment data type
+        protected mOrder        ,int                ;;Optional, segment order
 
         ;; Constructor
         public method RpsKeySegment
@@ -69,48 +69,45 @@ namespace CodeGen.RepositoryAPI
             endparams
         proc
             RpsUtils.DbgLog("RpsKeySegment(SegType,Posn,Len,Fld,Str,LitVal,Type,Order) constructor")
-            mSegmentType   = a_SegmentType
+
+            using a_SegmentType select
+            ("F"),  mSegmentType = RpsKeySegmentType.Field
+            ("L"),  mSegmentType = RpsKeySegmentType.Literal
+            ("E"),  mSegmentType = RpsKeySegmentType.External
+            ("R"),  mSegmentType = RpsKeySegmentType.RecordNumber
+            endusing
+
             mPosition       = a_Position
-            mLength        = a_Length
-            mField          = a_Field
-            mStructure      = a_Structure
-            mLiteralValue  = a_LiteralValue
-            mDataType      = a_DataType
-            mOrder         = a_Order
+            mLength         = a_Length
+            mField          = atrim(a_Field)
+            mStructure      = atrim(a_Structure)
+            mLiteralValue   = atrim(a_LiteralValue)
+            mDataType       = a_DataType
+            mOrder          = a_Order
+            
             ;;Segment orders are optional in Repository, but default to
             ;;ascending in ISAM.  If we don't have a segment order, default to
             ;;ascending
             if (!mOrder)
                 mOrder = 1
+            
             ;;Segment data types are optional in Repository, but default to
             ;;alpha in ISAM.  If we don't have a segment data type, default to
             ;;alpha
             if (!mDataType)
                 mDataType = 1
+        
         endmethod
 
-        ;; Segment type (enum RpsKeySegmentType)
-        ;;   Field, 1
-        ;;   Literal, 2
-        ;;   External, 3
-        ;;   RecordNumber, 4
+        ;; Segment type
         public property SegmentType, RpsKeySegmentType
             method get
-                record
-                    retval, RpsKeySegmentType
-                endrecord
             proc
-                using mSegmentType select
-                ("F"),  retval = RpsKeySegmentType.Field
-                ("L"),  retval = RpsKeySegmentType.Literal
-                ("E"),  retval = RpsKeySegmentType.External
-                ("R"),  retval = RpsKeySegmentType.RecordNumber
-                endusing
-                mreturn retval
+                mreturn mSegmentType
             endmethod
         endproperty
 
-        ;; Segment field position (d5)
+        ;; Segment field position
         public property Position, int
             method get
             proc
@@ -118,7 +115,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Segment field/literal length (d3)
+        ;; Segment field/literal length
         public property Length, int
             method get
             proc
@@ -126,36 +123,31 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Segment field name (a30)
-        public property Field, a
+        ;; Segment field name
+        public property Field, String
             method get
             proc
-                mreturn %atrim(mField)
+                mreturn mField
             endmethod
         endproperty
 
-        ;; Segment structure name (a30)
-        public property Structure, a
+        ;; Segment structure name
+        public property Structure, String
             method get
             proc
-                mreturn %atrim(mStructure)
+                mreturn mStructure
             endmethod
         endproperty
 
-        ;; Segment literal value (a30, length in mLength)
-        public property LiteralValue, a
+        ;; Segment literal value (length in mLength)
+        public property LiteralValue, String
             method get
             proc
-                mreturn mLiteralValue(1:mLength)
+                mreturn mLiteralValue
             endmethod
         endproperty
 
-        ;; Optional, segment data type (enum RpsKeySegmentDataType)
-        ;;   Alpha, 1
-        ;;   NoCaseAlpha, 2
-        ;;   Decimal, 3
-        ;;   SignedInteger, 4
-        ;;   UnsignedInteger, 5
+        ;; Optional, segment data type
         public property DataType, RpsKeySegmentDataType
             method get
             proc

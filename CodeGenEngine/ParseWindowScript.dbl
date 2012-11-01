@@ -66,7 +66,7 @@ namespace CodeGen.Engine
             InWindow        ,int                    ;;We are processing an input window
             wscrec1         ,a2048                  ;;Temp I/O buffer
             wscrec2         ,a2048                  ;;Temp I/O buffer
-            InpWnd          ,a15                    ;;Input window being processed
+            InpWnd          ,String                 ;;Input window being processed
         endrecord
 
     proc
@@ -98,8 +98,7 @@ namespace CodeGen.Engine
                 else
                 begin
                     ;;Extract the window name
-                    WindowName = WscFile(pos1+1,trim(WscFile))
-                    WindowName = WindowName.ToUpper()
+                    WindowName = UpperCase(WscFile(pos1+1,trim(WscFile)))
                 end
                 ;;Remove the window number or name from the script file name
                 WscFile = WscFile(1:pos1-1)
@@ -114,7 +113,7 @@ namespace CodeGen.Engine
 
         if (WindowNum!=0) then
             DebugLog(" - Searching for input window #" + string(WindowNum),false,false)
-        else if (WindowName.Length>0)
+        else if (WindowName)
             DebugLog(" - Searching for input window " + WindowName,false,false)
 
         ;;Open the file, fail if can't
@@ -122,10 +121,8 @@ namespace CodeGen.Engine
             open(WscChn=0,i:s,WscFile)
         catch (ex)
         begin
-            data mtx, a132
-            s_bld(mtx,,"Can't open window script %a!",WscFile)
-            ErrorLog(mtx)
-            aErrorMessage = atrim(mtx)
+            ErrorLog("Can't open window script "+WscFile)
+            aErrorMessage = atrim("Can't open window script "+WscFile)
             ErrStatus=54
             freturn ErrStatus
         end
@@ -183,9 +180,9 @@ namespace CodeGen.Engine
                 if (InWindow) then
                 begin
                     if (WindowNum>0) then
-                        DebugLog(" - Found end of input window #" + string(WindowCnt) + " " + UpperCase(InpWnd),false,false)
+                        DebugLog(" - Found end of input window #" + string(WindowCnt) + " " + InpWnd,false,false)
                     else
-                        DebugLog(" - Found end of input window " + atrim(InpWnd),false,false)
+                        DebugLog(" - Found end of input window " + InpWnd,false,false)
                     GotWindow=1
                     exitloop
                 end
@@ -204,13 +201,12 @@ namespace CodeGen.Engine
                 wscrec1 = wscrec1 - ".input "
                 ;;Find the , for the end of the window name and extract the name
                 pos1=instr(1,wscrec1,",")
-                InpWnd = wscrec1(1:pos1-1)
-                upcase InpWnd
+                InpWnd = UpperCase(wscrec1(1:pos1-1))
                 wscrec1 = wscrec1(pos1+1,trim(wscrec1))
                 wscrec1 = RemoveLeading(wscrec1)
                 
                 ;;Is this the one we were looking for?
-                if (((WindowNum>0)&&(WindowCnt != WindowNum)) || ((WindowName.Length>0)&&(WindowName.nes.atrim(InpWnd))))
+                if (((WindowNum>0)&&(WindowCnt!=WindowNum)) || (WindowName.Length>0&&(WindowName.nes.InpWnd)))
                     nextloop
                 
                 ;;Yes, found it!
@@ -434,11 +430,9 @@ eowsc,  close WscChn
         ;;Did we find an input window
         if ((!errstatus)&&(!GotWindow))
         begin
-            data mtx, a132
-            s_bld(mtx,,"No input windows found in window script %a!",WscFile)
-            ErrorLog(mtx)
+            aErrorMessage = "No input windows found in window script "+atrim(WscFile)
+            ErrorLog(aErrorMessage)
             ErrStatus=57
-            aErrorMessage = atrim(mtx)
             clear FieldSets
         end
 
@@ -456,11 +450,9 @@ eowsc,  close WscChn
                 ;;Did it have any fields
                 if (!CurrentFieldSet.Count)
                 begin
-                    data mtx, a132
-                    s_bld(mtx,,"Structure %a in window %a in script %a contains no fields!",(a)CurrentFieldSet.StructureName,InpWnd,WscFile)
-                    ErrorLog(mtx)
+                    aErrorMessage = "Structure "+CurrentFieldSet.StructureName+" in window "+atrim(InpWnd)+" in script "+atrim(WscFile)+" contains no fields!"
+                    ErrorLog(aErrorMessage)
                     ErrStatus=58
-                    aErrorMessage = atrim(mtx)
                     exitloop
                 end
                 
@@ -539,8 +531,7 @@ eowsc,  close WscChn
                         Struct = new RpsStructure(CurrentFieldSet.StructureName,Fields)
                     catch (ex)
                     begin
-                        data mtx, a132
-                        s_bld(mtx,,"Structure %a not found!",Env.CurrentStructure.Name)
+                        data mtx, String, "Structure "+Env.CurrentStructure.Name+" not found!" 
                         ErrorLog(mtx)
                         ErrStatus=33
                         aErrorMessage = atrim(mtx)
@@ -548,7 +539,7 @@ eowsc,  close WscChn
                     end
                     endtry
 
-                    if (Env.SelectionWindowScript!=^null)
+                    if (Env.SelectionWindowScript)
                     begin
                         if (!ProcessSelectionWindows(Struct,aErrorMessage))
                         begin

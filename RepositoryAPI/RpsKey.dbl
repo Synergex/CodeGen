@@ -52,14 +52,14 @@ namespace CodeGen.RepositoryAPI
 
         ;;Key attribute data
         protected mk_info       ,k_info
-        protected mDescription  ,a40
-        protected mNullValue    ,a255
+        protected mDescription  ,String
+        protected mNullValue    ,String
         protected mSegments     ,@RpsKeySegmentCollection
 
         ;; Constructor
         public method RpsKey
-            required in StructureName, a
-            required in KeyName, a
+            required in StructureName, String
+            required in KeyName, String
             endparams
         proc
             RpsUtils.DbgLog("RpsKey(StructureName,KeyName) constructor")
@@ -75,52 +75,48 @@ namespace CodeGen.RepositoryAPI
 
         ;;Load key
         private method LoadKey, void
-            required in StructureName, a
-            required in KeyName, a
+            required in StructureName, String
+            required in KeyName, String
             endparams
         proc
             begin
                 data ms_info, s_info
+
                 ;;Set the current structure?
                 dd_struct(Repository.RpsControl,DDS_INFO,StructureName,^a(ms_info))
                 if (Repository.RpsControl.error)
-                begin
-                    data errtxt, a120
-                    s_bld(errtxt,,"Failed to set current repository structure to %a.",StructureName)
-                    throw new RpsKeyException(%atrim(errtxt))
-                end
+                    throw new RpsKeyException("Failed to set current repository structure to "+StructureName)
+
                 ;;Get key information record
                 dd_key(Repository.RpsControl,DDK_INFO,KeyName,^a(mk_info))
                 if (Repository.RpsControl.error)
-                begin
-                    data msg, a128
-                    s_bld(msg,,"Failed to get key information for repository key %a.%a.",StructureName,KeyName)
-                    throw new RpsKeyException(atrim(msg))
-                end
+                    throw new RpsKeyException("Failed to get key information for repository key "+StructureName+"."+KeyName)
 
                 ;;Get key description
-                if (mk_info.ki_desc)
+                if (mk_info.ki_desc) then
                 begin
-                    dd_key(Repository.RpsControl,DDK_TEXT,mk_info.ki_desc,mDescription)
-                    if (Repository.RpsControl.error)
-                    begin
-                        data msg, a128
-                        s_bld(msg,,"Failed to get description repository key %a.%a.",StructureName,KeyName)
-                        throw new RpsKeyException(atrim(msg))
-                    end
+                    data tmpDescription, a40
+                    dd_key(Repository.RpsControl,DDK_TEXT,mk_info.ki_desc,tmpDescription)
+                    if (Repository.RpsControl.error) then
+                        throw new RpsKeyException("Failed to get description repository key "+StructureName+"."+KeyName)
+                    else
+                        mDescription = atrim(tmpDescription)
                 end
+                else
+                    mDescription = ""
 
                 ;;Get null value string
-                if (mk_info.ki_nullval)
+                if (mk_info.ki_nullval) then
                 begin
-                    dd_key(Repository.RpsControl,DDK_TEXT,mk_info.ki_nullval,mNullValue)
-                    if (Repository.RpsControl.error)
-                    begin
-                        data msg, a128
-                        s_bld(msg,,"Failed to get null key string for repository key %a.%a.",StructureName,KeyName)
-                        throw new RpsKeyException(atrim(msg))
-                    end
+                    data tmpNullValue, a255
+                    dd_key(Repository.RpsControl,DDK_TEXT,mk_info.ki_nullval,tmpNullValue)
+                    if (Repository.RpsControl.error) then
+                        throw new RpsKeyException("Failed to get null key string for repository key "+StructureName+"."+KeyName)
+                    else
+                        mNullValue = atrim(tmpNullValue)
                 end
+                else
+                    mNullValue = ""
 
                 ;;Load the key segments collection
                 mSegments = new RpsKeySegmentCollection(mk_info)
@@ -134,7 +130,7 @@ namespace CodeGen.RepositoryAPI
         ;;---------------------------------------------------------------------
         ;;Public properties to expose the keys attributes to the outside world
 
-        ;; Sequence number (d3)
+        ;; Sequence number
         public property SequenceNumber, int
             method get
             proc
@@ -142,8 +138,8 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Key name (a30, for use with dd_filespec)
-        public property Name, a
+        ;; Key name
+        public property Name, String
             method get
             proc
                 mreturn RpsUtils.UpperCase(mk_info.ki_name)
@@ -160,7 +156,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Total size of all key segments (d3)
+        ;; Total size of all key segments
         public property Size, int
             method get
             proc
@@ -168,11 +164,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Short description (a40)
-        public property Description, a
+        ;; Short description
+        public property Description, String
             method get
             proc
-                mreturn %atrim(mDescription)
+                mreturn mDescription
             endmethod
         endproperty
 
@@ -226,15 +222,15 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Null value string (a255)
-        public property NullKeyValue, a
+        ;; Null value string
+        public property NullKeyValue, String
             method get
             proc
-                mreturn %atrim(mNullValue)
+                mreturn mNullValue
             endmethod
         endproperty
 
-        ;; Optional explicit key of reference (d3)
+        ;; Optional explicit key of reference
         public property KeyOfReference, int
             method get
             proc
@@ -242,7 +238,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Key density (d3)
+        ;; Key density
         public property Density, int
             method get
             proc
@@ -250,7 +246,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Compress index? (boolean)
+        ;; Compress index?
         public property CompressIndex, boolean
             method get
             proc
@@ -258,7 +254,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Compress record? (boolean)
+        ;; Compress record?
         public property CompressData, boolean
             method get
             proc
@@ -266,7 +262,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Compress key? (boolean)
+        ;; Compress key?
         public property CompressKey, boolean
             method get
             proc
@@ -274,7 +270,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Is key accessible to ODBC? (boolean)
+        ;; Is key accessible to ODBC?
         public property OdbcAccessible, boolean
             method get
             proc
@@ -293,4 +289,3 @@ namespace CodeGen.RepositoryAPI
     endclass
 
 endnamespace
-

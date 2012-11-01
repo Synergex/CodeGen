@@ -78,7 +78,7 @@ namespace CodeGen.RepositoryAPI
             endrecord
         proc
 
-            str = %atrim(StructureOrGroup)
+            str = atrim(StructureOrGroup)
 
             RpsUtils.DbgLog("Constructor    : RpsFieldCollection("+string(LoadMode)+","+str+")")
 
@@ -165,17 +165,15 @@ namespace CodeGen.RepositoryAPI
 
         ;;Load group fields
         private method LoadGroupFields, void
-            required in GroupName, a
+            required in GroupName, String
             endparams
             record local_data
                 MemHandle   ,int
                 ix          ,int
-                grp         ,string
             endrecord
         proc
             init local_data
-            grp = %atrim(GroupName)
-            RpsUtils.DbgLog("               : RpsFieldCollection.LoadGroupFields(GroupName="+grp+")")
+            RpsUtils.DbgLog("               : RpsFieldCollection.LoadGroupFields(GroupName="+GroupName+")")
             try
             begin
                 data mf_info, f_info
@@ -183,19 +181,11 @@ namespace CodeGen.RepositoryAPI
                 ;;Get field information for group field
                 dd_field(Repository.RpsControl,DDF_INFO,GroupName,^a(mf_info))
                 if (Repository.RpsControl.error)
-                begin
-                    data msg, a128
-                    s_bld(msg,,"Failed to get information for explicit group field %a",GroupName)
-                    throw new RpsGroupException(atrim(msg))
-                end
+                    throw new RpsGroupException("Failed to get information for explicit group field "+GroupName)
 
                 ;;Make sure this really is an explicit group
                 if (!mf_info.fi_group||mf_info.fi_struct)
-                begin
-                    data msg, a128
-                    s_bld(msg,,"Repository field %a is not an explicit group!",GroupName)
-                    throw new RpsGroupException(atrim(msg))
-                end
+                    throw new RpsGroupException("Repository field "+GroupName+" is not an explicit group!")
 
                 ;;Do we have any fields to load?
                 if (mf_info.fi_mbrct)
@@ -229,7 +219,7 @@ namespace CodeGen.RepositoryAPI
             end
             endtry
 
-            RpsUtils.DbgLog("               : RpsFieldCollection.LoadGroupFields(GroupName="+grp+") done")
+            RpsUtils.DbgLog("               : RpsFieldCollection.LoadGroupFields(GroupName="+GroupName+") done")
 
         endmethod
 
@@ -406,14 +396,14 @@ namespace CodeGen.RepositoryAPI
 
         ;;Gets or sets the element at the specified index.
         public property Indexer, @RpsField
-            required in FieldName, a
+            required in FieldName, String
             method get
                 record
                     field   ,@RpsField
                 endrecord
             proc
                 foreach field in mCollection
-                    if (field.Name==FieldName)
+                    if (field.Name.eqs.FieldName)
                         mreturn field
                 mreturn ^null
             endmethod

@@ -52,17 +52,17 @@ namespace CodeGen.RepositoryAPI
 
         ;;File attribute data
         protected mfl_info          ,fl_info
-        protected mFileName         ,a30        ;; Repository file name
-        protected mDescription      ,a40        ;; Description
-        protected mLongDescription  ,a1800      ;; Long description
-        protected mUserText         ,a60        ;; User text
-        protected mPortableInts     ,a120       ;; Portable integer specs
+        protected mFileName         ,String     ;; Repository file name
+        protected mDescription      ,String     ;; Description
+        protected mLongDescription  ,String     ;; Long description
+        protected mUserText         ,String     ;; User text
+        protected mPortableInts     ,String     ;; Portable integer specs
         protected mKeys             ,@RpsKeyCollection
         protected mStructures       ,@RpsStructureCollection
 
         ;; Constructor
         public method RpsFile
-            required in FileName, a
+            required in FileName, String
             endparams
         proc
             RpsUtils.DbgLog("RpsFile(FileName) constructor")
@@ -72,117 +72,143 @@ namespace CodeGen.RepositoryAPI
 
         ;; LoadFile method
         private method LoadFile, void
-            required in FileName, a
+            required in FileName, String
             endparams
         proc
             ;;Save the file name
-            mFileName = RpsUtils.UpperCase(FileName)
+            mFileName = atrim(FileName.ToUpper())
 
             ;;Load file information
-            dd_file(Repository.RpsControl,DDL_INFO,FileName,^a(mfl_info))
+            dd_file(Repository.RpsControl,DDL_INFO,mFileName,^a(mfl_info))
             if (Repository.RpsControl.error)
-                throw new RpsFileException("Failed to get information for repository file "+FileName)
+                throw new RpsFileException("Failed to get information for repository file "+mFileName)
+
             ;;Load description
-            if (mfl_info.fli_desc)
+            if (mfl_info.fli_desc) then
             begin
-                xcall dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_desc,mDescription)
-                if (Repository.RpsControl.error)
-                    throw new RpsFileException("Failed to get description for repository file "+FileName)
+                data tmpDescription, a40
+                xcall dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_desc,tmpDescription)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFileException("Failed to get description for repository file "+mFileName)
+                else
+                    mDescription = atrim(tmpDescription)
             end
+            else
+                mDescription = ""
+
             ;;Load long description
-            if (mfl_info.fli_ldesc)
+            if (mfl_info.fli_ldesc) then
             begin
-                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_ldesc,mLongDescription)
-                if (Repository.RpsControl.error)
-                    throw new RpsFileException("Failed to get long description for repository file "+FileName)
+                data tmpLongDescription, a1800
+                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_ldesc,tmpLongDescription)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFileException("Failed to get long description for repository file "+mFileName)
+                else
+                    mLongDescription = tmpLongDescription
             end
+            else
+                mLongDescription = ""
+
             ;;Load user text
-            if (mfl_info.fli_utext)
+            if (mfl_info.fli_utext) then
             begin
-                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_utext,mUserText)
-                if (Repository.RpsControl.error)
-                    throw new RpsFileException("Failed to get user text for repository file "+FileName)
+                data tmpUserText, a60
+                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_utext,tmpUserText)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFileException("Failed to get user text for repository file "+mFileName)
+                else
+                    mUserText = atrim(tmpUserText)
             end
+            else
+                mUserText = ""
+
             ;;Load portable integer specs
-            if (mfl_info.fli_portable)
+            if (mfl_info.fli_portable) then
             begin
-                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_portable,mPortableInts)
-                if (Repository.RpsControl.error)
-                    throw new RpsFileException("Failed to get portable integer specifications for repository file "+FileName)
+                data tmpPortableInts, a120
+                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_portable,tmpPortableInts)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFileException("Failed to get portable integer specifications for repository file "+mFileName)
+                else
+                    mPortableInts = atrim(tmpPortableInts)
             end
+            else
+                mPortableInts = ""
+
             ;;Defualt the file's key density to 50% if not specified
             if (!mfl_info.fli_density)
                 mfl_info.fli_density = 50
+
         endmethod
 
         ;;---------------------------------------------------------------------
         ;;Public properties to expose the files attributes to the outside world
 
-        ;; Repository file name (a30)
-        public property Name, a
+        ;; Repository file name
+        public property Name, String
             method get
             proc
-                mreturn %atrim(mFileName)
+                mreturn mFileName
             endmethod
         endproperty
 
-        ;; Desctiption (a40)
-        public property Description, a
+        ;; Desctiption
+        public property Description, String
             method get
             proc
-                mreturn %atrim(mDescription)
+                mreturn mDescription
             endmethod
         endproperty
 
-        ;; Long description (a1800)
-        public property LongDescription, a
+        ;; Long description
+        public property LongDescription, String
             method get
             proc
-                mreturn %atrim(mLongDescription)
+                mreturn mLongDescription
             endmethod
         endproperty
 
-        ;; User text string (a60)
-        public property UserText, a
+        ;; User text string
+        public property UserText, String
             method get
             proc
-                mreturn %atrim(mUserText)
+                mreturn mUserText
             endmethod
         endproperty
 
-        ;; Portable integer specifications (a120)
-        public property PortableIntSpecs, a
+        ;; Portable integer specifications
+        public property PortableIntSpecs, String
             method get
             proc
-                mreturn %atrim(mPortableInts)
+                mreturn mPortableInts
             endmethod
         endproperty
 
-        ;; Timestamp of last modification (a14)
-        public property LastModified, a
+        ;; Timestamp of last modification
+        public property LastModified, String
             method get
             proc
-                mreturn mfl_info.fli_tstamp
+                mreturn atrim(mfl_info.fli_tstamp)
             endmethod
         endproperty
 
         ;; File type (a15, e.g., "DBL ISAM", "ASCII")
-        public property FileType, a
+        public property FileType, String
             method get
             proc
-                mreturn %atrim(mfl_info.fli_filtyp)
+                mreturn atrim(mfl_info.fli_filtyp)
             endmethod
         endproperty
 
-        ;; Actual filename (a255)
-        public property FileSpec, a
+        ;; Actual filename
+        public property FileSpec, String
             method get
             proc
-                mreturn %atrim(mfl_info.fli_fname)
+                mreturn atrim(mfl_info.fli_fname)
             endmethod
         endproperty
 
-        ;; Is file definition "temporary"? (boolean)
+        ;; Is file definition "temporary"?
         public property TempFile, boolean
             method get
             proc
@@ -190,7 +216,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Number of structures assigned to the file (d3)
+        ;; Number of structures assigned to the file
         public property StructureCount, int
             method get
             proc
@@ -198,11 +224,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; First (or only) assigned structure (a30)
-        public property FirstStructure, a
+        ;; First (or only) assigned structure
+        public property FirstStructure, String
             method get
             proc
-                mreturn %atrim(mfl_info.fli_struct)
+                mreturn atrim(mfl_info.fli_struct)
             endmethod
         endproperty
 
@@ -230,7 +256,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; File density (d3)
+        ;; File density
         public property Density, int
             method get
             proc
@@ -238,7 +264,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; File addressing (enum RpsFileAddressing)
+        ;; File addressing
         ;;   Addressing32Bit, 0
         ;;   Addressing40Bit, 1
         public property Addressing, RpsFileAddressing
@@ -248,7 +274,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Compress record data? (boolean)
+        ;; Compress record data?
         public property RecordCompression, boolean
             method get
             proc
@@ -256,7 +282,7 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Static RFA's? (boolean)
+        ;; Static RFA's?
         public property StaticRfa, boolean
             method get
             proc

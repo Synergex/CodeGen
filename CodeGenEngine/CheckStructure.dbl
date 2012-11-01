@@ -76,19 +76,11 @@ namespace CodeGen.Engine
 
             ;; Make sure there is only one tag
             if (Struct.Tags.Count>1)
-            begin
-                data mtx, a132
-                s_bld(mtx,,"WARNING: Structure %a has multiple tags. <TAG_*> tokens may not work!",Struct.Name)
-                Log(mtx,false,false)
-            end
+                Log("WARNING: Structure "+Struct.Name+" has multiple tags. <TAG_*> tokens may not work!",false,false)
 
             ;; Make sure it's a field=value tag
             if (ok&&Struct.TagType!=RpsTagType.FieldAndValue)
-            begin
-                data mtx, a132
-                s_bld(mtx,,"WARNING: Structure %a has an unsupported record length tag.  <TAG_*> tokens may not work!",Struct.Name)
-                Log(mtx,false,false)
-            end
+                Log("WARNING: Structure "+Struct.Name+" has an unsupported record length tag. <TAG_*> tokens may not work!",false,false)
 
             ;; Populate the tag name
             ;TODO: Should remove this in future, Generate can get it from the structure
@@ -97,11 +89,7 @@ namespace CodeGen.Engine
                 Struct.TagName = Struct.Tags[0].Name
                 ;;Make sure it's an .EQ. tag
                 if (Struct.Tags[0].ComparisonOperator!=RpsTagOperator.OpEQ)
-                begin
-                    data mtx, a132
-                    s_bld(mtx,,"WARNING: Structure %a has an unsupported tag type. <TAG_*> tokens may not work!",Struct.Name)
-                    Log(mtx,false,false)
-                end
+                    Log("WARNING: Structure "+Struct.Name+" has an unsupported tag type. <TAG_*> tokens may not work!",false,false)
             end
 
             ;; Save tag details
@@ -112,7 +100,7 @@ namespace CodeGen.Engine
                 Struct.TagValue = '"' + Struct.Tags[0].ComparisonValue + '"'
                 ;;Calculate tag end value
                 if (IsNumeric(Struct.TagValue)) then
-                     endval = ^d(atrim(Struct.TagValue))+1
+                     endval = integer(Struct.TagValue)+1
                  else
                  begin
                      endval = Struct.TagValue
@@ -126,12 +114,12 @@ namespace CodeGen.Engine
         ;; Make sure the structure has not been excluded with @NOCODEGEN
         if (ok)
         begin
-            if (instr(1,UpperCase(Struct.UserText),"@NOCODEGEN")) then
+            if (Struct.UserText.ToUpper().Contains("@NOCODEGEN")) then
             begin
                 DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN in user text",false,false)
                 ok = false
 			end
-			else if (instr(1,UpperCase(Struct.LongDescription),"@NOCODEGEN"))
+			else if (Struct.LongDescription.ToUpper().Contains("@NOCODEGEN"))
 			begin
 				DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN in long description",false,false)
 				ok = false
@@ -167,7 +155,7 @@ namespace CodeGen.Engine
                 ;; If there is a subset specified then remove all fields that are
                 ;; not a member of that subset
 
-                if (Env.SubSetName.Length>0)
+                if (Env.SubSetName)
                 begin
 					if ((!instr(1,Field.UserText,"@SUB="+Env.SubSetName+";"))&&(!instr(1,Field.LongDescription,"@SUB="+Env.SubSetName+";")))
                     begin
@@ -181,9 +169,7 @@ namespace CodeGen.Engine
                 ;TODO: Enums are just an i4, so we should be able to add support
                 if (Field.DataType == RpsFieldDataType.Enum)
                 begin
-                    data mtx, a132
-                    s_bld(mtx,,"Field %a is an unsupported ENUM field",Field.Name)
-                    ErrorLog(mtx)
+                    ErrorLog("Field "+Field.Name+" is an unsupported ENUM field")
                     ok = false
                     exitloop
                 end
@@ -192,9 +178,7 @@ namespace CodeGen.Engine
                 ;TODO: Binary is just a character array so we should be able to add support
                 if (Field.DataType == RpsFieldDataType.Binary)
                 begin
-                    data mtx, a132
-                    s_bld(mtx,,"Field %a is an unsupported BINARY field",Field.Name)
-                    ErrorLog(mtx)
+                    ErrorLog("Field "+Field.Name+" is an unsupported BINARY field")
                     ok = false
                     exitloop
                 end
@@ -203,9 +187,7 @@ namespace CodeGen.Engine
                 ;TODO: Could treat a struct field as a string, or a class in other thanguages
                 if (Field.DataType == RpsFieldDataType.StructField)
                 begin
-                    data mtx, a132
-                    s_bld(mtx,,"Field %a is an unsupported STRUCTFIELD field",Field.Name)
-                    ErrorLog(mtx)
+                    ErrorLog("Field "+Field.Name+" is an unsupported STRUCTFIELD field")
                     ok = false
                     exitloop
                 end
@@ -252,7 +234,7 @@ namespace CodeGen.Engine
 
                                                 ;; Note: BaseName doesn't change because of array expansion
 
-                                                if (Field.MappedField.Length>0)
+                                                if (Field.MappedField.Length)
                                                     NewField.MappedField = Field.MappedField + arrayIndex
 
                                                 if (Field.Description)
@@ -266,30 +248,17 @@ namespace CodeGen.Engine
 
                                                 ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
 
-                                                ;---------------------------
-                                                ;TODO: BUG - Tracker 33206 2/24/12
-                                                ;NewField.ArrayDimension[1] = 1
-                                                ;NewField.ArrayDimension[2] = 0
-                                                ;NewField.ArrayDimension[3] = 0
-                                                ;NewField.ArrayDimension[4] = 0
-                                                NewField.SetArrayDim1(1)
-                                                NewField.SetArrayDim2(0)
-                                                NewField.SetArrayDim3(0)
-                                                NewField.SetArrayDim4(0)
-                                                ;---------------------------
+                                                NewField.ArrayDimension[1] = 1
+                                                NewField.ArrayDimension[2] = 0
+                                                NewField.ArrayDimension[3] = 0
+                                                NewField.ArrayDimension[4] = 0
 
                                                 NewField.WasArrayElement = true
 
-                                                ;---------------------------
-                                                ;TODO: BUG - Tracker 33206 2/24/12
-                                                ;NewField.OriginalElement[1] = al1
-                                                ;NewField.OriginalElement[2] = al2
-                                                ;NewField.OriginalElement[3] = al3
-                                                ;NewField.OriginalElement[4] = al4
-                                                NewField.SetOriginalElement1(al1)
-                                                NewField.SetOriginalElement2(al2)
-                                                NewField.SetOriginalElement3(al3)
-                                                NewField.SetOriginalElement4(al4)
+                                                NewField.OriginalElement[1] = al1
+                                                NewField.OriginalElement[2] = al2
+                                                NewField.OriginalElement[3] = al3
+                                                NewField.OriginalElement[4] = al4
                                                 ;---------------------------
 
                                                 ;; And add it to the fields collection
@@ -318,7 +287,7 @@ namespace CodeGen.Engine
 
                                             ;; Note: BaseName doesn't change because of array expansion
 
-                                            if (Field.MappedField.Length>0)
+                                            if (Field.MappedField)
                                                 NewField.MappedField = Field.MappedField + arrayIndex
 
                                             if (Field.Description)
@@ -332,27 +301,15 @@ namespace CodeGen.Engine
 
                                             ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
 
-                                            ;---------------------------
-                                            ;TODO: BUG - Tracker 33206 2/24/12
-                                            ;NewField.ArrayDimension[1] = 1
-                                            ;NewField.ArrayDimension[2] = 0
-                                            ;NewField.ArrayDimension[3] = 0
-                                            NewField.SetArrayDim1(1)
-                                            NewField.SetArrayDim2(0)
-                                            NewField.SetArrayDim3(0)
-                                            ;---------------------------
+                                            NewField.ArrayDimension[1] = 1
+                                            NewField.ArrayDimension[2] = 0
+                                            NewField.ArrayDimension[3] = 0
 
                                             NewField.WasArrayElement = true
 
-                                            ;---------------------------
-                                            ;TODO: BUG - Tracker 33206 2/24/12
-                                            ;NewField.OriginalElement[1] = al1
-                                            ;NewField.OriginalElement[2] = al2
-                                            ;NewField.OriginalElement[3] = al3
-                                            NewField.SetOriginalElement1(al1)
-                                            NewField.SetOriginalElement2(al2)
-                                            NewField.SetOriginalElement3(al3)
-                                            ;---------------------------
+                                            NewField.OriginalElement[1] = al1
+                                            NewField.OriginalElement[2] = al2
+                                            NewField.OriginalElement[3] = al3
 
                                             ;; And add it to the fields collection
                                             if ((ix+(fieldsAdded+=1))<Struct.Fields.Count-1) then
@@ -381,7 +338,7 @@ namespace CodeGen.Engine
 
                                     ;; Note: BaseName doesn't change because of array expansion
 
-                                    if (Field.MappedField.Length>0)
+                                    if (Field.MappedField)
                                         NewField.MappedField = Field.MappedField + arrayIndex
 
                                     if (Field.Description)
@@ -395,23 +352,13 @@ namespace CodeGen.Engine
 
                                     ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
 
-                                    ;---------------------------
-                                    ;TODO: BUG - Tracker 33206 2/24/12
-                                    ;NewField.ArrayDimension[1] = 1
-                                    ;NewField.ArrayDimension[2] = 0
-                                    NewField.SetArrayDim1(1)
-                                    NewField.SetArrayDim2(0)
-                                    ;---------------------------
+                                    NewField.ArrayDimension[1] = 1
+                                    NewField.ArrayDimension[2] = 0
 
                                     NewField.WasArrayElement = true
 
-                                    ;---------------------------
-                                    ;TODO: BUG - Tracker 33206 2/24/12
-                                    ;NewField.OriginalElement[1] = al1
-                                    ;NewField.OriginalElement[2] = al2
-                                    NewField.SetOriginalElement1(al1)
-                                    NewField.SetOriginalElement2(al2)
-                                    ;---------------------------
+                                    NewField.OriginalElement[1] = al1
+                                    NewField.OriginalElement[2] = al2
 
                                     ;; And add it to the fields collection
                                     if ((ix+(fieldsAdded+=1))<Struct.Fields.Count-1) then
@@ -440,7 +387,7 @@ namespace CodeGen.Engine
 
                             ;; Note: BaseName doesn't change because of array expansion
 
-                            if (Field.MappedField.Length>0)
+                            if (Field.MappedField)
                                 NewField.MappedField = Field.MappedField + arrayIndex
 
                             if (Field.Description)
@@ -454,19 +401,11 @@ namespace CodeGen.Engine
 
                             ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
 
-                            ;---------------------------
-                            ;TODO: BUG - Tracker 33206 2/24/12
-                            ;NewField.ArrayDimension[1] = 1
-                            NewField.SetArrayDim1(1)
-                            ;---------------------------
+                            NewField.ArrayDimension[1] = 1
 
                             NewField.WasArrayElement = true
 
-                            ;---------------------------
-                            ;TODO: BUG - Tracker 33206 2/24/12
-                            ;NewField.OriginalElement[1] = al1
-                            NewField.SetOriginalElement1(al1)
-                            ;---------------------------
+                            NewField.OriginalElement[1] = al1
 
                             ;; And add it to the fields collection
                             if ((ix+(fieldsAdded+=1))<Struct.Fields.Count-1) then
@@ -487,7 +426,7 @@ namespace CodeGen.Engine
                 ;; Look for the structures display field
                 if (!Struct.DisplayField)
                 begin
-					if ((instr(1,UpperCase(Field.UserText),"@CODEGEN_DISPLAY_FIELD"))||(instr(1,UpperCase(Field.LongDescription),"@CODEGEN_DISPLAY_FIELD")))
+					if ((instr(1,Field.UserText.ToUpper(),"@CODEGEN_DISPLAY_FIELD"))||(instr(1,Field.LongDescription.ToUpper(),"@CODEGEN_DISPLAY_FIELD")))
                         Struct.DisplayField = Field.Name
 				end
 
@@ -496,7 +435,7 @@ namespace CodeGen.Engine
                     nextloop
 
                 ;; Is it an implicit group and we've been told not to expand them?
-                if (Field.GroupStructure.Length>0&&Env.DontExpandImplicitGroups)
+                if ((Field.GroupStructure.Length>0)&&Env.DontExpandImplicitGroups)
                 begin
                     Field.TypeCode = "@"+Field.GroupStructure
                     Field.TypeName = "CLASS"
