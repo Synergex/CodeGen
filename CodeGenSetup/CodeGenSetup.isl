@@ -2369,6 +2369,13 @@
 	<table name="ISDependency">
 		<col key="yes" def="S50">ISDependency</col>
 		<col def="I2">Exclude</col>
+		<row><td>MSVCR100.DLL</td><td>1</td></row>
+		<row><td>SYNERGEX.SYNERGYDE.DDLIB.DLL</td><td>1</td></row>
+		<row><td>SYNERGEX.SYNERGYDE.SYNXML.DLL</td><td>1</td></row>
+		<row><td>SYNRNT.DLL</td><td>1</td></row>
+		<row><td>SYNRNTIL</td><td>1</td></row>
+		<row><td>SYNRTL.DLL</td><td>1</td></row>
+		<row><td>SYNWND.DLL</td><td>1</td></row>
 	</table>
 
 	<table name="ISDisk1File">
@@ -4677,7 +4684,7 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<row><td>PROGMSG_IIS_ROLLBACKWEBSERVICEEXTENSIONS</td><td>##IDS_PROGMSG_IIS_ROLLBACKWEBSERVICEEXTENSIONS##</td><td/></row>
 		<row><td>ProductCode</td><td>{5F6B1BD1-4DF1-4DE3-8146-2EDB3114FDD8}</td><td/></row>
 		<row><td>ProductName</td><td>CodeGen</td><td/></row>
-		<row><td>ProductVersion</td><td>4.2.1</td><td/></row>
+		<row><td>ProductVersion</td><td>4.2.2</td><td/></row>
 		<row><td>ProgressType0</td><td>install</td><td/></row>
 		<row><td>ProgressType1</td><td>Installing</td><td/></row>
 		<row><td>ProgressType2</td><td>installed</td><td/></row>
