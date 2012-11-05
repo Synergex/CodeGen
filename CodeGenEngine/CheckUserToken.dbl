@@ -42,18 +42,24 @@
 
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
+.ifdef DBLNET
+import System.Collections.ObjectModel
+.endc
 
 namespace CodeGen.Engine
     
     function CheckUserToken, boolean
         
-        required in  buffer, a
+		required in buffer			,a
+		required in optionalToken	,boolean
         endparams
         
         stack record
             pos1            ,int
-            pos2            ,int
-            tokenName       ,string
+			pos2            ,int
+			pos3			,int
+			tokenName       ,String
+			defaultValue	,String
             tokenFound      ,Boolean
         endrecord
         
@@ -61,39 +67,100 @@ namespace CodeGen.Engine
         
         tokenFound = false
         
-        pos1 = instr(1,buffer,"<REQUIRES_USERTOKEN>") + 20
-        pos2 = instr(pos1,buffer,"</REQUIRES_USERTOKEN>") -1
-        
-        if (!pos2||(pos2<pos1)) then
-            ErrorLog("Invalid <REQUIRES_USERTOKEN> token syntax")
-		else
-        begin
-            data token, @UserToken
+		if (optionalToken) then
+		begin
+			pos1 = instr(1,buffer,"<OPTIONAL_USERTOKEN>") + 20
+			pos2 = instr(pos1,buffer,"</OPTIONAL_USERTOKEN>") -1
+			pos3 = instr(1,buffer(pos1,pos2),"=") + pos1 -1
+			
+			if (!pos2||!pos3||(pos2<pos1)) then
+				ErrorLog("Invalid <OPTIONAL_USERTOKEN> token syntax")
+			else
+			begin
+				data token, @UserToken
+				
+				tokenName = "<" + atrim(buffer(pos1,pos3-1)) + ">"
+				tokenName = tokenName.ToUpper()
 
-            tokenName = "<" + atrim(buffer(pos1,pos2)) + ">"
-            tokenName = tokenName.ToUpper()
-            DebugLog(" - Checking for user token " + tokenName,false,false)
+				defaultValue = buffer(pos3+1,pos2)
 
-            ;;Check if we have ANY user tokens
-            if (Env.UserTokens!=^null)
-            begin
-				;;We have user tokens, check if we have the one we need
-.ifdef DBLNET
-				foreach token in Env.UserTokens
-.else
-				foreach token in Env.UserTokens.GetEnumerator()
-.endc
-                begin
-                    if (token.Name==tokenName)
-                    begin
-                        tokenFound = true
-                        exitloop
-                    end
-                end
+				DebugLog(" - Checking for optional user token " + tokenName,false,false)
+				
+				;;Check if we have ANY user tokens
+				if (Env.UserTokens!=^null)
+				begin
+					;;We have user tokens, check if we have the one we need
+					.ifdef DBLNET
+					foreach token in Env.UserTokens
+					.else
+					foreach token in Env.UserTokens.GetEnumerator()
+					.endc
+					begin
+						if (token.Name==tokenName)
+						begin
+							tokenFound = true
+							exitloop
+						end
+					end
+				end
+				
+				;;Did we find the token we were looking for?
+				if (!tokenFound)
+				begin
+					;;No, if we don't already have a user tokens collection then create one
+					if (Env.UserTokens==^null)
+					begin
+						.ifdef DBLNET
+						Env.UserTokens = new ObservableCollection<UserToken>()
+						.else
+						Env.UserTokens = new UserTokenCollection()
+						.endc
+					end
+					
+					;;And add the new user token using the default value.
+					Env.UserTokens.Add(new UserToken(tokenName,defaultValue))
+
+					DebugLog(" - Optional user token " + tokenName + " not found, using default value " + defaultValue,false,false)
+					tokenFound = true
+				end
 			end
-
-			if (!tokenFound)
-				ErrorLog("Template " + Env.CurrentTemplate + " requires user-defined token " + tokenName)
+		end
+		else
+		begin
+			pos1 = instr(1,buffer,"<REQUIRES_USERTOKEN>") + 20
+			pos2 = instr(pos1,buffer,"</REQUIRES_USERTOKEN>") -1
+			
+			if (!pos2||(pos2<pos1)) then
+				ErrorLog("Invalid <REQUIRES_USERTOKEN> token syntax")
+			else
+			begin
+				data token, @UserToken
+				
+				tokenName = "<" + atrim(buffer(pos1,pos2)) + ">"
+				tokenName = tokenName.ToUpper()
+				DebugLog(" - Checking for user token " + tokenName,false,false)
+				
+				;;Check if we have ANY user tokens
+				if (Env.UserTokens!=^null)
+				begin
+					;;We have user tokens, check if we have the one we need
+					.ifdef DBLNET
+					foreach token in Env.UserTokens
+					.else
+					foreach token in Env.UserTokens.GetEnumerator()
+					.endc
+					begin
+						if (token.Name==tokenName)
+						begin
+							tokenFound = true
+							exitloop
+						end
+					end
+				end
+				
+				if (!tokenFound)
+					ErrorLog("Template " + Env.CurrentTemplate + " requires user-defined token " + tokenName)
+			end
 		end
         
         freturn tokenFound
