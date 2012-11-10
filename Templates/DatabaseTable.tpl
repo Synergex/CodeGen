@@ -888,15 +888,15 @@ namespace <NAMESPACE>
             <IF DECIMAL>
             if ((!arg<StructureName>.<field_sqlname>)||(!this.IsNumeric(^a(arg<StructureName>.<field_sqlname>))))
                 clear arg<StructureName>.<field_sqlname>
-            </IF>
+            </IF DECIMAL>
             <IF DATE>
             if ((!arg<StructureName>.<field_sqlname>)||(!this.IsNumeric(^a(arg<StructureName>.<field_sqlname>))))
                 ^a(arg<StructureName>.<field_sqlname>(1:1))=%char(0)
-            </IF>
+            </IF DATE>
             <IF TIME>
             if ((!arg<StructureName>.<field_sqlname>)||(!this.IsNumeric(^a(arg<StructureName>.<field_sqlname>))))
                 ^a(arg<StructureName>.<field_sqlname>(1:1))=%char(0)
-            </IF>
+            </IF TIME>
             </FIELD_LOOP>
         endmethod
 
@@ -913,7 +913,7 @@ namespace <NAMESPACE>
             <IF ALPHA>
             if(!arg<StructureName>.<field_sqlname>)
                 arg<StructureName>.<field_sqlname>=%char(0)
-            </IF>
+            </IF ALPHA>
             </FIELD_LOOP>
         endmethod
 
@@ -925,14 +925,13 @@ namespace <NAMESPACE>
         proc
             recordSpec.fieldCount = <STRUCTURE_FIELDS>
             <FIELD_LOOP>
-            <IF NOTDATEORTIME>
-            recordSpec.fields[<FIELD#LOGICAL>].fieldType     = "<FIELD_TYPE>" ;;<FieldSqlName>
-            </IF>
             <IF DATEORTIME>
             recordSpec.fields[<FIELD#LOGICAL>].fieldType     = "A" ;;<FieldSqlName>
-            </IF>
+            <ELSE>
+            recordSpec.fields[<FIELD#LOGICAL>].fieldType     = "<FIELD_TYPE>" ;;<FieldSqlName>
+            </IF DATEORTIME>
             recordSpec.fields[<FIELD#LOGICAL>].fieldSize     = <FIELD_SIZE>
-            recordSpec.fields[<FIELD#LOGICAL>].fieldDecimals = <IF PRECISION><FIELD_PRECISION></IF><IF NOPRECISION>0</IF>
+            recordSpec.fields[<FIELD#LOGICAL>].fieldDecimals = <IF PRECISION><FIELD_PRECISION></IF PRECISION><IF NOPRECISION>0</IF NOPRECISION>
             </FIELD_LOOP>
         endmethod
 
@@ -946,7 +945,7 @@ namespace <NAMESPACE>
             if (mCreateTableStatement==^null)
                 mCreateTableStatement = "CREATE TABLE <StructureName> ("
                 <FIELD_LOOP>
-                & "<FieldSqlName> <FIELD_SQLTYPE><IF REQUIRED> NOT NULL</IF>,"
+                & "<FieldSqlName> <FIELD_SQLTYPE><IF REQUIRED> NOT NULL</IF REQUIRED>,"
                 </FIELD_LOOP>
                 & "CONSTRAINT PK_<StructureName> PRIMARY KEY CLUSTERED (<PRIMARY_KEY><SEGMENT_LOOP><SegmentName> <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>))"
 
@@ -962,13 +961,13 @@ namespace <NAMESPACE>
                 <FIELD_LOOP>
                 <IF NOTDATE>
                 & "<FieldSqlName><,>"
-                </IF>
+                </IF NOTDATE>
                 <IF DATE_YYYYMMDD>
                 & "CONVERT(VARCHAR(8),<FieldSqlName>,112) AS [YYYYMMDD]<,>"
-                </IF>
+                </IF DATE_YYYYMMDD>
                 <IF DATE_YYMMDD>
                 & "CONVERT(VARCHAR(6),<FieldSqlName>,12) AS [YYMMDD]<,>"
-                </IF>
+                </IF DATE_YYMMDD>
                 </FIELD_LOOP>
                 & " FROM <StructureName>"
                 & " WHERE <PRIMARY_KEY><SEGMENT_LOOP> <SegmentName>=:<SEGMENT_NUMBER> <AND></SEGMENT_LOOP></PRIMARY_KEY>"
@@ -978,13 +977,13 @@ namespace <NAMESPACE>
                 <FIELD_LOOP>
                 <IF NOTDATE>
                 & "<FieldSqlName><,>"
-                </IF>
+                </IF NOTDATE>
                 <IF DATE_YYYYMMDD>
                 & "CONVERT(VARCHAR(8),<FieldSqlName>,112) AS [YYYYMMDD]<,>"
-                </IF>
+                </IF DATE_YYYYMMDD>
                 <IF DATE_YYMMDD>
                 & "CONVERT(VARCHAR(6),<FieldSqlName>,12) AS [YYMMDD]<,>"
-                </IF>
+                </IF DATE_YYMMDD>
                 </FIELD_LOOP>
                 & " FROM <StructureName>"
 

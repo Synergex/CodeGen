@@ -899,15 +899,15 @@ namespace <NAMESPACE>
             <IF DECIMAL>
             if ((!arg<StructureName>.<field_name>)||(!this.IsNumeric(^a(arg<StructureName>.<field_name>))))
                 clear arg<StructureName>.<field_name>
-            </IF>
+            </IF DECIMAL>
             <IF DATE>
             if ((!arg<StructureName>.<field_name>)||(!this.IsDate(arg<StructureName>.<field_name>)))
                 ^a(arg<StructureName>.<field_name>(1:1))=%char(0)
-            </IF>
+            </IF DATE>
             <IF TIME>
             if ((!arg<StructureName>.<field_name>)||(!this.IsNumeric(^a(arg<StructureName>.<field_name>))))
                 ^a(arg<StructureName>.<field_name>(1:1))=%char(0)
-            </IF>
+            </IF TIME>
             </FIELD_LOOP>
         endmethod
 
@@ -924,7 +924,7 @@ namespace <NAMESPACE>
             <IF ALPHA>
             if(!arg<StructureName>.<field_name>)
                 arg<StructureName>.<field_name>(1:1)=%char(0)
-            </IF>
+            </IF ALPHA>
             </FIELD_LOOP>
         endmethod
 
@@ -966,14 +966,13 @@ namespace <NAMESPACE>
         proc
             recordSpec.fieldCount = <STRUCTURE_FIELDS>
             <FIELD_LOOP>
-            <IF NOTDATEORTIME>
-            recordSpec.fields[<FIELD#LOGICAL>].fieldType     = "<FIELD_TYPE>" ;;<FieldSqlName>
-            </IF>
             <IF DATEORTIME>
             recordSpec.fields[<FIELD#LOGICAL>].fieldType     = "A" ;;<FieldSqlName>
-            </IF>
+            <ELSE>
+            recordSpec.fields[<FIELD#LOGICAL>].fieldType     = "<FIELD_TYPE>" ;;<FieldSqlName>
+            </IF DATEORTIME>
             recordSpec.fields[<FIELD#LOGICAL>].fieldSize     = <FIELD_SIZE>
-            recordSpec.fields[<FIELD#LOGICAL>].fieldDecimals = <IF PRECISION><FIELD_PRECISION></IF><IF NOPRECISION>0</IF>
+            recordSpec.fields[<FIELD#LOGICAL>].fieldDecimals = <IF PRECISION><FIELD_PRECISION></IF PRECISION><IF NOPRECISION>0</IF NOPRECISION>
             </FIELD_LOOP>
         endmethod
 
@@ -987,7 +986,7 @@ namespace <NAMESPACE>
             if (mCreateTableStatement==^null)
                 mCreateTableStatement = "CREATE TABLE <StructureName> ("
                 <FIELD_LOOP>
-                & "<FieldSqlName> <FIELD_SQLTYPE><IF REQUIRED> NOT NULL</IF>,"
+                & "<FieldSqlName> <FIELD_SQLTYPE><IF REQUIRED> NOT NULL</IF REQUIRED>,"
                 </FIELD_LOOP>
                 & "CONSTRAINT PK_<StructureName> PRIMARY KEY CLUSTERED (<PRIMARY_KEY><SEGMENT_LOOP><SegmentName> <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>))"
 
