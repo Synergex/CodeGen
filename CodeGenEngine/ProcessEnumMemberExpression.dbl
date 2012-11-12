@@ -48,12 +48,12 @@ namespace CodeGen.Engine
 
     function ProcessEnumMemberExpression        ,boolean
 
-        required in Enums                       ,@RpsEnumCollection
-        required in EnumNbr                     ,int
-        required in EnumMemberNbr               ,int
-        required in TokenStart                  ,int
-        required in TokenEnd                    ,int
-        required in Loop1OutputOff              ,boolean
+        required in    Enums                    ,@RpsEnumCollection
+        required in    EnumNbr                  ,int
+        required in    EnumMemberNbr            ,int
+        required in    TokenStart               ,int
+        required in    TokenEnd                 ,int
+        required in    Loop1OutputOff           ,boolean
         required inout Loop2ConditionMode       ,@ArrayList
         required inout Loop2ConditionApplies    ,@ArrayList
         required inout Loop2OutputOff           ,boolean
@@ -61,135 +61,46 @@ namespace CodeGen.Engine
         required inout ErrStatus                ,int
         endparams
 
-        stack record local_data
-            ThisEnum                            ,@RpsEnum
-            ReplacedToken                       ,boolean
-;            EndConditionPos                     ,int
-        endrecord
+		stack record
+			theEnum                             ,@RpsEnum
+		endrecord
 
-    proc
+	proc
 
-        init local_data
-
-        ThisEnum = Enums[EnumNbr]
+		theEnum = Enums[EnumNbr]
 
         Loop2ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
         Loop2ConditionApplies.Add((@boolean)false)
 
-        ;;Make sure it's a valid type, and see if this field
-        ;;matches the condition
         using ((a)Loop2ConditionMode[Loop2ConditionMode.Count-1]) select
 
         ("EXPLICIT_VALUE"),
-            if (ThisEnum.Members[EnumMemberNbr].ExplicitValue)
+			if (theEnum.Members[EnumMemberNbr].ExplicitValue)
                 Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
 
         ("NOEXPLICIT_VALUE"),
-            if (!ThisEnum.Members[EnumMemberNbr].ExplicitValue)
+			if (!theEnum.Members[EnumMemberNbr].ExplicitValue)
                 Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
 
         ("MORE"),
-            if (EnumMemberNbr<ThisEnum.Members.Count-1)
+			if (EnumMemberNbr<theEnum.Members.Count-1)
                 Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
 
         ("NOMORE"),
-            if (EnumMemberNbr==ThisEnum.Members.Count-1)
+			if (EnumMemberNbr==theEnum.Members.Count-1)
                 Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
         (),
         begin
-            ;;If we get an invalid condition mode we'll set
-            ;;ErrStatus, which will bail us out of this entire call
 			ErrorLog("Invalid enum member loop expression " + buffer(TokenStart,TokenEnd))
 			ErrStatus = 1
         end
-        endusing
-
-;        if (!ErrStatus)
-;        begin
-;			data explicitCloseTag, Boolean, false
-;			data endCloseTagLength, int, 5
-;			
-;			;;Do we need to suppress output because of this new condition?
-;            if (!Loop2OutputOff&&!(boolean)Loop2ConditionApplies[Loop2ConditionApplies.Count-1])
-;                Loop2OutputOff = true
-;
-;			if (!EndConditionPos = instr(TokenEnd,buffer,"</IF>"))
-;			begin
-;				data closeTag, String, "</IF "+(a)Loop2ConditionMode[Loop2ConditionMode.Count-1]+">"
-;				EndConditionPos = instr(TokenEnd,buffer,closeTag)
-;				explicitCloseTag = true
-;				endCloseTagLength = closeTag.Length
-;			end
-;			
-;			;;Is this a single-line condition?
-;            if (EndConditionPos) then
-;            begin
-;                ;;Yes, this is a single line condition
-;				data msg, String, "    - Processing single-line "+(a)Loop2ConditionMode[Loop2ConditionMode.Count-1]+" condition, depth "+string(Loop2ConditionApplies.Count)
-;
-;                ;;Do we need to keep the content?
-;                if (Loop2OutputOff) then
-;                begin
-;                    ;;No, remove the <IF></IF> tokens AND the content
-;                    msg = msg + ", excluding content"
-;                    if ((TokenStart)>1) then
-;						buffer = buffer(1,TokenStart-1) + buffer(EndConditionPos+endCloseTagLength,^size(buffer))
-;                    else
-;						buffer = buffer(EndConditionPos+endCloseTagLength,^size(buffer))
-;                end
-;                else
-;                begin
-;                    ;;Yes, remove the <IF></IF> tokens but leave the content
-;                    msg = msg + ", retaining content"
-;                    if ((TokenStart)>1) then
-;						buffer = buffer(1,TokenStart-1) + buffer(TokenEnd+1,EndConditionPos-1) + buffer(EndConditionPos+endCloseTagLength,^size(buffer))
-;                    else
-;						buffer = buffer(TokenEnd+1,EndConditionPos-1) + buffer(EndConditionPos+endCloseTagLength,^size(buffer))
-;				end
-;				DebugLog(msg,false,false)
-;
-;                ReplacedToken = true
-;
-;                ;;This was a single-line condition, and we have dealt with it, so
-;                ;;remove the condition from the "stack"
-;
-;                Loop2ConditionApplies.RemoveAt(Loop2ConditionApplies.Count-1)
-;                Loop2ConditionMode.RemoveAt(Loop2ConditionMode.Count-1)
-;
-;                ;;And figure out if we need to suppress output now based on the new "stack"
-;                Loop2OutputOff = Loop1OutputOff
-;                if (Loop2ConditionApplies.Count)
-;                begin
-;                    data tmpval, @boolean
-;                    foreach tmpval in Loop2ConditionApplies
-;                    begin
-;                        if (!(boolean)tmpval)
-;                        begin
-;                            Loop2OutputOff = true
-;                            exitloop
-;                        end
-;                    end
-;                end
-;            end
-;            else
-;            begin
-;                ;;The condition spans multiple lines, wind forward
-;                if (Env.Debug)
-;                begin
-;                    data msg, String, "    - Start multi-line "+(a)Loop2ConditionMode[Loop2ConditionMode.Count-1]+" condition, depth "+string(Loop2ConditionApplies.Count)
-;                    if (Loop2OutputOff) then
-;                        msg = msg + ", output now OFF"
-;                    else
-;						msg = msg + ", output now ON"
-;					DebugLog(msg,false,false)
-;                end
-;            end
-;        end
-
-		if (!ErrStatus)
-			ReplacedToken = ProcessExpression(TokenStart,TokenEnd,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff,Loop1OutputOff,buffer)
 		
-		freturn ReplacedToken
+		endusing
+
+		if (ErrStatus) then
+			freturn false
+		else
+			freturn ProcessExpression(TokenStart,TokenEnd,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff,Loop1OutputOff,buffer)
 
     endfunction
 

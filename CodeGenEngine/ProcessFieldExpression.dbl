@@ -48,11 +48,11 @@ namespace CodeGen.Engine
 
     function ProcessFieldExpression             ,boolean
 
-        required in Str                         ,@RpsStructure
-        required in Fld                         ,@RpsField
-        required in FldNbr                      ,int
-        required in TokenStart                  ,int
-        required in TokenEnd                    ,int
+        required in    Str                      ,@RpsStructure
+        required in    Fld                      ,@RpsField
+        required in    FldNbr                   ,int
+        required in    TokenStart               ,int
+        required in    TokenEnd                 ,int
         required inout Loop1ConditionMode       ,@ArrayList
         required inout Loop1ConditionApplies    ,@ArrayList
         required inout Loop1OutputOff           ,boolean
@@ -60,410 +60,542 @@ namespace CodeGen.Engine
         required inout ErrStatus                ,int
         endparams
 
-        stack record local_data
-            ReplacedToken                       ,boolean
-;            EndConditionPos                     ,int
-        endrecord
-
     proc
-
-        init local_data
 
         Loop1ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
         Loop1ConditionApplies.Add((@boolean)false)
 
-        ;;Make sure it's a valid type, and see if this field
-        ;;matches the condition
         using ((a)Loop1ConditionMode[Loop1ConditionMode.Count-1]) select
-        ("ALPHA "),
+		
+		("ALPHA "),
             if (Fld.DataType==RpsFieldDataType.Alpha)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("ALLOW_LIST "),
+		
+		("ALLOW_LIST "),
             if (Fld.AllowList.Count>0)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("ALTERNATE_NAME "),
+		
+		("ALTERNATE_NAME "),
             if (Fld.AlternateName.nes.Fld.Name)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("ARRAY "),
+		
+		("ARRAY "),
             if (Fld.ArrayDimension[1]>1)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("ARRIVE "),
+		
+		("ARRIVE "),
             if (Fld.ArriveMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("BINARY "),
+		
+		("BINARY "),
             if (Fld.DataType==RpsFieldDataType.Binary)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("BOLD "),
+		
+		("BOLD "),
             if (Fld.RenditionHighlight)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("BOOLEAN "),
+		
+		("BOOLEAN "),
             if (Fld.DataType==RpsFieldDataType.Boolean)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("BZERO "),
+		
+		("BZERO "),
             if (Fld.BlankIfZero)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("BREAK "),
+		
+		("BREAK "),
             if (Fld.BreakMode!=RpsFieldBreak.None)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("BREAK_CHANGE "),
+		
+		("BREAK_CHANGE "),
             if (Fld.BreakMode==RpsFieldBreak.Change)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("BREAK_ALWAYS "),
+		
+		("BREAK_ALWAYS "),
             if (Fld.BreakMode==RpsFieldBreak.Always)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("BREAK_RETURN "),
+		
+		("BREAK_RETURN "),
             if (Fld.BreakMode==RpsFieldBreak.OnReturn)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("CHANGE "),
+		
+		("CHANGE "),
             if (Fld.ChangeMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("CHECKBOX "),
+		
+		("CHECKBOX "),
             if (Fld.ViewAs==RpsFieldViewAs.Checkbox)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("COERCEBOOLEAN"),
+		
+		("COERCEBOOLEAN"),
             if (Fld.CorecedType==RpsFieldCorecedType.CtBoolean)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("COMBOBOX "),
+		
+		("COMBOBOX "),
             if ((Fld.ViewAs==RpsFieldViewAs.Field)&&(Fld.SelectionList.Count))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE "),
+		
+		("DATE "),
             if (Fld.TypeName=="DATE")
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATEORTIME "),
+		
+		("DATEORTIME "),
             if ((Fld.TypeName=="DATE") || (Fld.TypeName=="TIME"))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATETODAY "),
+		
+		("DATETODAY "),
             if (Fld.DateDefaultToday)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_JULIAN "),
-            if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass==RpsFieldSubclass.DateYYJJJ)||(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYJJJ)))
+		
+		("DATE_JULIAN "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass==RpsFieldSubclass.DateYYJJJ)
+			&	||(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYJJJ)))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_NOT_JULIAN "),
-            if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYJJJ)&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYJJJ)))
+		
+		("DATE_NOT_JULIAN "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYJJJ)
+			&	&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYJJJ)))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_NOT_PERIOD "),
-            if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYPP)&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYPP)))
+		
+		("DATE_NOT_PERIOD "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYPP)
+			&	&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYPP)))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_NOT_YMD "),
-            if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYMMDD)&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYMMDD))
+		
+		("DATE_NOT_YMD "),
+			if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYMMDD)
+			&	&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYMMDD))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_NOT_YYYYMMDD "),
+		
+		("DATE_NOT_YYYYMMDD "),
             if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYMMDD))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_PERIOD "),
-            if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass==RpsFieldSubclass.DateYYPP)||(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYPP)))
+		
+		("DATE_PERIOD "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass==RpsFieldSubclass.DateYYPP)
+			&	||(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYPP)))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_YMD "),
-            if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYMMDD)||(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYMMDD)))
+		
+		("DATE_YMD "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYMMDD)
+			&	||(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYMMDD)))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_YYMMDD "),
+		
+		("DATE_YYMMDD "),
             if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYMMDD))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_YYYYMMDD "),
+		
+		("DATE_YYYYMMDD "),
             if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYMMDD))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_YYJJJ "),
+		
+		("DATE_YYJJJ "),
             if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYJJJ))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_YYYYJJJ "),
+		
+		("DATE_YYYYJJJ "),
             if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYJJJ))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_YYPP "),
+		
+		("DATE_YYPP "),
             if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYPP))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DATE_YYYYPP "),
+		
+		("DATE_YYYYPP "),
             if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYPP))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DECIMAL "),
-            if ((Fld.DataType==RpsFieldDataType.Decimal) && (Fld.TypeName!="DATE") && (Fld.TypeName!="TIME"))
+		
+		("DECIMAL "),
+			if ((Fld.DataType==RpsFieldDataType.Decimal)
+			&	&& (Fld.TypeName!="DATE") && (Fld.TypeName!="TIME"))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DEFAULT "),
+		
+		("DEFAULT "),
             if (Fld.DefaultValue)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DESCRIPTION "),
+		
+		("DESCRIPTION "),
             if (Fld.Description)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DISABLED "),
+		
+		("DISABLED "),
             if (Fld.Disabled)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DISPLAY "),
+		
+		("DISPLAY "),
             if (Fld.DisplayMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DISPLAY_LENGTH "),
+		
+		("DISPLAY_LENGTH "),
             if (Fld.DisplayLength)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("DRILL "),
+		
+		("DRILL "),
             if (Fld.DrillMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("ECHO "),
+		
+		("ECHO "),
             if (!Fld.NoEcho)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("EDITFORMAT "),
+		
+		("EDITFORMAT "),
             if (Fld.EditFormatMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("ENABLED "),
+		
+		("ENABLED "),
             if (!Fld.Disabled)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("ENUM "),
+		
+		("ENUM "),
             if (Fld.DataType==RpsFieldDataType.Enum)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("ENUMERATED "),
+		
+		("ENUMERATED "),
             if (Fld.Enumerated)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("FIRST "),
-            Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)(FldNbr==0)
-        ("FIELD_POSITION "),
-            if (Fld.FieldPositionMode!=RpsPositionMode.None&&Fld.FieldRow&&Fld.FieldColumn)
+		
+		("FIRST "),
+			if (FldNbr==0)
+	            Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
+		("FIELD_POSITION "),
+			if (Fld.FieldPositionMode!=RpsPositionMode.None&&Fld.FieldRow&&Fld.FieldColumn)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("HEADING "),
+		
+		("HEADING "),
             if (Fld.ReportHeading)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("FORMAT "),
+		
+		("FORMAT "),
             if (Fld.FormatName)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("HELPID "),
+		
+		("HELPID "),
             if (Fld.HelpIdentifier)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("HYPERLINK "),
+		
+		("HYPERLINK "),
             if (Fld.HyperlinkMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("I1 "),
+		
+		("I1 "),
             if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==1))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("I2 "),
+		
+		("I2 "),
             if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==2))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("I4 "),
+		
+		("I4 "),
             if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==4))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("I8 "),
+		
+		("I8 "),
             if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==8))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("I124 "),
+		
+		("I124 "),
             if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size<=4))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("INFOLINE "),
+		
+		("INFOLINE "),
             if (Fld.InfoLineText)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("INPUT_CENTER "),
+		
+		("INPUT_CENTER "),
             if (!Fld.InputJustification==RpsJustification.Center)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("INPUT_LEFT "),
+		
+		("INPUT_LEFT "),
             if (!Fld.InputJustification==RpsJustification.Left)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("INPUT_RIGHT "),
+		
+		("INPUT_RIGHT "),
             if (!Fld.InputJustification==RpsJustification.Right)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("INTEGER "),
+		
+		("INTEGER "),
             if (Fld.DataType==RpsFieldDataType.Integer)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("LANGUAGE "),
+		
+		("LANGUAGE "),
             if (!Fld.ExcludedByLanguage)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("LEAVE "),
+		
+		("LEAVE "),
             if (Fld.LeaveMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("LONGDESC "),
+		
+		("LONGDESC "),
             if (Fld.LongDescription)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("MAPPED "),
+		
+		("MAPPED "),
             if (Fld.MappedField)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("MAPPEDSTR "),
+		
+		("MAPPEDSTR "),
             if (Str.MappedStructure)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("MORE "),
-            Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)(FldNbr<Str.Fields.Count-1)
-        ("NEGATIVE_ALLOWED "),
-            if (Fld.NegativeAllowed!=RpsFieldNegatives.None)
+		
+		("MORE "),
+			if (FldNbr<Str.Fields.Count-1)
+	            Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
+		("NEGATIVE_ALLOWED "),
+			if (Fld.NegativeAllowed!=RpsFieldNegatives.None)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NEGATIVE_ORZERO "),
+		
+		("NEGATIVE_ORZERO "),
             if (Fld.NegativeAllowed==RpsFieldNegatives.OrZero)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NEGATIVE_REQUIRED "),
+		
+		("NEGATIVE_REQUIRED "),
             if (Fld.NegativeAllowed==RpsFieldNegatives.Only)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOALLOW_LIST "),
+		
+		("NOALLOW_LIST "),
             if (Fld.AllowList.Count==0)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOALTERNATE_NAME "),
+		
+		("NOALTERNATE_NAME "),
             if (Fld.AlternateName.eqs.Fld.Name)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOARRIVE "),
+		
+		("NOARRIVE "),
             if (!Fld.ArriveMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOBREAK "),
+		
+		("NOBREAK "),
             if (Fld.BreakMode==RpsFieldBreak.None)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOCHANGE "),
+		
+		("NOCHANGE "),
             if (!Fld.ChangeMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOCHECKBOX "),
+		
+		("NOCHECKBOX "),
             if (Fld.ViewAs!=RpsFieldViewAs.Checkbox)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOCOERCEBOOLEAN"),
+		
+		("NOCOERCEBOOLEAN"),
             if (Fld.CorecedType!=RpsFieldCorecedType.CtBoolean)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NODEFAULT "),
+		
+		("NODEFAULT "),
             if (!Fld.DefaultValue)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NODESCRIPTION "),
+		
+		("NODESCRIPTION "),
             if (!Fld.Description)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NODISPLAY "),
+		
+		("NODISPLAY "),
             if (!Fld.DisplayMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NODISPLAY_LENGTH "),
+		
+		("NODISPLAY_LENGTH "),
             if (!Fld.DisplayLength)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NODRILL "),
+		
+		("NODRILL "),
             if (!Fld.DrillMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOECHO "),
+		
+		("NOECHO "),
             if (Fld.NoEcho)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOEDITFORMAT "),
+		
+		("NOEDITFORMAT "),
             if (!Fld.EditFormatMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOFORMAT "),
+		
+		("NOFORMAT "),
             if (!Fld.FormatName)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOHELPID "),
+		
+		("NOHELPID "),
             if (!Fld.HelpIdentifier)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOHYPERLINK "),
+		
+		("NOHYPERLINK "),
             if (!Fld.HyperlinkMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOINFOLINE "),
+		
+		("NOINFOLINE "),
             if (!Fld.InfoLineText)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOLANGUAGE "),
+		
+		("NOLANGUAGE "),
             if (Fld.ExcludedByLanguage)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOLEAVE "),
+		
+		("NOLEAVE "),
             if (!Fld.LeaveMethod)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOLONGDESC "),
+		
+		("NOLONGDESC "),
             if (!Fld.LongDescription)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOMORE ","LAST "),
-            Loop1ConditionApplies[Loop1ConditionApplies.Count-1]     = (@boolean)(FldNbr==Str.Fields.Count-1)
-        ("NONEGATIVE "),
-            if (Fld.NegativeAllowed==RpsFieldNegatives.None)
+		
+		("NOMORE ","LAST "),
+			if (FldNbr==Str.Fields.Count-1)
+	            Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
+		("NONEGATIVE "),
+			if (Fld.NegativeAllowed==RpsFieldNegatives.None)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOPAINTCHAR "),
+		
+		("NOPAINTCHAR "),
             if (!Fld.PaintCharacterSpecified)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOPRECISION "),
+		
+		("NOPRECISION "),
             if (!Fld.Precision)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOPROMPT "),
+		
+		("NOPROMPT "),
             if (!Fld.Prompt)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NORANGE "),
+		
+		("NORANGE "),
             if (!Fld.NumericRangeExists)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOREPORT "),
+		
+		("NOREPORT "),
             if (Fld.ExcludedByReportWriter)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOSELECTIONS"),
+		
+		("NOSELECTIONS"),
             if (!Fld.SelectionList.Count)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
 		("NOSELWND"),
 			if (!Fld.SelectionWindowName)
 				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
 		("NOTALPHA "),
             if (Fld.DataType!=RpsFieldDataType.Alpha)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTBINARY "),
+		
+		("NOTBINARY "),
             if (Fld.DataType!=RpsFieldDataType.Binary)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTBOOLEAN "),
+		
+		("NOTBOOLEAN "),
             if (Fld.DataType!=RpsFieldDataType.Boolean)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTBZERO "),
+		
+		("NOTBZERO "),
             if (!Fld.BlankIfZero)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTDATE "),
+		
+		("NOTDATE "),
             if (!(Fld.TypeName=="DATE"))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTDATEORTIME "),
+		
+		("NOTDATEORTIME "),
             if ((!(Fld.TypeName=="DATE")) && (!(Fld.TypeName=="TIME")))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTDATETODAY "),
+		
+		("NOTDATETODAY "),
             if (!Fld.DateDefaultToday)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTDECIMAL "),
+		
+		("NOTDECIMAL "),
             if (Fld.DataType!=RpsFieldDataType.Decimal)
             &   || ((Fld.DataType==RpsFieldDataType.Decimal)
             &       && ((Fld.TypeName=="DATE") || (Fld.TypeName!="TIME")))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTENUM "),
+		
+		("NOTENUM "),
             if (Fld.DataType!=RpsFieldDataType.Enum)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTENUMERATED "),
+		
+		("NOTENUMERATED "),
             if (!Fld.Enumerated)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTIMEOUT "),
+		
+		("NOTIMEOUT "),
             if (Fld.InputTimeoutMode==RpsFieldTimeout.None)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTINTEGER "),
+		
+		("NOTINTEGER "),
             if (Fld.DataType!=RpsFieldDataType.Integer)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTNUMERIC "),
+		
+		("NOTNUMERIC "),
             if ((Fld.DataType!=RpsFieldDataType.Decimal)
             &   &&(Fld.DataType!=RpsFieldDataType.Integer))
+				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
+		("NOTOVERLAY "),
+			if ((!Fld.IsGroup&&!Fld.OverlaysField)
+			&	||(Fld.IsGroup&&(Fld.GroupType!=RpsFieldGroup.Overlay)))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTOVERLAY "),
-            if ((!Fld.IsGroup&&!Fld.OverlaysField)||(Fld.IsGroup&&(Fld.GroupType!=RpsFieldGroup.Overlay)))
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTRADIOBUTTONS "),
+		
+		("NOTRADIOBUTTONS "),
             if (Fld.ViewAs!=RpsFieldViewAs.RadioButtons)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTSTRUCTFIELD "),
+		
+		("NOTSTRUCTFIELD "),
             if (Fld.DataType!=RpsFieldDataType.StructField)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
 		("NOTTIME "),
             if ((Fld.TypeName!="TIME"))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTOOLKIT "),
+		
+		("NOTOOLKIT "),
             if (Fld.ExcludedByToolkit)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTUPPERCASE "),
+		
+		("NOTUPPERCASE "),
             if (!Fld.Uppercase)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTUSER "),
+		
+		("NOTUSER "),
             if (Fld.DataType!=RpsFieldDataType.User)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOUSERTEXT "),
+		
+		("NOUSERTEXT "),
             if (!Fld.UserText)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOVIEW_LENGTH "),
+		
+		("NOVIEW_LENGTH "),
             if (!Fld.ViewLength)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOWEB "),
+		
+		("NOWEB "),
             if (Fld.ExcludedByWeb)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NUMERIC "),
+		
+		("NUMERIC "),
             if ((Fld.DataType==RpsFieldDataType.Decimal)
             &   ||(Fld.DataType==RpsFieldDataType.Integer))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("OCNATIVE"),
+		
+		("OCNATIVE"),
             if (!Fld.OcObject)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("OCOBJECT"),
+		
+		("OCOBJECT"),
             if (Fld.OcObject)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("OPTIONAL "),
+		
+		("OPTIONAL "),
             if (!Fld.Required)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("OVERLAY "),
+		
+		("OVERLAY "),
             if ((Fld.OverlaysField)||(Fld.IsGroup&&Fld.GroupType==RpsFieldGroup.Overlay))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("PAINTCHAR "),
+		
+		("PAINTCHAR "),
             if (Fld.PaintCharacterSpecified)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("PKSEGMENT "),
+		
+		("PKSEGMENT "),
         begin
             data segment, @RpsKeySegment
             data isPkSegment, Boolean, false
@@ -477,7 +609,8 @@ namespace CodeGen.Engine
             end
             Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)isPkSegment
         end
-        ("NOTPKSEGMENT "),
+		
+		("NOTPKSEGMENT "),
         begin
             data segment, @RpsKeySegment
             data isPkSegment, Boolean, false
@@ -491,101 +624,130 @@ namespace CodeGen.Engine
             end
             Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)(!isPkSegment)
         end
-        ("PRECISION "),
+		
+		("PRECISION "),
             if (Fld.Precision)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("PROMPT "),
+		
+		("PROMPT "),
             if (Fld.Prompt)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("PROMPT_POSITION "),
+		
+		("PROMPT_POSITION "),
             if (Fld.PromptPositionMode!=RpsPositionMode.None&&Fld.PromptRow&&Fld.PromptColumn)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("RADIOBUTTONS "),
+		
+		("RADIOBUTTONS "),
             if (Fld.ViewAs==RpsFieldViewAs.RadioButtons)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("RANGE "),
+		
+		("RANGE "),
             if (Fld.NumericRangeExists)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("READONLY "),
+		
+		("READONLY "),
             if (Fld.ReadOnly)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("READWRITE "),
+		
+		("READWRITE "),
             if (!Fld.ReadOnly)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("REPORT "),
+		
+		("REPORT "),
             if (!Fld.ExcludedByReportWriter)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("REPORT_CENTER "),
+		
+		("REPORT_CENTER "),
             if (!Fld.ReportJustification==RpsJustification.Center)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("REPORT_LEFT "),
+		
+		("REPORT_LEFT "),
             if (!Fld.ReportJustification==RpsJustification.Left)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("REPORT_RIGHT "),
+		
+		("REPORT_RIGHT "),
             if (!Fld.ReportJustification==RpsJustification.Right)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("REQUIRED "),
+		
+		("REQUIRED "),
             if (Fld.Required)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("REVERSE "),
+		
+		("REVERSE "),
             if (Fld.RenditionReverse)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("SELECTIONS"),
+		
+		("SELECTIONS"),
             if (Fld.SelectionList.Count)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
 		("SELWND"),
 			if (Fld.SelectionWindowName)
 				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
 		("STRUCTFIELD "),
             if (Fld.DataType==RpsFieldDataType.StructField)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
 		("TEXTBOX "),
             if ((Fld.ViewAs==RpsFieldViewAs.Field)&&(!Fld.SelectionList.Count))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("TIME "),
+		
+		("TIME "),
             if (Fld.TypeName=="TIME")
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("TIME_HHMM "),
+		
+		("TIME_HHMM "),
             if ((Fld.TypeName=="TIME")&&(Fld.DataTypeSubclass==RpsFieldSubclass.TimeHHMM))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("TIME_HHMMSS "),
+		
+		("TIME_HHMMSS "),
             if ((Fld.TypeName=="TIME")&&(Fld.DataTypeSubclass==RpsFieldSubclass.TimeHHMMSS))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("TIMENOW "),
+		
+		("TIMENOW "),
             if (Fld.TimeDefaultNow)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("TIMEOUT "),
+		
+		("TIMEOUT "),
             if (Fld.InputTimeoutMode!=RpsFieldTimeout.None)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("TOOLKIT "),
+		
+		("TOOLKIT "),
             if (!Fld.ExcludedByToolkit)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("UNDERLINE "),
+		
+		("UNDERLINE "),
             if (Fld.RenditionUnderline)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("UPPERCASE "),
+		
+		("UPPERCASE "),
             if (Fld.Uppercase)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("USER "),
+		
+		("USER "),
             if (Fld.DataType==RpsFieldDataType.User)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("USERTEXT "),
+		
+		("USERTEXT "),
             if (Fld.UserText)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("VIEW_LENGTH "),
+		
+		("VIEW_LENGTH "),
             if (Fld.ViewLength)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("WEB "),
+		
+		("WEB "),
             if (!Fld.ExcludedByWeb)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 
-        ;;Added to support SQL Connection binding with CONVERT functions on timestamps (GFS Chemicals)
-        ("USERTIMESTAMP"),
+        ("USERTIMESTAMP "),
             if ((Fld.DataType==RpsFieldDataType.User)
             &   &&(Fld.DataTypeSubclass==RpsFieldSubclass.UserDate)
             &   &&(Fld.UserFieldType.eqs."^CLASS^=YYYYMMDDHHMISSUUUUUU"))
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-        ("NOTUSERTIMESTAMP"),
+		
+		("NOTUSERTIMESTAMP "),
             if !((Fld.DataType==RpsFieldDataType.User)
             &   &&(Fld.DataTypeSubclass==RpsFieldSubclass.UserDate)
             &   &&(Fld.UserFieldType.eqs."^CLASS^=YYYYMMDDHHMISSUUUUUU"))
@@ -635,100 +797,16 @@ namespace CodeGen.Engine
 
 		(),
         begin
-            ;;If we get an invalid condition mode we'll set ErrStatus, which
-            ;;will bail us out of this entire call to process_field_loop
 			ErrorLog("Invalid field loop expression " + buffer(TokenStart,TokenEnd))
             ErrStatus = 1
         end
 
 		endusing
 
-;        if (!ErrStatus)
-;        begin
-;			data explicitCloseTag, Boolean, false
-;			data endCloseTagLength, int, 5
-;
-;			;;Do we need to suppress output because of this new condition?
-;            if (!Loop1OutputOff&&!(boolean)Loop1ConditionApplies[Loop1ConditionApplies.Count-1])
-;                Loop1OutputOff = true
-;
-;			if (!EndConditionPos = instr(TokenEnd,buffer,"</IF>"))
-;			begin
-;				data closeTag, String, "</IF "+(a)Loop1ConditionMode[Loop1ConditionMode.Count-1]+">"
-;				EndConditionPos = instr(TokenEnd,buffer,closeTag)
-;				explicitCloseTag = true
-;				endCloseTagLength = closeTag.Length
-;			end
-;
-;			;;Is this a single-line condition?
-;			if (EndConditionPos) then
-;            begin
-;				;;Yes, this is a single line condition
-;				data msg, String, "     - Processing single-line "+(a)Loop1ConditionMode[Loop1ConditionMode.Count-1]+" condition, depth "+string(Loop1ConditionApplies.Count)
-;				
-;				;;Do we need to keep the content?
-;                if (Loop1OutputOff) then
-;                begin
-;                    ;;No, remove the <IF></IF> tokens AND the content
-;                    msg = msg + ", excluding content"
-;                    if ((TokenStart)>1) then
-;						buffer = buffer(1,TokenStart-1) + buffer(EndConditionPos+endCloseTagLength,^size(buffer))
-;                    else
-;						buffer = buffer(EndConditionPos+endCloseTagLength,^size(buffer))
-;                end
-;                else
-;                begin
-;                    ;;Yes, remove the <IF></IF> tokens but leave the content
-;                    msg = msg + ", retaining content"
-;                    if ((TokenStart)>1) then
-;						buffer = buffer(1,TokenStart-1) + buffer(TokenEnd+1,EndConditionPos-1) + buffer(EndConditionPos+endCloseTagLength,^size(buffer))
-;                    else
-;						buffer = buffer(TokenEnd+1,EndConditionPos-1) + buffer(EndConditionPos+endCloseTagLength,^size(buffer))
-;                end
-;				DebugLog(msg,false,false)
-;				
-;                ReplacedToken = true
-;
-;                ;;This was a single-line condition, and we have dealt with it, so
-;                ;;remove the condition from the "stack"
-;
-;                Loop1ConditionApplies.RemoveAt(Loop1ConditionApplies.Count-1)
-;                Loop1ConditionMode.RemoveAt(Loop1ConditionMode.Count-1)
-;
-;                ;;And figure out if we need to suppress output now based on the new "stack"
-;                Loop1OutputOff = false
-;                if (Loop1ConditionApplies.Count)
-;                begin
-;                    data tmpval, @boolean
-;                    foreach tmpval in Loop1ConditionApplies
-;                    begin
-;                        if (!(boolean)tmpval)
-;                        begin
-;                            Loop1OutputOff = true
-;                            exitloop
-;                        end
-;                    end
-;                end
-;            end
-;            else
-;            begin
-;                ;;The condition spans multiple lines, wind forward
-;                if (Env.Debug)
-;				begin
-;					data msg, String, "     - Start multi-line "+(a)Loop1ConditionMode[Loop1ConditionMode.Count-1]+" condition, depth "+string(Loop1ConditionApplies.Count)
-;                    if (Loop1OutputOff) then
-;                        msg = msg + ", output now OFF"
-;                    else
-;                        msg = msg + ", output now ON"
-;					DebugLog(msg,false,false)
-;				end
-;            end
-;        end
-
-		if (!ErrStatus)
-			ReplacedToken = ProcessExpression(TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,false,buffer)
-
-        freturn ReplacedToken
+		if (ErrStatus) then
+			freturn false
+		else
+			freturn ProcessExpression(TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,false,buffer)
 
     endfunction
 
