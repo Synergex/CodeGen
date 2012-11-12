@@ -72,38 +72,40 @@ namespace CodeGen.RepositoryAPI
             required in LoadMode, RpsFieldCollectionMode
             required in StructureOrGroup, string
             endparams
-            record
-                str                 ,string
-                PreviousStructure   ,string
-            endrecord
         proc
 
-            str = atrim(StructureOrGroup)
+            data str, String, atrim(StructureOrGroup)
 
             RpsUtils.DbgLog("Constructor    : RpsFieldCollection("+string(LoadMode)+","+str+")")
 
             mCollection = new ArrayList()
             Repository.CheckIsOpen()
 
-            ;;Preserve the name of the current structure
-            PreviousStructure = %atrim(Repository.RpsControl.sname)
-
             using LoadMode select
-            (RpsFieldCollectionMode.Structure),
-                LoadStructureFields(str)
-            (RpsFieldCollectionMode.Group),
+			(RpsFieldCollectionMode.Structure),
+			begin
+				;;Preserve the name of the current structure
+				data PreviousStructure, String, atrim(Repository.RpsControl.sname)
+
+				LoadStructureFields(str)
+							
+				;;If we switched to a different structure then set context back to the previous one
+							
+				;TODO:  BUG: There is a problem here with nested groups. Resetting the current structure loses our position
+				;       within any group heirarchy that we were previously in, so somehow we need to reset that context also
+							
+				if (Repository.RpsControl.sname.nes.PreviousStructure)
+				begin
+					data ms_info, s_info
+					RpsUtils.DbgLog("               : Set current structure to "+PreviousStructure)
+					dd_struct(Repository.RpsControl,DDS_INFO,PreviousStructure,ms_info)
+					if (Repository.RpsControl.error)
+						throw new RpsStructureException("Failed to set context back to original structure  "+PreviousStructure)
+				end
+			end
+			(RpsFieldCollectionMode.Group),
                 LoadGroupFields(str)
             endusing
-
-            ;;If we switched to a different structure then set context back to the previous one
-            if (Repository.RpsControl.sname.nes.PreviousStructure)
-            begin
-                data ms_info, s_info
-                RpsUtils.DbgLog("               : Set current structure to "+PreviousStructure)
-                dd_struct(Repository.RpsControl,DDS_INFO,PreviousStructure,ms_info)
-                if (Repository.RpsControl.error)
-                    throw new RpsStructureException("Failed to set context back to original structure  "+PreviousStructure)
-            end
 
             RpsUtils.DbgLog("Constructor    : RpsFieldCollection("+string(LoadMode)+","+str+") done")
 

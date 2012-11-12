@@ -540,9 +540,10 @@ namespace CodeGen.Engine
                     Child.StartPosition = Field.StartPosition + Child.StartPosition - 1
 
 
-    ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
-    ;NOT SURE IF THIS IS EVEN FEASIBLE???
+					;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET. NOT SURE IF THIS IS EVEN FEASIBLE???
 
+
+					;TODO:	BUG: There is a problem here because for nested groups the expanded fields are not being added back in the correct sequence
 
                     ;; And add it to the fields collection
                     if ((ix+gfix+1)<Struct.Fields.Count-1) then
@@ -565,6 +566,34 @@ namespace CodeGen.Engine
             ErrorLog("After applying CodeGen rules structure " + Struct.Name + " has no remaining fields!")
             ok = false
         end
+
+		;;If we're in developer debug mode then create a log file containing the remaining fields
+		if (ok&&Struct.Fields.Count&&Env.DeveloperDebug)
+		begin
+			data logCh, int, 0
+			data tmpFld, @RpsField
+			DebugLog("DEVDBG: Saving field log for structure "+Struct.Name,true,false)
+			try
+			begin
+				open(logCh,O:S,Env.OutputDir+Struct.Name+"_FIELDS.LOG")
+				writes(logCh,"CodeGen Field log for structure "+Struct.Name)
+				writes(logCh,"")
+				writes(logCh,"After 'CheckStructure' processing the fields collection contains:")
+				writes(logCh,"")
+				foreach tmpFld in Struct.Fields.GetEnumerator()
+					writes(logCh,tmpFld.Name)
+			end
+			catch (e, @Exception)
+			begin
+				DebugLog("DEVDBG: Failed to write field log!"+e.Message,false,false)
+			end
+			finally
+			begin
+				if (logCh&&chopen(logCh))
+					close logCh
+			end
+			endtry
+		end
 
         freturn ok
 
