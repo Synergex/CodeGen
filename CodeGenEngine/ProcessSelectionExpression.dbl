@@ -88,6 +88,27 @@ namespace CodeGen.Engine
                 Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
         (),
         begin
+			;;If we haven't evaluated an expression by the time we get here then the only
+			;;remaining possibility is that there may be a custom expression extension
+			data customExpressionProcessed, Boolean, false
+			
+			if (Env.CustomSelectionExpressions.Count>0)
+			begin
+				data customExpression, @CustomSelectionExpression
+				foreach customExpression in Env.CustomSelectionExpressions
+				begin
+					if (customExpression.Expression.eqs.(a)Loop2ConditionMode[Loop2ConditionMode.Count-1])
+					begin
+						Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)customExpression.Evaluate(Fld,SelNbr)
+						customExpressionProcessed = true
+						exitloop
+					end
+				end
+			end
+			
+			if (customExpressionProcessed)
+				exit
+			
 			ErrorLog("Invalid selection loop expression " + buffer(TokenStart,TokenEnd))
 			ErrStatus = 1
         end
