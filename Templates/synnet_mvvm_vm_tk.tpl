@@ -1,4 +1,5 @@
 <CODEGEN_FILENAME>ToolkitViewModel.dbl</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>MVVM_DATA_NAMESPACE</REQUIRES_USERTOKEN>
 <PROCESS_TEMPLATE>synnet_mvvm_vm</PROCESS_TEMPLATE>
 ;//****************************************************************************
 ;//

@@ -1,4 +1,5 @@
 <CODEGEN_FILENAME>RelayCommand.dbl</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>MVVM_DATA_NAMESPACE</REQUIRES_USERTOKEN>
 ;//****************************************************************************
 ;//
 ;// Title:       mvvm_relay_command.tpl

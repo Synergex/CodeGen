@@ -1,4 +1,5 @@
 <CODEGEN_FILENAME>DataUtils.dbl</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>MVVM_DATA_NAMESPACE</REQUIRES_USERTOKEN>
 ;//****************************************************************************
 ;//
 ;// Title:       mvvm_data_util.tpl

@@ -1,4 +1,5 @@
 <CODEGEN_FILENAME>StateManager.dbl</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>MVVM_UI_NAMESPACE</REQUIRES_USERTOKEN>
 ;//****************************************************************************
 ;//
 ;// Title:       mvvm_view_statemanager.tpl

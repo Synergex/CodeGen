@@ -1,4 +1,6 @@
 <CODEGEN_FILENAME><StructureName>ListScreen.xaml.dbl</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>MVVM_DATA_NAMESPACE</REQUIRES_USERTOKEN>
+<REQUIRES_USERTOKEN>MVVM_UI_NAMESPACE</REQUIRES_USERTOKEN>
 ;//****************************************************************************
 ;//
 ;// Title:       mvvm_view_list_code.tpl

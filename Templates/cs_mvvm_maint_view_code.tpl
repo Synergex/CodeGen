@@ -1,4 +1,5 @@
 <CODEGEN_FILENAME><StructureName>Maint.xaml.cs</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>MVVM_UI_NAMESPACE</REQUIRES_USERTOKEN>
 ;//****************************************************************************
 ;//
 ;// Title:       cs_mvvm_maint_view_code.tpl

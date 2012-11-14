@@ -83,9 +83,9 @@
                   CanUserResizeRows="False" IsReadOnly="True" SelectionMode="Single"
                   SelectedItem="{Binding SelectedItem, Mode=TwoWay}" FontSize="14">
             <DataGrid.Columns>
-<FIELD_LOOP>
+                <FIELD_LOOP>
                 <DataGridTextColumn Header="<FIELD_PROMPT>" Width="*" Binding="{Binding <FieldSqlName>}" />
-</FIELD_LOOP>
+                </FIELD_LOOP>
             </DataGrid.Columns>
         </DataGrid>
 

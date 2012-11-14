@@ -1,4 +1,5 @@
 <CODEGEN_FILENAME><StructureName>MaintScreen.xaml</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>MVVM_UI_NAMESPACE</REQUIRES_USERTOKEN>
 <PROCESS_TEMPLATE>synnet_mvvm_view_maint_code</PROCESS_TEMPLATE>
 <PROCESS_TEMPLATE>synnet_mvvm_global_resources</PROCESS_TEMPLATE>
 <PROCESS_TEMPLATE>synnet_mvvm_view_statemanager</PROCESS_TEMPLATE>
@@ -88,19 +89,18 @@
                     <Storyboard>
 <FIELD_LOOP>
 <IF NOTPKSEGMENT>
-<IF NOTRADIOBUTTONS>
-                        <BooleanAnimationUsingKeyFrames Storyboard.TargetProperty="(UIElement.IsEnabled)" Storyboard.TargetName="fld<FieldSqlName>">
-                            <DiscreteBooleanKeyFrame KeyTime="0" Value="False"/>
-                        </BooleanAnimationUsingKeyFrames>
-</IF>
 <IF RADIOBUTTONS>
 <SELECTION_LOOP>
                         <BooleanAnimationUsingKeyFrames Storyboard.TargetProperty="(UIElement.IsEnabled)" Storyboard.TargetName="fld<FieldSqlName><SELECTION_NUMBER>">
                             <DiscreteBooleanKeyFrame KeyTime="0" Value="False"/>
                         </BooleanAnimationUsingKeyFrames>
 </SELECTION_LOOP>
-</IF>
-</IF>
+<ELSE>
+                        <BooleanAnimationUsingKeyFrames Storyboard.TargetProperty="(UIElement.IsEnabled)" Storyboard.TargetName="fld<FieldSqlName>">
+                            <DiscreteBooleanKeyFrame KeyTime="0" Value="False"/>
+                        </BooleanAnimationUsingKeyFrames>
+</IF RADIOBUTTONS>
+</IF NOTPKSEGMENT>
 </FIELD_LOOP>
                     </Storyboard>
                 </VisualState>
@@ -111,7 +111,7 @@
                         <BooleanAnimationUsingKeyFrames Storyboard.TargetProperty="(UIElement.IsEnabled)" Storyboard.TargetName="fld<FieldSqlName>">
                             <DiscreteBooleanKeyFrame KeyTime="0" Value="False"/>
                         </BooleanAnimationUsingKeyFrames>
-</IF>
+</IF PKSEGMENT>
 </FIELD_LOOP>
                     </Storyboard>
                 </VisualState>
@@ -133,44 +133,44 @@
             </Grid.ColumnDefinitions>
 
 <FIELD_LOOP>
- <IF PROMPT>
+<IF PROMPT>
             <Label Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="0"
                      Content="{Binding Path=<StructureName>.<FieldSqlName>Prompt}" />
 
- </IF>
- <IF TEXTBOX>
+</IF PROMPT>
+<IF TEXTBOX>
             <TextBox x:Name="fld<FieldSqlName>" Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1"
                      Text="{Binding Path=<StructureName>.<FieldSqlName>,ValidatesOnDataErrors=True,UpdateSourceTrigger=PropertyChanged}"
                      MaxLength="{Binding Path=<StructureName>.<FieldSqlName>Length}"
                      ToolTip="{Binding Path=<StructureName>.<FieldSqlName>ToolTip}"
                      Width="<FIELD_PIXEL_WIDTH>"/>
- </IF>
- <IF COMBOBOX>
+</IF TEXTBOX>
+<IF COMBOBOX>
             <ComboBox x:Name="fld<FieldSqlName>" Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1"
                     ToolTip="{Binding Path=<StructureName>.<FieldSqlName>ToolTip}"
                     SelectedIndex="0">
-  <SELECTION_LOOP>
+                <SELECTION_LOOP>
                 <ComboBoxItem Tag="<SELECTION_VALUE>"><SELECTION_TEXT></ComboBoxItem>
-  </SELECTION_LOOP>
+                </SELECTION_LOOP>
             </ComboBox>
- </IF>
- <IF CHECKBOX>
+</IF COMBOBOX>
+<IF CHECKBOX>
             <CheckBox x:Name="fld<FieldSqlName>" Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1"
                 IsChecked="{Binding Path=<StructureName>.<FieldSqlName>}"
                 ToolTip="{Binding Path=<StructureName>.<FieldSqlName>ToolTip}">
                 <FIELD_PROMPT>
             </CheckBox>
- </IF>
- <IF RADIOBUTTONS>
+</IF CHECKBOX>
+<IF RADIOBUTTONS>
             <StackPanel Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1">
-  <SELECTION_LOOP>
+                <SELECTION_LOOP>
                 <RadioButton x:Name="fld<FieldSqlName><SELECTION_NUMBER>" Tag="<SELECTION_VALUE>"<IF FIRST> IsChecked="True"</IF>
                     ToolTip="{Binding Path=<StructureName>.<FieldSqlName>ToolTip}" >
                     <SELECTION_TEXT>
                 </RadioButton>
-  </SELECTION_LOOP>
+                </SELECTION_LOOP>
             </StackPanel>
- </IF>
+</IF RADIOBUTTONS>
 
 </FIELD_LOOP>
 

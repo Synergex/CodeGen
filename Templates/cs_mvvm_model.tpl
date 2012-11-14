@@ -1,4 +1,5 @@
 <CODEGEN_FILENAME><structure_name>.cs</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>MVVM_DATA_NAMESPACE</REQUIRES_USERTOKEN>
 <PROCESS_TEMPLATE>cs_mvvm_model_manual.tpl</PROCESS_TEMPLATE>
 ;//****************************************************************************
 ;//

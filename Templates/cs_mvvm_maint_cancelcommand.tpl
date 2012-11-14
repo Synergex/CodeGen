@@ -1,4 +1,5 @@
 <CODEGEN_FILENAME><StructureName>MaintCancelCommand.cs</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>MVVM_DATA_NAMESPACE</REQUIRES_USERTOKEN>
 ;//****************************************************************************
 ;//
 ;// Title:       cs_mvvm_maint_cancelcommand.tpl

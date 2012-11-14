@@ -213,7 +213,7 @@ proc
     begin
         sql = "CREATE TABLE <STRUCTURE_NAME> ("
         <FIELD_LOOP>
-        & + "<FIELD_SQLNAME> <FIELD_SQLTYPE><IF REQUIRED> NOT NULL</IF>,"
+        & + "<FIELD_SQLNAME> <FIELD_SQLTYPE><IF REQUIRED> NOT NULL</IF REQUIRED>,"
         </FIELD_LOOP>
         & + "TIMESTAMP,"
         & + "CONSTRAINT PK_<STRUCTURE_NAME> PRIMARY KEY CLUSTERED"
@@ -728,12 +728,11 @@ proc
     begin
         if (%ssc_bind(a_dbchn,cursor,<STRUCTURE_FIELDS>,
         <FIELD_LOOP>
-        <IF NOTDATE>
-        &    <structure_name>.<field_name><,>
-        </IF>
         <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        </IF>
+        <ELSE>
+        &    <structure_name>.<field_name><,>
+        </IF DATE>
         </FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin
@@ -755,19 +754,19 @@ proc
         <FIELD_LOOP>
         <IF ALPHA>
         <field_path>=%atrim(<field_path>)+%char(0)
-        </IF>
+        </IF ALPHA>
         <IF DECIMAL>
         if ((!<field_path>)||(!%IsNumeric(^a(<field_path>))))
             clear <field_path>
-        </IF>
+        </IF DECIMAL>
         <IF DATE>
         if ((!<field_path>)||(!%IsDate(<field_path>)))
             ^a(<field_path>(1:1))=%char(0)
-        </IF>
+        </IF DATE>
         <IF TIME>
         if ((!<field_path>)||(!%IsNumeric(^a(<field_path>))))
             ^a(<field_path>(1:1))=%char(0)
-        </IF>
+        </IF TIME>
         </FIELD_LOOP>
 
         ;;Execute INSERT statement
@@ -946,12 +945,11 @@ proc
     begin
         if (%ssc_bind(a_dbchn,cursor,<STRUCTURE_FIELDS>,
         <FIELD_LOOP>
-        <IF NOTDATE>
-        &    <structure_name>.<field_name><,>
-        </IF>
         <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        </IF>
+        <ELSE>
+        &    <structure_name>.<field_name><,>
+        </IF DATE>
         </FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin
@@ -975,19 +973,19 @@ proc
             <FIELD_LOOP>
             <IF ALPHA>
             <field_path>=%atrim(<field_path>)+%char(0)
-            </IF>
+            </IF ALPHA>
             <IF DECIMAL>
             if ((!<field_path>)||(!%IsNumeric(^a(<field_path>))))
                 clear <field_path>
-            </IF>
+            </IF DECIMAL>
             <IF DATE>
             if ((!<field_path>)||(!%IsDate(<field_path>)))
                 ^a(<field_path>(1:1))=%char(0)
-            </IF>
+            </IF DATE>
             <IF TIME>
             if ((!<field_path>)||(!%IsNumeric(^a(<field_path>))))
                 ^a(<field_path>(1:1))=%char(0)
-            </IF>
+            </IF TIME>
             </FIELD_LOOP>
 
             ;;Execute the statement
@@ -1152,13 +1150,13 @@ proc
         <FIELD_LOOP>
         <IF NOTDATE>
         &    "<FIELD_SQLNAME><,>"
-        </IF>
+        </IF NOTDATE>
         <IF DATE_YYYYMMDD>
         &    "CONVERT(VARCHAR(8),<FIELD_SQLNAME>,112) AS [YYYYMMDD]<,>"
-        </IF>
+        </IF DATE_YYYYMMDD>
         <IF DATE_YYMMDD>
         &    "CONVERT(VARCHAR(6),<FIELD_SQLNAME>,12) AS [YYMMDD]<,>"
-        </IF>
+        </IF DATE_YYMMDD>
         </FIELD_LOOP>
         &    " FROM <STRUCTURE_NAME>"
         &    " WHERE <PRIMARY_KEY><SEGMENT_LOOP> <SEGMENT_NAME>=:<SEGMENT_NUMBER> <AND></SEGMENT_LOOP></PRIMARY_KEY>"
@@ -1178,12 +1176,11 @@ proc
     begin
         if (%ssc_define(a_dbchn,cursor,<STRUCTURE_FIELDS>,
         <FIELD_LOOP>
-        <IF NOTDATE>
-        &    <structure_name>.<field_name><,>
-        </IF>
         <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        </IF>
+        <ELSE>
+        &    <structure_name>.<field_name><,>
+        </IF DATE>
         </FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin
@@ -1308,13 +1305,13 @@ function <StructureName>SelectRows ,^val
     <FIELD_LOOP>
     <IF NOTDATE>
     &    "<FIELD_SQLNAME><,>"
-    </IF>
+    </IF  NOTDATE>
     <IF DATE_YYYYMMDD>
     &    "CONVERT(VARCHAR(8),<FIELD_SQLNAME>,112) AS [YYYYMMDD]<,>"
-    </IF>
+    </IF DATE_YYYYMMDD>
     <IF DATE_YYMMDD>
     &    "CONVERT(VARCHAR(6),<FIELD_SQLNAME>,12) AS [YYMMDD]<,>"
-    </IF>
+    </IF DATE_YYMMDD>
     </FIELD_LOOP>
     &   " FROM <STRUCTURE_NAME> "
 
@@ -1335,12 +1332,11 @@ function <StructureName>SelectRows ,^val
     begin
         if (%ssc_define(a_dbchn,cursor,<STRUCTURE_FIELDS>,
         <FIELD_LOOP>
-        <IF NOTDATE>
-        &    <structure_name>.<field_name><,>
-        </IF>
         <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        </IF>
+        <ELSE>
+        &    <structure_name>.<field_name><,>
+        </IF DATE>
         </FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin
@@ -1529,12 +1525,11 @@ proc
     begin
         if (%ssc_bind(a_dbchn,cursor,<STRUCTURE_FIELDS>,
         <FIELD_LOOP>
-        <IF NOTDATE>
-        &    <structure_name>.<field_name><,>
-        </IF>
         <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        </IF>
+        <ELSE>
+        &    <structure_name>.<field_name><,>
+        </IF DATE>
         </FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin

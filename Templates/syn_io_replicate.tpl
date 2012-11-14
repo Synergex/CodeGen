@@ -224,15 +224,15 @@ readLastTag,    read(a_channel,<structure_name>,^LAST,KEYNUM:keyno,LOCK:lock)
         <IF DECIMAL>
         if (!<field_path>)
             clear <field_path>
-        </IF>
+        </IF DECIMAL>
         <IF DATE>
         if (!<field_path>)
             clear <field_path>
-        </IF>
+        </IF DATE>
         <IF TIME>
         if (!<field_path>)
             clear <field_path>
-        </IF>
+        </IF TIME>
         </FIELD_LOOP>
         store(a_channel,<structure_name>)
         &   [$ERR_NODUPS=duplicateKey]
