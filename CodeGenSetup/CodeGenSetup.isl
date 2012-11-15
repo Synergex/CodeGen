@@ -1071,7 +1071,6 @@
 		<col key="yes" def="s72">Component_</col>
 		<row><td>ALLUSERSPROFILE</td><td>ISX_DEFAULTCOMPONENT6</td></row>
 		<row><td>AppDataFolder</td><td>ISX_DEFAULTCOMPONENT2</td></row>
-		<row><td>CODEGEN1</td><td>ISX_DEFAULTCOMPONENT5</td></row>
 		<row><td>CommonFilesFolder</td><td>ISX_DEFAULTCOMPONENT8</td></row>
 		<row><td>SYNERGEX1</td><td>ISX_DEFAULTCOMPONENT4</td></row>
 	</table>
@@ -1923,7 +1922,11 @@
 		<row><td>codegen.chm</td><td>CodeGen.chm</td><td>CodeGen.chm</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Documentation\CodeGen.chm</td><td>1</td><td/></row>
 		<row><td>codegen.exe</td><td>CodeGen.exe</td><td>CodeGen.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGen.exe</td><td>1</td><td/></row>
 		<row><td>codegen.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>CodeGen.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\CodeGen\CodeGen.ico</td><td>1</td><td/></row>
+		<row><td>codegen_web_site.url</td><td>ISX_DEFAULTCOMPONENT1</td><td>CODEGE~1.URL|CodeGen Web Site.url</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Installer\CodeGen Web Site.url</td><td>1</td><td/></row>
 		<row><td>codegenengine.dll</td><td>CodeGenEngine.dll</td><td>CODEGE~1.DLL|CodeGenEngine.dll</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenEngine.dll</td><td>1</td><td/></row>
+		<row><td>codegensampletemplates.sde</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.SDE|CodeGenSampleTemplates.sde</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenSampleTemplates.sde</td><td>5</td><td/></row>
+		<row><td>codegensampletemplates.vpj</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPJ|CodeGenSampleTemplates.vpj</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenSampleTemplates.vpj</td><td>5</td><td/></row>
+		<row><td>codegensampletemplates.vpw</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPW|CodeGenSampleTemplates.vpw</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenSampleTemplates.vpw</td><td>5</td><td/></row>
 		<row><td>codegentaskmanager.exe</td><td>CodeGenTaskManager.exe</td><td>CODEGE~1.EXE|CodeGenTaskManager.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenTaskManager.exe</td><td>1</td><td/></row>
 		<row><td>codegentaskmanager.exe.confi</td><td>ISX_DEFAULTCOMPONENT1</td><td>CODEGE~1.CON|CodeGenTaskManager.exe.config</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenTaskManager.exe.config</td><td>1</td><td/></row>
 		<row><td>createfile.exe</td><td>CreateFile.exe</td><td>CREATE~1.EXE|CreateFile.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CreateFile.exe</td><td>1</td><td/></row>
@@ -1967,6 +1970,7 @@
 		<row><td>help.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>Help.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Documentation\Help.ico</td><td>1</td><td/></row>
 		<row><td>html_codegen.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>HTML_C~1.TPL|html_codegen.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\html_codegen.tpl</td><td>5</td><td/></row>
 		<row><td>html_rps_structure_docs.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>HTML_R~1.TPL|html_rps_structure_docs.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\html_rps_structure_docs.tpl</td><td>5</td><td/></row>
+		<row><td>internetexplorer.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>INTERN~1.ICO|InternetExplorer.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Installer\InternetExplorer.ico</td><td>1</td><td/></row>
 		<row><td>isnumeric.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>ISNUME~1.DBL|IsNumeric.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\IsNumeric.dbl</td><td>5</td><td/></row>
 		<row><td>iswhitespace.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>ISWHIT~1.DBL|IsWhitespace.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\IsWhitespace.dbl</td><td>5</td><td/></row>
 		<row><td>json_from_record.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>JSON_F~1.TPL|json_from_record.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\json_from_record.tpl</td><td>5</td><td/></row>
@@ -2033,6 +2037,7 @@
 		<row><td>vb_winform_resources.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WIN~1.TPL|vb_winform_resources.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_winform_resources.tpl</td><td>5</td><td/></row>
 		<row><td>vb_xaml.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>vb_xaml.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_xaml.tpl</td><td>5</td><td/></row>
 		<row><td>vb_xaml_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_XAM~1.TPL|vb_xaml_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_xaml_codebehind.tpl</td><td>5</td><td/></row>
+		<row><td>workbench.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>WORKBE~1.ICO|Workbench.ico</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Installer\Workbench.ico</td><td>5</td><td/></row>
 		<row><td>xf_java_add.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_add.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_add.tpl</td><td>5</td><td/></row>
 		<row><td>xf_java_can_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_can_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_can_delete.tpl</td><td>5</td><td/></row>
 		<row><td>xf_java_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_delete.tpl</td><td>5</td><td/></row>
@@ -4067,6 +4072,9 @@
 		<row><td>ID_STRING14</td><td>1033</td><td>*=-PATH</td><td>0</td><td/><td>-719270548</td></row>
 		<row><td>ID_STRING15</td><td>1033</td><td>[~];[INSTALLDIR]</td><td>0</td><td/><td>-719272596</td></row>
 		<row><td>ID_STRING16</td><td>1033</td><td>TASKMA~1|Task Manager (Experimental)</td><td>0</td><td/><td>-719275666</td></row>
+		<row><td>ID_STRING17</td><td>1033</td><td>SAMPLE~1|Sample Templates</td><td>0</td><td/><td>1973471888</td></row>
+		<row><td>ID_STRING18</td><td>1033</td><td>CODEGE~1|CodeGen Web Site</td><td>0</td><td/><td>1973480528</td></row>
+		<row><td>ID_STRING19</td><td>1033</td><td>CODEGE~1|CodeGen on CodePlex</td><td>0</td><td/><td>1973439600</td></row>
 		<row><td>ID_STRING2</td><td>1033</td><td>Synergex PSG</td><td>0</td><td/><td>-719271284</td></row>
 		<row><td>ID_STRING3</td><td>1033</td><td>CodeGen</td><td>0</td><td/><td>-719283572</td></row>
 		<row><td>ID_STRING4</td><td>1033</td><td>CodeGen</td><td>0</td><td/><td>-719279476</td></row>
@@ -4187,6 +4195,9 @@
 		<row><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td/><td>D:\Dev\CodeGen\Documentation\Help.ico</td><td>0</td></row>
 		<row><td>NewShortcut3_03205AF37A81465394AE55B698774BAA.exe</td><td/><td>D:\Dev\CodeGen\Installer\Uninstall.ico</td><td>0</td></row>
 		<row><td>NewShortcut4_68297511CBF3417280B7307AA1429096.exe</td><td/><td>D:\Dev\CodeGen\CodeGenTaskManager\CodeGen.ico</td><td>0</td></row>
+		<row><td>NewShortcut5_C876300F723C425EA5302CE5323157A3.exe</td><td/><td>D:\Dev\CodeGen\Installer\Workbench.ico</td><td>0</td></row>
+		<row><td>NewShortcut6_1EC12D35871C4DE3B0D12D2FB3F8E3AB.exe</td><td/><td>D:\Dev\CodeGen\Installer\InternetExplorer.ico</td><td>0</td></row>
+		<row><td>NewShortcut7_D01A559730AB4F9D8021DACF7507F215.exe</td><td/><td>D:\Dev\CodeGen\Installer\InternetExplorer.ico</td><td>0</td></row>
 	</table>
 
 	<table name="IniFile">
@@ -4793,6 +4804,9 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<row><td>NewShortcut2</td><td>CodeGen.chm</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut3</td><td>CodeGen.exe</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut4</td><td>CodeGenTaskManager.exe</td><td/><td>newfolder1</td><td>2</td></row>
+		<row><td>NewShortcut5</td><td>ISX_DEFAULTCOMPONENT5</td><td/><td>newfolder1</td><td>2</td></row>
+		<row><td>NewShortcut6</td><td>ISX_DEFAULTCOMPONENT1</td><td/><td>newfolder1</td><td>2</td></row>
+		<row><td>NewShortcut7</td><td>ISX_DEFAULTCOMPONENT1</td><td/><td>newfolder1</td><td>2</td></row>
 	</table>
 
 	<table name="RemoveIniFile">
@@ -4882,6 +4896,8 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<row><td>NewShortcut2</td><td>newfolder1</td><td>##ID_STRING11##</td><td>CodeGen.chm</td><td>[INSTALLDIR]CodeGen.chm</td><td/><td>##ID_STRING12##</td><td/><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td>0</td><td>3</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut3</td><td>newfolder1</td><td>##ID_STRING13##</td><td>CodeGen.exe</td><td>[SystemFolder]MsiExec.exe</td><td>/x [ProductCode]</td><td/><td/><td>NewShortcut3_03205AF37A81465394AE55B698774BAA.exe</td><td>0</td><td>1</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut4</td><td>newfolder1</td><td>##ID_STRING16##</td><td>CodeGenTaskManager.exe</td><td>[INSTALLDIR]CodeGenTaskManager.exe</td><td/><td/><td/><td>NewShortcut4_68297511CBF3417280B7307AA1429096.exe</td><td>0</td><td>1</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
+		<row><td>NewShortcut5</td><td>newfolder1</td><td>##ID_STRING17##</td><td>ISX_DEFAULTCOMPONENT5</td><td>[ALLUSERSPROFILE]Synergex\CodeGen\CodeGenSampleTemplates.vpw</td><td/><td/><td/><td>NewShortcut5_C876300F723C425EA5302CE5323157A3.exe</td><td>0</td><td>3</td><td>CODEGEN1</td><td/><td/><td/><td/><td/><td/><td/></row>
+		<row><td>NewShortcut6</td><td>newfolder1</td><td>##ID_STRING18##</td><td>ISX_DEFAULTCOMPONENT1</td><td>[INSTALLDIR]CodeGen Web Site.url</td><td/><td/><td/><td>NewShortcut6_1EC12D35871C4DE3B0D12D2FB3F8E3AB.exe</td><td>0</td><td>3</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 	</table>
 
 	<table name="Signature">
