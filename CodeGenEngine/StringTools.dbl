@@ -1,0 +1,521 @@
+;;*****************************************************************************
+;;
+;; Title:       StringTools.dbl
+;;
+;; Type:        Functions
+;;
+;; Description: Various string handling functions
+;;
+;; Date:        15th November 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+	
+	function CamelCase, a
+		
+		required in a_string    ,a
+		endparams
+		
+		stack record
+			pos         ,int
+			outstring   ,a80
+		endrecord
+		
+	proc
+		
+		outstring = a_string
+		
+		if (trimz(outstring))
+		begin
+			
+			;;Start with the original string
+			locase outstring
+			
+			;;Remove any leading numeric characters and spaces
+			repeat
+			begin
+				using outstring(1:1) select
+				("0" thru "9", " "),
+					outstring = outstring(2,^size(outstring))
+				(),
+					exitloop
+				endusing
+			end
+			
+			;;Uppercase any character which follows anything other than 0-9, A-Z, a-z
+			pos=1
+			while ((pos+=1)<=trim(outstring))
+			begin
+				using outstring(pos:1) select
+				("0" thru "9", "A" thru "Z", "a" thru "z"),
+					nop
+				(),
+					upcase outstring(pos+1:1)
+				endusing
+			end
+			
+			;;Remove anything that is not 0-9, A-Z, a-z, [, ], (, ), @
+			clear pos
+			while ((pos+=1)<=trim(outstring))
+			begin
+				using outstring(pos:1) select
+				("0" thru "9", "A" thru "Z", "a" thru "z", "[", "]", "(", ")", "@"),
+					nop
+				(),
+				begin
+					outstring(pos,^size(outstring)) = outstring(pos+1,^size(outstring))
+					if (pos>0)
+						pos-=1
+				end
+				endusing
+			end
+			
+		end
+		
+		freturn atrim(outstring)
+		
+	endfunction
+	
+	function IsNumeric, boolean
+		
+		required in a_string, a
+		endparams
+		
+		stack record
+			numeric     ,i4
+			d18         ,d18
+		endrecord
+		
+	proc
+		
+		numeric = false
+		onerror notnum
+		d18 = atrim(a_string)
+		numeric = true
+		
+	notnum,
+		offerror
+		freturn numeric
+		
+	endfunction
+
+	function IsWhitespace, boolean
+		
+		required in a_string    ,a
+		endparams
+		
+		stack record
+			idx         ,int
+			whitespace  ,boolean
+		endrecord
+		
+	proc
+		
+		whitespace = true
+		
+		for idx from 1 thru trimz(a_string)
+		begin
+			using decml(a_string(idx:1)) select
+				(32,9), ;;Space or tab is OK
+				nop
+			(), ;;Anything else is not
+			begin
+				whitespace = false
+				exitloop
+			end
+			endusing
+		end
+		
+		freturn whitespace
+		
+	endfunction
+
+	function LowerCase, a
+		
+		required in a_string, a
+		endparams
+		
+		.include "CODEGEN_SRC:codegen.def"
+		
+		stack record
+			outstring   ,a CODEGEN_BUFSZ
+		endrecord
+		
+	proc
+		
+		outstring = a_string
+		locase outstring
+		
+		freturn atrim(outstring)
+		
+	endfunction
+
+	function MixedCase, a
+		
+		required in a_string    ,a
+		endparams
+		
+		.include "CODEGEN_SRC:codegen.def"
+		
+		stack record
+			pos         ,i4
+			len         ,i4
+			outstring   ,a CODEGEN_BUFSZ
+		endrecord
+		
+	proc
+		
+		outstring = a_string
+		
+		if (len=trimz(outstring))
+		begin
+			
+			locase outstring
+			
+			;;Uppercase the first character
+			if (outstring(1:1)=="@") then
+			begin
+				if (trim(outstring)>1)
+					upcase outstring(2:1)
+			end
+			else
+				upcase outstring(1:1)
+				
+			pos=1
+			repeat
+			begin
+				pos=instr(pos,outstring,"_")
+				if (pos) && (pos<len) then
+					upcase outstring(pos+=1:1)
+				else
+					exitloop
+			end
+			
+			pos=1
+			repeat
+			begin
+				pos=instr(pos,outstring,".")
+				if (pos) && (pos<len) then
+					upcase outstring(pos+=1:1)
+				else
+					exitloop
+			end
+			
+		end
+		
+		freturn atrim(outstring)
+		
+	endfunction
+
+	function NumberFromParens ,int
+		
+		required in InString, a
+		endparams
+		
+		stack record local_data
+			StartPos    ,int
+			EndPos      ,int
+		endrecord
+		
+	proc
+		
+		init local_data
+		
+		StartPos = instr(1,InString,"(") + 1
+		EndPos = instr(1,InString,")") - 1
+		
+		freturn integer(InString(StartPos,EndPos))
+		
+	endfunction
+	
+	function PascalCase, a
+		
+		required in a_string    ,a
+		endparams
+		
+		stack record
+			pos         ,int
+			outstring   ,a80
+		endrecord
+		
+	proc
+		
+		outstring = a_string
+		
+		if (trimz(outstring))
+		begin
+			
+			;;Start with the original string
+			locase outstring
+			
+			;;Remove any leading numeric characters and spaces
+			repeat
+			begin
+				using outstring(1:1) select
+				("0" thru "9", " "),
+					outstring = outstring(2,^size(outstring))
+				(),
+					exitloop
+				endusing
+			end
+			
+			;;Uppercase any character which follows anything other than 0-9, A-Z, a-z
+			pos=1
+			while ((pos+=1)<=trim(outstring))
+			begin
+				using outstring(pos:1) select
+				("0" thru "9", "A" thru "Z", "a" thru "z"),
+					nop
+				(),
+					upcase outstring(pos+1:1)
+				endusing
+			end
+			
+			;;Remove anything that is not 0-9, A-Z, a-z, [, ], (, ), @
+			clear pos
+			while ((pos+=1)<=trim(outstring))
+			begin
+				using outstring(pos:1) select
+				("0" thru "9", "A" thru "Z", "a" thru "z", "[", "]", "(", ")", "@"),
+					nop
+				(),
+				begin
+					outstring(pos,^size(outstring)) = outstring(pos+1,^size(outstring))
+					if (pos>0)
+						pos-=1
+				end
+				endusing
+			end
+			
+			;;Uppercase the first character
+			if (outstring(1:1)=="@") then
+			begin
+				if (trim(outstring)>1)
+					upcase outstring(2:1)
+			end
+			else
+				upcase outstring(1:1)
+				
+		end
+		
+		freturn atrim(outstring)
+		
+	endfunction
+
+	enum QuoteType
+		SingleQuote, 1
+		DoubleQuote, 2
+	endenum
+	
+	function QuotedString ,a
+		
+		required in InString, a
+		endparams
+		
+		stack record local_data
+			GotQuote    ,int
+			ThisPos     ,int
+			StartPos    ,int
+			EndPos      ,int
+			QuoteMode   ,QuoteType
+		endrecord
+		
+	proc
+		
+		init local_data
+		
+		for ThisPos from 1 thru trim(InString)
+		begin
+			using InString(ThisPos:1) select
+			("'"),
+			begin
+				if (!GotQuote) then
+				begin
+					GotQuote = 1
+					StartPos = ThisPos + 1
+					QuoteMode = QuoteType.SingleQuote
+				end
+				else
+				begin
+					if (QuoteMode == QuoteType.SingleQuote)
+					begin
+						GotQuote = 2
+						EndPos = ThisPos - 1
+						exitloop
+					end
+				end
+			end
+			('"'),
+			begin
+				if (!GotQuote) then
+				begin
+					GotQuote = 1
+					StartPos = ThisPos + 1
+					QuoteMode = QuoteType.DoubleQuote
+				end
+				else
+				begin
+					if (QuoteMode == QuoteType.DoubleQuote)
+					begin
+						GotQuote = 2
+						EndPos = ThisPos - 1
+						exitloop
+					end
+				end
+			end
+			endusing
+		end
+		
+		if (GotQuote == 2) then
+			freturn atrim(InString(StartPos,EndPos))
+		else
+			freturn ""
+			
+	endfunction
+
+	function RemoveLeading, a
+		
+		required in a_string, a
+		endparams
+		
+	proc
+		
+		if (a_string) then
+		begin
+			data pos, int, 0
+			repeat
+				if (a_string(pos+=1:1))
+					exitloop
+			freturn a_string(pos,trim(a_string))
+		end
+		else
+			freturn ""
+			
+	endfunction
+
+	function StringFromParens, a
+		
+		required in InString, a
+		endparams
+		
+		stack record local_data
+			StartPos    ,int
+			EndPos      ,int
+		endrecord
+		
+	proc
+		
+		init local_data
+		
+		if (StartPos = instr(1,InString,"(") + 1)
+			EndPos = instr(1,InString,")") - 1
+			
+		if (EndPos > StartPos) then
+			freturn ""
+		else
+			freturn atrim(InString(StartPos,EndPos))
+			
+	endfunction
+
+	function UpperCase, a
+		
+		required in a_string    ,a
+		endparams
+		
+		.include "CODEGEN_SRC:codegen.def"
+		
+		stack record
+			outstring   ,a CODEGEN_BUFSZ
+		endrecord
+		
+	proc
+		
+		outstring = a_string
+		upcase outstring
+		
+		freturn atrim(outstring)
+		
+	endfunction
+
+	function XfCase, a
+		
+		required in a_string    ,a
+		endparams
+		
+		.include "CODEGEN_SRC:codegen.def"
+		
+		stack record
+			pos         ,i4
+			len         ,i4
+			outstring   ,a CODEGEN_BUFSZ
+		endrecord
+		
+	proc
+		
+		outstring = a_string
+		
+		if (len=trimz(outstring))
+		begin
+			
+			locase outstring
+			
+			;;Uppercase the first character
+			if (outstring(1:1)=="@") then
+			begin
+				if (trim(outstring)>1)
+					upcase outstring(2:1)
+			end
+			else
+				upcase outstring(1:1)
+				
+			pos=1
+			repeat
+			begin
+				pos=instr(pos,outstring,".")
+				if (pos) && (pos<len) then
+					upcase outstring(pos+=1:1)
+				else
+					exitloop
+			end
+			
+		end
+		
+		freturn atrim(outstring)
+		
+	endfunction
+
+endnamespace
