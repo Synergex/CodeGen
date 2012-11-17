@@ -383,7 +383,7 @@ namespace CodeGen.Engine
 
 .ifdef DBLNET
 
-	subroutine LoadSymphonyExtensions
+	subroutine LoadSymphonyExt
 		endparams
 		
 		stack record
@@ -399,11 +399,19 @@ namespace CodeGen.Engine
 		
 		;;Do we have a Symphony extensions assembly?
 
-		data extensionsAssembly, String
-		extensionsAssembly = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","SymphonyExtensions","")
+		data symphonyLocation, String
+		symphonyLocation = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","ExtensionPath","")
 
-		if ((extensionsAssembly!=^null)&&(extensionsAssembly!=""))
+		data extensionsAssembly, String
+		extensionsAssembly = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","ExtensionLibrary","")
+
+		if ((symphonyLocation!=^null)&&(symphonyLocation!="")&&(extensionsAssembly!=^null)&&(extensionsAssembly!=""))
 		begin
+			if (!symphonyLocation.EndsWith("\"))
+				symphonyLocation = symphonyLocation.Trim()+"\"
+			
+			extensionsAssembly = symphonyLocation + extensionsAssembly
+
 			;;Load the assembly
 			try
 			begin
@@ -415,18 +423,18 @@ namespace CodeGen.Engine
 				ok = false
 			end
 			endtry
-			
+				
 			;;Find the address for the entry point routine
 			data entryPointAddress, D_ADDR, 0
 			if (ok)
 			begin
 				if (!(entryPointAddress = %xaddr("LoadSymphonyExtensions",,1)))
 				begin
-					ErrorLog("Failed to locate LoadSymphonyExtensions() in " + extensionsAssembly)
+					ErrorLog("Routine LoadSymphonyExtensions() was not found in assembly " + extensionsAssembly)
 					ok = false
 				end
 			end
-
+				
 			;;Load the extensions
 			if (ok)
 			begin
