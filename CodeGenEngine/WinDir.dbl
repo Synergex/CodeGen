@@ -128,8 +128,8 @@ namespace CodeGen.Engine
             if (!(FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
             begin
                 matchingFiles = new ArrayList()
-                call ChangeCase
-
+				WinDirChangeCase(FileName,resultsCase)
+				
                 ;;Store away the first file name
 				matchingFiles.Add((@a)FileName(1:(instr(1,FileName,char(0))-1)))
             end
@@ -149,8 +149,8 @@ namespace CodeGen.Engine
                     ;;Found another file, check it's not a directory
                     if (!(FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
                     begin
-                        call ChangeCase
-
+						WinDirChangeCase(FileName,resultsCase)
+						
                         ;;Store away the next file name
 						matchingFiles.Add((@a)FileName(1:(instr(1,FileName,char(0))-1)))
                     end
@@ -179,11 +179,12 @@ namespace CodeGen.Engine
 		;;
 		try
 		begin
+			data FileName, a260, ""
 			open(dll=0,i,"|find " + atrim(searchSpec) + " -exec basename {} \; 2> /dev/null")
 			repeat
 			begin
 				reads(dll,FileName)
-				call ChangeCase
+				WinDirChangeCase(FileName,resultsCase)
 				if (matchingFiles==^null)
 					matchingFiles = new ArrayList()
 				matchingFiles.Add((@a)atrim(FileName))
@@ -207,11 +208,12 @@ namespace CodeGen.Engine
 		;;
 		try
 		begin
+			data FileName, a260
+			data pos, int
+
 			open(dll=0,i,"|dir/nohead/notrail/nodate/nosize/noown/noprot/noacl " + atrim(searchSpec)+";")
 			repeat
 			begin
-				data pos, int
-				
 				reads(dll,FileName)
 				
 				if (FileName=="%DIRECT-W-NOFILES")
@@ -225,7 +227,7 @@ namespace CodeGen.Engine
 				if (pos=instr(1,FileName,";"))
 					FileName = FileName(1,pos-1)
 					
-				call ChangeCase
+				WinDirChangeCase(FileName,resultsCase)
 				
 				if (matchingFiles==^null)
 					matchingFiles = new ArrayList()
@@ -242,28 +244,34 @@ namespace CodeGen.Engine
 			close dll
 		end
 		endtry
-
 .endc
 
         freturn ((matchingFiles!=^null)&&(matchingFiles.Count>0))
 
-    ;;-----------------------------------------------------
-    ;;Change filename to upper or lower case
-
-    ChangeCase,
-
-        using resultsCase select
-        (WinDirCase.UpperCase),
-            upcase FileName
-        (WinDirCase.LowerCase),
-            locase FileName
-        (),
-            nop
-        endusing
-
-        return
-
     endfunction
+
+	;;;<summary>
+	;;;Changes the case of a file name.
+	;;;</summary>
+	;;;<param name="fileName">File name to change</param>
+	;;;<param name="newCase">Case to change to</param>
+	subroutine WinDirChangeCase
+		required inout fileName, a
+		required in    newCase, WinDirCase
+		endparams
+	proc
+		using newCase select
+		(WinDirCase.UpperCase),
+			upcase fileName
+		(WinDirCase.LowerCase),
+			locase fileName
+		(),
+			nop
+		endusing
+
+		xreturn
+
+	endsubroutine
 
 endnamespace
 
