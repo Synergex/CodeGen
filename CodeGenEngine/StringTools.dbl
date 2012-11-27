@@ -44,478 +44,467 @@ import CodeGen.Engine
 import CodeGen.RepositoryAPI
 
 namespace CodeGen.Engine
-	
-	function CamelCase, a
-		
-		required in a_string    ,a
-		endparams
-		
-		stack record
-			pos         ,int
-			outstring   ,a80
-		endrecord
-		
-	proc
-		
-		outstring = a_string
-		
-		if (trimz(outstring))
-		begin
-			
-			;;Start with the original string
-			locase outstring
-			
-			;;Remove any leading numeric characters and spaces
-			repeat
-			begin
-				using outstring(1:1) select
-				("0" thru "9", " "),
-					outstring = outstring(2,^size(outstring))
-				(),
-					exitloop
-				endusing
-			end
-			
-			;;Uppercase any character which follows anything other than 0-9, A-Z, a-z
-			pos=1
-			while ((pos+=1)<=trim(outstring))
-			begin
-				using outstring(pos:1) select
-				("0" thru "9", "A" thru "Z", "a" thru "z"),
-					nop
-				(),
-					upcase outstring(pos+1:1)
-				endusing
-			end
-			
-			;;Remove anything that is not 0-9, A-Z, a-z, [, ], (, ), @
-			clear pos
-			while ((pos+=1)<=trim(outstring))
-			begin
-				using outstring(pos:1) select
-				("0" thru "9", "A" thru "Z", "a" thru "z", "[", "]", "(", ")", "@"),
-					nop
-				(),
-				begin
-					outstring(pos,^size(outstring)) = outstring(pos+1,^size(outstring))
-					if (pos>0)
-						pos-=1
-				end
-				endusing
-			end
-			
-		end
-		
-		freturn atrim(outstring)
-		
-	endfunction
-	
-	function IsNumeric, boolean
-		
-		required in a_string, a
-		endparams
-		
-		stack record
-			numeric     ,i4
-			d18         ,d18
-		endrecord
-		
-	proc
-		
-		numeric = false
-		onerror notnum
-		d18 = atrim(a_string)
-		numeric = true
-		
-	notnum,
-		offerror
-		freturn numeric
-		
-	endfunction
 
-	function IsWhitespace, boolean
-		
-		required in a_string    ,a
-		endparams
-		
-		stack record
-			idx         ,int
-			whitespace  ,boolean
-		endrecord
-		
-	proc
-		
-		whitespace = true
-		
-		for idx from 1 thru trimz(a_string)
-		begin
-			using decml(a_string(idx:1)) select
-				(32,9), ;;Space or tab is OK
-				nop
-			(), ;;Anything else is not
-			begin
-				whitespace = false
-				exitloop
-			end
-			endusing
-		end
-		
-		freturn whitespace
-		
-	endfunction
+    ;;; <summary>
+    ;;; Converts a string to camel case
+    ;;; </summary>
+    ;;; <param name="inString">String to be converted</param>
+    ;;; <returns>Converted string</returns>
+    function CamelCase, a
+        required in inString, a
+        endparams
+        stack record
+            outString   ,a80
+        endrecord
+    proc
+        outString = inString
+        if (trimz(outString))
+        begin
+            data pos, int
+            ;;Start with the original string
+            locase outString
+            ;;Remove any leading numeric characters and spaces
+            repeat
+            begin
+                using outString(1:1) select
+                ("0" thru "9", " "),
+                    outString = outString(2,^size(outString))
+                (),
+                    exitloop
+                endusing
+            end
+            ;;Uppercase any character which follows anything other than 0-9, A-Z, a-z
+            pos=1
+            while ((pos+=1)<=trim(outString))
+            begin
+                using outString(pos:1) select
+                ("0" thru "9", "A" thru "Z", "a" thru "z"),
+                    nop
+                (),
+                    upcase outString(pos+1:1)
+                endusing
+            end
+            ;;Remove anything that is not 0-9, A-Z, a-z, [, ], (, ), @
+            clear pos
+            while ((pos+=1)<=trim(outString))
+            begin
+                using outString(pos:1) select
+                ("0" thru "9", "A" thru "Z", "a" thru "z", "[", "]", "(", ")", "@"),
+                    nop
+                (),
+                begin
+                    outString(pos,^size(outString)) = outString(pos+1,^size(outString))
+                    if (pos>0)
+                        pos-=1
+                end
+                endusing
+            end
+        end
+        freturn atrim(outString)
+    endfunction
 
-	function LowerCase, a
-		
-		required in a_string, a
-		endparams
-		
-		.include "CODEGEN_SRC:codegen.def"
-		
-		stack record
-			outstring   ,a CODEGEN_BUFSZ
-		endrecord
-		
-	proc
-		
-		outstring = a_string
-		locase outstring
-		
-		freturn atrim(outstring)
-		
-	endfunction
+    ;;; <summary>
+    ;;; Determines if a string contains a numeric value. Blanks are considered to be zero.
+    ;;; </summary>
+    ;;; <param name="inString">String to test</param>
+    ;;; <returns>True if the string contains a numeric value</returns>
+    function IsNumeric, boolean
+        required in inString, a
+        endparams
+        stack record
+            numeric, boolean
+        endrecord
+    proc
+        try
+        begin
+            data d28, d28
+            d28 = atrim(inString)
+            numeric = true
+        end
+        catch (e, @BadDigitException)
+        begin
+            numeric = false
+        end
+        endtry
+        freturn numeric
+    endfunction
 
-	function MixedCase, a
-		
-		required in a_string    ,a
-		endparams
-		
-		.include "CODEGEN_SRC:codegen.def"
-		
-		stack record
-			pos         ,i4
-			len         ,i4
-			outstring   ,a CODEGEN_BUFSZ
-		endrecord
-		
-	proc
-		
-		outstring = a_string
-		
-		if (len=trimz(outstring))
-		begin
-			
-			locase outstring
-			
-			;;Uppercase the first character
-			if (outstring(1:1)=="@") then
-			begin
-				if (trim(outstring)>1)
-					upcase outstring(2:1)
-			end
-			else
-				upcase outstring(1:1)
-				
-			pos=1
-			repeat
-			begin
-				pos=instr(pos,outstring,"_")
-				if (pos) && (pos<len) then
-					upcase outstring(pos+=1:1)
-				else
-					exitloop
-			end
-			
-			pos=1
-			repeat
-			begin
-				pos=instr(pos,outstring,".")
-				if (pos) && (pos<len) then
-					upcase outstring(pos+=1:1)
-				else
-					exitloop
-			end
-			
-		end
-		
-		freturn atrim(outstring)
-		
-	endfunction
+    ;;; <summary>
+    ;;; Determines if a string contains only whitespace characters (speces and/or tabs)
+    ;;; </summary>
+    ;;; <param name="inString">String to test</param>
+    ;;; <returns>True if the string only contains whitespace characters</returns>
+    function IsWhitespace, boolean
+        required in inString, a
+        endparams
+        stack record
+            ix          ,int
+            whitespace  ,boolean
+        endrecord
+    proc
+        whitespace = true
+        for ix from 1 thru trimz(inString)
+        begin
+            using decml(inString(ix:1)) select
+            (32,9), ;;Space or tab is OK
+                nop
+            (),     ;;Anything else is not
+            begin
+                whitespace = false
+                exitloop
+            end
+            endusing
+        end
+        freturn whitespace
+    endfunction
 
-	function NumberFromParens ,int
-		
-		required in InString, a
-		endparams
-		
-		stack record local_data
-			StartPos    ,int
-			EndPos      ,int
-		endrecord
-		
-	proc
-		
-		init local_data
-		
-		StartPos = instr(1,InString,"(") + 1
-		EndPos = instr(1,InString,")") - 1
-		
-		freturn integer(InString(StartPos,EndPos))
-		
-	endfunction
-	
-	function PascalCase, a
-		
-		required in a_string    ,a
-		endparams
-		
-		stack record
-			pos         ,int
-			outstring   ,a80
-		endrecord
-		
-	proc
-		
-		outstring = a_string
-		
-		if (trimz(outstring))
-		begin
-			
-			;;Start with the original string
-			locase outstring
-			
-			;;Remove any leading numeric characters and spaces
-			repeat
-			begin
-				using outstring(1:1) select
-				("0" thru "9", " "),
-					outstring = outstring(2,^size(outstring))
-				(),
-					exitloop
-				endusing
-			end
-			
-			;;Uppercase any character which follows anything other than 0-9, A-Z, a-z
-			pos=1
-			while ((pos+=1)<=trim(outstring))
-			begin
-				using outstring(pos:1) select
-				("0" thru "9", "A" thru "Z", "a" thru "z"),
-					nop
-				(),
-					upcase outstring(pos+1:1)
-				endusing
-			end
-			
-			;;Remove anything that is not 0-9, A-Z, a-z, [, ], (, ), @
-			clear pos
-			while ((pos+=1)<=trim(outstring))
-			begin
-				using outstring(pos:1) select
-				("0" thru "9", "A" thru "Z", "a" thru "z", "[", "]", "(", ")", "@"),
-					nop
-				(),
-				begin
-					outstring(pos,^size(outstring)) = outstring(pos+1,^size(outstring))
-					if (pos>0)
-						pos-=1
-				end
-				endusing
-			end
-			
-			;;Uppercase the first character
-			if (outstring(1:1)=="@") then
-			begin
-				if (trim(outstring)>1)
-					upcase outstring(2:1)
-			end
-			else
-				upcase outstring(1:1)
-				
-		end
-		
-		freturn atrim(outstring)
-		
-	endfunction
+    ;;; <summary>
+    ;;; Converts a string to lower case
+    ;;; </summary>
+    ;;; <param name="inString">String to be converted</param>
+    ;;; <returns>Converted string</returns>
+    function LowerCase, a
+        required in inString, a
+        endparams
+        stack record
+            outString, String
+        endrecord
+    proc
+        outString = atrim(inString)
+        freturn (a)(outString.ToLower())
+    endfunction
 
-	enum QuoteType
-		SingleQuote, 1
-		DoubleQuote, 2
-	endenum
-	
-	function QuotedString ,a
-		
-		required in InString, a
-		endparams
-		
-		stack record local_data
-			GotQuote    ,int
-			ThisPos     ,int
-			StartPos    ,int
-			EndPos      ,int
-			QuoteMode   ,QuoteType
-		endrecord
-		
-	proc
-		
-		init local_data
-		
-		for ThisPos from 1 thru trim(InString)
-		begin
-			using InString(ThisPos:1) select
-			("'"),
-			begin
-				if (!GotQuote) then
-				begin
-					GotQuote = 1
-					StartPos = ThisPos + 1
-					QuoteMode = QuoteType.SingleQuote
-				end
-				else
-				begin
-					if (QuoteMode == QuoteType.SingleQuote)
-					begin
-						GotQuote = 2
-						EndPos = ThisPos - 1
-						exitloop
-					end
-				end
-			end
-			('"'),
-			begin
-				if (!GotQuote) then
-				begin
-					GotQuote = 1
-					StartPos = ThisPos + 1
-					QuoteMode = QuoteType.DoubleQuote
-				end
-				else
-				begin
-					if (QuoteMode == QuoteType.DoubleQuote)
-					begin
-						GotQuote = 2
-						EndPos = ThisPos - 1
-						exitloop
-					end
-				end
-			end
-			endusing
-		end
-		
-		if (GotQuote == 2) then
-			freturn atrim(InString(StartPos,EndPos))
-		else
-			freturn ""
-			
-	endfunction
+    ;;; <summary>
+    ;;; Converts a string to mixed case
+    ;;; </summary>
+    ;;; <param name="inString">String to be converted</param>
+    ;;; <returns>Converted string</returns>
+    function MixedCase, a
+        required in inString, a
+        endparams
+        .include "CODEGEN_SRC:codegen.def"
+        stack record
+            len         ,i4
+            outString   ,a CODEGEN_BUFSZ
+        endrecord
+    proc
+        outString = inString
+        if (len=trimz(outString))
+        begin
+            data pos, int
+            locase outString
+            ;;Uppercase the first character
+            if (outString(1:1)=="@") then
+            begin
+                if (trim(outString)>1)
+                    upcase outString(2:1)
+            end
+            else
+                upcase outString(1:1)
+            ;;Uppercase anything after an "_"
+            pos=1
+            repeat
+            begin
+                pos=instr(pos,outString,"_")
+                if (pos) && (pos<len) then
+                    upcase outString(pos+=1:1)
+                else
+                    exitloop
+            end
+            ;;Uppercase anything after a "."
+            pos=1
+            repeat
+            begin
+                pos=instr(pos,outString,".")
+                if (pos) && (pos<len) then
+                    upcase outString(pos+=1:1)
+                else
+                    exitloop
+            end
+        end
+        freturn atrim(outString)
+    endfunction
 
-	function RemoveLeading, a
-		
-		required in a_string, a
-		endparams
-		
-	proc
-		
-		if (a_string) then
-		begin
-			data pos, int, 0
-			repeat
-				if (a_string(pos+=1:1))
-					exitloop
-			freturn a_string(pos,trim(a_string))
-		end
-		else
-			freturn ""
-			
-	endfunction
+    ;;; <summary>
+	;;; Extracts and returns a number which is delimited by the first
+	;;; set of parentheses in a string.
+    ;;; </summary>
+    ;;; <param name="inString">String to test</param>
+    ;;; <returns>Number that was delimited by first set or parentheses, or zero.</returns>
+    function NumberFromParens ,int
+        required in inString, a
+        endparams
+        stack record
+            startPos    ,int
+            endPos      ,int
+            intVal      ,int
+        endrecord
+    proc
+        clear intVal
+        if (startPos = instr(1,inString,"("))
+        begin
+            if (endPos = instr(startPos,inString,")"))
+            begin
+                if ((endPos-=1)>(startPos+=1))
+                begin
+                    try
+                    begin
+                        intVal = integer(inString(startPos,endPos))
+                    end
+                    catch (e, @BadDigitException)
+                    begin
+                        nop
+                    end
+                    endtry
+                end
+            end
+        end
+        freturn intVal
+    endfunction
 
+    ;;; <summary>
+    ;;; Converts a string to pascal case
+    ;;; </summary>
+    ;;; <param name="inString">String to be converted</param>
+    ;;; <returns>Converted string</returns>
+    function PascalCase, a
+        required in inString, a
+        endparams
+        stack record
+            outString, a80
+        endrecord
+    proc
+        outString = inString
+        if (trimz(outString))
+        begin
+            data pos, int
+            ;;Start with the original string
+            locase outString
+            ;;Remove any leading numeric characters and spaces
+            repeat
+            begin
+                using outString(1:1) select
+                ("0" thru "9", " "),
+                    outString = outString(2,^size(outString))
+                (),
+                    exitloop
+                endusing
+            end
+            ;;Uppercase any character which follows anything other than 0-9, A-Z, a-z
+            pos=1
+            while ((pos+=1)<=trim(outString))
+            begin
+                using outString(pos:1) select
+                ("0" thru "9", "A" thru "Z", "a" thru "z"),
+                    nop
+                (),
+                    upcase outString(pos+1:1)
+                endusing
+            end
+            ;;Remove anything that is not 0-9, A-Z, a-z, [, ], (, ), @
+            clear pos
+            while ((pos+=1)<=trim(outString))
+            begin
+                using outString(pos:1) select
+                ("0" thru "9", "A" thru "Z", "a" thru "z", "[", "]", "(", ")", "@"),
+                    nop
+                (),
+                begin
+                    outString(pos,^size(outString)) = outString(pos+1,^size(outString))
+                    if (pos>0)
+                        pos-=1
+                end
+                endusing
+            end
+            ;;Uppercase the first character
+            if (outstring(1:1)=="@") then
+            begin
+                if (trim(outString)>1)
+                    upcase outString(2:1)
+            end
+            else
+                upcase outString(1:1)
+        end
+        freturn atrim(outString)
+    endfunction
+
+    enum QuoteType
+        SingleQuote, 1
+        DoubleQuote, 2
+    endenum
+
+    ;;; <summary>
+	;;; Extracts and returns the first quoted string from within a string.
+	;;; The quoted string can be delimited by either single or double quotes.
+	;;; If no quoted string is found then a blank string is returned.
+    ;;; </summary>
+    ;;; <param name="inString">String to test</param>
+    ;;; <returns>Content of first quoted string (not including the quotes) or blank.</returns>
+    function QuotedString ,a
+        required in inString, a
+        endparams
+        stack record local_data
+            gotQuote    ,int
+            thisPos     ,int
+            startPos    ,int
+            endPos      ,int
+            QuoteMode   ,QuoteType
+        endrecord
+    proc
+        init local_data
+        for thisPos from 1 thru trim(inString)
+        begin
+            using inString(thisPos:1) select
+            ("'"),
+            begin
+                if (!gotQuote) then
+                begin
+                    gotQuote = 1
+                    startPos = thisPos + 1
+                    QuoteMode = QuoteType.SingleQuote
+                end
+                else
+                begin
+                    if (QuoteMode == QuoteType.SingleQuote)
+                    begin
+                        gotQuote = 2
+                        endPos = thisPos - 1
+                        exitloop
+                    end
+                end
+            end
+            ('"'),
+            begin
+                if (!gotQuote) then
+                begin
+                    gotQuote = 1
+                    startPos = thisPos + 1
+                    QuoteMode = QuoteType.DoubleQuote
+                end
+                else
+                begin
+                    if (QuoteMode == QuoteType.DoubleQuote)
+                    begin
+                        gotQuote = 2
+                        endPos = thisPos - 1
+                        exitloop
+                    end
+                end
+            end
+            endusing
+        end
+        if (gotQuote == 2) then
+            freturn atrim(inString(startPos,endPos))
+        else
+            freturn ""
+    endfunction
+
+    ;;; <summary>
+    ;;; Removes any leading spaces from a string.
+    ;;; </summary>
+    ;;; <param name="inString">String to test</param>
+    ;;; <returns>String with leading spaces removed</returns>
+    function RemoveLeading, a
+        required in inString, a
+        endparams
+    proc
+        if (inString) then
+        begin
+            data pos, int, 0
+            repeat
+                if (inString(pos+=1:1))
+                    exitloop
+            freturn inString(pos,trim(inString))
+        end
+        else
+            freturn ""
+    endfunction
+
+	;;; <summary>
+	;;; Extracts and returns a string which is delimited by the first
+	;;; set of parentheses within a string.
+	;;; </summary>
+	;;; <param name="inString">String to test</param>
+	;;; <returns>String that was delimited by first set or parentheses, or blank.</returns>
 	function StringFromParens, a
-		
-		required in InString, a
-		endparams
-		
-		stack record local_data
-			StartPos    ,int
-			EndPos      ,int
-		endrecord
-		
-	proc
-		
-		init local_data
-		
-		if (StartPos = instr(1,InString,"(") + 1)
-			EndPos = instr(1,InString,")") - 1
-			
-		if (EndPos > StartPos) then
-			freturn ""
-		else
-			freturn atrim(InString(StartPos,EndPos))
-			
-	endfunction
+        required in inString, a
+        endparams
+        stack record
+            startPos    ,int
+            endPos      ,int
+            result      ,String
+        endrecord
+    proc
+        result = ""
+        if (startPos = instr(1,inString,"("))
+        begin
+            if (endPos = instr(1,inString,")"))
+            begin
+                incr startPos
+                decr endPos
+                if (endPos>startPos)
+                    result = atrim(inString(startPos,endPos))
+            end
+        end
+        freturn (a)result
+    endfunction
 
-	function UpperCase, a
-		
-		required in a_string    ,a
-		endparams
-		
-		.include "CODEGEN_SRC:codegen.def"
-		
-		stack record
-			outstring   ,a CODEGEN_BUFSZ
-		endrecord
-		
-	proc
-		
-		outstring = a_string
-		upcase outstring
-		
-		freturn atrim(outstring)
-		
-	endfunction
+    ;;; <summary>
+    ;;; Converts a string to upper case
+    ;;; </summary>
+    ;;; <param name="inString">String to be converted</param>
+    ;;; <returns>Converted string</returns>
+    function UpperCase, a
+        required in inString, a
+        endparams
+        .include "CODEGEN_SRC:codegen.def"
+        stack record
+            outString, String
+        endrecord
+    proc
+        outString = atrim(inString)
+        freturn (a)(outString.ToUpper())
+    endfunction
 
-	function XfCase, a
-		
-		required in a_string    ,a
-		endparams
-		
-		.include "CODEGEN_SRC:codegen.def"
-		
-		stack record
-			pos         ,i4
-			len         ,i4
-			outstring   ,a CODEGEN_BUFSZ
-		endrecord
-		
-	proc
-		
-		outstring = a_string
-		
-		if (len=trimz(outstring))
-		begin
-			
-			locase outstring
-			
-			;;Uppercase the first character
-			if (outstring(1:1)=="@") then
-			begin
-				if (trim(outstring)>1)
-					upcase outstring(2:1)
-			end
-			else
-				upcase outstring(1:1)
-				
-			pos=1
-			repeat
-			begin
-				pos=instr(pos,outstring,".")
-				if (pos) && (pos<len) then
-					upcase outstring(pos+=1:1)
-				else
-					exitloop
-			end
-			
-		end
-		
-		freturn atrim(outstring)
-		
-	endfunction
+    ;;; <summary>
+    ;;; Converts a string to xfNetLink compatible case
+    ;;; </summary>
+    ;;; <param name="inString">String to be converted</param>
+    ;;; <returns>Converted string</returns>
+    function XfCase, a
+        required in inString, a
+        endparams
+        .include "CODEGEN_SRC:codegen.def"
+        stack record
+            len         ,int
+            outString   ,a CODEGEN_BUFSZ
+        endrecord
+    proc
+        outString = inString
+        if (len=trimz(outString))
+        begin
+            data pos, int
+            locase outString
+            ;;Uppercase the first character
+            if (outString(1:1)=="@") then
+            begin
+                if (trim(outString)>1)
+                    upcase outString(2:1)
+            end
+            else
+                upcase outString(1:1)
+            ;;Uppercase anything following a "."
+            pos=1
+            repeat
+            begin
+                pos=instr(pos,outString,".")
+                if (pos) && (pos<len) then
+                    upcase outString(pos+=1:1)
+                else
+                    exitloop
+            end
+        end
+        freturn atrim(outString)
+    endfunction
 
 endnamespace
