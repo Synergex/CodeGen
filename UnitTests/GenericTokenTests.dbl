@@ -50,51 +50,7 @@ namespace CodeGen.UnitTests
 	{TestClass}
 	public class GenericTokenTests
 		
-		{AssemblyInitialize}
-		public static method AssemblyInit, void
-			required in context, @TestContext
-			endparams
-		proc
-			data devRoot, String, System.Environment.GetEnvironmentVariable("CODEGEN_DEVROOT")
-
-			if (string.IsNullOrEmpty(devRoot))
-				throw new Exception("Environment variable CODEGEN_DEVROOT was not found!")
-
-			data mainFile, String, String.Format("{0}UnitTests\TestRepository\rpsmain.ism",devRoot)
-			data textFile, String, String.Format("{0}UnitTests\TestRepository\rpstext.ism",devRoot)
-
-			if ((!System.IO.File.Exists(mainFile))||(!System.IO.File.Exists(textFile)))
-				throw new Exception("Unit testing repository was not found!")
-
-			data sts, int
-			setlog("RPSMFIL",mainFile,sts)
-			setlog("RPSTFIL",textFile,sts)
-			
-		endmethod
-
-		private mStr	,@CodeGen.RepositoryAPI.RpsStructure
 		private mMsg	,String
-		
-		{TestInitialize}
-		public method Initialize, void
-			endparams
-		proc
-			;;Make sure we don't try to display anything to the screen
-			CodeGen.Engine.Env.SuppressLogging = true
-
-			;;Load the UNIT_TEST repository structure
-			mStr = new CodeGen.RepositoryAPI.RpsStructure("UNIT_TEST")
-			
-			;;Run the structure through CheckStructure() because it sets up
-			;;some stuff that is needed in order to successfully process some tokens
-			if (!CodeGen.Engine.CheckStructure(mStr))
-				throw new Exception("CodeGen.Engine.CheckStructure failed to validate structure UNIT_TEST")
-
-			;;Configure CodeGen for repository processing
-			CodeGen.Engine.Env.CurrentStructure = mStr
-			CodeGen.Engine.Env.RpsInUse = true
-			
-		endmethod
 		
 		{TestMethod}
 		{TestCategory("Generic Token Tests")}
@@ -261,7 +217,7 @@ namespace CodeGen.UnitTests
 		public method GenericToken_StructureFields, void
 			endparams
 		proc
-			Assert.IsTrue(doTest("<STRUCTURE_FIELDS>",mStr.Fields.Count.ToString()),mMsg)
+			Assert.IsTrue(doTest("<STRUCTURE_FIELDS>",TestEnv.Structure.Fields.Count.ToString()),mMsg)
 		endmethod
 		
 		{TestMethod}
@@ -415,7 +371,7 @@ namespace CodeGen.UnitTests
 		public method GenericToken_StructureChildren, void
 			endparams
 		proc
-			Assert.IsTrue(doTest("<STRUCTURE_CHILDREN>",mStr.Fields.Count.ToString()),mMsg)
+			Assert.IsTrue(doTest("<STRUCTURE_CHILDREN>",TestEnv.Structure.Fields.Count.ToString()),mMsg)
 		endmethod
 		
 		{TestMethod}
@@ -447,7 +403,7 @@ namespace CodeGen.UnitTests
 		public method GenericToken_StructureSize, void
 			endparams
 		proc
-			Assert.IsTrue(doTest("<STRUCTURE_SIZE>",mStr.Length.ToString()),mMsg)
+			Assert.IsTrue(doTest("<STRUCTURE_SIZE>",TestEnv.Structure.Length.ToString()),mMsg)
 		endmethod
 		
 		{TestMethod}
@@ -545,7 +501,7 @@ namespace CodeGen.UnitTests
 			
 			mMsg = "PROCESSING: " + atrim(mainBuffer) + " EXPECTED: " + atrim(expectedResult)
 			
-			if (ok=CodeGen.Engine.ExpandToken(mStr,tokenStart,tokenEnd,mainBuffer,errStatus))
+			if (ok=CodeGen.Engine.ExpandToken(TestEnv.Structure,tokenStart,tokenEnd,mainBuffer,errStatus))
 			begin
 				if (instr(1,mainBuffer,"~~~ REMOVE THIS RECORD ~~~"))
 					mainBuffer = mainBuffer - "~~~ REMOVE THIS RECORD ~~~"
@@ -554,11 +510,11 @@ namespace CodeGen.UnitTests
 			
 			if (!ok)
 				mMsg = mMsg + " ACTUAL: " + atrim(mainBuffer)
-				
+			
 			mreturn ok
 			
 		endmethod
-
+		
 .endregion
 
 	endclass

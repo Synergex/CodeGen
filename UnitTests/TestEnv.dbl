@@ -1,0 +1,360 @@
+;;*****************************************************************************
+;;
+;; Title:       TestEnv.dbl
+;;
+;; Type:        Unit testing class
+;;
+;; Description: Initializes an environment for CodeGen unit testing and exposes
+;;				useful "stuff".
+;;
+;; Date:        30th November 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import Microsoft.VisualStudio.TestTools.UnitTesting
+import System
+import System.IO
+
+namespace CodeGen.UnitTests
+
+	{TestClass}
+	public static class TestEnv
+		
+		{AssemblyInitialize}
+		public static method AssemblyInitialize, void
+			required in context, @TestContext
+			endparams
+		proc
+			;;Get the value of the CODEGEN_DEVROOT environment variable
+			data devRoot, String, Environment.GetEnvironmentVariable("CODEGEN_DEVROOT")
+			
+			;;Make sure we have it
+			if (String.IsNullOrEmpty(devRoot))
+				throw new Exception("Environment variable CODEGEN_DEVROOT was not found!")
+
+			;;Make sure the location exists
+			if (!Directory.Exists(devRoot))
+				throw new Exception("The folder identified by CODEGEN_DEVROOT does not exist!")
+
+			;;Make sure that the repository files exist
+			data mainFile, String, String.Format("{0}UnitTests\TestRepository\rpsmain.ism",devRoot)
+			data textFile, String, String.Format("{0}UnitTests\TestRepository\rpstext.ism",devRoot)
+			if ((!File.Exists(mainFile))||(!File.Exists(textFile)))
+				throw new Exception("The unit testing repository was not found!")
+				
+			;;Set the repository environment variables
+			data sts, int
+			setlog("RPSMFIL",mainFile,sts)
+			setlog("RPSTFIL",textFile,sts)
+			
+			;;Make sure CodeGen doesn't try to display anything to the screen
+			CodeGen.Engine.Env.SuppressLogging = true
+			
+			;;Load the UNIT_TEST repository structure
+			mStructure = new CodeGen.RepositoryAPI.RpsStructure("UNIT_TEST")
+			
+			;;Run the structure through CheckStructure() because it sets up
+			;;some stuff that is needed in order to successfully process some tokens
+			if (!CodeGen.Engine.CheckStructure(mStructure))
+				throw new Exception("CodeGen.Engine.CheckStructure failed to validate structure UNIT_TEST")
+			
+			;;Get handles on the files we'll be using during the tests
+			mFirstFile		  = mStructure.Files[0]
+			
+			;;Get handles on the keys and segments we'll be using during the tests
+			mKeyZero		  = mStructure.Keys[0]
+			mKeyZeroSegOne	  = mKeyZero.Segments[0]
+			mKeyZeroSegOneFld = mStructure.Fields[mKeyZeroSegOne.Field]
+			
+			;;Get handles on the fields we'll use during the tests
+			mFieldOne		= mStructure.Fields[0]	;A1
+			mFieldTwo		= mStructure.Fields[1]	;D1 enumerated with selections
+			mFieldThree		= mStructure.Fields[2]	;D2.1 with max min range
+			mFieldFour		= mStructure.Fields[3]	;D8 date
+			mFieldFive		= mStructure.Fields[4]	;D5.2 with a display format
+			mFieldSix		= mStructure.Fields[5]	;A1 with a selection window
+			mFieldSeven		= mStructure.Fields[6]	;A10 based on a tamplate TEMPLATE_ONE
+			mFieldEight		= mStructure.Fields[7]	;I1
+			mFieldNine		= mStructure.Fields[8]	;I2
+			mFieldTen		= mStructure.Fields[9]	;I4
+			mFieldEleven	= mStructure.Fields[10]	;I8
+			mFieldTwelve	= mStructure.Fields[11]	;[2]A1
+			mFieldThirteen	= mStructure.Fields[12]	;[2,2]A1
+			mFieldFourteen	= mStructure.Fields[13]	;[2,2,2]A1
+			mFieldFifteen	= mStructure.Fields[14]	;[2,2,2,2]A1
+				
+			;;Configure CodeGen for repository processing
+			CodeGen.Engine.Env.CurrentStructure = mStructure
+			CodeGen.Engine.Env.RpsInUse = true
+
+			;;Load up the custom tokens that we'll use during our tests
+			CodeGen.Engine.Env.CustomTokens.Add(new CustomToken1())
+			CodeGen.Engine.Env.CustomFieldTokens.Add(new CustomFieldToken1())
+			CodeGen.Engine.Env.CustomSelectionTokens.Add(new CustomSelectionToken1())
+			CodeGen.Engine.Env.CustomKeyTokens.Add(new CustomKeyToken1())
+			CodeGen.Engine.Env.CustomSegmentTokens.Add(new CustomSegmentToken1())
+			CodeGen.Engine.Env.CustomRelationTokens.Add(new CustomRelationToken1())
+			CodeGen.Engine.Env.CustomEnumTokens.Add(new CustomEnumToken1())
+			CodeGen.Engine.Env.CustomEnumMemberTokens.Add(new CustomEnumMemberToken1())
+			CodeGen.Engine.Env.CustomFileTokens.Add(new CustomFileToken1())
+			CodeGen.Engine.Env.CustomButtonTokens.Add(new CustomButtonToken1())
+			CodeGen.Engine.Env.SuppressLogging = true
+
+		endmethod
+
+		private static mStructure		,@CodeGen.RepositoryAPI.RpsStructure
+		private static mFirstFile		,@CodeGen.RepositoryAPI.RpsFile
+		private static mKeyZero			,@CodeGen.RepositoryAPI.RpsKey
+		private static mKeyZeroSegOne	,@CodeGen.RepositoryAPI.RpsKeySegment
+		private static mKeyZeroSegOneFld,@CodeGen.RepositoryAPI.RpsField
+		
+		private static mFieldOne		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldTwo		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldThree		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldFour		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldFive		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldSix		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldSeven		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldEight		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldNine		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldTen		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldEleven		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldTwelve		,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldThirteen	,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldFourteen	,@CodeGen.RepositoryAPI.RpsField
+		private static mFieldFifteen	,@CodeGen.RepositoryAPI.RpsField
+
+		;;; <summary>
+		;;; Expose the UNIT_TEST repository structure to test classes
+		;;; </summary>
+		public static property Structure, @CodeGen.RepositoryAPI.RpsStructure
+			method get
+			proc
+				mreturn mStructure
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;; Expose the first file assigned to the UNIT_TEST repository structure
+		;;; </summary>
+		public static property FirstFile, @CodeGen.RepositoryAPI.RpsFile
+			method get
+			proc
+				mreturn mFirstFile
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; Expose the first key of the UNIT_TEST repository structure
+		;;; </summary>
+		public static property KeyZero, @CodeGen.RepositoryAPI.RpsKey
+			method get
+			proc
+				mreturn mKeyZero
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; Expose the first segment of the first key of the UNIT_TEST repository structure
+		;;; </summary>
+		public static property KeyZeroSegOne, @CodeGen.RepositoryAPI.RpsKeySegment
+			method get
+			proc
+				mreturn mKeyZeroSegOne
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; Expose the first key segment's associated field
+		;;; </summary>
+		public static property KeyZeroSegOneFld, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mKeyZeroSegOneFld
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; A1
+		;;; </summary>
+		public static property FieldOne, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldOne
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; D1 enumerated with selections
+		;;; </summary>
+		public static property FieldTwo, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldTwo
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; D2.1 with max min range
+		;;; </summary>
+		public static property FieldThree, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldThree
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;; D8 date
+		;;; </summary>
+		public static property FieldFour, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldFour
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; D5.2 with a display format
+		;;; </summary>
+		public static property FieldFive, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldFive
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; A1 with a selection window
+		;;; </summary>
+		public static property FieldSix, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldSix
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; A10 based on a tamplate TEMPLATE_ONE
+		;;; </summary>
+		public static property FieldSeven, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldSeven
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;; I1
+		;;; </summary>
+		public static property FieldEight, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldEight
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; I2
+		;;; </summary>
+		public static property FieldNine, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldNine
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; I4
+		;;; </summary>
+		public static property FieldTen, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldTen
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; I8
+		;;; </summary>
+		public static property FieldEleven, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldEleven
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;; [2]A1
+		;;; </summary>
+		public static property FieldTwelve, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldTwelve
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; [2,2]A1
+		;;; </summary>
+		public static property FieldThirteen, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldThirteen
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; [2,2,2]A1
+		;;; </summary>
+		public static property FieldFourteen, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldFourteen
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; [2,2,2,2]A1
+		;;; </summary>
+		public static property FieldFifteen, @CodeGen.RepositoryAPI.RpsField
+			method get
+			proc
+				mreturn mFieldFifteen
+			endmethod
+		endproperty
+		
+	endclass
+
+endnamespace
+
