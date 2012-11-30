@@ -228,14 +228,6 @@
 <td width="100%"><pre><FIELD_PROMPT></pre></td>
 </tr>
 <tr>
-<td>&lt;FIELD_ARRAYDIMP&gt;</td>
-<td width="100%"><pre><FIELD_ARRAYDIMP></pre></td>
-</tr>
-<tr>
-<td>&lt;FIELD_ARRAYDIMR&gt;</td>
-<td width="100%"><pre><FIELD_ARRAYDIMR></pre></td>
-</tr>
-<tr>
 <td>&lt;FIELD_SIZE&gt;</td>
 <td width="100%"><pre><FIELD_SIZE></pre></td>
 </tr>
