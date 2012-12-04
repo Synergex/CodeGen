@@ -50,7 +50,6 @@ namespace CodeGen.Engine
 
         required in    Str                      ,@RpsStructure
         required in    Fld                      ,@RpsField
-        required in    FldNbr                   ,int
         required in    TokenStart               ,int
         required in    TokenEnd                 ,int
         required inout Loop1ConditionMode       ,@ArrayList
@@ -78,10 +77,30 @@ namespace CodeGen.Engine
 		("ALTERNATE_NAME "),
             if (Fld.AlternateName.nes.Fld.Name)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
-		
+
 		("ARRAY "),
-            if (Fld.ArrayDimension[1]>1)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+			if (Fld.WasArrayElement)
+				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+
+		("ARRAY1 "),
+			if (Fld.WasArrayElement)
+				if (!Fld.OriginalElement[2]&&!Fld.OriginalElement[3]&&!Fld.OriginalElement[4])
+				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+
+		("ARRAY2 "),
+			if (Fld.WasArrayElement)
+				if (Fld.OriginalElement[2]&&!Fld.OriginalElement[3]&&!Fld.OriginalElement[4])
+					Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+					
+		("ARRAY3 "),
+			if (Fld.WasArrayElement)
+				if (Fld.OriginalElement[2]&&Fld.OriginalElement[3]&&!Fld.OriginalElement[4])
+					Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+
+		("ARRAY4 "),
+			if (Fld.WasArrayElement)
+				if (Fld.OriginalElement[2]&&Fld.OriginalElement[3]&&Fld.OriginalElement[4])
+					Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		
 		("ARRIVE "),
             if (Fld.ArriveMethod)
@@ -255,7 +274,7 @@ namespace CodeGen.Engine
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		
 		("FIRST "),
-			if (FldNbr==0)
+			if (Fld.LogicalFieldNumber==1)
 	            Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		
 		("FIELD_POSITION "),
@@ -339,7 +358,7 @@ namespace CodeGen.Engine
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		
 		("MORE "),
-			if (FldNbr<Str.Fields.Count-1)
+			if (Fld.LogicalFieldNumber<Str.Fields.Count)
 	            Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		
 		("NEGATIVE_ALLOWED "),
@@ -439,7 +458,7 @@ namespace CodeGen.Engine
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		
 		("NOMORE ","LAST "),
-			if (FldNbr==Str.Fields.Count-1)
+			if (Fld.LogicalFieldNumber==Str.Fields.Count)
 	            Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		
 		("NONEGATIVE "),
@@ -477,6 +496,10 @@ namespace CodeGen.Engine
 		("NOTALPHA "),
             if (Fld.DataType!=RpsFieldDataType.Alpha)
                 Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+		
+		("NOTARRAY "),
+			if (!Fld.WasArrayElement)
+				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
 		
 		("NOTBINARY "),
             if (Fld.DataType!=RpsFieldDataType.Binary)
@@ -814,7 +837,7 @@ namespace CodeGen.Engine
 				begin
 					if (customExpression.Expression.eqs.(a)Loop1ConditionMode[Loop1ConditionMode.Count-1])
 					begin
-						Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)customExpression.Evaluate(Str,Fld,FldNbr)
+						Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)customExpression.Evaluate(Str,Fld,Fld.LogicalFieldNumber-1)
 						customExpressionProcessed = true
 						exitloop
 					end
