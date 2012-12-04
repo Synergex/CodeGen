@@ -130,7 +130,6 @@ namespace CodeGen.Engine
         if (ok)
         begin
             data ix     ,int, -1    ;Index within collection of main fields
-            data gfix   ,int        ;Index within the fields of a group which is being processed
 
             while ((ix+=1)<Struct.Fields.Count)
             begin
@@ -192,7 +191,29 @@ namespace CodeGen.Engine
                     exitloop
                 end
 
-                ;; Expand out array fields
+				;; Look for the structures display field
+				if (!Struct.DisplayField)
+				begin
+					if ((instr(1,Field.UserText.ToUpper(),"@CODEGEN_DISPLAY_FIELD"))||(instr(1,Field.LongDescription.ToUpper(),"@CODEGEN_DISPLAY_FIELD")))
+						Struct.DisplayField = Field.Name
+				end
+				
+				;We have a field that we're keeping - set the FieldNumber property
+				Field.FieldNumber = ix+1
+			end
+		end
+
+		if (ok)
+		begin
+			data ix     ,int, -1    ;Index within collection of main fields
+			data gfix   ,int        ;Index within the fields of a group which is being processed
+			
+			while ((ix+=1)<Struct.Fields.Count)
+			begin
+				;; Get a handle on the current field
+				data Field, @RpsField, Struct.Fields[ix]
+				
+				;; Expand out array fields
                 if ((Field.ArrayDimension[1]>1)||(Field.ArrayDimension[2])||(Field.ArrayDimension[3])||(Field.ArrayDimension[4]))
                 begin
                     data fieldsAdded, int, 0
@@ -467,13 +488,6 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;; Look for the structures display field
-                if (!Struct.DisplayField)
-                begin
-					if ((instr(1,Field.UserText.ToUpper(),"@CODEGEN_DISPLAY_FIELD"))||(instr(1,Field.LongDescription.ToUpper(),"@CODEGEN_DISPLAY_FIELD")))
-                        Struct.DisplayField = Field.Name
-				end
-
                 ;; Is thefield a group?
                 if (Field.GroupType==RpsFieldGroup.No)
                     nextloop
@@ -498,13 +512,17 @@ namespace CodeGen.Engine
                 ;; If we get here we need to expand out the group
                 for gfix from 0 thru Field.GroupFields.Count-1
                 begin
-                    data tmpName, string
-                    data tmpAltName, string
-                    data tmpBaseName, string
+                    data tmpName, string, ""
+                    data tmpAltName, string, ""
+                    data tmpBaseName, string, ""
                     data Child, @RpsField
 
                     ;; Start with the group field as defined
-                    Child = Field.GroupFields[gfix]
+					Child = Field.GroupFields[gfix]
+
+					;;The child field is going to become part of the parent structure,
+					;;so set its "FieldNumber" property to the same as the parent field
+					Child.FieldNumber = Field.FieldNumber
 
                     ;; If not suppressed, and no repository member prefix is specified,
                     ;; prefix the name with the group field name
@@ -519,9 +537,9 @@ namespace CodeGen.Engine
                     ;; If not suppressed, prefix the name with the repository group field prefix
                     if (Env.GroupMemberPrefix)
                     begin
-                        tmpName = tmpName + Child.GroupMemberPrefix
-                        tmpAltName = tmpAltName + Child.GroupMemberPrefix
-                        tmpBaseName = tmpBaseName + Child.GroupMemberPrefix
+                        tmpName = tmpName + Field.GroupMemberPrefix
+                        tmpAltName = tmpAltName + Field.GroupMemberPrefix
+                        tmpBaseName = tmpBaseName + Field.GroupMemberPrefix
                     end
 
                     ;; And then add the actual group field name
@@ -546,8 +564,9 @@ namespace CodeGen.Engine
 
 					;TODO:	BUG: There is a problem here because for nested groups the expanded fields are not being added back in the correct sequence
 
-                    ;; And add it to the fields collection
-                    if ((ix+gfix+1)<Struct.Fields.Count-1) then
+					
+					;; And add it to the fields collection
+                    if ((ix+gfix+1)<=Struct.Fields.Count-1) then
                         Struct.Fields.Insert(ix+gfix+1,Child)
                     else
                         Struct.Fields.Add(Child)
@@ -562,7 +581,15 @@ namespace CodeGen.Engine
             end
         end
 
-        if (ok&&!Struct.Fields.Count)
+		if (ok&&Struct.Fields.Count) then
+		begin
+			;;We have a valid structure with fields, and arrays and groups have been expanded
+			;;Set the "LogicalFieldNumber" properties
+			data ix, int
+			for ix from 0 thru Struct.Fields.Count-1
+				Struct.Fields[ix].LogicalFieldNumber = ix+1
+		end
+		else
         begin
             ErrorLog("After applying CodeGen rules structure " + Struct.Name + " has no remaining fields!")
             ok = false
@@ -601,4 +628,3 @@ namespace CodeGen.Engine
     endfunction
 
 endnamespace
-
