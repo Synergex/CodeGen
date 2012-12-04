@@ -773,43 +773,23 @@ namespace CodeGen.Engine
             if (Env.RpsInUse) then
             begin
                 data replacementText, String, ""
-                data FldNbr, int
                 data Fld, @RpsField
-                ;;Iterate through the structure fields
-                for FldNbr from 0 thru Str.Fields.Count-1
+				;;Iterate through the structure fields
+				foreach Fld in Str.Fields.GetEnumerator()
                 begin
-                    Fld = Str.Fields[FldNbr]
                     ;;Skip the primary key field
                     if (Fld.Name.eqs.PrimaryKeyField(Str.Keys,ErrStatus))
                         nextloop
                     ;;Skip fields excluded by Toolkit
                     if (Fld.ExcludedByToolkit)
                         nextloop
-                    ;;Check for array fields
-                    if (Fld.ArrayDimension[1]==1) then
-                        replacementText = atrim(replacementText)+Fld.Name
-                    else
-                    begin
-                        ;;Iterate through array elements
-                        data ElemNbr, int
-                        for ElemNbr from 1 thru Fld.ArrayDimension[1]
-                        begin
-                            replacementText = atrim(replacementText)+Fld.Name+"["+string(ElemNbr)+"]"
-                            if (ElemNbr < Fld.ArrayDimension[1])
-                                replacementText = atrim(replacementText)+","
-                        end
-                    end
-                    ;;Add a comma between fields
-                    if (!Str.Fields.IsLastField(fld))
-                        replacementText = atrim(replacementText)+","
+					;;Got a keeper
+					replacementText = atrim(replacementText)+Fld.Name+","
                 end
-                clear fld
-                ;;Check for a trailing comma, which can happen if the last field is
-                ;;excluded by Toolkit
-                if (replacementText(trim(replacementText):1)==",")
-                    replacementText = replacementText(1:trim(replacementText)-1)
-
-                ReplacedToken=ReplaceToken(buffer,"<DATA_FIELDS_LIST>",replacementText)
+				;;Remove the trailing comma
+                replacementText = replacementText(1:trim(replacementText)-1)
+				;;Replace the token
+				ReplacedToken=ReplaceToken(buffer,"<DATA_FIELDS_LIST>",replacementText)
             end
             else
             begin
