@@ -117,16 +117,20 @@ namespace CodeGen.Engine
             SelNbr                  ,int            ;;Current field selection number
 
             ;;Key loop data
-            KeyNbr                  ,int            ;;Current key number
+			KeyNbr                  ,int            ;;Current key number
+			FromKey					,int			;;First key to process
+			ToKey					,int			;;Last key to process
             PrimaryKeyOnly          ,boolean        ;;Only process primary key
             AlternateKeysOnly       ,boolean        ;;Only process alternate keys
 
             ;;Key segment loop data
             SegNbr                  ,int            ;;Current key segment number
-            LastSegment             ,int            ;;Last segment number to process
+			FirstSegment			,int			;;First segment number to process
+			LastSegment             ,int            ;;Last segment number to process
             SkipLastSegment         ,boolean        ;;Skip the last segment in a segment loop
-            FirstSegmentOnly        ,boolean        ;;Only process the first segment in a segment loop
-            
+			FirstSegmentOnly        ,boolean        ;;Only process the first segment in a segment loop
+			SecondSegmentOnly       ,boolean        ;;Only process the second segment in a segment loop
+			
             ;;Relation loop data
             RelNbr                  ,int            ;;Current relation number
 
@@ -1567,7 +1571,9 @@ namespace CodeGen.Engine
                     ErrStatus = 1
                     return
                 end
-            end
+			end
+			FromKey = 1
+			ToKey = Str.Keys.Count-1
         end
         else if (PrimaryKeyOnly) then
         begin
@@ -1584,7 +1590,9 @@ namespace CodeGen.Engine
                     return
                 end
             end
-        end
+			FromKey = Env.OverridePrimaryKeyNum
+			ToKey = Env.OverridePrimaryKeyNum
+		end
         else
         begin
             if (Token2Start=instr(1,buffer,"</KEY_LOOP>")) then
@@ -1599,7 +1607,9 @@ namespace CodeGen.Engine
                     ErrStatus = 1
                     return
                 end
-            end
+			end
+			FromKey = 0
+			ToKey = Str.Keys.Count-1
         end
 
         ;;Do we have an in-line loop?
@@ -1657,37 +1667,25 @@ namespace CodeGen.Engine
         AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
 
         ;;Process each key
-        KeyNbr = -1
-        while ((KeyNbr+=1) <= Str.Keys.Count-1)
+		for KeyNbr from FromKey thru ToKey
         begin
 
-            Loop1ConditionApplies = new ArrayList()
+			Key = Str.Keys[KeyNbr]
+			
+			;;Skip any foreign keys
+			if (Key.KeyType == RpsKeyType.Foreign)
+			begin
+				DebugLog("     - Skipping foreign key " + Key.Name,true,false)
+				nextloop
+			end
+			
+			Loop1ConditionApplies = new ArrayList()
             Loop1ConditionMode = new ArrayList()
             Loop1OutputOff = false
 
             Loop1Output = new ArrayList()
             if (Loop1IsInline)
                 AlUtil.Add(Loop1Output,"")
-
-            Key = Str.Keys[KeyNbr]
-
-            ;;Skip any foreign keys
-            if (Key.KeyType == RpsKeyType.Foreign)
-            begin
-                DebugLog("     - Skipping foreign key " + Key.Name,true,false)
-                nextloop
-            end
-
-            ;;If primary key only, are we done?
-            if ((PrimaryKeyOnly)&&(KeyNbr>0))
-                exitloop
-
-            ;;Skip the primary key if necessary
-            if (AlternateKeysOnly)
-            begin
-                AlternateKeysOnly = false
-                nextloop
-            end
 
             DebugLog("     - Processing key " + Key.Name,true,false)
 
@@ -1741,7 +1739,8 @@ namespace CodeGen.Engine
                     ;;Replace the token
                     using buffer(TokenStart,TokenEnd) select
                     ("<SEGMENT_LOOP>"),
-                    begin
+					begin
+						FirstSegment = 0
                         LastSegment = Key.Segments.Count-1
                         call process_segment_loop
                         RepeatItem = true
@@ -1749,7 +1748,8 @@ namespace CodeGen.Engine
                     end
                     ("<SEGMENT_LOOP_FILTER>"),
                     begin
-                        SkipLastSegment = true
+						FirstSegment = 0
+						SkipLastSegment = true
                         LastSegment = Key.Segments.Count-2
                         call process_segment_loop
                         RepeatItem = true
@@ -1757,13 +1757,23 @@ namespace CodeGen.Engine
                     end
                     ("<FIRST_SEGMENT>"),
                     begin
-                        FirstSegmentOnly = true
+						FirstSegment = 0
                         LastSegment = 0
-                        call process_segment_loop
+						FirstSegmentOnly = true
+						call process_segment_loop
                         RepeatItem = true
                         exitloop
                     end
-                    (),
+					("<SECOND_SEGMENT>"),
+					begin
+						FirstSegment = 1
+						LastSegment = 1
+						SecondSegmentOnly = true
+						call process_segment_loop
+						RepeatItem = true
+						exitloop
+					end
+					(),
                         Loop1TokenReplaced = ExpandKeyToken(Str,Key,KeyNbr,TokenStart,TokenEnd,PrimaryKeyOnly,Loop1OutputOff,buffer)
                     endusing
 
@@ -1886,7 +1896,23 @@ namespace CodeGen.Engine
                 end
             end
         end
-        else
+		else if (SecondSegmentOnly) then
+		begin
+			if (Loop2CloseTokenStart=instr(TokenEnd,buffer,"</SECOND_SEGMENT>")) then
+				Loop2CloseTokenEnd=Loop2CloseTokenStart+16
+			else
+			begin
+				;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+				;;Make sure there is nothing else on the line after the opening token
+				if (buffer(TokenEnd+1,^size(buffer)))
+				begin
+					ErrorLog("No code allowed on line after <SECOND_SEGMENT> token. Did you mis-type a </SECOND_SEGMENT> token?")
+					ErrStatus = 1
+					return
+				end
+			end
+		end
+		else
         begin
             if (Loop2CloseTokenStart=instr(1,buffer,"</SEGMENT_LOOP>")) then
                 Loop2CloseTokenEnd=Loop2CloseTokenStart+14
@@ -1947,9 +1973,11 @@ namespace CodeGen.Engine
                 begin
                     if (SkipLastSegment) then
                         ErrorLog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP_FILTER> token?")
-                    else if (FirstSegmentOnly) then
-                        ErrorLog("Can't find the end of a key segment loop. Are you missing a </FIRST_SEGMENT> token?")
-                    else
+					else if (FirstSegmentOnly) then
+						ErrorLog("Can't find the end of a key segment loop. Are you missing a </FIRST_SEGMENT> token?")
+					else if (SecondSegmentOnly) then
+						ErrorLog("Can't find the end of a key segment loop. Are you missing a </SECOND_SEGMENT> token?")
+					else
                         ErrorLog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP> token?")
                     ErrStatus = 1
                     return
@@ -1958,16 +1986,18 @@ namespace CodeGen.Engine
                 buffer = (a)Loop1TemplateCode[Loop1Rec+=1]
                 if ((SkipLastSegment)&&(instr(1,buffer,"</SEGMENT_LOOP_FILTER>"))) then
                     exitloop
-                else if ((FirstSegmentOnly)&&(instr(1,buffer,"</FIRST_SEGMENT>"))) then
-                    exitloop
-                else if (instr(1,buffer,"</SEGMENT_LOOP>"))
+				else if ((FirstSegmentOnly)&&(instr(1,buffer,"</FIRST_SEGMENT>"))) then
+					exitloop
+				else if ((SecondSegmentOnly)&&(instr(1,buffer,"</SECOND_SEGMENT>"))) then
+					exitloop
+				else if (instr(1,buffer,"</SEGMENT_LOOP>"))
                     exitloop
                 AlUtil.Add(Loop2TemplateCode,buffer)
             end
         end
 
         ;;For each key segment
-        for SegNbr from 0 thru LastSegment
+        for SegNbr from FirstSegment thru LastSegment
         begin
 
             Loop2ConditionApplies = new ArrayList()
@@ -2074,7 +2104,7 @@ namespace CodeGen.Engine
             AlUtil.AppendToLastItem(Loop1Output,Loop2TrailingData)
 
         clear Loop2TemplateCode, Loop2OutputOff, Loop2ConditionApplies, Loop2ConditionMode, Loop2NoOutput, Fld
-        clear FirstSegmentOnly, SkipLastSegment
+        clear FirstSegmentOnly, SecondSegmentOnly, SkipLastSegment
         
         DoAnotherPass = true
 
