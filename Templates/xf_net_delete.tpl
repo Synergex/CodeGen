@@ -1,4 +1,6 @@
 <CODEGEN_FILENAME>Delete<StructureName>.dbl</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>XF_INTERFACE</REQUIRES_USERTOKEN>
+<REQUIRES_USERTOKEN>XF_ELB</REQUIRES_USERTOKEN>
 <PROCESS_TEMPLATE>xf_net_can_delete.tpl</PROCESS_TEMPLATE>
 ;//****************************************************************************
 ;//
