@@ -1,4 +1,6 @@
 <CODEGEN_FILENAME>GetAll<StructureName>s.dbl</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>XF_INTERFACE</REQUIRES_USERTOKEN>
+<REQUIRES_USERTOKEN>XF_ELB</REQUIRES_USERTOKEN>
 ;//****************************************************************************
 ;//
 ;// Title:       xf_net_select_all.tpl
