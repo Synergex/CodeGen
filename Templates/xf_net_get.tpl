@@ -1,4 +1,6 @@
 <CODEGEN_FILENAME>Get<StructureName>.dbl</CODEGEN_FILENAME>
+<REQUIRES_USERTOKEN>XF_INTERFACE</REQUIRES_USERTOKEN>
+<REQUIRES_USERTOKEN>XF_ELB</REQUIRES_USERTOKEN>
 ;//****************************************************************************
 ;//
 ;// Title:       xf_net_get.tpl
