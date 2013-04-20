@@ -92,6 +92,58 @@ namespace CodeGen.Engine
 			if (!ProcessCounterExpression(Loop1ConditionMode,Loop1ConditionApplies))
 				ErrStatus = 1
 		
+		;;Presence of a user token
+		("USERTOKEN_"),
+		begin
+			data utName, string, buffer(TokenStart+4,TokenEnd-1) - "USERTOKEN_"
+			data ut, @UserToken
+			
+			if (Env.UserTokens==^null)
+				exit
+				
+.ifdef DBLNET
+			foreach ut in Env.UserTokens
+.else
+			foreach ut in Env.UserTokens.GetEnumerator()
+.endc
+			begin
+				if (ut.Name=="<"+utName+">")
+				begin
+					Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+					exitloop
+				end
+			end
+		end
+		
+		;;Absence of a user token
+		("NOT_USERTOKEN_"),
+		begin
+			data utName, string, buffer(TokenStart+4,TokenEnd-1) - "NOT_USERTOKEN_"
+			data ut, @UserToken
+			data found, boolean, false
+			
+			if (Env.UserTokens==^null) then
+			begin
+				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+			end
+			else
+			begin
+.ifdef DBLNET
+				foreach ut in Env.UserTokens
+.else
+				foreach ut in Env.UserTokens.GetEnumerator()
+.endc
+				begin
+					if (ut.Name=="<"+utName+">")
+					begin
+						found=true
+						exitloop
+					end
+				end
+				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)(!found)
+			end
+		end
+		
 		(),
         begin
 			;;If we haven't evaluated an expression by the time we get here then the only
