@@ -25,7 +25,8 @@ $ SET DEF [.KIT]
 $ BACKUP [...]*.*; [-]CODEGEN.BCK/SAVE
 $ SET DEF [-]
 $ !
-$ ZIP CODEGEN.ZIP CODEGEN.BCK,INSTALL_README.TXT /VMS /NODIRNAMES /QUIET
+$ !This ZIP command assumes Zip V2.3 from Info-Zip
+$ ZIP "-V" "-D" -j -q  CODEGEN.ZIP CODEGEN.BCK INSTALL_README.TXT
 $ !
 $ ! Clean up
 $ !
