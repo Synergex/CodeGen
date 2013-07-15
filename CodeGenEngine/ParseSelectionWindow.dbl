@@ -53,13 +53,14 @@ namespace CodeGen.Engine
         endparams
         
         record local_data
-            ok              ,Boolean                ;;Return value
-            ScriptFile      ,String                 ;;Script file spec
-            WscChn          ,int                    ;;Script file channel
-            WscRec          ,a1024                  ;;A record from the script file
-            WscRec2         ,a1024                  ;;A record from the script file
-            GotWindow       ,Boolean                ;;Did we find a selection window?
-            InWindow        ,Boolean                ;;Are we currently processing a selection window?
+            ok						,Boolean	;;Return value
+            ScriptFile				,String     ;;Script file spec
+            WscChn					,int        ;;Script file channel
+            WscRec					,a1024      ;;A record from the script file
+            WscRec2					,a1024      ;;A record from the script file
+            GotWindow				,Boolean    ;;Did we find a selection window?
+			InWindow				,Boolean    ;;Are we currently processing a selection window?
+			selectionWindowUpper	,string
         endrecord
         
     proc
@@ -76,7 +77,7 @@ namespace CodeGen.Engine
         try
         begin
             open(WscChn=0,i:s,ScriptFile)
-            DebugLog("Parsing window script "+WscFile.ToUpper(),true,false)
+            DebugLog("Parsing window script "+WscFile,true,false)
         end
         catch (ex)
         begin
@@ -85,7 +86,9 @@ namespace CodeGen.Engine
         end
         endtry
         
-        DebugLog(" - Searching for selection window " + SelectionWindow,false,false)
+		selectionWindowUpper = SelectionWindow.ToUpper()
+
+		DebugLog(" - Searching for selection window " + selectionWindowUpper,false,false)
 
         clear InWindow
         
@@ -134,7 +137,7 @@ namespace CodeGen.Engine
             begin
                 if (InWindow) then
                 begin
-                    DebugLog(" - Found end of selection window "+SelectionWindow,false,false)
+					DebugLog(" - Found end of selection window "+selectionWindowUpper,false,false)
                     GotWindow = true
                     exitloop
                 end
@@ -149,21 +152,27 @@ namespace CodeGen.Engine
                 data WndName, String
                 
                 ;;Remove the .select
-                locase WscRec(1:7)
+				upcase WscRec
+				locase WscRec(1:7)
                 WscRec = WscRec - ".select "
                 ;;Find the , for the end of the window name and extract the name
-                pos1=instr(1,WscRec,",")
-				WndName = StringTools.UpperCase(WscRec(1:pos1-1))
+				pos1 = instr(1,WscRec,",")
+				;;If there was a comma then the selection window name should be all the data up to it.
+				;;If not then we should only be looking at a selection window name
+				if (pos1) then
+					WndName = StringTools.UpperCase(WscRec(1:pos1-1))
+				else
+					WndName = StringTools.UpperCase(%atrim(WscRec))
 
                 ;;Is this the one we were looking for?
-                if (WndName.nes.SelectionWindow)
+				if (WndName.nes.selectionWindowUpper)
                     nextloop
                 
                 ;;Yes, found it!
                 InWindow = true
                 Selections = new ArrayList()
 
-                DebugLog(" - Found selection window "+SelectionWindow,false,false)
+				DebugLog(" - Found selection window "+selectionWindowUpper,false,false)
                 nextloop
             end
 
@@ -202,12 +211,12 @@ namespace CodeGen.Engine
         ;;Did we find an input window
         if (!GotWindow) then
         begin
-            ErrorMessage = "Selection window " + SelectionWindow + " was not found in window script " + ScriptFile
+			ErrorMessage = "Selection window " + selectionWindowUpper + " was not found in window script " + ScriptFile
             ok = false
         end
         else if (Selections.Count==0)
         begin
-            ErrorMessage = "Selection window " + SelectionWindow + " contained no items!"
+			ErrorMessage = "Selection window " + selectionWindowUpper + " contained no items!"
             ok = false
         end
         
