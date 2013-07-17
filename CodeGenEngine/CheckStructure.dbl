@@ -603,6 +603,32 @@ namespace CodeGen.Engine
             ok = false
         end
 
+		;;Check for special prompt processing rules
+		if (ok)
+		begin
+			;;Check for the CODEGEN_STRIP_FROM_PROMPT environment variable
+			data length, int
+			data stripData, a40
+			xcall getlog("CODEGEN_STRIP_FROM_PROMPT",stripData,length)
+			if (length)
+			begin
+				;;stripData should be a double-quote delimited string, remove the quotes to leave the data to strip
+				data removeString, String
+				data pos1, int, %instr(1,stripData,'"')
+				data pos2, int, %instr(pos1+1,stripData,'"')
+				data ix, int
+				;;Do we have two double quotes?
+				if (!pos1||!pos2)
+					exit
+				;;Yes, get the data to be stripped from prompts
+				removeString = stripData(pos1+1,pos2-1)
+				;;Remove the data from any prompts that it is found in
+				for ix from 0 thru Struct.Fields.Count-1
+					if (%instr(1,Struct.Fields[ix].Prompt,removeString))
+						Struct.Fields[ix].Prompt = ((a)Struct.Fields[ix].Prompt) - removeString
+			end
+		end
+
 		;;If we're in developer debug mode then create a log file containing the remaining fields
 		if (ok&&Struct.Fields.Count&&Env.DeveloperDebug)
 		begin
