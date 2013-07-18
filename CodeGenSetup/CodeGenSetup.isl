@@ -345,10 +345,10 @@
 		<col def="S0">ISDotNetInstallerArgsUninstall</col>
 		<col def="S0">ISDotNetInstallerArgsRollback</col>
 		<row><td>CodeGen.chm</td><td>{8797F556-82A6-4426-8C17-0DE8E316EBDB}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegen.chm</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
-		<row><td>CodeGen.exe</td><td>{1042A5AC-9443-450C-AF94-399694968599}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegen.exe</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
-		<row><td>CodeGenEngine.dll</td><td>{D53359B4-7963-4D99-A949-6A260C3E9123}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegenengine.dll</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
-		<row><td>CodeGenTaskManager.exe</td><td>{D33292A2-E119-47AB-947F-57671014C33E}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegentaskmanager.exe</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
-		<row><td>CreateFile.exe</td><td>{F401A6B5-5698-41C8-B90F-15D19B6DA480}</td><td>INSTALLDIR</td><td>2</td><td/><td>createfile.exe</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>CodeGen.exe</td><td>{1042A5AC-9443-450C-AF94-399694968599}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegen.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>CodeGenEngine.dll</td><td>{D53359B4-7963-4D99-A949-6A260C3E9123}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegenengine.dll</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>CodeGenTaskManager.exe</td><td>{D33292A2-E119-47AB-947F-57671014C33E}</td><td>INSTALLDIR</td><td>2</td><td/><td>codegentaskmanager.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>CreateFile.exe</td><td>{F401A6B5-5698-41C8-B90F-15D19B6DA480}</td><td>INSTALLDIR</td><td>2</td><td/><td>createfile.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>ISX_DEFAULTCOMPONENT1</td><td>{92A9A473-8726-4262-919A-28631B9CB6AB}</td><td>INSTALLDIR</td><td>2</td><td/><td/><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>ISX_DEFAULTCOMPONENT2</td><td>{DFAC719D-A575-4644-BE32-58E2142A0E32}</td><td>AppDataFolder</td><td>2</td><td/><td/><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>ISX_DEFAULTCOMPONENT3</td><td>{E551B825-FAB4-4D4E-9A6C-89FB0C43FAF5}</td><td>TEMPLATES1</td><td>2</td><td/><td/><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
@@ -356,10 +356,10 @@
 		<row><td>ISX_DEFAULTCOMPONENT5</td><td>{EC81219C-BA05-4799-834D-64726EBE9DA0}</td><td>CODEGEN1</td><td>2</td><td/><td/><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>ISX_DEFAULTCOMPONENT6</td><td>{B3A8451E-9DA2-414D-98E6-72050AA89CDE}</td><td>ALLUSERSPROFILE</td><td>2</td><td/><td/><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>ISX_DEFAULTCOMPONENT8</td><td>{A34ADB3D-900E-4FCC-BEE7-90F238518E03}</td><td>CommonFilesFolder</td><td>2</td><td/><td/><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
-		<row><td>MapPrep.exe</td><td>{1EC1D39B-B8B6-4882-BC2F-2E6B28918206}</td><td>INSTALLDIR</td><td>2</td><td/><td>mapprep.exe</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
-		<row><td>RepositoryAPI.dll</td><td>{80BC519E-5598-49AA-9CEE-1EC5A928134C}</td><td>INSTALLDIR</td><td>2</td><td/><td>repositoryapi.dll</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
-		<row><td>RpsBrowser.exe</td><td>{1156328C-893A-474C-9CAB-A6421788BDA8}</td><td>INSTALLDIR</td><td>2</td><td/><td>rpsbrowser.exe</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
-		<row><td>RpsInfo.exe</td><td>{55D50002-E0D4-455E-847E-23E475992027}</td><td>INSTALLDIR</td><td>2</td><td/><td>rpsinfo.exe</td><td>17</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>MapPrep.exe</td><td>{1EC1D39B-B8B6-4882-BC2F-2E6B28918206}</td><td>INSTALLDIR</td><td>2</td><td/><td>mapprep.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>RepositoryAPI.dll</td><td>{80BC519E-5598-49AA-9CEE-1EC5A928134C}</td><td>INSTALLDIR</td><td>2</td><td/><td>repositoryapi.dll</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>RpsBrowser.exe</td><td>{1156328C-893A-474C-9CAB-A6421788BDA8}</td><td>INSTALLDIR</td><td>2</td><td/><td>rpsbrowser.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>RpsInfo.exe</td><td>{55D50002-E0D4-455E-847E-23E475992027}</td><td>INSTALLDIR</td><td>2</td><td/><td>rpsinfo.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 	</table>
 
 	<table name="Condition">
@@ -1921,16 +1921,16 @@
 		<row><td>camelcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CAMELC~1.DBL|CamelCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\CamelCase.dbl</td><td>5</td><td/></row>
 		<row><td>canopenfile.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CANOPE~1.DBL|CanOpenFile.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\CanOpenFile.dbl</td><td>5</td><td/></row>
 		<row><td>codegen.chm</td><td>CodeGen.chm</td><td>CodeGen.chm</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Documentation\CodeGen.chm</td><td>1</td><td/></row>
-		<row><td>codegen.exe</td><td>CodeGen.exe</td><td>CodeGen.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGen.exe</td><td>1</td><td/></row>
+		<row><td>codegen.exe</td><td>CodeGen.exe</td><td>CodeGen.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGen.exe</td><td>1</td><td/></row>
 		<row><td>codegen.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>CodeGen.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\CodeGen\CodeGen.ico</td><td>1</td><td/></row>
 		<row><td>codegen_web_site.url</td><td>ISX_DEFAULTCOMPONENT1</td><td>CODEGE~1.URL|CodeGen Web Site.url</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Installer\CodeGen Web Site.url</td><td>1</td><td/></row>
-		<row><td>codegenengine.dll</td><td>CodeGenEngine.dll</td><td>CODEGE~1.DLL|CodeGenEngine.dll</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenEngine.dll</td><td>1</td><td/></row>
+		<row><td>codegenengine.dll</td><td>CodeGenEngine.dll</td><td>CODEGE~1.DLL|CodeGenEngine.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenEngine.dll</td><td>1</td><td/></row>
 		<row><td>codegensampletemplates.sde</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.SDE|CodeGenSampleTemplates.sde</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenSampleTemplates.sde</td><td>5</td><td/></row>
 		<row><td>codegensampletemplates.vpj</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPJ|CodeGenSampleTemplates.vpj</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenSampleTemplates.vpj</td><td>5</td><td/></row>
 		<row><td>codegensampletemplates.vpw</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPW|CodeGenSampleTemplates.vpw</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenSampleTemplates.vpw</td><td>5</td><td/></row>
-		<row><td>codegentaskmanager.exe</td><td>CodeGenTaskManager.exe</td><td>CODEGE~1.EXE|CodeGenTaskManager.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenTaskManager.exe</td><td>1</td><td/></row>
+		<row><td>codegentaskmanager.exe</td><td>CodeGenTaskManager.exe</td><td>CODEGE~1.EXE|CodeGenTaskManager.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenTaskManager.exe</td><td>1</td><td/></row>
 		<row><td>codegentaskmanager.exe.confi</td><td>ISX_DEFAULTCOMPONENT1</td><td>CODEGE~1.CON|CodeGenTaskManager.exe.config</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenTaskManager.exe.config</td><td>1</td><td/></row>
-		<row><td>createfile.exe</td><td>CreateFile.exe</td><td>CREATE~1.EXE|CreateFile.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CreateFile.exe</td><td>1</td><td/></row>
+		<row><td>createfile.exe</td><td>CreateFile.exe</td><td>CREATE~1.EXE|CreateFile.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CreateFile.exe</td><td>1</td><td/></row>
 		<row><td>cs_annotated_class.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ANN~1.TKN|cs_annotated_class.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_annotated_class.tkn</td><td>5</td><td/></row>
 		<row><td>cs_annotated_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ANN~1.TPL|cs_annotated_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_annotated_class.tpl</td><td>5</td><td/></row>
 		<row><td>cs_asp_data_provider.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ASP~1.TPL|cs_asp_data_provider.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_asp_data_provider.tpl</td><td>5</td><td/></row>
@@ -1976,7 +1976,7 @@
 		<row><td>iswhitespace.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>ISWHIT~1.DBL|IsWhitespace.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\IsWhitespace.dbl</td><td>5</td><td/></row>
 		<row><td>json_from_record.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>JSON_F~1.TPL|json_from_record.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\json_from_record.tpl</td><td>5</td><td/></row>
 		<row><td>lowercase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>LOWERC~1.DBL|LowerCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\LowerCase.dbl</td><td>5</td><td/></row>
-		<row><td>mapprep.exe</td><td>MapPrep.exe</td><td>MapPrep.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\MapPrep.exe</td><td>1</td><td/></row>
+		<row><td>mapprep.exe</td><td>MapPrep.exe</td><td>MapPrep.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\MapPrep.exe</td><td>1</td><td/></row>
 		<row><td>mixedcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>MIXEDC~1.DBL|MixedCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\MixedCase.dbl</td><td>5</td><td/></row>
 		<row><td>oc_class_implementation.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>OC_CLA~1.TPL|oc_class_implementation.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\oc_class_implementation.tpl</td><td>5</td><td/></row>
 		<row><td>oc_class_interface.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>OC_CLA~1.TPL|oc_class_interface.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\oc_class_interface.tpl</td><td>5</td><td/></row>
@@ -1984,11 +1984,11 @@
 		<row><td>quotedstring.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>QUOTED~1.DBL|QuotedString.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\QuotedString.dbl</td><td>5</td><td/></row>
 		<row><td>removeleading.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>REMOVE~1.DBL|RemoveLeading.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\RemoveLeading.dbl</td><td>5</td><td/></row>
 		<row><td>replacecharacter.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>REPLAC~1.DBL|ReplaceCharacter.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\ReplaceCharacter.dbl</td><td>5</td><td/></row>
-		<row><td>repositoryapi.dll</td><td>RepositoryAPI.dll</td><td>REPOSI~1.DLL|RepositoryAPI.dll</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RepositoryAPI.dll</td><td>1</td><td/></row>
-		<row><td>rpsbrowser.exe</td><td>RpsBrowser.exe</td><td>RPSBRO~1.EXE|RpsBrowser.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RpsBrowser.exe</td><td>1</td><td/></row>
+		<row><td>repositoryapi.dll</td><td>RepositoryAPI.dll</td><td>REPOSI~1.DLL|RepositoryAPI.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RepositoryAPI.dll</td><td>1</td><td/></row>
+		<row><td>rpsbrowser.exe</td><td>RpsBrowser.exe</td><td>RPSBRO~1.EXE|RpsBrowser.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RpsBrowser.exe</td><td>1</td><td/></row>
 		<row><td>rpsbrowser.exe.config</td><td>ISX_DEFAULTCOMPONENT1</td><td>RPSBRO~1.CON|RpsBrowser.exe.config</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RpsBrowser.exe.config</td><td>1</td><td/></row>
 		<row><td>rpsbrowser.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>RPSBRO~1.ICO|RpsBrowser.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\RpsBrowser\RpsBrowser.ico</td><td>1</td><td/></row>
-		<row><td>rpsinfo.exe</td><td>RpsInfo.exe</td><td>RpsInfo.exe</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RpsInfo.exe</td><td>1</td><td/></row>
+		<row><td>rpsinfo.exe</td><td>RpsInfo.exe</td><td>RpsInfo.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RpsInfo.exe</td><td>1</td><td/></row>
 		<row><td>syn_collection.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CO~1.TPL|syn_collection.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_collection.tpl</td><td>5</td><td/></row>
 		<row><td>syn_collection_test.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CO~1.TPL|syn_collection_test.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_collection_test.tpl</td><td>5</td><td/></row>
 		<row><td>syn_csv_export.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CS~1.TPL|syn_csv_export.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_csv_export.tpl</td><td>5</td><td/></row>
@@ -2073,6 +2073,8 @@
 	<table name="ISAssistantTag">
 		<col key="yes" def="s72">Tag</col>
 		<col def="S255">Data</col>
+		<row><td>PROJECT_ASSISTANT_DEFAULT_FEATURE</td><td>AlwaysInstall</td></row>
+		<row><td>PROJECT_ASSISTANT_FEATURES</td><td>NonSelectable</td></row>
 	</table>
 
 	<table name="ISBillBoard">
@@ -2931,6 +2933,7 @@
 		<col def="I2">Order</col>
 		<col def="I2">ISSetupLocation</col>
 		<col def="S255">ISReleaseFlags</col>
+		<row><td>_340C9FEE_3395_4104_96CD_52487C4EDEE4_</td><td>Microsoft .NET Framework 4.0 Client (Web Download).prq</td><td/><td/><td/></row>
 	</table>
 
 	<table name="ISSetupType">
@@ -4694,6 +4697,7 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<row><td>LAUNCHREADME</td><td>1</td><td/></row>
 		<row><td>MSIFASTINSTALL</td><td>0</td><td/></row>
 		<row><td>Manufacturer</td><td>##COMPANY_NAME##</td><td/></row>
+		<row><td>MsiLogging</td><td>voicewarmup</td><td/></row>
 		<row><td>PIDKEY</td><td/><td/></row>
 		<row><td>PIDTemplate</td><td>12345&lt;###-%%%%%%%&gt;@@@@@</td><td/></row>
 		<row><td>PROGMSG_IIS_CREATEAPPPOOL</td><td>##IDS_PROGMSG_IIS_CREATEAPPPOOL##</td><td/></row>
