@@ -146,6 +146,9 @@ namespace CodeGen.Engine
 
 			;;File loop data
 			FileNbr                 ,int            ;;Current file number
+
+			;;Tag loop data
+			TagNbr					,int			;;Current tag number
 			
 			;;Miscellaneous
             TemplateCodeIndex       ,int            ;;Current index in template code
@@ -463,7 +466,64 @@ namespace CodeGen.Engine
                         nextloop
 
                 end
-
+				
+				;;If we have a <TAG_LOOP> but no tags then remove the tag loop code from
+				;;the template and report what we did.
+				if (TokenStart=instr(1,buffer,"<TAG_LOOP>"))
+				begin
+					;;If the structure has tags then there is nothing to do
+					if (Str.Tags.Count>0)
+						exit
+					
+					;;No tags, remove and ignore the tag loop code
+					DebugLog(" - Ignoring tag loop in template because the structure has no tags",false,false)
+					
+					;;Is it an in-line tag loop?
+					if (TokenEnd = instr(TokenStart,buffer,"</TAG_LOOP>")) then
+					begin
+						;;Remove in-line tag loop
+						buffer = buffer - buffer(TokenStart,TokenEnd+10)
+						;;If there is nothing left then discard the whole line
+						if (!buffer)
+						begin
+							if (DoingLastRecord) then
+								exitloop
+							else
+								nextloop
+						end
+					end
+					else
+					begin
+						;;Remove multi-line tag loop
+						data continue, boolean, false
+						repeat
+						begin
+							try
+							begin
+								reads(InCh,buffer)
+								if (instr(1,buffer,"</TAG_LOOP>"))
+								begin
+									;;Found it
+									TemplateCodeIndex-=1
+									continue = true
+									exitloop
+								end
+							end
+							catch (e, @EndOfFileException)
+							begin
+								;;Ge got s problem! We found the end of the file before
+								;;the end of the tag loop!
+								ErrorLog("Missing </TAG_LOOP> token in template "+Env.CurrentTemplate)
+								ErrStatus = 1
+								exitloop
+							end
+							endtry
+						end
+						if (continue)
+							nextloop
+					end
+				end
+				
                 Template.Add((@a)(atrim(buffer)))
 
                 if (DoingLastRecord)
@@ -1044,6 +1104,31 @@ namespace CodeGen.Engine
 				end
 			end
 
+			("<TAG_LOOP>"),
+			begin
+				if (Env.RpsInUse) then
+				begin
+					if (Str.Tags.Count) then
+						call process_tag_loop
+					else
+					begin
+						;Now what - we have a tag loop but no tags.
+						;Should we error out, or just remove the tag loop from the template code and continue?
+
+
+
+
+
+
+					end
+				end
+				else
+				begin
+					RpsRequired("<TAG_LOOP>")
+					ErrStatus=1
+				end
+			end
+			
             ;;The token wasn't a loop token, so it must be a generic or structure token
             (),
                 TokenReplaced = ExpandToken(Str,TokenStart,TokenEnd,buffer,ErrStatus)
@@ -3006,6 +3091,194 @@ namespace CodeGen.Engine
 			
 		return
 	
+	;;=============================================================================
+	;;
+	process_tag_loop,
+		
+		DebugLog("   - Processing tag loop",true,false)
+		
+		Loop1TemplateCode = new ArrayList()
+		clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
+		
+		;;Look for an end tag in the same line
+		if (Token2Start=instr(1,buffer,"</TAG_LOOP>")) then
+			Token2End=Token2Start+10
+		else
+		begin
+			;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+			;;Make sure there is nothing else on the line after the opening token
+			if (buffer(TokenEnd+1,^size(buffer)))
+			begin
+				ErrorLog("No code allowed on line after <TAG_LOOP> token. Did you mis-type a </TAG_LOOP> token?")
+				ErrStatus = 1
+				return
+			end
+		end
+		
+		;;Do we have an in-line loop?
+		if (Token2Start&&Token2End) then
+		begin
+			Loop1IsInline=true
+			;;Add anything before the open tag to the output buffer
+			if (TokenStart>1) then
+				AlUtil.Add(Output,buffer(1:TokenStart-1))
+			else
+				AlUtil.Add(Output,"")
+			;;Store anything after the closing tag
+			if (Token2End<trimz(buffer))
+				Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
+			;;Remove the closing tag and any trailing data
+			clear buffer(Token2Start,^size(buffer))
+			;;Remove any leading data and the opening tag
+			buffer=buffer(TokenEnd+1,^size(buffer))
+			;;What remains is our template code for the in-line loop
+			AlUtil.Add(Loop1TemplateCode,buffer)
+		end
+		else
+		begin
+			;;It's a multi-line loop, extract the loop template code
+			repeat
+			begin
+				if ((TemplateCodeIndex+1)>(Template.Count-1))
+				begin
+					ErrorLog("Can't find the end of a tag loop. Are you missing a </TAG_LOOP> token?")
+					ErrStatus = 1
+					return
+				end
+				
+				buffer = (a)Template[TemplateCodeIndex+=1]
+				if (instr(1,buffer,"</TAG_LOOP>"))
+					exitloop
+				AlUtil.Add(Loop1TemplateCode,buffer)
+			end
+		end
+		
+		;;Take a copy of the loop template code so that we can modify and restore it
+		;;for each tag in the collection. This supports the ability to use level 1
+		;;loop tokens in a level 2 loop.
+		AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
+		
+		;;Now process the loop template for each tag
+		
+		TagNbr = -1
+		while ((TagNbr+=1) < Str.Tags.Count)
+		begin
+			data Tag, @RpsTag, Str.Tags[TagNbr]
+			
+			DebugLog("     - Processing tag " + Tag.Name,true,false)
+			
+			Loop1ConditionApplies = new ArrayList()
+			Loop1ConditionMode = new ArrayList()
+			Loop1OutputOff = false
+			
+			Loop1Output = new ArrayList()
+			if (Loop1IsInline)
+				AlUtil.Add(Loop1Output,"")
+			
+			;;Process the template code
+			for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
+			begin
+				buffer = (a)Loop1TemplateCode[Loop1Rec]
+				
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop1ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
+						nextloop
+				end
+				
+				;;If no tokens just add the line to the output stream
+				if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+				begin
+					if (!Loop1OutputOff)
+					begin
+						if (Loop1IsInline) then
+							AlUtil.AppendToLastItem(Loop1Output," "+buffer)
+						else
+							AlUtil.Add(Loop1Output,buffer)
+					end
+					nextloop
+				end
+				
+				;;Replace any tokens in the buffer
+				do
+				begin
+					Loop1TokenReplaced = false
+					
+					;;Any more tokens?
+					if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+						exitloop
+					
+					;;Expression?
+					if (buffer(TokenStart:4)=="<IF ")
+					begin
+						Loop1TokenReplaced = ProcessTagExpression(Str,Tag,TagNbr,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
+						if (ErrStatus) then
+							exitloop
+						else
+							nextloop
+					end
+					
+					;;Replace tag loop tokens
+					Loop1TokenReplaced = ExpandTagToken(Str,Tag,TagNbr,TokenStart,TokenEnd,Loop1OutputOff,buffer,ErrStatus)
+					
+					;If nothing replaced just move on
+					if (!Loop1TokenReplaced)
+					begin
+						TokenStart += 1
+						Loop1TokenReplaced = true
+					end
+				end
+				until (!Loop1TokenReplaced)
+				
+				if (ErrStatus)
+					exitloop
+				
+				;;Add the line to the output buffer
+				if (!Loop1OutputOff && !instr(1,buffer,"<IF "))
+				begin
+					if (Loop1IsInline) then
+						AlUtil.AppendToLastItem(Loop1Output," "+buffer)
+					else
+						AlUtil.Add(Loop1Output,buffer)
+				end
+			end
+			
+			if (ErrStatus)
+				exitloop
+			
+			;;We're done with this item, commit the output
+			if (Loop1IsInline) then
+				AlUtil.AppendToLastItem(Output,Loop1Output[0])
+			else
+				AlUtil.AppendItems(Output,Loop1Output)
+			clear Loop1Output
+			
+			if (ErrStatus)
+				exitloop
+			
+		end
+		
+		;;For in-line loops, add back any trailing code
+		if (Loop1IsInline&&Loop1TrailingData)
+			AlUtil.AppendToLastItem(Output,Loop1TrailingData)
+		
+		clear Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
+		DoAnotherPass = true
+		
+		;;Advance to the next template record (after the end of the loop token)
+		if (TemplateCodeIndex<Template.Count-1) then
+			buffer = (a)Template[TemplateCodeIndex+=1]
+		else
+			clear buffer
+		
+		if (!ErrStatus)
+			DebugLog("   - End of tag loop",false,false)
+		
+		return
+
 	endfunction
 
 endnamespace
