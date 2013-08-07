@@ -70,15 +70,6 @@
 <h4>&LT;DATA_FIELDS_LIST&GT;</h4>
 <pre><DATA_FIELDS_LIST></pre>
 
-<h4>&LT;TAG_FIELD_DEFINE&GT;</h4>
-<pre><TAG_FIELD_DEFINE></pre>
-
-<h4>&LT;TAG_VALUE_DEFINE&GT;</h4>
-<pre><TAG_VALUE_DEFINE></pre>
-
-<h4>&LT;TAG_END_DEFINE&GT;</h4>
-<pre><TAG_END_DEFINE></pre>
-
 <h4>&LT;DISPLAY_FIELD&GT;</h4>
 <pre><DISPLAY_FIELD></pre>
 

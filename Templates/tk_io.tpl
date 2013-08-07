@@ -90,10 +90,6 @@ stack record avars
     message             ,a80    ;User message
     keyval              ,a255   ;Hold original key
 
-<TAG_FIELD_DEFINE>
-<TAG_VALUE_DEFINE>
-<TAG_END_DEFINE>
-
 .proc
 
     clear ^i(ivars), avars
@@ -163,13 +159,8 @@ stack record avars
 
         (IO_READ_FIRST),
         begin
-            .ifdef TAG_FIELD
-            read(a_channel,<structure_name>,TAG_VALUE,KEYNUM:keyno,LOCK:lock)
-            &   [$ERR_EOF=end_of_file,$ERR_LOCKED=record_locked,$ERR_KEYNOT=key_not_found]
-            .else
             read(a_channel,<structure_name>,^FIRST,KEYNUM:keyno,LOCK:lock)
             &   [$ERR_EOF=end_of_file,$ERR_LOCKED=record_locked,$ERR_KEYNOT=key_not_found]
-            .endc
         end
 
         (IO_READ),
@@ -191,28 +182,11 @@ stack record avars
         end
 
         (IO_READ_LAST),
-        .ifdef TAG_FIELD
-        begin
-            read(a_channel,<structure_name>,TAG_ENDVALUE,KEYNUM:keyno,LOCK:lock)
-            &   [$ERR_EOF=read_last_tag,$ERR_LOCKED=record_locked,$ERR_KEYNOT=read_last_tag]
-            ;Now read the perious one!
-            if (FALSE) then
-read_last_tag,  read(a_channel,<structure_name>,^LAST,KEYNUM:keyno,LOCK:lock)
-                &   [$ERR_EOF=end_of_file,$ERR_LOCKED=record_locked,$ERR_KEYNOT=key_not_found]
-            else
-                reads(a_channel,<structure_name>,,REVERSE,LOCK:lock)
-                &   [$ERR_EOF=end_of_file,$ERR_LOCKED=record_locked,$ERR_KEYNOT=key_not_found]
-        end
-        .else
         read(a_channel,<structure_name>,^LAST, KEYNUM:keyno,LOCK:lock)
         &   [$ERR_EOF=end_of_file,$ERR_LOCKED=record_locked,$ERR_KEYNOT=key_not_found]
-        .endc
 
         (IO_CREATE),
         begin
-            .ifdef TAG_FIELD
-            <structure_name>.TAG_FIELD = TAG_VALUE
-            .endc
             ;Make sure zero decimals contain zeros not spaces
             <FIELD_LOOP>
             <IF DECIMAL>
@@ -266,20 +240,6 @@ read_last_tag,  read(a_channel,<structure_name>,^LAST,KEYNUM:keyno,LOCK:lock)
         endusing
 
         offerror
-
-        ;If we have a tag, chek it here
-        .ifdef TAG_FIELD
-        if (^passed(<structure_name>))
-        begin
-            if (^a(<structure_name>.TAG_FIELD)!=TAG_VALUE)
-            begin
-                if (!^passed(a_lock) || (^passed(a_lock) && !a_lock))
-                    if (a_channel && %chopen(a_channel))
-                        unlock a_channel
-                freturn IO_EOF
-            end
-        end
-        .endc
 
         if (!^passed(a_lock) || (^passed(a_lock) && !a_lock))
             if (a_channel && %chopen(a_channel))
