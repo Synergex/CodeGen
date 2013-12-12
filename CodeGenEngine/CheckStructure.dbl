@@ -73,49 +73,9 @@ namespace CodeGen.Engine
         ;; Do we have any tags?
         if (ok&&Struct.Tags.Count)
         begin
-
-;           ;; Make sure there is only one tag
-;           if (Struct.Tags.Count>1)
-;               Log("WARNING: Structure "+Struct.Name+" has multiple tags. <TAG_*> tokens may not work!",false,false)
-
             ;; Make sure it's a field=value tag
             if (Struct.TagType!=RpsTagType.FieldAndValue)
                 Log("WARNING: Structure "+Struct.Name+" has an unsupported record length tag. Tag loop tokens may not work!",false,false)
-
-;			;; Populate the tag name
-;			;TODO: Should remove this in future, Generate can get it from the structure
-;			if (ok)
-;			begin
-;				Struct.TagName = Struct.Tags[0].Name
-;				;;Make sure it's an .EQ. tag
-;				if (Struct.Tags[0].ComparisonOperator!=RpsTagOperator.OpEQ)
-;					Log("WARNING: Structure "+Struct.Name+" has an unsupported tag type. <TAG_*> tokens may not work!",false,false)
-;			end
-;
-;			;; Save tag details
-;			if (ok)
-;			begin
-;				data endval, a17, ""
-;				data tagField, @RpsField
-;				tagField = Struct.Fields[Struct.Tags[0].Field]
-;				Struct.TagField = tagField.Name
-;				;;TODO: This needs improving. User could be numeric, and also could be a String, etc.
-;				using tagField.DataTypeCode select
-;				("A","U"),
-;					Struct.TagValue = '"' + Struct.Tags[0].ComparisonValue + '"'
-;				(),
-;					Struct.TagValue = Struct.Tags[0].ComparisonValue
-;				endusing
-;				;;Calculate tag end value
-;				if (StringTools.IsNumeric(Struct.TagValue)) then
-;					endval = integer(Struct.TagValue)+1
-;				else
-;				begin
-;					endval = Struct.TagValue
-;					endval(trimz(endval)-1:1)=char(decml(endval(trimz(endval)-1:1))+1)
-;				end
-;				Struct.TagEndValue = endval
-;			end
 		end
 
         ;; Make sure the structure has not been excluded with @NOCODEGEN
@@ -495,7 +455,7 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;; Is thefield a group?
+                ;; Is the field a group?
                 if (Field.GroupType==RpsFieldGroup.No)
                     nextloop
 
@@ -527,6 +487,17 @@ namespace CodeGen.Engine
                     ;; Start with the group field as defined
 					Child = Field.GroupFields[gfix]
 
+					;; Exclude overlays (unless overridden) and apply optional field level filters
+					if (
+					&	((Child.OverlaysField)&&!Env.IncludeOverlays)
+					&	|| ((Field.GroupType==RpsFieldGroup.Overlay)&&!Env.IncludeOverlays)
+					&	|| (Env.ExcludeLanguage&&Field.ExcludedByLanguage)
+					&	|| (Env.ExcludeToolkit&&Field.ExcludedByToolkit)
+					&	|| (Env.ExcludeReport&&Field.ExcludedByReportWriter)
+					&	|| (Env.ExcludeWeb&&Field.ExcludedByWeb)
+					&	)
+						nextloop
+					
 					;;The child field is going to become part of the parent structure,
 					;;so set its "FieldNumber" property to the same as the parent field
 					Child.FieldNumber = Field.FieldNumber
