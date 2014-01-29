@@ -177,13 +177,9 @@ proc
         begin
             data len, int
             ok = false
-            if (%ssc_getemsg(dbchn,errtxt,len)==SSQL_FAILURE) then
-                writes(tt,"Failed to release database channel!")
-            else
-            begin
-                writes(tt,"Failed to release database channel!\n")
+            writes(tt,"Failed to release database channel!")
+            if (%ssc_getemsg(dbchn,errtxt,len)==SSQL_NORMAL)
                 writes(tt,errtxt(1:len))
-            end
         end
     end
 

@@ -64,7 +64,7 @@
 ;;
 ;;*****************************************************************************
 ;;
-.include "CONNECTDIR:ssql.def"
+import <NAMESPACE>
 
 namespace <NAMESPACE>
 
@@ -82,6 +82,7 @@ namespace <NAMESPACE>
             optional in aBufferSize, int
             optional in aDbCursors, int
             endparams
+            .include "CONNECTDIR:ssql.def"
             record
                 maxCursors, int
                 maxColumns, int

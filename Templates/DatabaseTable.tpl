@@ -69,9 +69,8 @@
 ;;
 ;;*****************************************************************************
 ;;
-.include "CONNECTDIR:ssql.def"
-
 import System.Collections
+import <NAMESPACE>
 
 namespace <NAMESPACE>
 
@@ -174,7 +173,8 @@ namespace <NAMESPACE>
         ;;; </summary>
         ;;; <returns>True for success, false for failure</returns>
         public method Drop, boolean
-            endparams
+			endparams
+			.include "CONNECTDIR:ssql.def"
             stack record local_data
                 ok          ,boolean    ;;Return status
                 cursor      ,int        ;;Database cursor
@@ -271,7 +271,8 @@ namespace <NAMESPACE>
         ;;; </summary>
         ;;; <returns>True if the table exists, false if not (or an error occurred)</returns>
         public method Exists, boolean
-            endparams
+			endparams
+			.include "CONNECTDIR:ssql.def"
             .include "<STRUCTURE_NOALIAS>" repository, stack record="<structure_name>"
             stack record local_data
                 ok          ,boolean    ;;Return value
@@ -483,7 +484,8 @@ namespace <NAMESPACE>
             </SEGMENT_LOOP>
             </PRIMARY_KEY>
             required out arg<StructureName>, str<StructureName>All
-            endparams
+			endparams
+			.include "CONNECTDIR:ssql.def"
             stack record local_data
                 ok              ,boolean    ;;OK to continue
                 cursor          ,int        ;;Database cursor
@@ -522,7 +524,8 @@ namespace <NAMESPACE>
         public method SelectRows, boolean
             required in  argWhere, string
             required out argRows,  @ArrayList
-            endparams
+			endparams
+			.include "CONNECTDIR:ssql.def"
             stack record local_data
                 ok, boolean                             ;;OK to continue
                 cursor, int                             ;;Database cursor
@@ -584,7 +587,8 @@ namespace <NAMESPACE>
             required in  arg<SegmentName> ,a
             </SEGMENT_LOOP>
             </PRIMARY_KEY>
-            endparams
+			endparams
+			.include "CONNECTDIR:ssql.def"
             stack record local_data
                 ok          ,boolean    ;;Return status
                 transaction ,boolean    ;;Transaction in progress

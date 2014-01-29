@@ -64,7 +64,7 @@
 ;;
 ;;*****************************************************************************
 ;;
-.include "CONNECTDIR:ssql.def"
+import <NAMESPACE>
 
 namespace <NAMESPACE>
 
@@ -85,6 +85,7 @@ namespace <NAMESPACE>
 
         protected method startTransaction, boolean
             endparams
+            .include "CONNECTDIR:ssql.def"
         proc
             if (%ssc_commit(mDb.Channel,SSQL_TXON)==SSQL_NORMAL) then
                 mreturn true
@@ -95,6 +96,7 @@ namespace <NAMESPACE>
         protected method openNonSelectCursor, boolean
             required in  sqlStatement, string
             required out cursor, int
+			.include "CONNECTDIR:ssql.def"
             endparams
         proc
             if (%ssc_open(mDb.Channel,cursor,sqlStatement,SSQL_NONSEL)==SSQL_NORMAL) then
@@ -107,6 +109,7 @@ namespace <NAMESPACE>
             required in  sqlStatement, string
             required out cursor, int
             endparams
+			.include "CONNECTDIR:ssql.def"
         proc
             if (%ssc_open(mDb.Channel,cursor,sqlStatement,SSQL_SELECT)==SSQL_NORMAL) then
                 mreturn true
@@ -120,6 +123,7 @@ namespace <NAMESPACE>
             required in layout, a
             required in buffer, a
             endparams
+			.include "CONNECTDIR:ssql.def"
         proc
             if (%ssc_strdef(mDb.Channel,cursor,1,layout,buffer)==SSQL_NORMAL) then
                 mreturn true
@@ -130,6 +134,7 @@ namespace <NAMESPACE>
         protected method executeNonSelectCursor, boolean
             required in cursor, int
             endparams
+			.include "CONNECTDIR:ssql.def"
         proc
             if (%ssc_execute(mDb.Channel,cursor,SSQL_STANDARD)==SSQL_NORMAL) then
                 mreturn true
@@ -141,6 +146,7 @@ namespace <NAMESPACE>
             required inout cursor, int
             required inout currentStatus, boolean
             endparams
+			.include "CONNECTDIR:ssql.def"
         proc
             if (cursor)
             begin
@@ -153,6 +159,8 @@ namespace <NAMESPACE>
 
         protected method commitOrRollback, boolean
             required in commit, boolean
+			endparams
+			.include "CONNECTDIR:ssql.def"
         proc
             if (commit) then
             begin
@@ -166,7 +174,8 @@ namespace <NAMESPACE>
 
         protected method getDatabaseError, boolean
             required in defaultMessage, string
-            endparams
+			endparams
+			.include "CONNECTDIR:ssql.def"
             record
                 dbErrText, a1024
                 length, int
