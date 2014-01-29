@@ -1305,7 +1305,7 @@ function <StructureName>SelectRows ,^val
     <FIELD_LOOP>
     <IF NOTDATE>
     &    "<FIELD_SQLNAME><,>"
-    </IF  NOTDATE>
+    </IF NOTDATE>
     <IF DATE_YYYYMMDD>
     &    "CONVERT(VARCHAR(8),<FIELD_SQLNAME>,112) AS [YYYYMMDD]<,>"
     </IF DATE_YYYYMMDD>
