@@ -67,16 +67,27 @@ import <NAMESPACE>
 
 main DatabaseTableTest
 
-    .define DB_CONSTR   "VTX12_SQLNATIVE://DatabaseName/.\\SQLEXPRESS///Trusted_connection=yes"
+    ;Example connect strings, uncomment and customize one of these!
+    ;
+    ;Local SQL Server (default instance). Windows authentication. SQL Native Driver.
+    ;.define DB_CONSTR   "VTX12_SQLNATIVE://DatabaseName/.///Trusted_connection=yes"
+    ;
+    ;Local SQL Server (named instance). Windows authentication. SQL Native Driver.
+    ;.define DB_CONSTR   "VTX12_SQLNATIVE://DatabaseName/.\\InstanceName///Trusted_connection=yes"
+    ;
+    ;Remote SQL Server via Synergy OpenNet. SQL Server authentication. SQL Native Driver DSN.
+    ;.define DB_CONSTR "net:sql_user/sql_password/dsn_name@server_name_or_ip!VTX12_SQLNATIVE"
 
     record
         tt              ,i4                     ;;Terminal channel
         ok              ,boolean, true          ;;OK to continue?
+        connected       ,boolean, false         ;;Connected to database?
         db              ,@DatabaseConnection    ;;Connection to database
         rowcount        ,i4                     ;;Rows to load / loaded
         failrows        ,i4                     ;;Rows that failed to load
 
-        ;???Table       ,@???Table
+        ;Object handle for database table instance
+        ;table           ,@???Table
 
     endrecord
 proc
@@ -90,6 +101,7 @@ proc
     try
     begin
         db = new DatabaseConnection(1,DB_CONSTR,,1024)
+        connected = true
     end
     catch (ex)
     begin
@@ -97,54 +109,53 @@ proc
     end
     endtry
 
-;   if (ok)
-;   begin
-;       ???Table = new ???Table(db)
-;   end
+	if (ok)
+	begin
+		;;Create an instance of the table class
+		table = new ???Table(db)
 
-;   if (ok)
-;   begin
-;       writes(tt,"Checking for table ??? ... ")
-;       if (???Table.Exists())
-;       begin
-;           writes(tt,"Deleting table ??? ... ")
-;           if (!???Table.Drop())
-;           begin
-;               writes(tt,???Table.ErrorMessage)
-;               clear ok
-;           end
-;       end
-;       if (ok)
-;       begin
-;           writes(tt,"Creating table ??? ... ")
-;           if (!???Table.Create())
-;           begin
-;               writes(tt,???Table.ErrorMessage)
-;               clear ok
-;           end
-;       end
-;   end
+		writes(tt,"Checking if table exists ... ")
+		if (table.Exists())
+		begin
+			writes(tt,"Deleting table ... ")
+			if (!table.Drop())
+			begin
+				writes(tt,table.ErrorMessage)
+				clear ok
+			end
+		end
+		if (ok)
+		begin
+			writes(tt,"Creating table ... ")
+			if (!table.Create())
+			begin
+				writes(tt,table.ErrorMessage)
+				clear ok
+			end
+		end
+	end
 
-;   if (ok)
-;   begin
-;       writes(tt,"Loading table ??? ... ")
-;       ;;Don't pass rowcount (or set it to 0) to load the full file!
-;       rowcount = 100
-;       ;???Table.CleanData = true
-;       ;???Table.EmptyAlphaNull = true
-;       if (???Table.Load(true,tt,rowcount,failrows)) then
-;           writes(tt,string(rowcount) + " rows loaded, "+string(failrows)+" failed")
-;       else
-;       begin
-;           writes(tt,???Table.ErrorMessage)
-;           clear ok
-;       end
-;   end
+	if (ok)
+	begin
+		writes(tt,"Loading table ... ")
+		;;Set rowcount to 0 to load the full file!
+		rowcount = 100
+		;table.CleanData = true
+		;table.EmptyAlphaNull = true
+		if (table.Load(true,tt,rowcount,failrows)) then
+			writes(tt,string(rowcount) + " rows loaded, "+string(failrows)+" failed")
+		else
+		begin
+			writes(tt,table.ErrorMessage)
+			clear ok
+		end
+	end
 
     ;---------------------------------------------------------------------------
     ; Disconnect from the database
 
-    db.Disconnect()
+    if (connected)
+        db.Disconnect()
 
     ;---------------------------------------------------------------------------
     ;All done
