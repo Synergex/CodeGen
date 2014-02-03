@@ -80,17 +80,22 @@ namespace CodeGen.Engine
 
         ;; Make sure the structure has not been excluded with @NOCODEGEN
         if (ok)
-        begin
-            if (Struct.UserText.ToUpper().Contains("@NOCODEGEN")) then
-            begin
-                DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN in user text",false,false)
-                ok = false
-			end
-			else if (Struct.LongDescription.ToUpper().Contains("@NOCODEGEN"))
+		begin
+			;TODO: BUG: there appears to be a problem with this on traditional under 10.1.1b
+			;The IF statement returns TRUE for a blank string!!!
+			;Apparently String.Contains() doesn't work in Traditional right now!
+			;Reported to development 1/31/2014. Suspect it won't be fixed until 10.1.1c
+			data tmpText, String, Struct.UserText.ToUpper() + Struct.LongDescription.ToUpper()
+			if (%instr(1,tmpText,"@NOCODEGEN"))
 			begin
-				DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN in long description",false,false)
+				ErrorLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN in user text")
 				ok = false
 			end
+;			if ((Struct.UserText.ToUpper().Contains("@NOCODEGEN"))||(Struct.LongDescription.ToUpper().Contains("@NOCODEGEN")))
+;           begin
+;                DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN in user text",false,false)
+;                ok = false
+;			end
         end
 
         ;; The structure seems OK, now lets look at the fields
@@ -150,7 +155,7 @@ namespace CodeGen.Engine
                 end
 
                 ;; Make sure field isn't an STRUCTFIELD type
-                ;TODO: Could treat a struct field as a string, or a class in other thanguages
+                ;TODO: Could treat a struct field as a string, or a class?
                 if (Field.DataType == RpsFieldDataType.StructField)
                 begin
                     ErrorLog("Field "+Field.Name+" is an unsupported STRUCTFIELD field")
@@ -234,7 +239,7 @@ namespace CodeGen.Engine
                                                 NewField.StartPosition = Field.StartPosition + bytesAdded
                                                 bytesAdded+=Field.Size
 
-                                                ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
+                                                ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET?
 
 												;---------------------------
 												;TODO: BUG - Tracker 33206 2/24/12
@@ -300,7 +305,7 @@ namespace CodeGen.Engine
                                             NewField.StartPosition = Field.StartPosition + bytesAdded
                                             bytesAdded+=Field.Size
 
-                                            ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
+                                            ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET?
 
 											;---------------------------
 											;TODO: BUG - Tracker 33206 2/24/12
