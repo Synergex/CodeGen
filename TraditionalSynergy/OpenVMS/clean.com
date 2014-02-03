@@ -1,19 +1,19 @@
 $ ! ***************************************************************************
 $ !
-$ ! Title:       CREATE_INSTALL.COM
+$ ! Title:       CLEAN.COM
 $ !
-$ ! Type:        Creates a ZIP file containig a binary distribution of CodeGen
+$ ! Type:        OpenVMS DCL Command Procedure
 $ !
-$ ! Description: Builds CodeGen and utilities under OpenVMS
+$ ! Description: Cleans up files left behind by BUILD.COM and CREATE_INSTALL.COM
 $ !
-$ ! Date:        11th May 2012
+$ ! Date:        3rd February 2014
 $ !
 $ ! Author:      Steve Ives, Synergex Professional Services Group
 $ !              http://www.synergex.com
 $ !
 $ ! ***************************************************************************
 $ !
-$ ! Copyright (c) 2012, Synergex International, Inc.
+$ ! Copyright (c) 2014, Synergex International, Inc.
 $ ! All rights reserved.
 $ !
 $ ! Redistribution and use in source and binary forms, with or without
@@ -44,48 +44,14 @@ $ LOCATION = F$PARSE(F$ENVIRONMENT("PROCEDURE"),,,"DEVICE") + F$PARSE(F$ENVIRONM
 $ !
 $ SET DEFAULT 'LOCATION
 $ !
-$ IF F$SEARCH("CODEGEN*.ZIP").NES."" THEN DELETE/NOLOG/NOCONFIRM CODEGEN*.ZIP;*
+$ IF F$SEARCH("[.HDR]*.*")    .NES."" THEN DELETE/NOLOG/NOCONFIRM [.HDR]*.*;*
+$ IF F$SEARCH("HDR.DIR")      .NES."" THEN DELETE/NOLOG/NOCONFIRM HDR.DIR;*
 $ !
-$ CREATE/DIRECTORY [.KIT.TEMPLATES]
+$ IF F$SEARCH("[.OBJ]*.*")    .NES."" THEN DELETE/NOLOG/NOCONFIRM [.OBJ]*.*;*
+$ IF F$SEARCH("OBJ.DIR")      .NES."" THEN DELETE/NOLOG/NOCONFIRM OBJ.DIR;*
 $ !
-$ ! Copy the main program files
+$ IF F$SEARCH("[.EXE]*.*")    .NES."" THEN DELETE/NOLOG/NOCONFIRM [.EXE]*.*;*
+$ IF F$SEARCH("EXE.DIR")      .NES."" THEN DELETE/NOLOG/NOCONFIRM EXE.DIR;*
 $ !
-$ COPY/NOLOG/NOCONFIRM [.EXE]CODEGEN.EXE             [.KIT]
-$ COPY/NOLOG/NOCONFIRM [.EXE]CREATEFILE.EXE          [.KIT]
-$ COPY/NOLOG/NOCONFIRM [.EXE]DATAMAPPINGSEXAMPLE.XML [.KIT]
-$ COPY/NOLOG/NOCONFIRM [.EXE]DEFAULTBUTTONS.XML      [.KIT]
-$ COPY/NOLOG/NOCONFIRM [.EXE]MAPPREP.EXE             [.KIT]
-$ COPY/NOLOG/NOCONFIRM [.EXE]RPSINFO.EXE             [.KIT]
-$ COPY/NOLOG/NOCONFIRM INSTALL_SETUP.COM             [.KIT]CODEGEN_SETUP.COM
+$ IF F$SEARCH("CODEGEN*.ZIP") .NES."" THEN DELETE/NOLOG/NOCONFIRM CODEGEN*.ZIP;*
 $ !
-$ ! Copy all the template files
-$ !
-$ COPY/NOLOG/NOCONFIRM [-.-.TEMPLATES]*.*; [.KIT.TEMPLATES]
-$ !
-$ ! Create the backup saveset and Zip it
-$ !
-$ SET DEFAULT [.KIT]
-$ BACKUP [...]*.*; [-]CODEGEN.BCK/SAVE
-$ SET DEFAULT [-]
-$ !
-$ IF F$GETSYI("ARCH_NAME").EQS."IA64"
-$ THEN
-$   ZIPFILE="CODEGEN_v_v_v_VMS_INTEGRITY_SYNERGY_v_v_v.ZIP"
-$ ELSE
-$   ZIPFILE="CODEGEN_v_v_v_VMS_ALPHA_SYNERGY_v_v_v.ZIP"
-$ ENDIF
-$ !
-$ !This ZIP command assumes a blobal symbol "ZIP" pointing to
-$ !Zip V2.3 from Info-Zip
-$ !
-$ ZIP "-V" "-D" -j -q  'ZIPFILE CODEGEN.BCK INSTALL_README.TXT
-$ !
-$ ! Clean up
-$ !
-$ DELETE/NOCONFIRM/NOLOG CODEGEN.BCK;*
-$ DELETE/NOCONFIRM/NOLOG [.KIT.TEMPLATES]*.*;*
-$ DELETE/NOCONFIRM/NOLOG [.KIT]TEMPLATES.DIR;*
-$ DELETE/NOCONFIRM/NOLOG [.KIT]*.*;*
-$ DELETE/NOCONFIRM/NOLOG KIT.DIR;*
-$ !
-$ EXIT

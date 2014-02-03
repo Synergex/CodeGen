@@ -40,6 +40,25 @@ $ ! POSSIBILITY OF SUCH DAMAGE.
 $ !
 $ ! ***************************************************************************
 $ !
+$ ! Check that we have logicals for SYNRTL and DBLTLIB
+$ !
+$ IF F$TRNLNM("SYNRTL").EQS."" .OR. F$TRNLNM("DBLTLIB").EQS.""
+$ THEN
+$   WRITE SYS$OUTPUT ""
+$   WRITE SYS$OUTPUT "To build and run CodeGen you must define system wide logical names for SYNRTL"
+$   WRITE SYS$OUTPUT "and DBLTLIB to point to the appropriate files in SYS$SHARE, like this:"
+$   WRITE SYS$OUTPUT ""
+$   WRITE SYS$OUTPUT "	$ DEFINE/SYSTEM SYNRTL  SYS$SHARE:SYNRTL.EXE"
+$   WRITE SYS$OUTPUT "	$ DEFINE/SYSTEM DBLTLIB SYS$SHARE:DBLTLIB.OLB"
+$   WRITE SYS$OUTPUT ""
+$   WRITE SYS$OUTPUT "These logical names should be defined in your system startup command procedure"
+$   WRITE SYS$OUTPUT "(SYS$MANAGER:SYSTARTUP_VMS.COM) immediately after you call the Synergy/DE"
+$   WRITE SYS$OUTPUT "startup command procedure (SYS$MANAGER:SYNERGY_STARTUP.COM). Please define"
+$   WRITE SYS$OUTPUT "these logical names and run this procedure again."
+$   WRITE SYS$OUTPUT ""
+$   GOTO DONE
+$ ENDIF
+$ ! 
 $ BUILDLOC = F$PARSE(F$ENVIRONMENT("PROCEDURE"),,,"DEVICE") + F$PARSE(F$ENVIRONMENT("PROCEDURE"),,,"DIRECTORY")
 $ SET DEF 'BUILDLOC
 $ !
