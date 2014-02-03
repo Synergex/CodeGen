@@ -225,8 +225,8 @@ goto :eof
 rem ---------------------------------------------------------------------------
 :CREATE_SETENV_BAT
 echo @echo off>"%CODEGEN_EXE%\setenv.bat"
-if "%BUILDMODE%"=="32" echo call "%CODEGEN_EXE%\synergy32.bat">>"%CODEGEN_EXE%\setenv.bat"
-if "%BUILDMODE%"=="64" echo call "%CODEGEN_EXE%\synergy64.bat">>"%CODEGEN_EXE%\setenv.bat"
+if "%BUILDMODE%"=="32" echo call "%SYNERGYDE32%dbl\dblvars32.bat" ^> nul>>"%CODEGEN_EXE%\setenv.bat"
+if "%BUILDMODE%"=="64" call "%SYNERGYDE64%dbl\dblvars64.bat" ^> nul>>"%CODEGEN_EXE%\setenv.bat"
 echo if not defined CODEGEN_EXE    set CODEGEN_EXE=%CODEGEN_EXE%>>"%CODEGEN_EXE%\setenv.bat"
 echo if not defined CODEGEN_TPLDIR set CODEGEN_TPLDIR=%~dp0..\..\Templates>>"%CODEGEN_EXE%\setenv.bat"
 echo if not defined CODEGEN_OUTDIR set CODEGEN_OUTDIR=.>>"%CODEGEN_EXE%\setenv.bat"
@@ -248,7 +248,6 @@ echo Creating codegend.bat ...
 echo @echo off>"%CODEGEN_EXE%\codegend.bat"
 echo setlocal>>"%CODEGEN_EXE%\codegend.bat"
 echo call "%CODEGEN_EXE%\setenv.bat">>"%CODEGEN_EXE%\codegend.bat"
-echo if not defined CODEGEN_EXE set CODEGEN_EXE=%~dp0>>"%CODEGEN_EXE%\codegend.bat"
 echo dbr -d CODEGEN_EXE:CodeGen %%*>>"%CODEGEN_EXE%\codegend.bat"
 echo endlocal>>"%CODEGEN_EXE%\codegend.bat"
 goto :eof
@@ -281,7 +280,7 @@ echo Creating rpsinfo.bat
 
 echo @echo off>"%CODEGEN_EXE%\rpsinfo.bat"
 echo setlocal>>"%CODEGEN_EXE%\rpsinfo.bat"
-echo call setenv.bat>>"%CODEGEN_EXE%\rpsinfo.bat"
+echo call "%CODEGEN_EXE%\setenv.bat">>"%CODEGEN_EXE%\rpsinfo.bat"
 echo dbs CODEGEN_EXE:rpsinfo.dbr %%*>>"%CODEGEN_EXE%\rpsinfo.bat"
 echo endlocal>>"%CODEGEN_EXE%\rpsinfo.bat"
 

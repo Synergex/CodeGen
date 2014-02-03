@@ -46,19 +46,11 @@ setlocal
 set ROOT=%~dp0
 pushd "%ROOT%"
 
-if exist hdr\*.* del /q hdr\*.*
-if exist obj\*.* del /q obj\*.*
-if exist exe\*.dbr del /q exe\*.dbr
-if exist exe\*.elb del /q exe\*.elb
-if exist exe\*.chm del /q exe\*.chm
-if exist exe\codegen.bat del /q exe\codegen.bat
-if exist exe\codegend.bat del /q exe\codegend.bat
-if exist exe\mapprep.bat del /q exe\mapprep.bat
-if exist exe\rpsinfo.bat del /q exe\rpsinfo.bat
-if exist exe\createfile.bat del /q exe\createfile.bat
-if exist exe\setenv.bat del /q exe\setenv.bat
-if exist exe\DefaultButtons.xml del /q exe\DefaultButtons.xml
-if exist exe\DataMappingsExample.xml del /q exe\DataMappingsExample.xml
+if exist hdr\. rmdir hdr /s /q
+if exist obj\. rmdir obj /s /q
+if exist exe\. rmdir exe /s /q
+if exist CodeGen.vpwhist del /q CodeGen.vpwhist
+if exist CodeGen.vtg del /q CodeGen.vtg
 
 popd
 endlocal
