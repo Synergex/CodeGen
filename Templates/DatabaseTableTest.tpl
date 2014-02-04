@@ -100,8 +100,9 @@ proc
 
     try
     begin
-        db = new DatabaseConnection(1,DB_CONSTR,,1024)
-        connected = true
+		db = new DatabaseConnection(1,DB_CONSTR)
+		db.MaxColumns = 1024
+		db.Connect()
     end
     catch (ex)
     begin

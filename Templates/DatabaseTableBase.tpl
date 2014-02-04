@@ -81,6 +81,9 @@ namespace <NAMESPACE>
             endparams
         proc
             mDb = aDb
+            ;;Make sure the DatabaseConnection is connected
+            if (!mDb.Connected)
+                throw new ApplicationException("DatabaseConnection must be connected before it is used. Call the Connect() method before passing the connection to a table!")
         endmethod
 
         protected method startTransaction, boolean
