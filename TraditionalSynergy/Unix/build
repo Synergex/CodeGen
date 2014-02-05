@@ -2,9 +2,9 @@
 #
 # Title:       build
 #
-# Type:        Unix shell script (BASH)
+# Type:        Linux shell script (BASH)
 #
-# Description: Builds CodeGen and utilities under Traditional Synergy
+# Description: Builds CodeGen and utilities under Traditional Synergy on Linux
 #
 # Date:        10th May 2012
 #
@@ -51,6 +51,7 @@ find $ROOT/../../. -type f -exec dos2unix {} {} ';' &> /dev/null
 #
 echo Configuring environment ...
 export REPOSITORY_SRC=$ROOT/../../RepositoryAPI
+export SMC_SRC=$ROOT/../../MethodCatalogAPI
 export CODEGEN_SRC=$ROOT/../../CodeGenEngine
 export CUSTOM_SRC=$ROOT/../../CustomTokenExample
 export MAINLINE_SRC=$ROOT/../../CodeGen
@@ -93,6 +94,9 @@ rm $SYNEXPDIR/*.dbp &> /dev/null
 echo Prototyping Repository API ...
 dblproto $REPOSITORY_SRC/*.dbl
 #
+echo Prototyping Method Catalog API ...
+dblproto $SMC_SRC/*.dbl
+#
 echo Prototyping CodeGen Engine ...
 dblproto $CODEGEN_SRC/*.dbl
 #
@@ -104,9 +108,13 @@ echo Building Repository API ...
 dbl $DBG -XTo CODEGEN_OBJ:repositoryapi.dbo $REPOSITORY_SRC/*.dbl
 dblink $DBG -l CODEGEN_EXE:repositoryapi.elb CODEGEN_OBJ:repositoryapi.dbo RPSLIB:ddlib.elb
 # -----------------------------------------------------------------------------
+echo Building Method Catalog API ...
+dbl $DBG -XTo CODEGEN_OBJ:methodcatalog.dbo $SMC_SRC/*.dbl
+dblink $DBG -l CODEGEN_EXE:methodcatalog.elb CODEGEN_OBJ:methodcatalog.dbo CODEGEN_EXE:repositoryapi.elb DBLDIR:synxml.elb
+# -----------------------------------------------------------------------------
 echo Building CodeGen Engine ...
 dbl $DBG -XTo CODEGEN_OBJ:codegenengine.dbo $CODEGEN_SRC/*.dbl
-dblink $DBG -l CODEGEN_EXE:codegenengine.elb CODEGEN_OBJ:codegenengine.dbo CODEGEN_EXE:repositoryapi.elb DBLDIR:synxml.elb
+dblink $DBG -l CODEGEN_EXE:codegenengine.elb CODEGEN_OBJ:codegenengine.dbo CODEGEN_EXE:methodcatalog.elb CODEGEN_EXE:repositoryapi.elb DBLDIR:synxml.elb
 # -----------------------------------------------------------------------------
 #echo Building CustomTokenExample ...
 #dbl $DBG -XTo CODEGEN_OBJ:customtokens.dbo $CUSTOM_SRC/*.dbl

@@ -357,6 +357,7 @@
 		<row><td>ISX_DEFAULTCOMPONENT6</td><td>{B3A8451E-9DA2-414D-98E6-72050AA89CDE}</td><td>ALLUSERSPROFILE</td><td>2</td><td/><td/><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>ISX_DEFAULTCOMPONENT8</td><td>{A34ADB3D-900E-4FCC-BEE7-90F238518E03}</td><td>CommonFilesFolder</td><td>2</td><td/><td/><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>MapPrep.exe</td><td>{1EC1D39B-B8B6-4882-BC2F-2E6B28918206}</td><td>INSTALLDIR</td><td>2</td><td/><td>mapprep.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>MethodCatalogAPI.dll</td><td>{BBEC932D-456E-487C-AC60-FA7E363BDC46}</td><td>INSTALLDIR</td><td>2</td><td/><td>methodcatalogapi.dll</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>RepositoryAPI.dll</td><td>{80BC519E-5598-49AA-9CEE-1EC5A928134C}</td><td>INSTALLDIR</td><td>2</td><td/><td>repositoryapi.dll</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>RpsBrowser.exe</td><td>{1156328C-893A-474C-9CAB-A6421788BDA8}</td><td>INSTALLDIR</td><td>2</td><td/><td>rpsbrowser.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>RpsInfo.exe</td><td>{55D50002-E0D4-455E-847E-23E475992027}</td><td>INSTALLDIR</td><td>2</td><td/><td>rpsinfo.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
@@ -1904,6 +1905,7 @@
 		<row><td>AlwaysInstall</td><td>ISX_DEFAULTCOMPONENT6</td></row>
 		<row><td>AlwaysInstall</td><td>ISX_DEFAULTCOMPONENT8</td></row>
 		<row><td>AlwaysInstall</td><td>MapPrep.exe</td></row>
+		<row><td>AlwaysInstall</td><td>MethodCatalogAPI.dll</td></row>
 		<row><td>AlwaysInstall</td><td>RepositoryAPI.dll</td></row>
 		<row><td>AlwaysInstall</td><td>RpsBrowser.exe</td></row>
 		<row><td>AlwaysInstall</td><td>RpsInfo.exe</td></row>
@@ -1980,6 +1982,7 @@
 		<row><td>json_from_record.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>JSON_F~1.TPL|json_from_record.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\json_from_record.tpl</td><td>5</td><td/></row>
 		<row><td>lowercase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>LOWERC~1.DBL|LowerCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\LowerCase.dbl</td><td>5</td><td/></row>
 		<row><td>mapprep.exe</td><td>MapPrep.exe</td><td>MapPrep.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\MapPrep.exe</td><td>1</td><td/></row>
+		<row><td>methodcatalogapi.dll</td><td>MethodCatalogAPI.dll</td><td>MethodCatalogAPI.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\MethodCatalogAPI.dll</td><td>1</td><td/></row>
 		<row><td>mixedcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>MIXEDC~1.DBL|MixedCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\MixedCase.dbl</td><td>5</td><td/></row>
 		<row><td>oc_class_implementation.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>OC_CLA~1.TPL|oc_class_implementation.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\oc_class_implementation.tpl</td><td>5</td><td/></row>
 		<row><td>oc_class_interface.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>OC_CLA~1.TPL|oc_class_interface.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\oc_class_interface.tpl</td><td>5</td><td/></row>
@@ -2217,6 +2220,7 @@
 		<row><td>ISX_DEFAULTCOMPONENT6</td><td/><td/><td>_DBF0E208_8E82_4EAB_AD0B_DE65111F4156_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>ISX_DEFAULTCOMPONENT8</td><td/><td/><td>_3B11EEA5_BA31_4D0E_85DA_FDDAEF3869FC_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>MapPrep.exe</td><td/><td/><td>_E9351E46_A7DB_4E06_B2E2_322A497C5EA4_FILTER</td><td/><td/><td/><td/></row>
+		<row><td>MethodCatalogAPI.dll</td><td/><td/><td>_CAE91788_54AC_436B_8155_7223EB1786F2_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>RepositoryAPI.dll</td><td/><td/><td>_2F21230C_F0D5_4258_8B41_BFDD59CBECEF_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>RpsBrowser.exe</td><td/><td/><td>_3D954367_40DD_4D91_9DB1_9DECA0B4241E_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>RpsInfo.exe</td><td/><td/><td>_B1A4B82E_9FBB_4EC9_B6BB_1EB5286BC973_FILTER</td><td/><td/><td/><td/></row>

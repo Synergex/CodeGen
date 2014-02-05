@@ -55,6 +55,7 @@ if "%1"=="-?" goto USAGE
 echo Configuring environment ...
 
 set REPOSITORY_SRC=%ROOT%..\..\RepositoryAPI
+set SMC_SRC=%ROOT%..\..\MethodCatalogAPI
 set CODEGEN_SRC=%ROOT%..\..\CodeGenEngine
 set CUSTOM_SRC=%ROOT%..\..\CustomTokenExample
 set MAINLINE_SRC=%ROOT%..\..\CodeGen
@@ -103,12 +104,19 @@ rem ---------------------------------------------------------------------------
 echo Deleting old prototypes ...
 if exist "%SYNEXPDIR%\codegen-repositoryapi-*.dbp" del /q "%SYNEXPDIR%\codegen-repositoryapi-*.dbp"
 if exist "%SYNEXPDIR%\codegen-engine-*.dbp" del /q "%SYNEXPDIR%\codegen-engine-*.dbp"
+
 echo Prototyping Repository API ...
 dblproto %REPOSITORY_SRC%\*.dbl
 if ERRORLEVEL 1 goto RPS_PROTO_ERROR
+
+echo Prototyping Method Catalog API ...
+dblproto %SMC_SRC%\*.dbl
+if ERRORLEVEL 1 goto SMC_PROTO_ERROR
+
 echo Prototyping CodeGen Engine ...
 dblproto %CODEGEN_SRC%\*.dbl
 if ERRORLEVEL 1 goto ENGINE_PROTO_ERROR
+
 rem echo Prototyping CustomTokenExample ...
 rem dblproto %CUSTOM_SRC%\*.dbl
 rem if ERRORLEVEL 1 goto CUSTOM_PROTO_ERROR
@@ -124,13 +132,23 @@ dblink -l%DBG% CODEGEN_EXE:repositoryapi.elb CODEGEN_OBJ:repositoryapi.dbo RPSLI
 if ERRORLEVEL 1 goto RPS_LINK_ERROR
 
 rem ---------------------------------------------------------------------------
+echo Building Method Catalog API ...
+
+set SOURCEFILES=
+for /f %%f in ('dir /b %SMC_SRC%\*.dbl') do call :ADDSOURCEFILE %SMC_SRC% %%f
+dbl -%DBG%XTo CODEGEN_OBJ:methodcatalog.dbo %SOURCEFILES%
+if ERRORLEVEL 1 goto SMC_COMPILE_ERROR
+dblink -l%DBG% CODEGEN_EXE:methodcatalog.elb CODEGEN_OBJ:methodcatalog.dbo CODEGEN_EXE:repositoryapi.elb DBLDIR:synxml.elb
+if ERRORLEVEL 1 goto SMC_LINK_ERROR
+
+rem ---------------------------------------------------------------------------
 echo Building CodeGen Engine ...
 
 set SOURCEFILES=
 for /f %%f in ('dir /b %CODEGEN_SRC%\*.dbl') do call :ADDSOURCEFILE %CODEGEN_SRC% %%f
 dbl -%DBG%XTo CODEGEN_OBJ:codegenengine.dbo %SOURCEFILES%
 if ERRORLEVEL 1 goto RPS_COMPILE_ERROR
-dblink -l%DBG% CODEGEN_EXE:codegenengine.elb CODEGEN_OBJ:codegenengine.dbo CODEGEN_EXE:repositoryapi.elb DBLDIR:synxml.elb
+dblink -l%DBG% CODEGEN_EXE:codegenengine.elb CODEGEN_OBJ:codegenengine.dbo CODEGEN_EXE:methodcatalog.elb CODEGEN_EXE:repositoryapi.elb DBLDIR:synxml.elb
 if ERRORLEVEL 1 goto ENGINE_LINK_ERROR
 
 rem ---------------------------------------------------------------------------
@@ -301,6 +319,15 @@ echo ERROR: Repository API compile failed!
 goto EXIT
 :RPS_LINK_ERROR
 echo ERROR: Repository API link failed!
+goto EXIT
+:SMC_PROTO_ERROR
+echo ERROR: Method Catalog API prototyping failed!
+goto EXIT
+:SMC_COMPILE_ERROR
+echo ERROR: Method Catalog API compile failed!
+goto EXIT
+:SMC_LINK_ERROR
+echo ERROR: Method Catalog API link failed!
 goto EXIT
 :ENGINE_PROTO_ERROR
 echo ERROR: CodeGen Engine prototyping failed!
