@@ -62,6 +62,7 @@ set MAINLINE_SRC=%ROOT%..\..\CodeGen
 set CREATEFILE_SRC=%ROOT%..\..\CreateFile
 set MAPPREP_SRC=%ROOT%..\..\MapPrep
 set RPSINFO_SRC=%ROOT%..\..\RpsInfo
+set SMCINFO_SRC=%ROOT%..\..\SmcInfo
 set CODEGEN_OBJ=%ROOT%obj
 set CODEGEN_EXE=%ROOT%exe
 set SYNEXPDIR=%ROOT%hdr
@@ -194,6 +195,14 @@ dblink -%DBG%o CODEGEN_EXE:rpsinfo.dbr CODEGEN_OBJ:rpsinfo.dbo CODEGEN_EXE:codeg
 if ERRORLEVEL 1 goto RPSINFO_LINK_ERROR
 
 rem ---------------------------------------------------------------------------
+echo Building SmcInfo ...
+
+dbl -%DBG%XTo CODEGEN_OBJ:smcinfo.dbo SMCINFO_SRC:SmcInfo.dbl
+if ERRORLEVEL 1 goto SMCINFO_COMPILE_ERROR
+dblink -%DBG%o CODEGEN_EXE:smcinfo.dbr CODEGEN_OBJ:smcinfo.dbo CODEGEN_EXE:methodcatalog.elb CODEGEN_EXE:codegenengine.elb
+if ERRORLEVEL 1 goto SMCINFO_LINK_ERROR
+
+rem ---------------------------------------------------------------------------
 echo Checking batch files ...
 
 if exist "%CODEGEN_EXE%\setenv.bat"   del /q "%CODEGEN_EXE%\setenv.bat"
@@ -208,6 +217,7 @@ call :CREATE_CODEGEND_BAT
 call :CREATE_CREATEFILE_BAT
 call :CREATE_MAPPREP_BAT
 call :CREATE_RPSINFO_BAT
+call :CREATE_SMCINFO_BAT
 
 rem ---------------------------------------------------------------------------
 echo Verifying documentation is present ...
@@ -301,7 +311,17 @@ echo setlocal>>"%CODEGEN_EXE%\rpsinfo.bat"
 echo call "%CODEGEN_EXE%\setenv.bat">>"%CODEGEN_EXE%\rpsinfo.bat"
 echo dbs CODEGEN_EXE:rpsinfo.dbr %%*>>"%CODEGEN_EXE%\rpsinfo.bat"
 echo endlocal>>"%CODEGEN_EXE%\rpsinfo.bat"
+goto:eof
 
+rem ---------------------------------------------------------------------------
+:CREATE_SMCINFO_BAT
+echo Creating smcinfo.bat
+
+echo @echo off>"%CODEGEN_EXE%\smcinfo.bat"
+echo setlocal>>"%CODEGEN_EXE%\smcinfo.bat"
+echo call "%CODEGEN_EXE%\setenv.bat">>"%CODEGEN_EXE%\smcinfo.bat"
+echo dbs CODEGEN_EXE:smcinfo.dbr %%*>>"%CODEGEN_EXE%\smcinfo.bat"
+echo endlocal>>"%CODEGEN_EXE%\smcinfo.bat"
 goto:eof
 
 rem ---------------------------------------------------------------------------
@@ -370,6 +390,12 @@ echo ERROR: RpsInfo compile failed!
 goto EXIT
 :RPSINFO_LINK_ERROR
 echo ERROR: RpsInfo link failed!
+goto EXIT
+:SMCINFO_COMPILE_ERROR
+echo ERROR: SmcInfo compile failed!
+goto EXIT
+:SMCINFO_LINK_ERROR
+echo ERROR: SmcInfo link failed!
 goto EXIT
 
 rem ---------------------------------------------------------------------------
