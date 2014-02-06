@@ -1,6 +1,6 @@
 ;;*****************************************************************************
 ;;
-;; Title:       MethodCatalog.dbl
+;; Title:       Smc.dbl
 ;;
 ;; Type:        Class
 ;;
@@ -44,16 +44,16 @@ import CodeGen.MethodCatalogAPI
 
 namespace CodeGen.MethodCatalogAPI
 
-	public class MethodCatalog
+	public class Smc
 		
-		private mInterfaces	,@MduInterfaceCollection
+		private mInterfaces	,@SmcInterfaceCollection
 
 		;;; <summary>
 		;;; Constructs a new MethodCatalog object by parsing the information
 		;;; contained in a method catalog.
 		;;; </summary>
 		;;; <param name="inputFile">Method catalog XML file to parse.</param>
-		public method MethodCatalog
+		public method Smc
 			required in inputFile, String
 			endparams
 		proc
@@ -75,11 +75,11 @@ namespace CodeGen.MethodCatalogAPI
 
 		endmethod
 		
-		public property Interfaces, @MduInterfaceCollection
+		public property Interfaces, @SmcInterfaceCollection
 			method get
 			proc
 				if (mInterfaces==^null)
-					mInterfaces = new MduInterfaceCollection()
+					mInterfaces = new SmcInterfaceCollection()
 				mreturn mInterfaces
 			endmethod
 		endproperty
@@ -145,7 +145,7 @@ namespace CodeGen.MethodCatalogAPI
 			.include "DBLDIR:synxml.def"
 			record 
 				interfaceName	,a128
-				thisInterface	,@MduInterface
+				thisInterface	,@SmcInterface
 				allMehtods		,XML_ELEMLIST_TYPE
 				thisMethod		,XML_ELEM_TYPE
 				methodCount		,i4
@@ -161,7 +161,7 @@ namespace CodeGen.MethodCatalogAPI
 				mreturn
 			
 			;;Create the new interface object
-			thisInterface = new MduInterface(%atrim(interfaceName))
+			thisInterface = new SmcInterface(%atrim(interfaceName))
 
 			;;Get the method definitions
 			allMehtods = %xml_elem_getelementsbyname(interfaceElement,"method")
@@ -181,12 +181,12 @@ namespace CodeGen.MethodCatalogAPI
 		
 		private method parseMethod, void
 			required in methodElement, XML_ELEM_TYPE
-			required in thisInterface, @MduInterface
+			required in thisInterface, @SmcInterface
 			endparams
 			.include "DBLDIR:synxml.def"
 			record
 				attributeValue	,a128
-				thisMethod		,@MduMethod
+				thisMethod		,@SmcMethod
 				allParameters	,XML_ELEMLIST_TYPE
 				parameterCount	,i4
 				thisParameter	,XML_ELEM_TYPE
@@ -197,7 +197,7 @@ namespace CodeGen.MethodCatalogAPI
 			;;Get the attributes from the method element
 
 			xcall xml_elem_getattribute(methodElement,"name",attributeValue)
-			thisMethod = new MduMethod(%atrim(attributeValue))
+			thisMethod = new SmcMethod(%atrim(attributeValue))
 			
 			xcall xml_elem_getattribute(methodElement,"id",attributeValue)
 			thisMethod.Id = %atrim(attributeValue)
@@ -243,12 +243,12 @@ namespace CodeGen.MethodCatalogAPI
 		
 		private method parseRetrunValue, void
 			required in methodElement, XML_ELEM_TYPE
-			required in thisMethod, @MduMethod
-			required in thisInterface, @MduInterface
+			required in thisMethod, @SmcMethod
+			required in thisInterface, @SmcInterface
 			endparams
 			.include "DBLDIR:synxml.def"
 			record 
-				returnValue,	@MduMethodReturnValue
+				returnValue,	@SmcMethodReturnValue
 				childNodes,		XML_ELEMLIST_TYPE
 				resultElement,	XML_ELEM_TYPE
 				attributeValue,	a128
@@ -261,7 +261,7 @@ namespace CodeGen.MethodCatalogAPI
 			if (%xml_elemlist_count(childNodes))
 			begin
 				;;Yes, we're working with a function
-				returnValue = new MduMethodReturnValue()
+				returnValue = new SmcMethodReturnValue()
 				resultElement = %xml_elemlist_item(childNodes,1)
 				
 				;;type
@@ -270,17 +270,17 @@ namespace CodeGen.MethodCatalogAPI
 				begin
 					using attributeValue select
 					("alpha"),
-						returnValue.Type = MduReturnType.Alpha
+						returnValue.Type = ReturnType.Alpha
 					("decimal"),
-						returnValue.Type = MduReturnType.Decimal
+						returnValue.Type = ReturnType.Decimal
 					("integer"),
-						returnValue.Type = MduReturnType.Integer
+						returnValue.Type = ReturnType.Integer
 					("value"),
-						returnValue.Type = MduReturnType.Value
+						returnValue.Type = ReturnType.Value
 					("string"),
-						returnValue.Type = MduReturnType.String
+						returnValue.Type = ReturnType.String
 					("enum"),
-						returnValue.Type = MduReturnType.Enumeration
+						returnValue.Type = ReturnType.Enumeration
 					(),
 						throw new ApplicationException("Invalid type attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
 					endusing
@@ -308,11 +308,11 @@ namespace CodeGen.MethodCatalogAPI
 				xcall xml_elem_getattribute(resultElement,"precision",attributeValue)
 				if (attributeValue)
 				begin
-					if (returnValue.Type == MduReturnType.Decimal) then
+					if (returnValue.Type == ReturnType.Decimal) then
 					begin
 						try 
 						begin
-							returnValue.Type = MduReturnType.ImpliedDecimal
+							returnValue.Type = ReturnType.ImpliedDecimal
 							returnValue.Precision = %integer(%atrim(attributeValue))
 						end
 						catch (ex, @BadDigitException)
@@ -329,7 +329,7 @@ namespace CodeGen.MethodCatalogAPI
 				xcall xml_elem_getattribute(resultElement,"enumName",attributeValue)
 				if (attributeValue) then 
 				begin
-					if (returnValue.Type == MduReturnType.Enumeration) then 
+					if (returnValue.Type == ReturnType.Enumeration) then 
 					begin
 						upcase attributeValue
 						returnValue.EnumName = %atrim(attributeValue)
@@ -339,7 +339,7 @@ namespace CodeGen.MethodCatalogAPI
 				end
 				else
 				begin
-					if (returnValue.Type == MduReturnType.Enumeration)
+					if (returnValue.Type == ReturnType.Enumeration)
 						throw new ApplicationException("Missing enumName attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
 				end
 
@@ -348,69 +348,69 @@ namespace CodeGen.MethodCatalogAPI
 				if (attributeValue)
 				begin
 					using returnValue.Type select
-					(MduReturnType.Decimal),
+					(ReturnType.Decimal),
 					begin
 						using attributeValue select
 						("boolean"),
-							returnValue.CoerceType = MduCoerceType.Boolean
+							returnValue.CoerceType = CoerceType.Boolean
 						("byte"),
-							returnValue.CoerceType = MduCoerceType.Byte
+							returnValue.CoerceType = CoerceType.Byte
 						("datetime"),
-							returnValue.CoerceType = MduCoerceType.DateTime
+							returnValue.CoerceType = CoerceType.DateTime
 						("decimal"),
-							returnValue.CoerceType = MduCoerceType.Decimal
+							returnValue.CoerceType = CoerceType.Decimal
 						("int"),
-							returnValue.CoerceType = MduCoerceType.Int
+							returnValue.CoerceType = CoerceType.Int
 						("long"),
-							returnValue.CoerceType = MduCoerceType.Long
+							returnValue.CoerceType = CoerceType.Long
 						("sbyte"),
-							returnValue.CoerceType = MduCoerceType.Sbyte
+							returnValue.CoerceType = CoerceType.Sbyte
 						("short"),
-							returnValue.CoerceType = MduCoerceType.Short
+							returnValue.CoerceType = CoerceType.Short
 						("uint"),
-							returnValue.CoerceType = MduCoerceType.Uint
+							returnValue.CoerceType = CoerceType.Uint
 						("ulong"),
-							returnValue.CoerceType = MduCoerceType.Ulong
+							returnValue.CoerceType = CoerceType.Ulong
 						("ushort"),
-							returnValue.CoerceType = MduCoerceType.Ushort
+							returnValue.CoerceType = CoerceType.Ushort
 						(),
 							throw new ApplicationException("Invalid coerce attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
 						endusing
 					end
-					(MduReturnType.ImpliedDecimal),
+					(ReturnType.ImpliedDecimal),
 					begin
 						using attributeValue select
 						("decimal"),
-							returnValue.CoerceType = MduCoerceType.Decimal
+							returnValue.CoerceType = CoerceType.Decimal
 						("double"),
-							returnValue.CoerceType = MduCoerceType.Double
+							returnValue.CoerceType = CoerceType.Double
 						("float"),
-							returnValue.CoerceType = MduCoerceType.Float
+							returnValue.CoerceType = CoerceType.Float
 						(),
 							throw new ApplicationException("Invalid coerce attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
 						endusing
 					end
-					(MduReturnType.Integer),
+					(ReturnType.Integer),
 					begin
 						using attributeValue select
 						("boolean"),
-							returnValue.CoerceType = MduCoerceType.Boolean
+							returnValue.CoerceType = CoerceType.Boolean
 						("byte"),
-							returnValue.CoerceType = MduCoerceType.Byte
+							returnValue.CoerceType = CoerceType.Byte
 						("int"),
-							returnValue.CoerceType = MduCoerceType.Int
+							returnValue.CoerceType = CoerceType.Int
 						("long"),
-							returnValue.CoerceType = MduCoerceType.Long
+							returnValue.CoerceType = CoerceType.Long
 						("sbyte"),
-							returnValue.CoerceType = MduCoerceType.Sbyte
+							returnValue.CoerceType = CoerceType.Sbyte
 						("short"),
-							returnValue.CoerceType = MduCoerceType.Short
+							returnValue.CoerceType = CoerceType.Short
 						("uint"),
-							returnValue.CoerceType = MduCoerceType.Uint
+							returnValue.CoerceType = CoerceType.Uint
 						("ulong"),
-							returnValue.CoerceType = MduCoerceType.Ulong
+							returnValue.CoerceType = CoerceType.Ulong
 						("ushort"),
-							returnValue.CoerceType = MduCoerceType.Ushort
+							returnValue.CoerceType = CoerceType.Ushort
 						(),
 							throw new ApplicationException("Invalid coerce attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
 						endusing
@@ -425,12 +425,12 @@ namespace CodeGen.MethodCatalogAPI
 				if (attributeValue)
 				begin
 					using returnValue.CoerceType select
-					(MduCoerceType.DateTime),
+					(CoerceType.DateTime),
 						if (attributeValue == "true")
-							returnValue.CoerceType = MduCoerceType.DateTimeNullable
-					(MduCoerceType.Decimal),
+							returnValue.CoerceType = CoerceType.DateTimeNullable
+					(CoerceType.Decimal),
 						if (attributeValue == "true")
-							returnValue.CoerceType = MduCoerceType.DecimalNullable
+							returnValue.CoerceType = CoerceType.DecimalNullable
 					(),
 						throw new ApplicationException("Invalid nullable attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
 					endusing
@@ -440,24 +440,24 @@ namespace CodeGen.MethodCatalogAPI
 				xcall xml_elem_getattribute(resultElement,"format",attributeValue)
 				if (attributeValue) then 
 				begin
-					if (returnValue.CoerceType == MduCoerceType.DateTime
-					&	|| returnValue.CoerceType == MduCoerceType.DateTimeNullable) then 
+					if (returnValue.CoerceType == CoerceType.DateTime
+					&	|| returnValue.CoerceType == CoerceType.DateTimeNullable) then 
 					begin
 						using attributeValue select
 						("YYYYMMDD"),
-							returnValue.DateFormat = MduDateFormat.YYYYMMDD
+							returnValue.DateFormat = DateFormat.YYYYMMDD
 						("YYMMDD"),
-							returnValue.DateFormat = MduDateFormat.YYMMDD
+							returnValue.DateFormat = DateFormat.YYMMDD
 						("YYJJJ"),
-							returnValue.DateFormat = MduDateFormat.YYJJJ
+							returnValue.DateFormat = DateFormat.YYJJJ
 						("YYYYJJJ"),
-							returnValue.DateFormat = MduDateFormat.YYYYJJJ
+							returnValue.DateFormat = DateFormat.YYYYJJJ
 						("HHMM"),
-							returnValue.DateFormat = MduDateFormat.HHMM
+							returnValue.DateFormat = DateFormat.HHMM
 						("HHMMSS"),
-							returnValue.DateFormat = MduDateFormat.HHMMSS
+							returnValue.DateFormat = DateFormat.HHMMSS
 						("YYYYMMDDHHMISS"),
-							returnValue.DateFormat = MduDateFormat.YYYYMMDDHHMISS
+							returnValue.DateFormat = DateFormat.YYYYMMDDHHMISS
 						(),
 							throw new ApplicationException("Invalid format attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
 						endusing
@@ -467,8 +467,8 @@ namespace CodeGen.MethodCatalogAPI
 				end
 				else
 				begin
-					if (returnValue.CoerceType == MduCoerceType.DateTime
-					&	|| returnValue.CoerceType == MduCoerceType.DateTimeNullable)
+					if (returnValue.CoerceType == CoerceType.DateTime
+					&	|| returnValue.CoerceType == CoerceType.DateTimeNullable)
 						throw new ApplicationException("Missing format attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
 				end
 				
@@ -479,10 +479,10 @@ namespace CodeGen.MethodCatalogAPI
 			
 			
 			if (returnValue==^null) then 
-				thisMethod.MethodType = MduMethodType.Subroutine
+				thisMethod.MethodType = MethodType.Subroutine
 			else
 			begin
-				thisMethod.MethodType = MduMethodType.Function
+				thisMethod.MethodType = MethodType.Function
 				thisMethod.ReturnValue = returnValue
 			end
 			
@@ -490,11 +490,11 @@ namespace CodeGen.MethodCatalogAPI
 		
 		private method parseParameter, void
 			required in parameterElement, XML_ELEM_TYPE
-			required in thisMethod, @MduMethod
+			required in thisMethod, @SmcMethod
 			endparams
 			record 
 				attributeValue	,a128
-				thisParameter, @MduParameter
+				thisParameter, @SmcParameter
 			endrecord
 		proc
 			
@@ -503,7 +503,7 @@ namespace CodeGen.MethodCatalogAPI
 			;;name (all parameters)
 			xcall xml_elem_getattribute(parameterElement,"name",attributeValue)
 			if (attributeValue) then 
-				thisParameter = new MduParameter(%atrim(attributeValue))
+				thisParameter = new SmcParameter(%atrim(attributeValue))
 			else
 				throw new ApplicationException("Missing name attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 
@@ -516,21 +516,21 @@ namespace CodeGen.MethodCatalogAPI
 			begin
 				using attributeValue select
 				("alpha"),
-					thisParameter.Type = MduParameterType.Alpha
+					thisParameter.Type = ParameterType.Alpha
 				("binaryarray"),
-					thisParameter.Type = MduParameterType.BinaryArray
+					thisParameter.Type = ParameterType.BinaryArray
 				("decimal"),
-					thisParameter.Type = MduParameterType.Decimal
+					thisParameter.Type = ParameterType.Decimal
 				("enum"),
-					thisParameter.Type = MduParameterType.Enumeration
+					thisParameter.Type = ParameterType.Enumeration
 				("handle"),
-					thisParameter.Type = MduParameterType.Handle
+					thisParameter.Type = ParameterType.Handle
 				("integer"),
-					thisParameter.Type = MduParameterType.Integer
+					thisParameter.Type = ParameterType.Integer
 				("string"),
-					thisParameter.Type = MduParameterType.String
+					thisParameter.Type = ParameterType.String
 				("structure"),
-					thisParameter.Type = MduParameterType.Structure
+					thisParameter.Type = ParameterType.Structure
 				(),
 					throw new ApplicationException("Invalid type attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 				endusing
@@ -558,11 +558,11 @@ namespace CodeGen.MethodCatalogAPI
 			xcall xml_elem_getattribute(parameterElement,"precision",attributeValue)
 			if (attributeValue)
 			begin
-				if (thisParameter.Type == MduParameterType.Decimal) then
+				if (thisParameter.Type == ParameterType.Decimal) then
 				begin
 					try 
 					begin
-						thisParameter.Type = MduParameterType.ImpliedDecimal
+						thisParameter.Type = ParameterType.ImpliedDecimal
 						thisParameter.Precision = %integer(%atrim(attributeValue))
 					end
 					catch (ex, @BadDigitException)
@@ -579,7 +579,7 @@ namespace CodeGen.MethodCatalogAPI
 			xcall xml_elem_getattribute(parameterElement,"enumName",attributeValue)
 			if (attributeValue) then 
 			begin
-				if (thisParameter.Type == MduParameterType.Enumeration) then 
+				if (thisParameter.Type == ParameterType.Enumeration) then 
 				begin
 					upcase attributeValue
 					thisParameter.EnumName = %atrim(attributeValue)
@@ -589,7 +589,7 @@ namespace CodeGen.MethodCatalogAPI
 			end
 			else
 			begin
-				if (thisParameter.Type == MduParameterType.Enumeration)
+				if (thisParameter.Type == ParameterType.Enumeration)
 					throw new ApplicationException("Missing enumName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 			end
 
@@ -597,7 +597,7 @@ namespace CodeGen.MethodCatalogAPI
 			xcall xml_elem_getattribute(parameterElement,"structureName",attributeValue)
 			if (attributeValue) then 
 			begin
-				if (thisParameter.Type == MduParameterType.Structure) then 
+				if (thisParameter.Type == ParameterType.Structure) then 
 				begin
 					upcase attributeValue
 					thisParameter.StructureName = %atrim(attributeValue)
@@ -607,7 +607,7 @@ namespace CodeGen.MethodCatalogAPI
 			end
 			else
 			begin
-				if (thisParameter.Type == MduParameterType.Structure)
+				if (thisParameter.Type == ParameterType.Structure)
 					throw new ApplicationException("Missing structureName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 			end
 
@@ -616,69 +616,69 @@ namespace CodeGen.MethodCatalogAPI
 			if (attributeValue)
 			begin
 				using thisParameter.Type select
-				(MduParameterType.Decimal),
+				(ParameterType.Decimal),
 				begin
 					using attributeValue select
 					("boolean"),
-						thisParameter.CoerceType = MduCoerceType.Boolean
+						thisParameter.CoerceType = CoerceType.Boolean
 					("byte"),
-						thisParameter.CoerceType = MduCoerceType.Byte
+						thisParameter.CoerceType = CoerceType.Byte
 					("datetime"),
-						thisParameter.CoerceType = MduCoerceType.DateTime
+						thisParameter.CoerceType = CoerceType.DateTime
 					("decimal"),
-						thisParameter.CoerceType = MduCoerceType.Decimal
+						thisParameter.CoerceType = CoerceType.Decimal
 					("int"),
-						thisParameter.CoerceType = MduCoerceType.Int
+						thisParameter.CoerceType = CoerceType.Int
 					("long"),
-						thisParameter.CoerceType = MduCoerceType.Long
+						thisParameter.CoerceType = CoerceType.Long
 					("sbyte"),
-						thisParameter.CoerceType = MduCoerceType.Sbyte
+						thisParameter.CoerceType = CoerceType.Sbyte
 					("short"),
-						thisParameter.CoerceType = MduCoerceType.Short
+						thisParameter.CoerceType = CoerceType.Short
 					("uint"),
-						thisParameter.CoerceType = MduCoerceType.Uint
+						thisParameter.CoerceType = CoerceType.Uint
 					("ulong"),
-						thisParameter.CoerceType = MduCoerceType.Ulong
+						thisParameter.CoerceType = CoerceType.Ulong
 					("ushort"),
-						thisParameter.CoerceType = MduCoerceType.Ushort
+						thisParameter.CoerceType = CoerceType.Ushort
 					(),
 						throw new ApplicationException("Invalid coerce attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 					endusing
 				end
-				(MduParameterType.ImpliedDecimal),
+				(ParameterType.ImpliedDecimal),
 				begin
 					using attributeValue select
 					("decimal"),
-						thisParameter.CoerceType = MduCoerceType.Decimal
+						thisParameter.CoerceType = CoerceType.Decimal
 					("double"),
-						thisParameter.CoerceType = MduCoerceType.Double
+						thisParameter.CoerceType = CoerceType.Double
 					("float"),
-						thisParameter.CoerceType = MduCoerceType.Float
+						thisParameter.CoerceType = CoerceType.Float
 					(),
 						throw new ApplicationException("Invalid coerce attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 					endusing
 				end
-				(MduParameterType.Integer),
+				(ParameterType.Integer),
 				begin
 					using attributeValue select
 					("boolean"),
-						thisParameter.CoerceType = MduCoerceType.Boolean
+						thisParameter.CoerceType = CoerceType.Boolean
 					("byte"),
-						thisParameter.CoerceType = MduCoerceType.Byte
+						thisParameter.CoerceType = CoerceType.Byte
 					("int"),
-						thisParameter.CoerceType = MduCoerceType.Int
+						thisParameter.CoerceType = CoerceType.Int
 					("long"),
-						thisParameter.CoerceType = MduCoerceType.Long
+						thisParameter.CoerceType = CoerceType.Long
 					("sbyte"),
-						thisParameter.CoerceType = MduCoerceType.Sbyte
+						thisParameter.CoerceType = CoerceType.Sbyte
 					("short"),
-						thisParameter.CoerceType = MduCoerceType.Short
+						thisParameter.CoerceType = CoerceType.Short
 					("uint"),
-						thisParameter.CoerceType = MduCoerceType.Uint
+						thisParameter.CoerceType = CoerceType.Uint
 					("ulong"),
-						thisParameter.CoerceType = MduCoerceType.Ulong
+						thisParameter.CoerceType = CoerceType.Ulong
 					("ushort"),
-						thisParameter.CoerceType = MduCoerceType.Ushort
+						thisParameter.CoerceType = CoerceType.Ushort
 					(),
 						throw new ApplicationException("Invalid coerce attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 					endusing
@@ -694,12 +694,12 @@ namespace CodeGen.MethodCatalogAPI
 			if (attributeValue)
 			begin
 				using thisParameter.CoerceType select
-				(MduCoerceType.DateTime),
+				(CoerceType.DateTime),
 					if (attributeValue == "true")
-						thisParameter.CoerceType = MduCoerceType.DateTimeNullable
-				(MduCoerceType.Decimal),
+						thisParameter.CoerceType = CoerceType.DateTimeNullable
+				(CoerceType.Decimal),
 					if (attributeValue == "true")
-						thisParameter.CoerceType = MduCoerceType.DecimalNullable
+						thisParameter.CoerceType = CoerceType.DecimalNullable
 				(),
 					throw new ApplicationException("Invalid nullable attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 				endusing
@@ -709,24 +709,24 @@ namespace CodeGen.MethodCatalogAPI
 			xcall xml_elem_getattribute(parameterElement,"format",attributeValue)
 			if (attributeValue) then 
 			begin
-				if (thisParameter.CoerceType == MduCoerceType.DateTime
-				&	|| thisParameter.CoerceType == MduCoerceType.DateTimeNullable) then 
+				if (thisParameter.CoerceType == CoerceType.DateTime
+				&	|| thisParameter.CoerceType == CoerceType.DateTimeNullable) then 
 				begin
 					using attributeValue select
 					("YYYYMMDD"),
-						thisParameter.DateFormat = MduDateFormat.YYYYMMDD
+						thisParameter.DateFormat = DateFormat.YYYYMMDD
 					("YYMMDD"),
-						thisParameter.DateFormat = MduDateFormat.YYMMDD
+						thisParameter.DateFormat = DateFormat.YYMMDD
 					("YYJJJ"),
-						thisParameter.DateFormat = MduDateFormat.YYJJJ
+						thisParameter.DateFormat = DateFormat.YYJJJ
 					("YYYYJJJ"),
-						thisParameter.DateFormat = MduDateFormat.YYYYJJJ
+						thisParameter.DateFormat = DateFormat.YYYYJJJ
 					("HHMM"),
-						thisParameter.DateFormat = MduDateFormat.HHMM
+						thisParameter.DateFormat = DateFormat.HHMM
 					("HHMMSS"),
-						thisParameter.DateFormat = MduDateFormat.HHMMSS
+						thisParameter.DateFormat = DateFormat.HHMMSS
 					("YYYYMMDDHHMISS"),
-						thisParameter.DateFormat = MduDateFormat.YYYYMMDDHHMISS
+						thisParameter.DateFormat = DateFormat.YYYYMMDDHHMISS
 					(),
 						throw new ApplicationException("Invalid format attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 					endusing
@@ -736,8 +736,8 @@ namespace CodeGen.MethodCatalogAPI
 			end
 			else
 			begin
-				if (thisParameter.CoerceType == MduCoerceType.DateTime
-				&	|| thisParameter.CoerceType == MduCoerceType.DateTimeNullable)
+				if (thisParameter.CoerceType == CoerceType.DateTime
+				&	|| thisParameter.CoerceType == CoerceType.DateTimeNullable)
 					throw new ApplicationException("Missing format attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 			end
 			
@@ -747,9 +747,9 @@ namespace CodeGen.MethodCatalogAPI
 			begin
 				using attributeValue select
 				("ArrayList"),
-					thisParameter.CollectionType = MduParameterCollectionType.MemoryHandle
+					thisParameter.CollectionType = ParameterCollectionType.MemoryHandle
 				("System.ArrayList"),
-					thisParameter.CollectionType = MduParameterCollectionType.ArrayList
+					thisParameter.CollectionType = ParameterCollectionType.ArrayList
 				(),
 					throw new ApplicationException("Invalid colleciton attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 				endusing
@@ -759,7 +759,7 @@ namespace CodeGen.MethodCatalogAPI
 			xcall xml_elem_getattribute(parameterElement,"dim",attributeValue)
 			if (attributeValue)
 			begin
-				if (thisParameter.Type == MduParameterType.String) then 
+				if (thisParameter.Type == ParameterType.String) then 
 					throw new ApplicationException("Invalid dim attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 				else
 				begin
@@ -767,7 +767,7 @@ namespace CodeGen.MethodCatalogAPI
 					("0 "),
 						nop
 					("1 "),
-						thisParameter.CollectionType = MduParameterCollectionType.Array
+						thisParameter.CollectionType = ParameterCollectionType.Array
 					(),
 						throw new ApplicationException("Invalid dim attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 					endusing
@@ -779,7 +779,7 @@ namespace CodeGen.MethodCatalogAPI
 			if (attributeValue)
 			begin
 				using thisParameter.CollectionType select
-				(MduParameterCollectionType.MemoryHandle,MduParameterCollectionType.ArrayList),
+				(ParameterCollectionType.MemoryHandle,ParameterCollectionType.ArrayList),
 				begin
 					using attributeValue select
 					("true "),
@@ -801,17 +801,17 @@ namespace CodeGen.MethodCatalogAPI
 			begin
 				using attributeValue select
 				("in "),
-					thisParameter.Direction = MduParameterDirection.In
+					thisParameter.Direction = ParameterDirection.In
 				("out "),
-					thisParameter.Direction = MduParameterDirection.Out
+					thisParameter.Direction = ParameterDirection.Out
 				("inout "),
-					thisParameter.Direction = MduParameterDirection.InOut
+					thisParameter.Direction = ParameterDirection.InOut
 				(),
 					throw new ApplicationException("Invalid dir attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 				endusing
 			end
 			else
-				thisParameter.Direction = MduParameterDirection.In
+				thisParameter.Direction = ParameterDirection.In
 			
 			;;passby
 			xcall xml_elem_getattribute(parameterElement,"passby",attributeValue)
@@ -819,17 +819,17 @@ namespace CodeGen.MethodCatalogAPI
 			begin
 				using attributeValue select
 				("descriptor "),
-					thisParameter.PassBy = MduParameterPassBy.Descriptor
+					thisParameter.PassBy = ParameterPassBy.Descriptor
 				("val "),
-					thisParameter.PassBy = MduParameterPassBy.Value
+					thisParameter.PassBy = ParameterPassBy.Value
 				("ref "),
-					thisParameter.PassBy = MduParameterPassBy.Reference
+					thisParameter.PassBy = ParameterPassBy.Reference
 				(),
 					throw new ApplicationException("Invalid passby attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
 				endusing
 			end
 			else
-				thisParameter.PassBy = MduParameterPassBy.Descriptor
+				thisParameter.PassBy = ParameterPassBy.Descriptor
 			
 			;;required
 			xcall xml_elem_getattribute(parameterElement,"required",attributeValue)
@@ -896,12 +896,12 @@ namespace CodeGen.MethodCatalogAPI
 		
 	endclass
 	
-	public enum MduMethodType
+	public enum MethodType
 		Subroutine
 		Function
 	endenum
 			
-	public enum MduParameterType
+	public enum ParameterType
 		Alpha
 		BinaryArray
 		Decimal
@@ -913,7 +913,7 @@ namespace CodeGen.MethodCatalogAPI
 		Structure
 	endenum
 					
-	public enum MduReturnType
+	public enum ReturnType
 		Alpha
 		BinaryArray
 		Decimal
@@ -926,7 +926,7 @@ namespace CodeGen.MethodCatalogAPI
 		Value
 	endenum
 						
-	public enum MduCoerceType
+	public enum CoerceType
 		None
 		Boolean
 		Byte
@@ -945,7 +945,7 @@ namespace CodeGen.MethodCatalogAPI
 		Ushort
 	endenum
 					
-	public enum MduDateFormat
+	public enum DateFormat
 		None
 		YYYYMMDD
 		YYMMDD
@@ -956,20 +956,20 @@ namespace CodeGen.MethodCatalogAPI
 		YYYYMMDDHHMISS
 	endenum
 					
-	public enum MduParameterCollectionType
+	public enum ParameterCollectionType
 		None
 		Array
 		MemoryHandle
 		ArrayList
 	endenum
 					
-	public enum MduParameterDirection
+	public enum ParameterDirection
 		In
 		Out
 		InOut
 	endenum
 					
-	public enum MduParameterPassBy
+	public enum ParameterPassBy
 		Descriptor
 		Value
 		Reference
