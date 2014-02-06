@@ -361,6 +361,7 @@
 		<row><td>RepositoryAPI.dll</td><td>{80BC519E-5598-49AA-9CEE-1EC5A928134C}</td><td>INSTALLDIR</td><td>2</td><td/><td>repositoryapi.dll</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>RpsBrowser.exe</td><td>{1156328C-893A-474C-9CAB-A6421788BDA8}</td><td>INSTALLDIR</td><td>2</td><td/><td>rpsbrowser.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>RpsInfo.exe</td><td>{55D50002-E0D4-455E-847E-23E475992027}</td><td>INSTALLDIR</td><td>2</td><td/><td>rpsinfo.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>SmcInfo.exe</td><td>{D51B6829-AF09-47AC-9C41-647CEEB9129D}</td><td>INSTALLDIR</td><td>2</td><td/><td>smcinfo.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 	</table>
 
 	<table name="Condition">
@@ -1909,6 +1910,7 @@
 		<row><td>AlwaysInstall</td><td>RepositoryAPI.dll</td></row>
 		<row><td>AlwaysInstall</td><td>RpsBrowser.exe</td></row>
 		<row><td>AlwaysInstall</td><td>RpsInfo.exe</td></row>
+		<row><td>AlwaysInstall</td><td>SmcInfo.exe</td></row>
 	</table>
 
 	<table name="File">
@@ -1995,6 +1997,7 @@
 		<row><td>rpsbrowser.exe.config</td><td>ISX_DEFAULTCOMPONENT1</td><td>RPSBRO~1.CON|RpsBrowser.exe.config</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RpsBrowser.exe.config</td><td>1</td><td/></row>
 		<row><td>rpsbrowser.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>RPSBRO~1.ICO|RpsBrowser.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\RpsBrowser\RpsBrowser.ico</td><td>1</td><td/></row>
 		<row><td>rpsinfo.exe</td><td>RpsInfo.exe</td><td>RpsInfo.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RpsInfo.exe</td><td>1</td><td/></row>
+		<row><td>smcinfo.exe</td><td>SmcInfo.exe</td><td>SmcInfo.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\SmcInfo.exe</td><td>1</td><td/></row>
 		<row><td>syn_collection.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CO~1.TPL|syn_collection.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_collection.tpl</td><td>5</td><td/></row>
 		<row><td>syn_collection_test.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CO~1.TPL|syn_collection_test.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_collection_test.tpl</td><td>5</td><td/></row>
 		<row><td>syn_csv_export.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CS~1.TPL|syn_csv_export.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_csv_export.tpl</td><td>5</td><td/></row>
@@ -2224,6 +2227,7 @@
 		<row><td>RepositoryAPI.dll</td><td/><td/><td>_2F21230C_F0D5_4258_8B41_BFDD59CBECEF_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>RpsBrowser.exe</td><td/><td/><td>_3D954367_40DD_4D91_9DB1_9DECA0B4241E_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>RpsInfo.exe</td><td/><td/><td>_B1A4B82E_9FBB_4EC9_B6BB_1EB5286BC973_FILTER</td><td/><td/><td/><td/></row>
+		<row><td>SmcInfo.exe</td><td/><td/><td>_26A97ACD_6AA6_40BE_86DA_7A5DA85A8C08_FILTER</td><td/><td/><td/><td/></row>
 	</table>
 
 	<table name="ISCustomActionReference">
