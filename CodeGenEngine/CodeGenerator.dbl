@@ -1,3 +1,44 @@
+;;*****************************************************************************
+;;
+;; Title:       CodeGenerator.dbl
+;;
+;; Type:        Class
+;;
+;; Description: In-process callable interface to CodeGen
+;;
+;; Date:        
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
 
 import System
 .ifdef DBLNET
@@ -9,28 +50,28 @@ import CodeGen.Engine
 import CodeGen.RepositoryAPI
 
 namespace CodeGen.Engine
-
+	
 .ifndef DBLNET
-
+	
 	public class CodeGenerator
-
+		
 		public method CodeGenerator
 			endparams
 		proc
 			throw new Exception("The CodeGenerator class is only available in Synergy .NET!")
 		endmethod
-
+		
 	endclass
-
+	
 .else
-
+	
 	public enum LoggingLevel
 		Normal,
 		Verbose,
 		Debug,
 		DeveloperDebug
 	endenum
-
+	
 	;;;<summary>
 	;;;Defines the signature for a method which is to receive logging messages when using
 	;;;the CodeGenerator class.
@@ -42,13 +83,13 @@ namespace CodeGen.Engine
 	enddelegate
 	
 	public sealed class CodeGenerator implements IDisposable
-
+		
 		private UnsetTemplate					,boolean				;;Need to unset CODEGEN_TPLDIR
 		private UnsetExe						,boolean				;;Need to unset CODEGEN_EXE
-
+		
 		private mLoggingLevel					,LoggingLevel
 		private mTaskSet						,@CodeGenTaskSet
-
+		
 		public method CodeGenerator
 			required in taskset					,@CodeGenTaskSet
 			required in loggerMethod			,@MessageLogger
@@ -56,7 +97,7 @@ namespace CodeGen.Engine
 		proc
 			;;Save the tasks
 			mTaskSet = taskset
-
+			
 			using mTaskSet.LoggingLevel select
 			(LoggingLevel.Normal),
 			begin
@@ -88,15 +129,36 @@ namespace CodeGen.Engine
 			Env.LoggerMethod = loggerMethod
 			Env.SuppressLogging = false
 			Env.Dbr = false
-
-			configureEnvironment()
-			loadCustomTokens()
 			
-		endmethod
+			;;Configure the environment (does what MAIN$CODEGEN usually does)
+			configureEnvironment()
+			
+			;;Load Symphony extensions
+			LoadSymphonyExt()
+			
+			;;Load other extensions
+			LoadExtensions()
+			
+			;;If we were given a repository in the task set then use it
+			if (!String.IsNullOrWhiteSpace(mTaskset.RepositoryMainFile) && !String.IsNullOrWhiteSpace(mTaskset.RepositoryTextFile))
+			begin
+				if (File.Exists(mTaskSet.RepositoryMainFile) && File.Exists(mTaskSet.RepositoryTextFile)) then
+				begin
+					data sts, i4
+					xcall setlog("RPSMFIL",mTaskSet.RepositoryMainFile,sts)
+					xcall setlog("RPSTFIL",mTaskSet.RepositoryTextFile,sts)
+				end
+				else
+				begin
+					ErrorLog("Task set specifies repository but repository not found!")
+				end
+			end
 
+		endmethod
+		
 		public method GenerateCode, Boolean
 			endparams
-			.include "CODEGEN_SRC:codegen.def"
+.include "CODEGEN_SRC:codegen.def"
 		proc
 			;;Display headings
 			VerboseLog(CODEGEN_APPNAME + " " + CODEGEN_VERSION,true,true)
@@ -104,25 +166,25 @@ namespace CodeGen.Engine
 			;;Process each task
 			data task, @CodeGenTask
 			data allSuccess, Boolean, true
-
+			
 			foreach task in mTaskSet.Tasks
 			begin
 				Env.Reset()
 				if (!doGenerate(task))
 					allSuccess = false
 			end
-
+			
 			mreturn allSuccess
-
+			
 		endmethod
-
+		
 		;;;<summary>
 		;;;Performs code generation for a single task
 		;;;</summary>
 		private method doGenerate, Boolean
 			required in task, @CodeGenTask
 			endparams
-
+			
 			static record
 				ErrStatus   ,boolean                ;;Main error status variable
 				StrNum      ,int                    ;;Structure number being processed
@@ -137,16 +199,24 @@ namespace CodeGen.Engine
 				CleanScriptField, a
 			endexternal
 			
-			.define D_SEPERATOR "\"
+.define D_SEPERATOR "\"
 			
 		proc
+			
+			;;-------------------------------------------------------------------------
+			;;This code basically does what CodeGenLauncher normally does, except for
+			;;loading extensions which has already been done, and setting the logging
+			;;level which has been done for the whole taskset.
+			;;-------------------------------------------------------------------------
+			
+			
 			;;-------------------------------------------------------------------------
 			;;Echo command line?
 			
 			if (task.EchoCommand)
 			begin
 				data command, String, "codegen "
-
+				
 				;;Templates
 				if (task.Templates.Count>0)
 				begin
@@ -155,7 +225,7 @@ namespace CodeGen.Engine
 					foreach tmp in task.Templates
 						command += tmp + " "
 				end
-
+				
 				;;Structures
 				if (task.Structures.Count>0)
 				begin
@@ -190,7 +260,7 @@ namespace CodeGen.Engine
 				;;Subset
 				if (task.Subset!=string.Empty)
 					command += "-subset " + task.Subset + " "
-
+					
 				;;Repository file
 				if (task.RepositoryFile!=string.Empty)
 					command += "-file " + task.RepositoryFile + " "
@@ -198,31 +268,31 @@ namespace CodeGen.Engine
 				;;Window Script
 				if (task.WindowScript!=string.Empty)
 					command += "-w " + task.WindowScript + " "
-					
+				
 				;;Ignore script field attributes
 				if (task.IgnoreScriptFieldAttributes)
 					command += "-wn "
-
+					
 				;;Selection window script
 				if (task.SelectionWindowScript!=String.Empty)
 					command += "-ws " + task.SelectionWindowScript + " "
-					
+				
 				;;Replace files
 				if (task.ReplaceFiles)
 					command += "-r "
-
+					
 				;;Namespace
 				if (task.Namespace!=String.Empty)
 					command += "-n " + task.Namespace + " "
-
+					
 				;;Field prefix
 				if (task.FieldPrefix!=String.Empty)
 					command += "-prefix " + task.FieldPrefix + " "
-
+					
 				;;User token file
 				if (task.UserTokenFile!=String.Empty)
 					command += "-u " + task.UserTokenFile + " "
-
+					
 				;;Command line user tokens
 				if (task.UserTokens.Count>0)
 				begin
@@ -233,37 +303,37 @@ namespace CodeGen.Engine
 .else
 					foreach tmp in task.UserTokens.GetEnumerator()
 .endc
-						command += tmp.Name + "=" + tmp.Value + " "
+					command += tmp.Name + "=" + tmp.Value + " "
 				end
-
+				
 				;;
 				if (task.IncludeOverlayFields)
 					command += "-f o "
-
+					
 				;;
 				if (task.IgnoreExcludeLanguage)
 					command += "-f l "
-					
+				
 				;;
 				if (task.HonorExcludeToolkit)
 					command += "-f t "
-					
+				
 				;;
 				if (task.HonorExcludeReportWriter)
 					command += "-f r "
-					
+				
 				;;
 				if (task.HonorExcludeWeb)
 					command += "-f w "
-					
+				
 				;;
 				if (task.GroupFieldNoGroupPrefix)
 					command += "-g f "
-					
+				
 				;;
 				if (task.GroupFieldNoRpsPrefix)
 					command += "-g r "
-					
+				
 				;;
 				if (task.GroupNoExpand)
 					command += "-g i "
@@ -271,7 +341,7 @@ namespace CodeGen.Engine
 				;;
 				if (task.AlwaysLoadDefaultButtons)
 					command += "-b a "
-					
+				
 				;;
 				if (task.NeverLoadDefaultButtons)
 					command += "-b d "
@@ -287,7 +357,7 @@ namespace CodeGen.Engine
 				;;Output folder
 				if (task.OutputFolder!=String.Empty)
 					command += "-o " + task.OutputFolder + " "
-
+					
 				;;Character width
 				if (task.CharacterWidth!=12)
 					command += "-cw " + task.CharacterWidth.ToString() + " "
@@ -295,12 +365,18 @@ namespace CodeGen.Engine
 				;;Character height
 				if (task.CharacterHeight!=25)
 					command += "-ch " + task.CharacterHeight.ToString() + " "
-
+					
 				if (task.EchoCommand)
 					command += "-e "
-
+					
 				Log(command,true,false)
 			end
+			
+			;;-------------------------------------------------------------------------
+			;;Display file names mode
+			
+			if (mTaskSet.ListGeneratedFiles&&(!Env.Verbose))
+				Env.ListFiles = true
 			
 			;;-------------------------------------------------------------------------
 			;;See if we have a template file location specified with CODEGEN_TPLDIR
@@ -316,6 +392,8 @@ namespace CodeGen.Engine
 					if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!=D_SEPERATOR))
 						TmpBuf(length+1:1) = D_SEPERATOR
 					Env.TemplateDir = TmpBuf
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Template location set by CODEGEN_TPLDIR to "+Env.TemplateDir,false,false)				
 				end
 			end
 			
@@ -330,6 +408,8 @@ namespace CodeGen.Engine
 					if ((!task.TemplateFolder.Trim().EndsWith(":")) && (!task.TemplateFolder.Trim().EndsWith(D_SEPERATOR)))
 						task.TemplateFolder = task.TemplateFolder.Trim() + D_SEPERATOR
 					Env.TemplateDir = task.TemplateFolder
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Template location set by TemplateFolder property to "+Env.TemplateDir,false,false)				
 				end
 			end
 			
@@ -358,6 +438,8 @@ namespace CodeGen.Engine
 					if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!=D_SEPERATOR))
 						TmpBuf(length+1:1)=D_SEPERATOR
 					Env.OutputDir = TmpBuf
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Output location set by CODEGEN_OUTDIR to "+Env.OutputDir,false,false)				
 				end
 			end
 			
@@ -372,6 +454,8 @@ namespace CodeGen.Engine
 					if (!task.OutputFolder.Trim().EndsWith(":")&&!task.OutputFolder.Trim().EndsWith(D_SEPERATOR))
 						task.OutputFolder = task.OutputFolder.Trim() + D_SEPERATOR
 					Env.OutputDir = task.OutputFolder
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Output location set OutputFolder property to "+Env.OutputDir,false,false)				
 				end
 			end
 			
@@ -424,6 +508,40 @@ namespace CodeGen.Engine
 			end
 			
 			;;-------------------------------------------------------------------------
+			;;See if we have an author name specified with CODEGEN_AUTHOR
+			;;If present, this location overrides the default author of CodeGen
+			
+			if (!ErrStatus)
+			begin
+				data TmpBuf, a80
+				data length, int
+				getlog("CODEGEN_AUTHOR",TmpBuf,length)
+				if (length)
+				begin
+					Env.Author = TmpBuf
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Author name set by CODEGEN_AUTHOR to "+Env.Author,false,false)				
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;See if we have an author name specified with CODEGEN_COMPANY
+			;;If present, this location overrides the default author of Synergex
+			
+			if (!ErrStatus)
+			begin
+				data TmpBuf, a80
+				data length, int
+				getlog("CODEGEN_COMPANY",TmpBuf,length)
+				if (length)
+				begin
+					Env.Company = TmpBuf
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Company name set by CODEGEN_COMPANY to "+Env.Company,false,false)				
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
 			;;See if we have a default namespace specified with SYNDEFNS
 			;;If present, this location overrides the default of "codegen"
 			
@@ -434,15 +552,20 @@ namespace CodeGen.Engine
 				getlog("SYNDEFNS",TmpBuf,length)
 				if (length)
 					Env.DefaultNamespace = TmpBuf
+				if (Env.DeveloperDebug)
+					DebugLog("DEVDBG: Namespace set by SYNDEFNS to "+Env.DefaultNamespace,false,false)				
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;See if we have a default namespace command line option
 			;;If present, this location overrides the SYNDEFNS environment variable.
 			
-			if (!ErrStatus)
-				if (task.Namespace!=String.Empty)
-					Env.DefaultNamespace = task.Namespace
+			if (!ErrStatus && (task.Namespace!=String.Empty))
+			begin
+				Env.DefaultNamespace = task.Namespace
+				if (Env.DeveloperDebug)
+					DebugLog("DEVDBG: Namespace set by Namespace property to " + Env.DefaultNamespace,false,false)				
+			end
 			
 			;;-------------------------------------------------------------------------
 			;;Are we being asked to use a field / group member prefix
@@ -473,15 +596,22 @@ namespace CodeGen.Engine
 				Env.CharacterHeight = task.CharacterHeight
 			
 			;;-------------------------------------------------------------------------
+			;;Are we being asked to override the key that is used with the <PRIMARY_KEY> construct?
+			
+			if (!ErrStatus)
+				if (task.PrimaryKeyNumber!=0)
+					Env.OverridePrimaryKeyNum = task.PrimaryKeyNumber
+					
+			;;-------------------------------------------------------------------------
 			;;Get a list of template files in template directory
-
+			
 			if (!ErrStatus)
 			begin
 				VerboseLog("",false,false)
 				
 				if (task.Templates.Count==0) then
 				begin
-					Log("Nothing to do - specify template(s) with -t option!",false,false)
+					Log("Nothing to do - specify template(s) via the Templates property option!",false,false)
 					ErrStatus = true
 				end
 				else
@@ -491,7 +621,7 @@ namespace CodeGen.Engine
 						if (!WinDir(Env.TemplateDir+"*.tpl",Templates,WinDirCase.NoChange))
 						begin
 							ErrorLog("No templates to process in " + Env.TemplateDir)
-							Log("       Set template directory with CODEGEN_TPLDIR or -t option.",false,false)
+							Log("       Set template directory with CODEGEN_TPLDIR or the TemplateFolder property.",false,false)
 							ErrStatus = true
 						end
 					end
@@ -541,7 +671,7 @@ namespace CodeGen.Engine
 								end	
 								catch (ex)
 								begin
-									ErrorLog("Template %a not found!" + task.Templates[ix])
+									ErrorLog("Template " + task.Templates[ix] + " not found!")
 									ErrStatus = true
 									exitloop
 								end
@@ -568,6 +698,41 @@ namespace CodeGen.Engine
 					;;Remove .tpl file extensions
 					for ix from 0 thru Templates.Count-1
 						Templates[ix] = (@a)((a)Templates[ix]-".tpl")
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Are we being asked to process a user defined token file?
+			
+			if (!ErrStatus)
+			begin
+				if (task.UserTokenFile != String.Empty)
+				begin
+					data tmpch, int
+					try
+					begin
+						UserTokenCollection.LoadTokensFromFile(task.UserTokenFile)
+					end
+					catch (ex)
+					begin
+						ErrorLog("Failed to open or process user token file "+Env.TemplateDir+task.UserTokenFile)
+						ErrStatus = true
+					end
+					endtry
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have user defined tokens on the command line?
+			
+			if (!ErrStatus)
+			begin
+				if (task.UserTokens.Count>0)
+				begin
+					if (Env.UserTokens==^null||Env.UserTokens.Count==0) then
+						Env.UserTokens = task.UserTokens
+					else
+						UserTokenCollection.AddTokens(task.UserTokens)
 				end
 			end
 			
@@ -637,7 +802,7 @@ namespace CodeGen.Engine
 				begin
 					if (task.RepositoryFile!=String.Empty) then
 					begin
-						ErrorLog("Can't use -file and -w options together!")
+						ErrorLog("Can't use RepositoryFile and WindowScript properties together!")
 						ErrStatus = true
 					end
 					else
@@ -686,7 +851,7 @@ namespace CodeGen.Engine
 				begin
 					if (FileDef!=^null)
 					begin
-						ErrorLog("Can't use -file and -s options together!")
+						ErrorLog("Can't use RepositoryFile and Structures properties together!")
 						ErrStatus = true
 					end
 					
@@ -694,7 +859,7 @@ namespace CodeGen.Engine
 					begin
 						if (task.WindowScript!=String.Empty)
 						begin
-							ErrorLog("Can't use -w and -s options together!")
+							ErrorLog("Can't use WindowScript and Structures properties together!")
 							ErrStatus = true
 						end
 					end
@@ -779,13 +944,13 @@ namespace CodeGen.Engine
 				begin
 					if (!Env.RpsInUse)
 					begin
-						ErrorLog("Can't use -subset without a repository structure!")
+						ErrorLog("Can't use SubSetName without a repository structure!")
 						ErrStatus = true
 					end
 					
 					if (!ErrStatus&&Structures.Count>1)
 					begin
-						ErrorLog("Option -subset is only valid when processing a single structure!")
+						ErrorLog("SubSetName property can only be used when processing a single structure!")
 						ErrStatus = true
 					end
 					
@@ -825,7 +990,7 @@ namespace CodeGen.Engine
 				;;button processing (-bn), then delete the buttons
 				if (task.NeverLoadAnyButtons&&Env.Buttons.Count)
 				begin
-					DebugLog("Removing script file buttons because of -bn option",false,false)
+					DebugLog("Removing script file buttons because of the NeverLoadAnyButtons property",false,false)
 					Env.Buttons.Clear()
 				end
 				
@@ -839,7 +1004,7 @@ namespace CodeGen.Engine
 					if (!Env.Buttons.Count) then
 						DebugLog("Loading default buttons because no script file buttons were found",true,false)
 					else if (task.AlwaysLoadDefaultButtons)
-						DebugLog("Loading default buttons because of command line option -ba",true,false)
+						DebugLog("Loading default buttons because of the AlwaysLoadDefaultButtons property",true,false)
 					Env.Buttons.LoadDefaultButtons()
 				end
 				
@@ -877,9 +1042,12 @@ namespace CodeGen.Engine
 				;;Now apply specific aliases from the command line
 				if (task.Aliases.Count>0)
 				begin
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Structure aliasing requested via Aliases property",false,false)					
+						
 					if (WscFile)
 					begin
-						ErrorLog("Can't use -w and -a options together!")
+						ErrorLog("Can't use WindowScript and Aliases properties together!")
 						ErrStatus = true
 					end
 					
@@ -910,13 +1078,13 @@ namespace CodeGen.Engine
 				begin
 					if (WscFile)
 					begin
-						ErrorLog("Can't use file overrides (-fo) when processing a script file (-w)!")
+						ErrorLog("Can't use file overrides FileOverrides property when processing a script file!")
 						ErrStatus = true
 					end
 					
 					if ((!ErrStatus) && (task.FileOverrides.Count > Structures.Count))
 					begin
-						ErrorLog("More file name overrides (-fo) than structures (-s) !")
+						ErrorLog("More file name overrides than structures!")
 						ErrStatus = true
 					end
 					
@@ -946,47 +1114,12 @@ namespace CodeGen.Engine
 							end
 							if (!foundFile)
 							begin
-                                ErrorLog("Structure "+tmpStr.Name+" is not assigned to file "+task.FileOverrides[clFileIndex])
+								ErrorLog("Structure "+tmpStr.Name+" is not assigned to file "+task.FileOverrides[clFileIndex])
 								ErrStatus = true
 								exitloop
 							end
 						end
 					end
-				end
-			end
-			
-			;;-------------------------------------------------------------------------
-			;;Are we being asked to process a user defined token file?
-			
-			if (!ErrStatus)
-			begin
-				if (task.UserTokenFile!=string.Empty)
-				begin
-					data tmpch, int
-					try
-					begin
-						UserTokenCollection.LoadTokensFromFile(task.UserTokenFile)
-					end
-					catch (ex)
-					begin
-                        ErrorLog("Failed to open or process user token file "+Env.TemplateDir+task.UserTokenFile)
-						ErrStatus = true
-					end
-					endtry
-				end
-			end
-			
-			;;-------------------------------------------------------------------------
-			;;Do we have user defined tokens on the command line?
-			
-			if (!ErrStatus)
-			begin
-				if (task.UserTokens.Count>0)
-				begin
-					if (Env.UserTokens==^null||Env.UserTokens.Count==0) then
-						Env.UserTokens = task.UserTokens
-					else
-						UserTokenCollection.AddTokens(task.UserTokens)
 				end
 			end
 			
@@ -1003,7 +1136,7 @@ namespace CodeGen.Engine
 					begin
 						;;Can's use filters if we're processing a script file, the fields
 						;;to include are determined by the script file.
-						ErrorLog("Can't use -w and -f options together!")
+						ErrorLog("Can't use field filters when processing a window script!")
 						ErrStatus = true
 					end
 					else
@@ -1044,7 +1177,7 @@ namespace CodeGen.Engine
 			end
 			
 			;;-------------------------------------------------------------------------
-			;;See if we have any special structure processing filters specified
+			;;See if we have any special group processing filters specified
 			
 			if (!ErrStatus)
 			begin
@@ -1056,9 +1189,9 @@ namespace CodeGen.Engine
 				begin
 					if (Env.GenFromWsc) then
 					begin
-						;;Can's specify group prefixes if we're processing a script file,
+						;;Can't specify group prefixes if we're processing a script file,
 						;;the field names are determined by the script file.
-						ErrorLog("Can't use -w and -g options together!")
+						ErrorLog("Can't use group prefixes when processing a window script!")
 						ErrStatus = true
 					end
 					else
@@ -1096,7 +1229,7 @@ namespace CodeGen.Engine
 				;;Make sure that we have at least two structures
 				if (Structures.Count<2)
 				begin
-					ErrorLog("Option -ms requires you to specify at least two structures after -s")
+					ErrorLog("MultipleStructures property requires that you specify at least two structures in the Structures property!")
 					ErrStatus = true
 				end
 				
@@ -1127,8 +1260,18 @@ namespace CodeGen.Engine
 			if (!ErrStatus)
 			begin
 				
+				if (Env.DeveloperDebug)
+				begin
+					DebugLog("------------------------------",true,false)
+					DebugLog("DEVDBG: READY TO GENERATE CODE",false,false)
+					DebugLog("------------------------------",false,false)
+				end
+				
 				VerboseLog("",false,false)
 				
+				if (Env.ListFiles)
+					Env.OutputFiles = new ArrayList()
+					
 				if ((!Env.RpsInUse)||(Env.CurrentStructures!=^null)) then
 					call process_templates
 				else
@@ -1158,11 +1301,36 @@ namespace CodeGen.Engine
 			clear Templates
 			
 			if (Env.FilesCreated&&Env.FilesFailed) then
-				Log(string(Env.FilesCreated) + " file(s) created, " + string(Env.FilesFailed) + " failed",(Env.Verbose||Env.Debug),false)
+			begin
+				data msg, String, string(Env.FilesCreated) + " file"
+				if (Env.FilesCreated>1)
+					msg = msg + "s"
+				msg = msg + " created, " + string(Env.FilesFailed) + " failed"
+				Log(msg,(Env.Verbose||Env.Debug),false)
+			end
 			else if (Env.FilesCreated) then
-				Log(string(Env.FilesCreated) + " file(s) created",(Env.Verbose||Env.Debug),false)
+			begin
+				data msg, String, string(Env.FilesCreated) + " file"
+				if (Env.FilesCreated>1)
+					msg = msg + "s"
+				msg = msg + " created"
+				Log(msg,(Env.Verbose||Env.Debug),false)
+			end
 			else if (Env.FilesFailed)
-				Log(string(Env.FilesFailed) + " file(s) failed",(Env.Verbose||Env.Debug),false)
+			begin
+				data msg, String, string(Env.FilesFailed) + " file"
+				if (Env.FilesFailed>1)
+					msg = msg + "s"
+				msg = msg + " failed"
+				Log(msg,(Env.Verbose||Env.Debug),false)
+			end
+			
+			if (Env.ListFiles && (Env.OutputFiles.Count>0))
+			begin
+				data fileSpec, String
+				foreach fileSpec in Env.OutputFiles
+					Log(fileSpec,false,false)
+			end
 			
 			mreturn (!ErrStatus)
 			
@@ -1196,9 +1364,9 @@ namespace CodeGen.Engine
 			return
 			
 		endmethod
-
-		.region "Helper methods"
-
+		
+.region "Helper methods"
+		
 		;;;<summary>
 		;;;Configures the basic environment by setting the environment variables
 		;;;CODEGEN_EXE, CODEGEN_TPLDIR, CODEGEN_AUTHOR and CODEGEN_COMPANY
@@ -1206,6 +1374,8 @@ namespace CodeGen.Engine
 		private method configureEnvironment, void
 			endparams
 		proc
+			;;This code basically does what MAIN$CODEGEN normally does.
+			
 			data TxtLen		,int
 			data TempString	,a256
 			
@@ -1259,296 +1429,10 @@ namespace CodeGen.Engine
 			end
 			
 		endmethod
-
-		;;;<summary>
-		;;;Detects any custom token assemblies and loads any custom tokens that
-		;;;they contain.
-		;;;</summary>
-		private method loadCustomTokens, void
-			endparams
-		proc
-			;;-------------------------------------------------------------------------
-			;;Do we have any custom token processors?
-			
-			data customFileSpec		,a256
-			data tmpLen				,i4
-			data libraries			,@ArrayList
-			data loadCustomTokens	,Boolean	,false
-			data usingExtDir		,Boolean	,false
-				
-			;;Do we have a CODEGEN_EXTDIR environment variable?
-			xcall getlog("CODEGEN_EXTDIR",customFileSpec,tmpLen)
-			if (tmpLen) then
-				usingExtDir = true
-			else
-			begin
-				;;No so we'll look in CODEGEN_EXE
-				xcall getlog("CODEGEN_EXE",customFileSpec,tmpLen)
-			end
-				
-			;;Setup a file spec to locate custom token processor extensions
-			if (customFileSpec(%trim(customFileSpec):1)!="\")
-				customFileSpec = %atrim(customFileSpec) + "\"
-			customFileSpec = %atrim(customFileSpec) + "custom*.dll"
-				
-			;;Search for and open custom token processor extensions
-			DebugLog("Checking for custom tokens (" + %atrim(customFileSpec) + ")",true,false)
-			if (WinDir(customFileSpec,libraries,WinDirCase.NoChange))
-			begin
-				data file, @a
-				foreach file in libraries
-				begin
-					data libSpec, String, "CODEGEN_EXE:"+(a)file
-					if (usingExtDir)
-						libSpec = "CODEGEN_EXTDIR:"+(a)file
-					try
-					begin
-						DebugLog(" - Activating " + libSpec,false,false)
-						xcall openelb(libSpec)
-						loadCustomTokens = true
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to open custom token library " + libSpec)
-					end
-					endtry
-				end				
-			end
-				
-			;;Load any custom token processor extensions
-			if (loadCustomTokens)
-			begin
-				data address, D_ADDR
-					
-				;;Look for custom generic tokens
-				address = %xaddr("LoadCustomTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomTokens.Count>0)
-						begin
-							data customToken, @CustomToken
-							DebugLog(" - Custom generic tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomTokens
-								DebugLog("   " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom generic tokens. LoadCustomTokens() failed!")
-						Log("       " + e.Message,false,false)
-						if (e.InnerException!=^null)
-							Log("       " + e.InnerException.Message,false,false)
-					end
-					endtry
-				end
-					
-				;;Look for custom field loop tokens
-				address = %xaddr("LoadCustomFieldTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomFieldTokens.Count>0)
-						begin
-							data customToken, @CustomFieldToken
-							DebugLog(" - Custom field loop tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomFieldTokens
-								DebugLog("   " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom field loop tokens. LoadCustomFieldTokens() failed!")
-					end
-					endtry
-				end
-					
-				;;Look for custom field selection loop tokens
-				address = %xaddr("LoadCustomSelectionTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomSelectionTokens.Count>0)
-						begin
-							data customToken, @CustomSelectionToken
-							DebugLog(" - Custom field selection loop tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomSelectionTokens
-								DebugLog(" - " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom field selection loop tokens. LoadCustomSelectionTokens() failed!")
-					end
-					endtry
-				end
-					
-				;;Look for custom enum loop tokens
-				address = %xaddr("LoadCustomEnumTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomEnumTokens.Count>0)
-						begin
-							data customToken, @CustomEnumToken
-							DebugLog(" - Custom enum loop tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomEnumTokens
-								DebugLog("   " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom enum loop tokens. LoadCustomEnumTokens() failed!")
-					end
-					endtry
-				end
-					
-				;;Look for custom enum member loop tokens
-				address = %xaddr("LoadCustomEnumMemberTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomEnumMemberTokens.Count>0)
-						begin
-							data customToken, @CustomEnumMemberToken
-							DebugLog(" - Custom enum member loop tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomEnumMemberTokens
-								DebugLog("   " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom enum member loop tokens. LoadCustomEnumMemberTokens() failed!")
-					end
-					endtry
-				end
-					
-				;;Look for custom key loop tokens
-				address = %xaddr("LoadCustomKeyTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomKeyTokens.Count>0)
-						begin
-							data customToken, @CustomKeyToken
-							DebugLog(" - Custom key loop tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomKeyTokens
-								DebugLog("   " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom key loop tokens. LoadCustomKeyTokens() failed!")
-					end
-					endtry
-				end
-					
-				;;Look for custom key segment loop tokens
-				address = %xaddr("LoadCustomSegmentTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomSegmentTokens.Count>0)
-						begin
-							data customToken, @CustomSegmentToken
-							DebugLog(" - Custom key segment loop tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomSegmentTokens
-								DebugLog("   " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom key segment loop tokens. LoadCustomSegmentTokens() failed!")
-					end
-					endtry
-				end
-					
-				;;Look for custom relation loop tokens
-				address = %xaddr("LoadCustomRelationTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomRelationTokens.Count>0)
-						begin
-							data customToken, @CustomRelationToken
-							DebugLog(" - Custom relation loop tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomRelationTokens
-								DebugLog("   " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom relation loop tokens. LoadCustomRelationTokens() failed!")
-					end
-					endtry
-				end
-					
-				;;Look for custom button loop tokens
-				address = %xaddr("LoadCustomButtonTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomButtonTokens.Count>0)
-						begin
-							data customToken, @CustomButtonToken
-							DebugLog(" - Custom button loop tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomButtonTokens
-								DebugLog("   " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom button loop tokens. LoadCustomButtonTokens() failed!")
-					end
-					endtry
-				end
-					
-				;;Look for custom file loop tokens
-				address = %xaddr("LoadCustomFileTokens",,1)
-				if (address)
-				begin
-					try
-					begin
-						xcall xsubr(address)
-						if (Env.CustomFileTokens.Count>0)
-						begin
-							data customToken, @CustomFileToken
-							DebugLog(" - Custom file loop tokens have been loaded:",false,false)
-							foreach customToken in Env.CustomFileTokens
-								DebugLog("   " + customToken.Token,false,false)
-						end
-					end
-					catch (e, @Exception)
-					begin
-						ErrorLog("Failed to load custom file loop tokens. LoadCustomFileTokens() failed!")
-					end
-					endtry
-				end
-			end
-			
-		endmethod
-
-		.endregion
-
-		.region "IDisposable"
+		
+.endregion
+		
+.region "IDisposable"
 		
 		public method Dispose, void
 			endparams
@@ -1561,11 +1445,11 @@ namespace CodeGen.Engine
 				xcall setlog("CODEGEN_EXE",,status)
 		endmethod
 		
-		.endregion
+.endregion
 		
 	endclass
-
+	
 .endc
-
+	
 endnamespace
 

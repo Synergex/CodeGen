@@ -164,11 +164,8 @@ namespace CodeGen.Engine
 		;;-------------------------------------------------------------------------
 		;;Display file names mode
 
-		if (CommandLine("lf "))
-		begin
-			if (!Env.Verbose)
+		if (CommandLine("lf ")&&(!Env.Verbose))
 				Env.ListFiles = true
-		end
 
 		;;-------------------------------------------------------------------------
 		;;Display headings
@@ -358,7 +355,11 @@ namespace CodeGen.Engine
 			data length, int
 			getlog("CODEGEN_AUTHOR",TmpBuf,length)
 			if (length)
+			begin
 				Env.Author = TmpBuf
+				if (Env.DeveloperDebug)
+					DebugLog("DEVDBG: Author name set by CODEGEN_AUTHOR to "+Env.Author,false,false)				
+			end
 		end
 		
 		;;-------------------------------------------------------------------------
@@ -371,7 +372,11 @@ namespace CodeGen.Engine
 			data length, int
 			getlog("CODEGEN_COMPANY",TmpBuf,length)
 			if (length)
+			begin
 				Env.Company = TmpBuf
+				if (Env.DeveloperDebug)
+					DebugLog("DEVDBG: Company name set by CODEGEN_COMPANY to "+Env.Company,false,false)				
+			end
 		end
 		
 		;;-------------------------------------------------------------------------
@@ -403,9 +408,8 @@ namespace CodeGen.Engine
 				if (ClBuffer[1]) then
 				begin
 					Env.DefaultNamespace = ClBuffer[1]
-					
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Namespace set by -n to "+Env.DefaultNamespace,false,false)				
+						DebugLog("DEVDBG: Namespace set by -n to " + Env.DefaultNamespace,false,false)				
 				end
 				else
 				begin
@@ -643,6 +647,7 @@ namespace CodeGen.Engine
 				end
 			end
 		end
+
 		;;-------------------------------------------------------------------------
 		;;Are we being asked to process a user defined token file?
 		
@@ -809,6 +814,20 @@ namespace CodeGen.Engine
 		end
 		
 		;;-------------------------------------------------------------------------
+		;;Are we being asked to ignore field attributes in UI Toolkit window scripts
+		
+		if (!ErrStatus)
+		begin
+			if (CommandLine("wn "))
+			begin
+				Env.NoWscAttributes = true
+				
+				if (Env.DeveloperDebug)
+					DebugLog("DEVDBG: Script field attributes will be ignored because of -wn",false,false)
+			end
+		end
+		
+		;;-------------------------------------------------------------------------
 		;;Do we have a BusinessCraft ProForma file specified?
 		
 		if (!ErrStatus)
@@ -843,7 +862,6 @@ namespace CodeGen.Engine
 				end
 			end
 		end
-		
 		
 		;;-------------------------------------------------------------------------
 		;;Do we have a custom assembly containing a BusinessCreft ProForma processor?
@@ -913,20 +931,6 @@ namespace CodeGen.Engine
 				end
 				endtry
 			end			
-		end
-		
-		;;-------------------------------------------------------------------------
-		;;Are we being asked to ignore field attributes in UI Toolkit window scripts
-		
-		if (!ErrStatus)
-		begin
-			if (CommandLine("wn "))
-			begin
-				Env.NoWscAttributes = true
-
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Script field attributes will be ignored because of -wn",false,false)
-			end
 		end
 		
 		;;-------------------------------------------------------------------------
@@ -1302,10 +1306,7 @@ namespace CodeGen.Engine
 				for AliasIndex from 1 thru ClAliasCount
 				begin
 					Structures[AliasIndex-1].Alias = StringTools.UpperCase(ClBuffer[AliasIndex])
-					VerboseLog(" - Structure "
-					&	+ Structures[AliasIndex-1].Name
-					&	+ " aliased as "
-					&	+ Structures[AliasIndex-1].Alias,false,false)
+					VerboseLog(" - Structure " + Structures[AliasIndex-1].Name + " aliased as " + Structures[AliasIndex-1].Alias,false,false)
 				end
 			end
 		end
@@ -1612,64 +1613,34 @@ namespace CodeGen.Engine
 		
 		clear Templates
 		
-		;TODO: BUG: The created and failed variables are used here to work around a 9.5.3b .NET problem
+		if (Env.FilesCreated&&Env.FilesFailed) then
 		begin
-			data created, int, Env.FilesCreated
-			data failed,  int, Env.FilesFailed
-
-			if (created&&failed) then
-			begin
-				data msg, String, string(created) + " file"
-				if (created>1)
-					msg = msg + "s"
-				msg = msg + " created, " + string(failed) + " failed"
-				Log(msg,(Env.Verbose||Env.Debug),false)
-			end
-			else if (created) then
-			begin
-				data msg, String, string(created) + " file"
-				if (created>1)
-					msg = msg + "s"
-				msg = msg + " created"
-				Log(msg,(Env.Verbose||Env.Debug),false)
-			end
-			else if (failed)
-			begin
-				data msg, String, string(failed) + " file"
-				if (failed>1)
-					msg = msg + "s"
-				msg = msg + " failed"
-				Log(msg,(Env.Verbose||Env.Debug),false)
-			end
+			data msg, String, string(Env.FilesCreated) + " file"
+			if (Env.FilesCreated>1)
+				msg = msg + "s"
+			msg = msg + " created, " + string(Env.FilesFailed) + " failed"
+			Log(msg,(Env.Verbose||Env.Debug),false)
 		end
-;		if (Env.FilesCreated&&Env.FilesFailed) then
-;		begin
-;			data msg, String, string(Env.FilesCreated) + " file"
-;			if (Env.FilesCreated>1)
-;				msg = msg + "s"
-;			msg = msg + " created, " + string(Env.FilesFailed) + " failed"
-;			Log(msg,(Env.Verbose||Env.Debug),false)
-;		end
-;		else if (Env.FilesCreated) then
-;		begin
-;			data msg, String, string(Env.FilesCreated) + " file"
-;			if (Env.FilesCreated>1)
-;				msg = msg + "s"
-;			msg = msg + " created"
-;			Log(msg,(Env.Verbose||Env.Debug),false)
-;		end
-;		else if (Env.FilesFailed)
-;		begin
-;			data msg, String, string(Env.FilesFailed) + " file"
-;			if (Env.FilesFailed>1)
-;				msg = msg + "s"
-;			msg = msg + " failed"
-;			Log(msg,(Env.Verbose||Env.Debug),false)
-;		end
+		else if (Env.FilesCreated) then
+		begin
+			data msg, String, string(Env.FilesCreated) + " file"
+			if (Env.FilesCreated>1)
+				msg = msg + "s"
+			msg = msg + " created"
+			Log(msg,(Env.Verbose||Env.Debug),false)
+		end
+		else if (Env.FilesFailed)
+		begin
+			data msg, String, string(Env.FilesFailed) + " file"
+			if (Env.FilesFailed>1)
+				msg = msg + "s"
+			msg = msg + " failed"
+			Log(msg,(Env.Verbose||Env.Debug),false)
+		end
 
 		if (Env.ListFiles && (Env.OutputFiles.Count>0))
 		begin
-			data fileSpec, string
+			data fileSpec, String
 			foreach fileSpec in Env.OutputFiles
 				Log(fileSpec,false,false)
 		end
