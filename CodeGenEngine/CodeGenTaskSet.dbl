@@ -3,7 +3,10 @@ import System
 .ifdef DBLNET
 import System.Collections.ObjectModel
 import System.ComponentModel
+import System.IO
 import System.Text
+import System.Xml
+import System.Xml.Serialization
 .endc
 
 import CodeGen.Engine
@@ -151,6 +154,59 @@ namespace CodeGen.Engine
 				mTasks = value
 			endmethod
 		endproperty
+
+.region "Serialization"
+
+		public method SaveToFile, boolean
+			required in fileSpec, String
+			endparams
+		proc
+			data ok, boolean, true
+			try
+			begin
+				disposable data stm, @StreamWriter, File.CreateText(fileSpec)
+				if(stm!=^null)
+				begin
+					data xs, @XmlSerializer, new XmlSerializer(this.GetType())
+					xs.Serialize(stm,this)
+					stm.Close()
+				end
+			end
+			catch (e, @Exception)
+			begin
+				ok = false
+			end
+			endtry
+			mreturn ok
+		endmethod
+		
+		public static method LoadFromFile, boolean
+			required in fileSpec, String
+			required out taskSet, @CodeGenTaskSet
+			endparams
+		proc
+			data ok, boolean, true
+			disposable data stm, @StreamReader
+			try
+			begin
+				stm = File.OpenText(fileSpec)
+				if (stm!=^null)
+				begin
+					data xs, @XmlSerializer, new XmlSerializer(^typeof(CodeGenTaskSet))
+					data xr, @XmlReader, new XmlTextReader(stm)
+					taskSet = (CodeGenTaskSet)xs.Deserialize(xr)
+					stm.Close()
+				end
+			end
+			catch (ex, @Exception)
+			begin
+				ok = false
+			end
+			endtry
+			mreturn ok
+		endmethod
+.endregion
+
 
 .region "INotifyPropertyChanged"
 		
