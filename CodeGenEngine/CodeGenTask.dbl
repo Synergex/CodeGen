@@ -3,7 +3,7 @@ import System
 .ifdef DBLNET
 import System.Collections.ObjectModel
 import System.ComponentModel
-import System.Text
+import System.Xml.Serialization
 .endc
 
 namespace CodeGen.Engine
@@ -24,7 +24,7 @@ namespace CodeGen.Engine
 
     public class CodeGenTask implements INotifyPropertyChanged
 		
-		private mDescription,					String,									String.Empty
+		private mDescription,					String,									"New Task"
 
 		private mRepositoryMainFile,			String,									String.Empty
 		private mRepositoryTextFile,			String,									String.Empty
@@ -51,7 +51,6 @@ namespace CodeGen.Engine
 		private mCharacterHeight,				int,									25										; -ch
 		private mPrimaryKeyNumber,				int,									0										; -opk
 
-		private mEchoCommand,					Boolean,								false									; -e
 		private mReplaceFiles,					Boolean,								false									; -r
 		private mIgnoreScriptFieldAttributes,	Boolean,								false									; -wn
 		private mAlwaysLoadDefaultButtons,		Boolean,								false									; -ba
@@ -67,12 +66,18 @@ namespace CodeGen.Engine
 		private mGroupFieldNoRpsPrefix,			Boolean,								false									; -g r
 		private mMultipleStructures,			Boolean,								false									; -ms
 		
-
+		;;Task status members
+		{NonSerialized}
+		private mComplete,						Boolean,								false
+		{NonSerialized}
+		private mErrorMessage,					String,									String.Empty
+		{NonSerialized}
+		private mFilesGenerated,				int,									0
+		
 		;;; <summary>
 		;;; Description of this task
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Description")}
+		{DefaultValue("New Task")}
 		public property Description, String
 			method get
 			proc
@@ -83,9 +88,8 @@ namespace CodeGen.Engine
 				mDescription = value
 			endmethod
 		endproperty
-		
-		{Category("Code Generation Context")}
-		{Description("Repository Main File")}
+	
+		{DefaultValue("")}
 		public property RepositoryMainFile, String
 			method get
 			proc
@@ -98,8 +102,7 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 		
-		{Category("Code Generation Context")}
-		{Description("Repository Text File")}
+		{DefaultValue("")}
 		public property RepositoryTextFile, String
 			method get
 			proc
@@ -116,9 +119,6 @@ namespace CodeGen.Engine
 		;;;	Templates to process. Setting this property is mandatory for all operations.
 		;;; Setting this property is equivalent to using the -t command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Templates to process.")}
-		{Editor(^typeof(CodeGen.Engine.PropertyEditors.TemplateEditor),^typeof(System.Drawing.Design.UITypeEditor))}
 		public property Templates, @ObservableCollection<String>
 			method get
 			proc
@@ -135,9 +135,6 @@ namespace CodeGen.Engine
 		;;;	Strcutures to process. To process all structures add an * as the first structure name.
 		;;; Setting this property is equivalent to using the -s command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Strcutures to process.")}
-		{Editor(^typeof(CodeGen.Engine.PropertyEditors.StructureEditor),^typeof(System.Drawing.Design.UITypeEditor))}
 		public property Structures, @ObservableCollection<String>
 			method get
 			proc
@@ -155,8 +152,6 @@ namespace CodeGen.Engine
 		;;; number of structures being processed.
 		;;; Setting this property is equivalent to using the -a command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Structure aliases.")}
 		public property Aliases, @ObservableCollection<String>
 			method get
 			proc
@@ -177,8 +172,6 @@ namespace CodeGen.Engine
 		;;; or equal to the number of structures being processed.
 		;;; Setting this property is equivalent to using the -fo command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("File Overrides.")}
 		public property FileOverrides, @ObservableCollection<String>
 			method get
 			proc
@@ -195,8 +188,6 @@ namespace CodeGen.Engine
 		;;;	User defined tokens.
 		;;; Setting this property is equivalent to using the -ut command line option.
 		;;; </summary>
-		{Category("User Defined Token Options")}
-		{Description("User defined tokens.")}
 		public property UserTokens, @ObservableCollection<UserToken>
 			method get
 			proc
@@ -215,8 +206,7 @@ namespace CodeGen.Engine
 		;;; token files have an extension of .tkn.
 		;;; Setting this property is equivalent to using the -u command line option.
 		;;; </summary>
-		{Category("User Defined Token Options")}
-		{Description("User defined token file.")}
+		{DefaultValue("")}
 		public property UserTokenFile, String
 			method get
 			proc
@@ -234,8 +224,7 @@ namespace CodeGen.Engine
 		;;; CODEGEN_TPLDIR is used. If that is not defined then the current folder is used.
 		;;; Setting this property is equivalent to using the -i command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Template folder.")}
+		{DefaultValue("")}
 		public property TemplateFolder, String
 			method get
 			proc
@@ -243,7 +232,9 @@ namespace CodeGen.Engine
 			endmethod
 			method set
 			proc
-				mTemplateFolder = value
+				mTemplateFolder = value.Trim()
+				if (!mTemplateFolder.EndsWith(":")&&!mTemplateFolder.EndsWith("\"))
+					mTemplateFolder = mTemplateFolder + "\"
 				NotifyPropertyChanged("TemplateFolder")
 			endmethod
 		endproperty
@@ -253,8 +244,7 @@ namespace CodeGen.Engine
 		;;; CODEGEN_OUTDIR is used. If that is not defined then the current folder is used.
 		;;; Setting this property is equivalent to using the -o command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Output file folder.")}
+		{DefaultValue("")}
 		public property OutputFolder, String
 			method get
 			proc
@@ -262,7 +252,9 @@ namespace CodeGen.Engine
 			endmethod
 			method set
 			proc
-				mOutputFolder = value
+				mOutputFolder = value.trim()
+				if (!mOutputFolder.EndsWith(":")&&!mOutputFolder.EndsWith("\"))
+					mOutputFolder = mOutputFolder + "\"
 				NotifyPropertyChanged("OutputFolder")
 			endmethod
 		endproperty
@@ -272,8 +264,7 @@ namespace CodeGen.Engine
 		;;; then the namespace defined by the environment variable SYNDEFNS is used.
 		;;; Setting this property is equivalent to using the -n command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Namespace to be used if the <NAMESPACE> token is used.")}
+		{DefaultValue("")}
 		public property Namespace, String
 			method get
 			proc
@@ -290,8 +281,7 @@ namespace CodeGen.Engine
 		;;;	Optional prefix to apply to field names when the <FIELD_NAME> token is used.
 		;;; Setting this property is equivalent to using the -prefix command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Optional prefix to apply to field names when the <FIELD_NAME> token is used.")}
+		{DefaultValue("")}
 		public property FieldPrefix, String
 			method get
 			proc
@@ -309,8 +299,7 @@ namespace CodeGen.Engine
 		;;; syntax. This option is only valid when processing a single repository structure.
 		;;; Setting this property is equivalent to using the -subset command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Subset of fields to use.")}
+		{DefaultValue("")}
 		public property Subset, String
 			method get
 			proc
@@ -330,8 +319,7 @@ namespace CodeGen.Engine
 		;;; MultipleStructures property to true.
 		;;; Setting this property is equivalent to using the -file command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Repository file name to process.")}
+		{DefaultValue("")}
 		public property RepositoryFile, String
 			method get
 			proc
@@ -351,8 +339,7 @@ namespace CodeGen.Engine
 		;;; use following a # character after the script file name.
 		;;; Setting this property is equivalent to using the -w command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Process input from a UI Toolkit Window script file.")}
+		{DefaultValue("")}
 		public property WindowScript, String
 			method get
 			proc
@@ -371,8 +358,7 @@ namespace CodeGen.Engine
 		;;; selections property based on the selection items defined in the named selection window.
 		;;; Setting this property is equivalent to using the -ws command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Window script selection list processing.")}
+		{DefaultValue("")}
 		public property SelectionWindowScript, String
 			method get
 			proc
@@ -389,8 +375,6 @@ namespace CodeGen.Engine
 		;;;	The width of a character in pixels. The default width is 12 pixels.
 		;;; Setting this property is equivalent to using the -cw command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("The width of a character in pixels.")}
 		{DefaultValue(12)}
 		public property CharacterWidth, int
 			method get
@@ -408,8 +392,6 @@ namespace CodeGen.Engine
 		;;;	The height of a character (or row) in pixels. The default height is 25 pixels.
 		;;; Setting this property is equivalent to using the -ch command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("The height of a character (or row) in pixels.")}
 		{DefaultValue(25)}
 		public property CharacterHeight, int
 			method get
@@ -427,8 +409,6 @@ namespace CodeGen.Engine
 		;;;	The key number that should be treated as the primary key when using
 		;;; a primary key block.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Primary key block key number.")}
 		{DefaultValue(0)}
 		public property PrimaryKeyNumber, int
 			method get
@@ -443,28 +423,9 @@ namespace CodeGen.Engine
 		endproperty
 		
 		;;; <summary>
-		;;;  Echo the command line to the output log
-		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Echo the CodeGen command line to the output message log.")}
-		{DefaultValue(false)}
-		public property EchoCommand, Boolean
-			method get
-			proc
-				mreturn mEchoCommand
-			endmethod
-			method set
-			proc
-				mEchoCommand = value
-			endmethod
-		endproperty
-		
-		;;; <summary>
 		;;;	Replace existing files. Default is to not replace existing files.
 		;;; Setting this property is equivalent to using the -r command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Replace output files.")}
 		{DefaultValue(false)}
 		public property ReplaceFiles, Boolean
 			method get
@@ -485,8 +446,6 @@ namespace CodeGen.Engine
 		;;; using only the repository field definitions.
 		;;; Setting this property is equivalent to using the -wn command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Window script field attributes do not override repository field attributes.")}
 		{DefaultValue(false)}
 		public property IgnoreScriptFieldAttributes, Boolean
 			method get
@@ -504,8 +463,6 @@ namespace CodeGen.Engine
 		;;;	Always use the default buttons defined in DefaultButtons.xml.
 		;;; Setting this property is equivalent to using the -b a command line option.
 		;;; </summary>
-		{Category("Window Button Options")}
-		{Description("Always use the default buttons defined in DefaultButtons.xml.")}
 		{DefaultValue(false)}
 		public property AlwaysLoadDefaultButtons, Boolean
 			method get
@@ -523,8 +480,6 @@ namespace CodeGen.Engine
 		;;;	Never use the default buttons defined in DefaultButtons.xml.
 		;;; Setting this property is equivalent to using the -b d command line option.
 		;;; </summary>
-		{Category("Window Button Options")}
-		{Description("Never use the default buttons defined in DefaultButtons.xml.")}
 		{DefaultValue(false)}
 		public property NeverLoadDefaultButtons, Boolean
 			method get
@@ -542,8 +497,6 @@ namespace CodeGen.Engine
 		;;;	Never load any buttons (DefaultButtons.xml or window script).
 		;;; Setting this property is equivalent to using the -b n command line option.
 		;;; </summary>
-		{Category("Window Button Options")}
-		{Description("Never load any buttons.")}
 		{DefaultValue(false)}
 		public property NeverLoadAnyButtons, Boolean
 			method get
@@ -561,8 +514,6 @@ namespace CodeGen.Engine
 		;;;	Include overlay fields.
 		;;; Setting this property is equivalent to using the -f o command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Include overlay fields.")}
 		{DefaultValue(false)}
 		public property IncludeOverlayFields, Boolean
 			method get
@@ -580,8 +531,6 @@ namespace CodeGen.Engine
 		;;;	Include fields which are 'Excluded by Language'.
 		;;; Setting this property is equivalent to using the -f l command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Include fields which are 'Excluded by Language'.")}
 		{DefaultValue(false)}
 		public property IgnoreExcludeLanguage, Boolean
 			method get
@@ -599,8 +548,6 @@ namespace CodeGen.Engine
 		;;;	Exclude fields which are 'Excluded by Toolkit'.
 		;;; Setting this property is equivalent to using the -f t command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Exclude fields which are 'Excluded by Toolkit'.")}
 		{DefaultValue(false)}
 		public property HonorExcludeToolkit, Boolean
 			method get
@@ -618,8 +565,6 @@ namespace CodeGen.Engine
 		;;;	Exclude fields which are 'Excluded by ReportWriter'.
 		;;; Setting this property is equivalent to using the -f r command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Exclude fields which are 'Excluded by ReportWriter'.")}
 		{DefaultValue(false)}
 		public property HonorExcludeReportWriter, Boolean
 			method get
@@ -637,8 +582,6 @@ namespace CodeGen.Engine
 		;;;	Exclude fields which are 'Excluded by Web'.
 		;;; Setting this property is equivalent to using the -f w command line option.
 		;;; </summary>
-		{Category("Code Generation Options")}
-		{Description("Exclude fields which are 'Excluded by Web'.")}
 		{DefaultValue(false)}
 		public property HonorExcludeWeb, Boolean
 			method get
@@ -656,8 +599,6 @@ namespace CodeGen.Engine
 		;;;	Don't prefix group fields with group name.
 		;;; Setting this property is equivalent to using the -g f command line option.
 		;;; </summary>
-		{Category("Group Field Options")}
-		{Description("Don't prefix group fields with group name.")}
 		{DefaultValue(false)}
 		public property GroupFieldNoGroupPrefix, Boolean
 			method get
@@ -674,8 +615,6 @@ namespace CodeGen.Engine
 		;;;	Don't use repository group field prefix.
 		;;; Setting this property is equivalent to using the -g r command line option.
 		;;; </summary>
-		{Category("Group Field Options")}
-		{Description("Don't use repository group field prefix.")}
 		{DefaultValue(false)}
 		public property GroupFieldNoRpsPrefix, Boolean
 			method get
@@ -693,8 +632,6 @@ namespace CodeGen.Engine
 		;;;	Don't expand implicit groups to individual fields.
 		;;; Setting this property is equivalent to using the -g i command line option.
 		;;; </summary>
-		{Category("Group Field Options")}
-		{Description("Don't expand implicit groups to individual fields.")}
 		{DefaultValue(false)}
 		public property GroupNoExpand, Boolean
 			method get
@@ -712,8 +649,6 @@ namespace CodeGen.Engine
 		;;; property should all be available to templates being processed at the same time.
 		;;; Setting this property is equivalent to using the -ms command line option.
 		;;; </summary>
-		{Category("Code Generation Context")}
-		{Description("Process multiple structures at the same time.")}
 		{DefaultValue(false)}
 		public property MultipleStructures, Boolean
 			method get
@@ -726,7 +661,59 @@ namespace CodeGen.Engine
 				NotifyPropertyChanged("MultipleStructures")
 			endmethod
 		endproperty
+
+.region "Task completion status properties"
 		
+		;;; <summary>
+		;;; Did the task complete without any errors
+		;;; </summary>
+		{XmlIgnore}
+		public property Complete, Boolean
+			method get
+			proc
+				mreturn mComplete
+			endmethod
+			internal method set
+			proc
+				mComplete = value
+				NotifyPropertyChanged("Complete")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; Did the task complete without errors
+		;;; </summary>
+		{XmlIgnore}
+		public property ErrorMessage, String
+			method get
+			proc
+				mreturn mErrorMessage
+			endmethod
+			internal method set
+			proc
+				mErrorMessage = value
+				NotifyPropertyChanged("ErrorMessage")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; How many files were successfully generated
+		;;; </summary>
+		{XmlIgnore}
+		public property FilesGenerated, int
+			method get
+			proc
+				mreturn mFilesGenerated
+			endmethod
+			internal method set
+			proc
+				mFilesGenerated = value
+				NotifyPropertyChanged("FilesGenerated")
+			endmethod
+		endproperty
+
+.endregion
+
 .region "INotifyPropertyChanged"
 		
 		public event PropertyChanged, @PropertyChangedEventHandler

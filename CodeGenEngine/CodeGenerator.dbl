@@ -73,16 +73,6 @@ namespace CodeGen.Engine
 		DeveloperDebug
 	endenum
 	
-	;;;<summary>
-	;;;Defines the signature for a method which is to receive logging messages when using
-	;;;the CodeGenerator class.
-	;;;</summary>
-	public delegate MessageLogger	,void
-		required in message			,string
-		required in blankLineBefore	,boolean
-		required in blankLineAfter	,boolean
-	enddelegate
-	
 	public sealed class CodeGenerator implements IDisposable
 		
 		private UnsetTemplate					,boolean				;;Need to unset CODEGEN_TPLDIR
@@ -93,28 +83,19 @@ namespace CodeGen.Engine
 		
 		public method CodeGenerator
 			required in taskset					,@CodeGenTaskSet
-			required in messages				,@ObservableCollection<String>
+			required inout messages				,@ObservableCollection<String>
 			endparams
 		proc
+
 			mTaskSet = taskset
+
+			if (messages == ^null) then
+				messages = new ObservableCollection<String>()
+			else
+				messages.Clear()
+
 			Env.LogMessages = messages
-			Configure()
-		endmethod
 
-		public method CodeGenerator
-			required in taskset					,@CodeGenTaskSet
-			required in loggerMethod			,@MessageLogger
-			endparams
-		proc
-			mTaskSet = taskset
-			Env.LoggerMethod = loggerMethod
-			Configure()
-		endmethod
-
-		private method Configure, void
-			endparams
-		proc
-			
 			using mTaskSet.LoggingLevel select
 			(LoggingLevel.Normal),
 			begin
@@ -171,17 +152,15 @@ namespace CodeGen.Engine
 			end
 
 		endmethod
-		
+
 		public method GenerateCode, Boolean
 			endparams
-.include "CODEGEN_SRC:codegen.def"
+			.include "CODEGEN_SRC:codegen.def"
 		proc
-			;;Display headings
-			VerboseLog(CODEGEN_APPNAME + " " + CODEGEN_VERSION,true,true)
-			
 			;;Process each task
 			data task, @CodeGenTask
-			data allSuccess, Boolean, true
+
+			mTaskSet.Complete = true
 			
 			foreach task in mTaskSet.Tasks
 			begin
@@ -203,11 +182,18 @@ namespace CodeGen.Engine
 					xcall setlog("RPSTFIL",mTaskSet.RepositoryTextFile,sts)
 				end
 
-				if (!doGenerate(task))
-					allSuccess = false
+				;;Generate code
+				task.Complete = doGenerate(task)
+
+				;;Record status
+				if (!task.Complete)
+				begin
+					task.ErrorMessage = Env.LastErrorMessage
+					mTaskSet.Complete = false
+				end
 			end
 			
-			mreturn allSuccess
+			mreturn mTaskSet.Complete
 			
 		endmethod
 		
@@ -232,8 +218,6 @@ namespace CodeGen.Engine
 				CleanScriptField, a
 			endexternal
 			
-.define D_SEPERATOR "\"
-			
 		proc
 			
 			;;-------------------------------------------------------------------------
@@ -246,164 +230,13 @@ namespace CodeGen.Engine
 			;;-------------------------------------------------------------------------
 			;;Echo command line?
 			
-			if (task.EchoCommand)
-			begin
-				data command, String, "codegen "
-				
-				;;Templates
-				if (task.Templates.Count>0)
-				begin
-					command += "-t "
-					data tmp, String
-					foreach tmp in task.Templates
-						command += tmp + " "
-				end
-				
-				;;Structures
-				if (task.Structures.Count>0)
-				begin
-					command += "-s "
-					data tmp, String
-					foreach tmp in task.Structures
-						command += tmp + " "
-				end
-				
-				;;
-				if (task.MultipleStructures)
-					command += "-ms "
-				
-				;;Aliases
-				if (task.Aliases.Count>0)
-				begin
-					command += "-a "
-					data tmp, String
-					foreach tmp in task.Aliases
-						command += tmp + " "
-				end
-				
-				;;File overrides
-				if (task.FileOverrides.Count>0)
-				begin
-					command += "-fo "
-					data tmp, String
-					foreach tmp in task.FileOverrides
-						command += tmp + " "
-				end
-				
-				;;Subset
-				if (task.Subset!=string.Empty)
-					command += "-subset " + task.Subset + " "
-					
-				;;Repository file
-				if (task.RepositoryFile!=string.Empty)
-					command += "-file " + task.RepositoryFile + " "
-				
-				;;Window Script
-				if (task.WindowScript!=string.Empty)
-					command += "-w " + task.WindowScript + " "
-				
-				;;Ignore script field attributes
-				if (task.IgnoreScriptFieldAttributes)
-					command += "-wn "
-					
-				;;Selection window script
-				if (task.SelectionWindowScript!=String.Empty)
-					command += "-ws " + task.SelectionWindowScript + " "
-				
-				;;Replace files
-				if (task.ReplaceFiles)
-					command += "-r "
-					
-				;;Namespace
-				if (task.Namespace!=String.Empty)
-					command += "-n " + task.Namespace + " "
-					
-				;;Field prefix
-				if (task.FieldPrefix!=String.Empty)
-					command += "-prefix " + task.FieldPrefix + " "
-					
-				;;User token file
-				if (task.UserTokenFile!=String.Empty)
-					command += "-u " + task.UserTokenFile + " "
-					
-				;;Command line user tokens
-				if (task.UserTokens.Count>0)
-				begin
-					command += "-ut "
-					data tmp, @UserToken
-.ifdef DBLNET
-					foreach tmp in task.UserTokens
-.else
-					foreach tmp in task.UserTokens.GetEnumerator()
-.endc
-					command += tmp.Name + "=" + tmp.Value + " "
-				end
-				
-				;;
-				if (task.IncludeOverlayFields)
-					command += "-f o "
-					
-				;;
-				if (task.IgnoreExcludeLanguage)
-					command += "-f l "
-				
-				;;
-				if (task.HonorExcludeToolkit)
-					command += "-f t "
-				
-				;;
-				if (task.HonorExcludeReportWriter)
-					command += "-f r "
-				
-				;;
-				if (task.HonorExcludeWeb)
-					command += "-f w "
-				
-				;;
-				if (task.GroupFieldNoGroupPrefix)
-					command += "-g f "
-				
-				;;
-				if (task.GroupFieldNoRpsPrefix)
-					command += "-g r "
-				
-				;;
-				if (task.GroupNoExpand)
-					command += "-g i "
-				
-				;;
-				if (task.AlwaysLoadDefaultButtons)
-					command += "-b a "
-				
-				;;
-				if (task.NeverLoadDefaultButtons)
-					command += "-b d "
-				
-				;;
-				if (task.NeverLoadAnyButtons)
-					command += "-b n "
-				
-				;;Template folder
-				if (task.TemplateFolder!=String.Empty)
-					command += "-i " + task.TemplateFolder + " "
-				
-				;;Output folder
-				if (task.OutputFolder!=String.Empty)
-					command += "-o " + task.OutputFolder + " "
-					
-				;;Character width
-				if (task.CharacterWidth!=12)
-					command += "-cw " + task.CharacterWidth.ToString() + " "
-				
-				;;Character height
-				if (task.CharacterHeight!=25)
-					command += "-ch " + task.CharacterHeight.ToString() + " "
-					
-				if (task.EchoCommand)
-					command += "-e "
-					
-				Log(command,true,false)
-			end
+			if (mTaskSet.EchoCommands)
+				echoCommand(task)
+			
+			;;-------------------------------------------------------------------------
+			;;Display heading
+
+			VerboseLog(CODEGEN_APPNAME + " " + CODEGEN_VERSION,true,true)
 			
 			;;-------------------------------------------------------------------------
 			;;Display file names mode
@@ -422,8 +255,8 @@ namespace CodeGen.Engine
 				getlog("CODEGEN_TPLDIR",TmpBuf,length)
 				if (length)
 				begin
-					if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!=D_SEPERATOR))
-						TmpBuf(length+1:1) = D_SEPERATOR
+					if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!="\"))
+						TmpBuf(length+1:1) = "\"
 					Env.TemplateDir = TmpBuf
 					if (Env.DeveloperDebug)
 						DebugLog("DEVDBG: Template location set by CODEGEN_TPLDIR to "+Env.TemplateDir,false,false)				
@@ -438,19 +271,15 @@ namespace CodeGen.Engine
 			begin
 				if (task.TemplateFolder!=String.Empty) then
 				begin
-					if ((!task.TemplateFolder.Trim().EndsWith(":")) && (!task.TemplateFolder.Trim().EndsWith(D_SEPERATOR)))
-						task.TemplateFolder = task.TemplateFolder.Trim() + D_SEPERATOR
 					Env.TemplateDir = task.TemplateFolder
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Template location set by TemplateFolder property to "+Env.TemplateDir,false,false)				
+						DebugLog("DEVDBG: Template location set by CodeGenTask.TemplateFolder property to "+Env.TemplateDir,false,false)				
 				end
-				else if (mTaskSet.DefaultTemplateFolder!=String.Empty)
+				else if (mTaskSet.TemplateFolder!=String.Empty)
 				begin
-					if ((!mTaskSet.DefaultTemplateFolder.Trim().EndsWith(":")) && (!mTaskSet.DefaultTemplateFolder.Trim().EndsWith(D_SEPERATOR)))
-						mTaskSet.DefaultTemplateFolder = mTaskSet.DefaultTemplateFolder.Trim() + D_SEPERATOR
-					Env.TemplateDir = mTaskSet.DefaultTemplateFolder
+					Env.TemplateDir = mTaskSet.TemplateFolder
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Template location set by DefaultTemplateFolder property to "+Env.TemplateDir,false,false)				
+						DebugLog("DEVDBG: Template location set by CodeGenTaskSet.TemplateFolder property to "+Env.TemplateDir,false,false)				
 				end
 			end
 			
@@ -476,8 +305,8 @@ namespace CodeGen.Engine
 				getlog("CODEGEN_OUTDIR",TmpBuf,length)
 				if (length)
 				begin
-					if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!=D_SEPERATOR))
-						TmpBuf(length+1:1)=D_SEPERATOR
+					if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!="\"))
+						TmpBuf(length+1:1)="\"
 					Env.OutputDir = TmpBuf
 					if (Env.DeveloperDebug)
 						DebugLog("DEVDBG: Output location set by CODEGEN_OUTDIR to "+Env.OutputDir,false,false)				
@@ -492,19 +321,15 @@ namespace CodeGen.Engine
 			begin
 				if (task.OutputFolder!=String.Empty) then
 				begin
-					if (!task.OutputFolder.Trim().EndsWith(":")&&!task.OutputFolder.Trim().EndsWith(D_SEPERATOR))
-						task.OutputFolder = task.OutputFolder.Trim() + D_SEPERATOR
 					Env.OutputDir = task.OutputFolder
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Output location set OutputFolder property to "+Env.OutputDir,false,false)				
+						DebugLog("DEVDBG: Output location set CodeGenTask.OutputFolder property to "+Env.OutputDir,false,false)				
 				end
-				else if (mTaskSet.DefaultOutputFolder!=String.Empty)
+				else if (mTaskSet.OutputFolder!=String.Empty)
 				begin
-					if (!mTaskSet.DefaultOutputFolder.Trim().EndsWith(":")&&!mTaskSet.DefaultOutputFolder.Trim().EndsWith(D_SEPERATOR))
-						mTaskSet.DefaultOutputFolder = mTaskSet.DefaultOutputFolder.Trim() + D_SEPERATOR
-					Env.OutputDir = mTaskSet.DefaultOutputFolder
+					Env.OutputDir = mTaskSet.OutputFolder
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Output location set DefaultOutputFolder property to "+Env.OutputDir,false,false)				
+						DebugLog("DEVDBG: Output location set CodeGenTaskSet.OutputFolder property to "+Env.OutputDir,false,false)				
 				end
 			end
 			
@@ -1349,6 +1174,8 @@ namespace CodeGen.Engine
 			
 			clear Templates
 			
+			task.FilesGenerated = Env.FilesCreated
+
 			if (Env.FilesCreated&&Env.FilesFailed) then
 			begin
 				data msg, String, string(Env.FilesCreated) + " file"
@@ -1356,6 +1183,7 @@ namespace CodeGen.Engine
 					msg = msg + "s"
 				msg = msg + " created, " + string(Env.FilesFailed) + " failed"
 				Log(msg,(Env.Verbose||Env.Debug),false)
+				
 			end
 			else if (Env.FilesCreated) then
 			begin
@@ -1478,6 +1306,173 @@ namespace CodeGen.Engine
 			end
 			
 		endmethod
+
+		private method echoCommand, void
+			required in task, @CodeGenTask
+			endparams
+		proc
+			data command, String, "codegen "
+				
+			;;Templates
+			if (task.Templates.Count>0)
+			begin
+				command += "-t "
+				data tmp, String
+				foreach tmp in task.Templates
+					command += tmp + " "
+			end
+				
+			;;Structures
+			if (task.Structures.Count>0)
+			begin
+				command += "-s "
+				data tmp, String
+				foreach tmp in task.Structures
+					command += tmp + " "
+			end
+				
+			;;Processing multiple structures
+			if (task.MultipleStructures)
+				command += "-ms "
+				
+			;;Aliases
+			if (task.Aliases.Count>0)
+			begin
+				command += "-a "
+				data tmp, String
+				foreach tmp in task.Aliases
+					command += tmp + " "
+			end
+				
+			;;File overrides
+			if (task.FileOverrides.Count>0)
+			begin
+				command += "-fo "
+				data tmp, String
+				foreach tmp in task.FileOverrides
+					command += tmp + " "
+			end
+				
+			;;Subset
+			if (task.Subset!=string.Empty)
+				command += "-subset " + task.Subset + " "
+				
+			;;Repository file
+			if (task.RepositoryFile!=string.Empty)
+				command += "-file " + task.RepositoryFile + " "
+				
+			;;Window Script
+			if (task.WindowScript!=string.Empty)
+				command += "-w " + task.WindowScript + " "
+				
+			;;Ignore script field attributes
+			if (task.IgnoreScriptFieldAttributes)
+				command += "-wn "
+				
+			;;Selection window script
+			if (task.SelectionWindowScript!=String.Empty)
+				command += "-ws " + task.SelectionWindowScript + " "
+				
+			;;Replace files
+			if (task.ReplaceFiles)
+				command += "-r "
+				
+			;;Namespace
+			if (task.Namespace!=String.Empty)
+				command += "-n " + task.Namespace + " "
+				
+			;;Field prefix
+			if (task.FieldPrefix!=String.Empty)
+				command += "-prefix " + task.FieldPrefix + " "
+				
+			;;User token file
+			if (task.UserTokenFile!=String.Empty)
+				command += "-u " + task.UserTokenFile + " "
+				
+			;;Command line user tokens
+			if (task.UserTokens.Count>0)
+			begin
+				command += "-ut "
+				data tmp, @UserToken
+				foreach tmp in task.UserTokens
+					command += tmp.Name + "=" + tmp.Value + " "
+			end
+				
+			;;
+			if (task.IncludeOverlayFields)
+				command += "-f o "
+				
+			;;
+			if (task.IgnoreExcludeLanguage)
+				command += "-f l "
+				
+			;;
+			if (task.HonorExcludeToolkit)
+				command += "-f t "
+				
+			;;
+			if (task.HonorExcludeReportWriter)
+				command += "-f r "
+				
+			;;
+			if (task.HonorExcludeWeb)
+				command += "-f w "
+				
+			;;
+			if (task.GroupFieldNoGroupPrefix)
+				command += "-g f "
+				
+			;;
+			if (task.GroupFieldNoRpsPrefix)
+				command += "-g r "
+				
+			;;
+			if (task.GroupNoExpand)
+				command += "-g i "
+				
+			;;
+			if (task.AlwaysLoadDefaultButtons)
+				command += "-b a "
+				
+			;;
+			if (task.NeverLoadDefaultButtons)
+				command += "-b d "
+				
+			;;
+			if (task.NeverLoadAnyButtons)
+				command += "-b n "
+				
+			;;Template folder
+			if (task.TemplateFolder!=String.Empty)
+				command += "-i " + task.TemplateFolder + " "
+				
+			;;Output folder
+			if (task.OutputFolder!=String.Empty)
+				command += "-o " + task.OutputFolder + " "
+				
+			;;Character width
+			if (task.CharacterWidth!=12)
+				command += "-cw " + task.CharacterWidth.ToString() + " "
+				
+			;;Character height
+			if (task.CharacterHeight!=25)
+				command += "-ch " + task.CharacterHeight.ToString() + " "
+				
+			if (mTaskSet.EchoCommands)
+				command += "-e "
+
+			using mTaskSet.LoggingLevel select
+			(LoggingLevel.Verbose),
+				command += "-v "
+			(LoggingLevel.Debug),
+				command += "-d "
+			(LoggingLevel.DeveloperDebug),
+				command += "-debug "
+			endusing	
+				
+			Log(command,true,false)
+			
+		endmethod
 		
 .endregion
 		
@@ -1501,4 +1496,3 @@ namespace CodeGen.Engine
 .endc
 	
 endnamespace
-

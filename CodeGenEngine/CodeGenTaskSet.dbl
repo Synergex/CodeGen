@@ -4,7 +4,6 @@ import System
 import System.Collections.ObjectModel
 import System.ComponentModel
 import System.IO
-import System.Text
 import System.Xml
 import System.Xml.Serialization
 .endc
@@ -29,29 +28,30 @@ namespace CodeGen.Engine
 	
 	public class CodeGenTaskSet implements INotifyPropertyChanged
 
-		private mDescription,			String,								String.Empty
+		private mDescription,			String,								"New Task Set"
 
 		private mRepositoryMainFile,	String,								String.Empty
 		private mRepositoryTextFile,	String,								String.Empty
 
-		private mDefaultTemplateFolder,	String,								String.Empty
-		private mDefaultOutputFolder,	String,								String.Empty
+		private mTemplateFolder,		String,								String.Empty
+		private mOutputFolder,			String,								String.Empty
 
 		private mLoggingLevel,			LoggingLevel,						LoggingLevel.Normal				;; -v -d, etc.
+		private mEchoCommands,			Boolean,							false							;; -e
 		private mListGeneratedFiles,	Boolean,							false							;;-lf
 
 		private mTasks,					@ObservableCollection<CodeGenTask>
 
+		{NonSerialized}
+		private mComplete,				Boolean,							false
+
 		public method CodeGenTaskSet
 			endparams
 		proc
-			Description = "New Task Set"
-			LoggingLevel = LoggingLevel.Normal
 			Tasks = new ObservableCollection<CodeGenTask>()
 		endmethod
 
-		{Category("Task Set Options")}
-		{Description("Task Set Description")}
+		{DefaultValue("New Task Set")}
 		public property Description, String
 			method get
 			proc
@@ -64,8 +64,7 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 
-		{Category("Task Set Options")}
-		{Description("Default Repository Main File")}
+		{DefaultValue("")}
 		public property RepositoryMainFile, String
 			method get
 			proc
@@ -78,8 +77,7 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 		
-		{Category("Task Set Options")}
-		{Description("Default Repository Text File")}
+		{DefaultValue("")}
 		public property RepositoryTextFile, String
 			method get
 			proc
@@ -92,36 +90,37 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 
-		{Category("Task Set Options")}
-		{Description("Default Template Folder")}
-		public property DefaultTemplateFolder, String
+		{DefaultValue("")}
+		public property TemplateFolder, String
 			method get
 			proc
-				mreturn mDefaultTemplateFolder
+				mreturn mTemplateFolder
 			endmethod
 			method set
 			proc
-				mDefaultTemplateFolder = value
-				NotifyPropertyChanged("DefaultTemplateFolder")
+				mTemplateFolder = value.Trim()
+				if (!mTemplateFolder.EndsWith(":")&&!mTemplateFolder.EndsWith("\"))
+					mTemplateFolder = mTemplateFolder + "\"
+				NotifyPropertyChanged("TemplateFolder")
 			endmethod
 		endproperty
 
-		{Category("Task Set Options")}
-		{Description("Default Output Folder")}
-		public property DefaultOutputFolder, String
+		{DefaultValue("")}
+		public property OutputFolder, String
 			method get
 			proc
-				mreturn mDefaultOutputFolder
+				mreturn mOutputFolder
 			endmethod
 			method set
 			proc
-				mDefaultOutputFolder = value
-				NotifyPropertyChanged("DefaultOutputFolder")
+				mOutputFolder = value.Trim()
+				if (!mOutputFolder.EndsWith(":")&&!mOutputFolder.EndsWith("\"))
+					mOutputFolder = mOutputFolder + "\"
+				NotifyPropertyChanged("OutputFolder")
 			endmethod
 		endproperty
 		
-		{Category("Task Set Options")}
-		{Description("Logging Level")}
+		{DefaultValue(0)}
 		public property LoggingLevel, LoggingLevel
 			method get
 			proc
@@ -134,8 +133,23 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 		
-		{Category("Task Set Options")}
-		{Description("List Generated Files")}
+		;;; <summary>
+		;;;  Echo the command line to the output log
+		;;; </summary>
+		{DefaultValue(false)}
+		public property EchoCommands, Boolean
+			method get
+			proc
+				mreturn mEchoCommands
+			endmethod
+			method set
+			proc
+				mEchoCommands = value
+				NotifyPropertyChanged("EchoCommands")
+			endmethod
+		endproperty
+		
+		{DefaultValue(false)}
 		public property ListGeneratedFiles, Boolean
 			method get
 			proc
@@ -148,8 +162,6 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 		
-		{Category("Task Set Options")}
-		{Description("Code Generation Tasks")}
 		public property Tasks, @ObservableCollection<CodeGenTask>
 			method get
 			proc
@@ -158,6 +170,19 @@ namespace CodeGen.Engine
 			method set
 			proc
 				mTasks = value
+			endmethod
+		endproperty
+
+		{XmlIgnore}
+		public property Complete, Boolean
+			method get
+			proc
+				mreturn mComplete
+			endmethod
+			internal method set
+			proc
+				mComplete = value
+				NotifyPropertyChanged("Complete")
 			endmethod
 		endproperty
 
