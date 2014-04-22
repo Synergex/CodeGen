@@ -4,6 +4,7 @@ import System
 import System.Collections.ObjectModel
 import System.ComponentModel
 import System.IO
+import System.Runtime.Serialization
 import System.Xml
 import System.Xml.Serialization
 .endc
@@ -26,7 +27,20 @@ namespace CodeGen.Engine
 	
 .else
 	
+	{DataContract}
 	public class CodeGenTaskSet implements INotifyPropertyChanged
+
+.region "Constructors"
+
+		public method CodeGenTaskSet
+			endparams
+		proc
+			Tasks = new ObservableCollection<CodeGenTask>()
+		endmethod
+		
+.endregion
+
+.region "TaskSet configuration properties"
 
 		private mDescription,			String,								"New Task Set"
 
@@ -42,16 +56,8 @@ namespace CodeGen.Engine
 
 		private mTasks,					@ObservableCollection<CodeGenTask>
 
-		{NonSerialized}
-		private mComplete,				Boolean,							false
-
-		public method CodeGenTaskSet
-			endparams
-		proc
-			Tasks = new ObservableCollection<CodeGenTask>()
-		endmethod
-
 		{DefaultValue("New Task Set")}
+		{DataMember}
 		public property Description, String
 			method get
 			proc
@@ -65,6 +71,7 @@ namespace CodeGen.Engine
 		endproperty
 
 		{DefaultValue("")}
+		{DataMember}
 		public property RepositoryMainFile, String
 			method get
 			proc
@@ -78,6 +85,7 @@ namespace CodeGen.Engine
 		endproperty
 		
 		{DefaultValue("")}
+		{DataMember}
 		public property RepositoryTextFile, String
 			method get
 			proc
@@ -91,6 +99,7 @@ namespace CodeGen.Engine
 		endproperty
 
 		{DefaultValue("")}
+		{DataMember}
 		public property TemplateFolder, String
 			method get
 			proc
@@ -106,6 +115,7 @@ namespace CodeGen.Engine
 		endproperty
 
 		{DefaultValue("")}
+		{DataMember}
 		public property OutputFolder, String
 			method get
 			proc
@@ -121,6 +131,7 @@ namespace CodeGen.Engine
 		endproperty
 		
 		{DefaultValue(0)}
+		{DataMember}
 		public property LoggingLevel, LoggingLevel
 			method get
 			proc
@@ -137,6 +148,7 @@ namespace CodeGen.Engine
 		;;;  Echo the command line to the output log
 		;;; </summary>
 		{DefaultValue(false)}
+		{DataMember}
 		public property EchoCommands, Boolean
 			method get
 			proc
@@ -150,6 +162,7 @@ namespace CodeGen.Engine
 		endproperty
 		
 		{DefaultValue(false)}
+		{DataMember}
 		public property ListGeneratedFiles, Boolean
 			method get
 			proc
@@ -162,6 +175,7 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 		
+		{DataMember}
 		public property Tasks, @ObservableCollection<CodeGenTask>
 			method get
 			proc
@@ -173,7 +187,16 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 
+.endregion
+
+.region "Taskset status properties"
+		
+		{NonSerialized}
+		{DataMember}
+		private mComplete, Boolean, false
+		
 		{XmlIgnore}
+		{DataMember}
 		public property Complete, Boolean
 			method get
 			proc
@@ -185,7 +208,36 @@ namespace CodeGen.Engine
 				NotifyPropertyChanged("Complete")
 			endmethod
 		endproperty
+		
+.endregion
 
+.region "Events"
+		
+		public delegate StartingTaskSetEventHandler, void
+			taskset, @CodeGenTaskSet
+		enddelegate
+		
+		public delegate TaskSetCompleteEventHandler, void
+			taskset, @CodeGenTaskSet
+		enddelegate
+		
+		public event StartingTaskSet, @StartingTaskSetEventHandler
+		public event TaskSetComplete, @TaskSetCompleteEventHandler
+		
+		internal method RaiseStartingTaskSet, void
+		proc
+			if (StartingTaskSet!=^null)
+				raiseevent(StartingTaskSet,this)
+		endmethod
+		
+		internal method RaiseTaskSetComplete, void
+		proc
+			if (TaskSetComplete!=^null)
+				raiseevent(TaskSetComplete,this)
+		endmethod
+		
+.endregion
+		
 .region "Serialization"
 
 		public method SaveToFile, boolean
@@ -236,8 +288,8 @@ namespace CodeGen.Engine
 			endtry
 			mreturn ok
 		endmethod
-.endregion
 
+.endregion
 
 .region "INotifyPropertyChanged"
 		
