@@ -46,13 +46,14 @@ import System.Collections
 
 namespace CodeGen.Engine
 
-    function Generate, ^val
+    function Generate, boolean
         endparams
 
         .include "CODEGEN_SRC:codegen.def"
 
         stack record
-            Templates               ,@ArrayList             ;;Templates to process
+			NoErrors				,boolean				;;Did all templates complete with no errors reported?
+			Templates               ,@ArrayList             ;;Templates to process
             Str                     ,@RpsStructure          ;;Structure being processed
             Fld                     ,@RpsField              ;;Current field
             Key                     ,@RpsKey                ;;Current key
@@ -182,6 +183,8 @@ namespace CodeGen.Engine
 		
     proc
 
+		NoErrors = true
+
         ;;Add the template to the collection of templates to be processed
         ;;during this pass. It's a collection in case the first template
         ;;lists other templates to be processed at the same time.
@@ -208,13 +211,16 @@ namespace CodeGen.Engine
 				TemplatesDone.Add((String)(StringTools.LowerCase(Str.Name+"|"+Env.CurrentTemplate)))
             else
                 TemplatesDone.Add((String)("|"+Env.CurrentTemplate))
-            Templates.RemoveAt(0)
+			Templates.RemoveAt(0)
+			;;Change the overall status if needed
+			if (ErrStatus)
+				NoErrors = false
         end
         until (!Templates.Count)
 
         clear Templates
 
-        freturn ErrStatus
+        freturn NoErrors
 
     ;;=============================================================================
     ;; Process a template file to create an output file
