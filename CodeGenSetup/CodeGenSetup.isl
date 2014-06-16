@@ -254,7 +254,7 @@
 		<col def="S255">ISBuildSourcePath</col>
 		<row><td>ISExpHlp.dll</td><td/><td>&lt;ISRedistPlatformDependentFolder&gt;\ISExpHlp.dll</td></row>
 		<row><td>ISSELFREG.DLL</td><td/><td>&lt;ISRedistPlatformDependentFolder&gt;\isregsvr.dll</td></row>
-		<row><td>NewBinary1</td><td/><td>D:\Dev\CodeGen\Installer\banner.jpg</td></row>
+		<row><td>NewBinary1</td><td/><td>D:\CodePlex\CodeGen\Installer\banner.jpg</td></row>
 		<row><td>NewBinary10</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\CompleteSetupIco.ibd</td></row>
 		<row><td>NewBinary11</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\CustomSetupIco.ibd</td></row>
 		<row><td>NewBinary12</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\DestIcon.ibd</td></row>
@@ -264,13 +264,15 @@
 		<row><td>NewBinary16</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\InstallFirstUse.ico</td></row>
 		<row><td>NewBinary17</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\InstallPartial.ico</td></row>
 		<row><td>NewBinary18</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\InstallStateMenu.ico</td></row>
-		<row><td>NewBinary19</td><td/><td>D:\Dev\CodeGen\Installer\welcome.jpg</td></row>
+		<row><td>NewBinary19</td><td/><td>D:\CodePlex\CodeGen\Installer\welcome.jpg</td></row>
 		<row><td>NewBinary2</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\New.ibd</td></row>
-		<row><td>NewBinary20</td><td/><td>D:\Dev\CodeGen\Installer\banner.jpg</td></row>
+		<row><td>NewBinary20</td><td/><td>D:\CodePlex\CodeGen\Installer\banner.jpg</td></row>
 		<row><td>NewBinary21</td><td/><td>&lt;ISRedistPlatformDependentFolder&gt;\SerialNumCAHelper.dll</td></row>
+		<row><td>NewBinary22</td><td/><td>D:\CodePlex\CodeGen\Installer\welcome.jpg</td></row>
+		<row><td>NewBinary23</td><td/><td>D:\CodePlex\CodeGen\Installer\banner.jpg</td></row>
 		<row><td>NewBinary3</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\Up.ibd</td></row>
 		<row><td>NewBinary4</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\WarningIcon.ibd</td></row>
-		<row><td>NewBinary5</td><td/><td>D:\Dev\CodeGen\Installer\welcome.jpg</td></row>
+		<row><td>NewBinary5</td><td/><td>D:\CodePlex\CodeGen\Installer\welcome.jpg</td></row>
 		<row><td>NewBinary6</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\CustomSetupIco.ibd</td></row>
 		<row><td>NewBinary7</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\ReinstIco.ibd</td></row>
 		<row><td>NewBinary8</td><td/><td>&lt;ISProductFolder&gt;\Redist\Language Independent\OS Independent\RemoveIco.ibd</td></row>
@@ -468,7 +470,7 @@
 		<row><td>CustomSetupTips</td><td>OK</td><td>PushButton</td><td>301</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_SetupTips_OK##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>CustomSetupTips</td><td>PartialText</td><td>Text</td><td>60</td><td>130</td><td>300</td><td>20</td><td>3</td><td/><td>##IDS_SetupTips_SubFeaturesInstalledLocal##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>CustomerInformation</td><td>Back</td><td>PushButton</td><td>164</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_BACK##</td><td>Next</td><td/><td>0</td><td/><td/><td/></row>
-		<row><td>CustomerInformation</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary20</td></row>
+		<row><td>CustomerInformation</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary23</td></row>
 		<row><td>CustomerInformation</td><td>BannerLine</td><td>Line</td><td>0</td><td>44</td><td>374</td><td>0</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>CustomerInformation</td><td>Branding1</td><td>Text</td><td>4</td><td>229</td><td>50</td><td>13</td><td>3</td><td/><td>##IDS_INSTALLSHIELD_FORMATTED##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>CustomerInformation</td><td>Branding2</td><td>Text</td><td>3</td><td>228</td><td>50</td><td>13</td><td>65537</td><td/><td>##IDS_INSTALLSHIELD##</td><td/><td/><td>0</td><td/><td/><td/></row>
@@ -486,7 +488,7 @@
 		<row><td>CustomerInformation</td><td>SerialLabel</td><td>Text</td><td>21</td><td>127</td><td>109</td><td>10</td><td>2</td><td/><td>##IDS__IsRegisterUserDlg_SerialNumber##</td><td>SerialNumber</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>CustomerInformation</td><td>SerialNumber</td><td>MaskedEdit</td><td>21</td><td>138</td><td>237</td><td>17</td><td>2</td><td>ISX_SERIALNUM</td><td/><td>RadioGroup</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>DatabaseFolder</td><td>Back</td><td>PushButton</td><td>164</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_BACK##</td><td>Next</td><td/><td>0</td><td/><td/><td/></row>
-		<row><td>DatabaseFolder</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary20</td></row>
+		<row><td>DatabaseFolder</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary23</td></row>
 		<row><td>DatabaseFolder</td><td>BannerLine</td><td>Line</td><td>0</td><td>44</td><td>374</td><td>0</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>DatabaseFolder</td><td>Branding1</td><td>Text</td><td>4</td><td>229</td><td>50</td><td>13</td><td>3</td><td/><td>##IDS_INSTALLSHIELD_FORMATTED##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>DatabaseFolder</td><td>Branding2</td><td>Text</td><td>3</td><td>228</td><td>50</td><td>13</td><td>65537</td><td/><td>##IDS_INSTALLSHIELD##</td><td/><td/><td>0</td><td/><td/><td/></row>
@@ -500,7 +502,7 @@
 		<row><td>DatabaseFolder</td><td>Location</td><td>Text</td><td>57</td><td>65</td><td>240</td><td>40</td><td>3</td><td>_BrowseProperty</td><td>##IDS__DatabaseFolder_DatabaseDir##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>DatabaseFolder</td><td>Next</td><td>PushButton</td><td>230</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_NEXT##</td><td>Cancel</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>DestinationFolder</td><td>Back</td><td>PushButton</td><td>164</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_BACK##</td><td>Next</td><td/><td>0</td><td/><td/><td/></row>
-		<row><td>DestinationFolder</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary20</td></row>
+		<row><td>DestinationFolder</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary23</td></row>
 		<row><td>DestinationFolder</td><td>BannerLine</td><td>Line</td><td>0</td><td>44</td><td>374</td><td>0</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>DestinationFolder</td><td>Branding1</td><td>Text</td><td>4</td><td>229</td><td>50</td><td>13</td><td>3</td><td/><td>##IDS_INSTALLSHIELD_FORMATTED##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>DestinationFolder</td><td>Branding2</td><td>Text</td><td>3</td><td>228</td><td>50</td><td>13</td><td>65537</td><td/><td>##IDS_INSTALLSHIELD##</td><td/><td/><td>0</td><td/><td/><td/></row>
@@ -555,13 +557,13 @@
 		<row><td>InstallWelcome</td><td>Cancel</td><td>PushButton</td><td>301</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_CANCEL##</td><td>Back</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>InstallWelcome</td><td>Copyright</td><td>Text</td><td>135</td><td>144</td><td>228</td><td>73</td><td>65539</td><td/><td>##IDS__IsWelcomeDlg_WarningCopyright##</td><td>Next</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>InstallWelcome</td><td>DlgLine</td><td>Line</td><td>0</td><td>234</td><td>374</td><td>0</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td/></row>
-		<row><td>InstallWelcome</td><td>Image</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>234</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary19</td></row>
+		<row><td>InstallWelcome</td><td>Image</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>234</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary22</td></row>
 		<row><td>InstallWelcome</td><td>Next</td><td>PushButton</td><td>230</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_NEXT##</td><td>Cancel</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>InstallWelcome</td><td>TextLine1</td><td>Text</td><td>135</td><td>8</td><td>225</td><td>45</td><td>196611</td><td/><td>##IDS__IsWelcomeDlg_WelcomeProductName##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>InstallWelcome</td><td>TextLine2</td><td>Text</td><td>135</td><td>55</td><td>228</td><td>45</td><td>196611</td><td/><td>##IDS__IsWelcomeDlg_InstallProductName##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>LicenseAgreement</td><td>Agree</td><td>RadioButtonGroup</td><td>8</td><td>190</td><td>291</td><td>40</td><td>3</td><td>AgreeToLicense</td><td/><td>Back</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>LicenseAgreement</td><td>Back</td><td>PushButton</td><td>164</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_BACK##</td><td>Next</td><td/><td>0</td><td/><td/><td/></row>
-		<row><td>LicenseAgreement</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary20</td></row>
+		<row><td>LicenseAgreement</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary23</td></row>
 		<row><td>LicenseAgreement</td><td>BannerLine</td><td>Line</td><td>0</td><td>44</td><td>374</td><td>0</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>LicenseAgreement</td><td>Branding1</td><td>Text</td><td>4</td><td>229</td><td>50</td><td>13</td><td>3</td><td/><td>##IDS_INSTALLSHIELD_FORMATTED##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>LicenseAgreement</td><td>Branding2</td><td>Text</td><td>3</td><td>228</td><td>50</td><td>13</td><td>65537</td><td/><td>##IDS_INSTALLSHIELD##</td><td/><td/><td>0</td><td/><td/><td/></row>
@@ -570,7 +572,7 @@
 		<row><td>LicenseAgreement</td><td>DlgLine</td><td>Line</td><td>48</td><td>234</td><td>326</td><td>0</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>LicenseAgreement</td><td>DlgTitle</td><td>Text</td><td>13</td><td>6</td><td>292</td><td>25</td><td>65539</td><td/><td>##IDS__IsLicenseDlg_LicenseAgreement##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>LicenseAgreement</td><td>ISPrintButton</td><td>PushButton</td><td>301</td><td>188</td><td>65</td><td>17</td><td>3</td><td/><td>##IDS_PRINT_BUTTON##</td><td>Agree</td><td/><td>0</td><td/><td/><td/></row>
-		<row><td>LicenseAgreement</td><td>Memo</td><td>ScrollableText</td><td>8</td><td>55</td><td>358</td><td>130</td><td>7</td><td/><td/><td/><td/><td>0</td><td/><td>D:\Dev\CodeGen\license.rtf</td><td/></row>
+		<row><td>LicenseAgreement</td><td>Memo</td><td>ScrollableText</td><td>8</td><td>55</td><td>358</td><td>130</td><td>7</td><td/><td/><td/><td/><td>0</td><td/><td>D:\CodePlex\CodeGen\license.rtf</td><td/></row>
 		<row><td>LicenseAgreement</td><td>Next</td><td>PushButton</td><td>230</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_NEXT##</td><td>Cancel</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>MaintenanceType</td><td>Back</td><td>PushButton</td><td>164</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_BACK##</td><td>Next</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>MaintenanceType</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary20</td></row>
@@ -626,7 +628,7 @@
 		<row><td>PatchWelcome</td><td>TextLine1</td><td>Text</td><td>135</td><td>8</td><td>225</td><td>45</td><td>196611</td><td/><td>##IDS__IsPatchDlg_WelcomePatchWizard##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>PatchWelcome</td><td>TextLine2</td><td>Text</td><td>135</td><td>54</td><td>228</td><td>45</td><td>196611</td><td/><td>##IDS__IsPatchDlg_PatchClickUpdate##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>ReadmeInformation</td><td>Back</td><td>PushButton</td><td>164</td><td>243</td><td>66</td><td>17</td><td>1048579</td><td/><td>##IDS_BACK##</td><td>Next</td><td/><td>0</td><td/><td/><td/></row>
-		<row><td>ReadmeInformation</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>3</td><td/><td/><td>DlgTitle</td><td/><td>0</td><td/><td/><td>NewBinary20</td></row>
+		<row><td>ReadmeInformation</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>3</td><td/><td/><td>DlgTitle</td><td/><td>0</td><td/><td/><td>NewBinary23</td></row>
 		<row><td>ReadmeInformation</td><td>Branding1</td><td>Text</td><td>4</td><td>229</td><td>50</td><td>13</td><td>3</td><td/><td>##IDS_INSTALLSHIELD_FORMATTED##</td><td/><td/><td>0</td><td>0</td><td/><td/></row>
 		<row><td>ReadmeInformation</td><td>Branding2</td><td>Text</td><td>3</td><td>228</td><td>50</td><td>13</td><td>65537</td><td/><td>##IDS_INSTALLSHIELD##</td><td/><td/><td>0</td><td>0</td><td/><td/></row>
 		<row><td>ReadmeInformation</td><td>Cancel</td><td>PushButton</td><td>301</td><td>243</td><td>66</td><td>17</td><td>1048579</td><td/><td>##IDS__IsReadmeDlg_Cancel##</td><td>Readme</td><td/><td>0</td><td/><td/><td/></row>
@@ -636,7 +638,7 @@
 		<row><td>ReadmeInformation</td><td>Next</td><td>PushButton</td><td>230</td><td>243</td><td>66</td><td>17</td><td>1048579</td><td/><td>##IDS_NEXT##</td><td>Cancel</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>ReadmeInformation</td><td>Readme</td><td>ScrollableText</td><td>10</td><td>55</td><td>353</td><td>166</td><td>3</td><td/><td/><td>Banner</td><td/><td>0</td><td/><td>&lt;ISProductFolder&gt;\Redist\0409\Readme.rtf</td><td/></row>
 		<row><td>ReadyToInstall</td><td>Back</td><td>PushButton</td><td>164</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS_BACK##</td><td>GroupBox1</td><td/><td>0</td><td/><td/><td/></row>
-		<row><td>ReadyToInstall</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary20</td></row>
+		<row><td>ReadyToInstall</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary23</td></row>
 		<row><td>ReadyToInstall</td><td>BannerLine</td><td>Line</td><td>0</td><td>44</td><td>374</td><td>0</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>ReadyToInstall</td><td>Branding1</td><td>Text</td><td>4</td><td>229</td><td>50</td><td>13</td><td>3</td><td/><td>##IDS_INSTALLSHIELD_FORMATTED##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>ReadyToInstall</td><td>Branding2</td><td>Text</td><td>3</td><td>228</td><td>50</td><td>13</td><td>65537</td><td/><td>##IDS_INSTALLSHIELD##</td><td/><td/><td>0</td><td/><td/><td/></row>
@@ -695,7 +697,7 @@
 		<row><td>SetupCompleteSuccess</td><td>CheckLaunchReadme</td><td>CheckBox</td><td>151</td><td>148</td><td>10</td><td>9</td><td>2</td><td>LAUNCHREADME</td><td/><td>CheckBoxUpdates</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>SetupCompleteSuccess</td><td>CheckShowMsiLog</td><td>CheckBox</td><td>151</td><td>182</td><td>10</td><td>9</td><td>2</td><td>ISSHOWMSILOG</td><td/><td>Back</td><td/><td>0</td><td/><td/><td/></row>
 		<row><td>SetupCompleteSuccess</td><td>DlgLine</td><td>Line</td><td>0</td><td>234</td><td>374</td><td>0</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td/></row>
-		<row><td>SetupCompleteSuccess</td><td>Image</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>234</td><td>1</td><td/><td/><td>CheckLaunchProgram</td><td/><td>0</td><td/><td/><td>NewBinary19</td></row>
+		<row><td>SetupCompleteSuccess</td><td>Image</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>234</td><td>1</td><td/><td/><td>CheckLaunchProgram</td><td/><td>0</td><td/><td/><td>NewBinary22</td></row>
 		<row><td>SetupCompleteSuccess</td><td>LaunchProgramText</td><td>Text</td><td>164</td><td>112</td><td>98</td><td>15</td><td>65538</td><td/><td>##IDS__IsExitDialog_LaunchProgram##</td><td/><td/><td>0</td><td>0</td><td/><td/></row>
 		<row><td>SetupCompleteSuccess</td><td>LaunchReadmeText</td><td>Text</td><td>164</td><td>148</td><td>120</td><td>13</td><td>65538</td><td/><td>##IDS__IsExitDialog_ShowReadMe##</td><td/><td/><td>0</td><td>0</td><td/><td/></row>
 		<row><td>SetupCompleteSuccess</td><td>OK</td><td>PushButton</td><td>230</td><td>243</td><td>66</td><td>17</td><td>3</td><td/><td>##IDS__IsExitDialog_Finish##</td><td>Cancel</td><td/><td>0</td><td/><td/><td/></row>
@@ -740,7 +742,7 @@
 		<row><td>SetupProgress</td><td>ActionProgress95</td><td>ProgressBar</td><td>59</td><td>113</td><td>275</td><td>12</td><td>65537</td><td/><td>##IDS__IsProgressDlg_ProgressDone##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>SetupProgress</td><td>ActionText</td><td>Text</td><td>59</td><td>100</td><td>275</td><td>12</td><td>3</td><td/><td>##IDS__IsProgressDlg_2##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>SetupProgress</td><td>Back</td><td>PushButton</td><td>164</td><td>243</td><td>66</td><td>17</td><td>1</td><td/><td>##IDS_BACK##</td><td>Next</td><td/><td>0</td><td/><td/><td/></row>
-		<row><td>SetupProgress</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary20</td></row>
+		<row><td>SetupProgress</td><td>Banner</td><td>Bitmap</td><td>0</td><td>0</td><td>374</td><td>44</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td>NewBinary23</td></row>
 		<row><td>SetupProgress</td><td>BannerLine</td><td>Line</td><td>0</td><td>44</td><td>374</td><td>0</td><td>1</td><td/><td/><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>SetupProgress</td><td>Branding1</td><td>Text</td><td>4</td><td>229</td><td>50</td><td>13</td><td>3</td><td/><td>##IDS_INSTALLSHIELD_FORMATTED##</td><td/><td/><td>0</td><td/><td/><td/></row>
 		<row><td>SetupProgress</td><td>Branding2</td><td>Text</td><td>3</td><td>228</td><td>50</td><td>13</td><td>65537</td><td/><td>##IDS_INSTALLSHIELD##</td><td/><td/><td>0</td><td/><td/><td/></row>
@@ -1921,143 +1923,143 @@
 		<col def="S255">ISBuildSourcePath</col>
 		<col def="I4">ISAttributes</col>
 		<col def="S72">ISComponentSubFolder_</col>
-		<row><td>camelcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CAMELC~1.DBL|CamelCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\CamelCase.dbl</td><td>5</td><td/></row>
-		<row><td>canopenfile.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CANOPE~1.DBL|CanOpenFile.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\CanOpenFile.dbl</td><td>5</td><td/></row>
-		<row><td>codegen.chm</td><td>CodeGen.chm</td><td>CodeGen.chm</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Documentation\CodeGen.chm</td><td>1</td><td/></row>
-		<row><td>codegen.exe</td><td>CodeGen.exe</td><td>CodeGen.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGen.exe</td><td>1</td><td/></row>
-		<row><td>codegen_web_site.url</td><td>ISX_DEFAULTCOMPONENT1</td><td>CODEGE~1.URL|CodeGen Web Site.url</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Installer\CodeGen Web Site.url</td><td>1</td><td/></row>
-		<row><td>codegenengine.dll</td><td>CodeGenEngine.dll</td><td>CODEGE~1.DLL|CodeGenEngine.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CodeGenEngine.dll</td><td>1</td><td/></row>
-		<row><td>codegensampletemplates.sde</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.SDE|CodeGenSampleTemplates.sde</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenSampleTemplates.sde</td><td>5</td><td/></row>
-		<row><td>codegensampletemplates.vpj</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPJ|CodeGenSampleTemplates.vpj</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenSampleTemplates.vpj</td><td>5</td><td/></row>
-		<row><td>codegensampletemplates.vpw</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPW|CodeGenSampleTemplates.vpw</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenSampleTemplates.vpw</td><td>5</td><td/></row>
-		<row><td>createfile.exe</td><td>CreateFile.exe</td><td>CREATE~1.EXE|CreateFile.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\CreateFile.exe</td><td>1</td><td/></row>
-		<row><td>cs_annotated_class.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ANN~1.TKN|cs_annotated_class.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_annotated_class.tkn</td><td>5</td><td/></row>
-		<row><td>cs_annotated_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ANN~1.TPL|cs_annotated_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_annotated_class.tpl</td><td>5</td><td/></row>
-		<row><td>cs_asp_data_provider.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ASP~1.TPL|cs_asp_data_provider.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_asp_data_provider.tpl</td><td>5</td><td/></row>
-		<row><td>cs_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>cs_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_class.tpl</td><td>5</td><td/></row>
-		<row><td>cs_mvvm.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>cs_mvvm.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_mvvm.tkn</td><td>5</td><td/></row>
-		<row><td>cs_mvvm_maint_cancelcommand.1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_cancelcommand.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_mvvm_maint_cancelcommand.tpl</td><td>5</td><td/></row>
-		<row><td>cs_mvvm_maint_manager.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_manager.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_mvvm_maint_manager.tpl</td><td>5</td><td/></row>
-		<row><td>cs_mvvm_maint_savecommand.tp1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_savecommand.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_mvvm_maint_savecommand.tpl</td><td>5</td><td/></row>
-		<row><td>cs_mvvm_maint_view.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_view.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_mvvm_maint_view.tpl</td><td>5</td><td/></row>
-		<row><td>cs_mvvm_maint_view_code.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_view_code.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_mvvm_maint_view_code.tpl</td><td>5</td><td/></row>
-		<row><td>cs_mvvm_maint_viewmodel.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_viewmodel.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_mvvm_maint_viewmodel.tpl</td><td>5</td><td/></row>
-		<row><td>cs_mvvm_model.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_model.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_mvvm_model.tpl</td><td>5</td><td/></row>
-		<row><td>cs_mvvm_model_manual.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_model_manual.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_mvvm_model_manual.tpl</td><td>5</td><td/></row>
-		<row><td>cs_webform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WEB~1.TPL|cs_webform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_webform.tpl</td><td>5</td><td/></row>
-		<row><td>cs_webform_absolute.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WEB~1.TPL|cs_webform_absolute.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_webform_absolute.tpl</td><td>5</td><td/></row>
-		<row><td>cs_webform_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WEB~1.TPL|cs_webform_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_webform_codebehind.tpl</td><td>5</td><td/></row>
-		<row><td>cs_webform_master.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WEB~1.TPL|cs_webform_master.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_webform_master.tpl</td><td>5</td><td/></row>
-		<row><td>cs_winform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WIN~1.TPL|cs_winform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_winform.tpl</td><td>5</td><td/></row>
-		<row><td>cs_winform_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WIN~1.TPL|cs_winform_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_winform_codebehind.tpl</td><td>5</td><td/></row>
-		<row><td>cs_winform_resources.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WIN~1.TPL|cs_winform_resources.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_winform_resources.tpl</td><td>5</td><td/></row>
-		<row><td>cs_xaml.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>cs_xaml.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_xaml.tpl</td><td>5</td><td/></row>
-		<row><td>cs_xaml_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_XAM~1.TPL|cs_xaml_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_xaml_codebehind.tpl</td><td>5</td><td/></row>
-		<row><td>cs_xaml_ig.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_XAM~1.TPL|cs_xaml_ig.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_xaml_ig.tpl</td><td>5</td><td/></row>
-		<row><td>cs_xaml_ig_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_XAM~1.TPL|cs_xaml_ig_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\cs_xaml_ig_codebehind.tpl</td><td>5</td><td/></row>
-		<row><td>databaseroutines.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseRoutines.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DatabaseRoutines.tpl</td><td>5</td><td/></row>
-		<row><td>databaseroutinesload.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseRoutinesLoad.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DatabaseRoutinesLoad.tpl</td><td>5</td><td/></row>
-		<row><td>databaseroutinesloadmapped.t1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseRoutinesLoadMapped.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DatabaseRoutinesLoadMapped.tpl</td><td>5</td><td/></row>
-		<row><td>databaseroutinestest.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseRoutinesTest.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DatabaseRoutinesTest.tpl</td><td>5</td><td/></row>
-		<row><td>databasetable.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTable.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DatabaseTable.tpl</td><td>5</td><td/></row>
-		<row><td>databasetablebase.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTableBase.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DatabaseTableBase.tpl</td><td>5</td><td/></row>
-		<row><td>databasetableconnection.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTableConnection.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DatabaseTableConnection.tpl</td><td>5</td><td/></row>
-		<row><td>databasetablemapped.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTableMapped.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DatabaseTableMapped.tpl</td><td>5</td><td/></row>
-		<row><td>databasetabletest.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTableTest.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DatabaseTableTest.tpl</td><td>5</td><td/></row>
-		<row><td>datamappingsexample.xml</td><td>ISX_DEFAULTCOMPONENT1</td><td>DATAMA~1.XML|DataMappingsExample.xml</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\RepositoryAPI\DataMappingsExample.xml</td><td>5</td><td/></row>
-		<row><td>decimaltomdystring.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DECIMA~1.DBL|DecimalToMDYString.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DecimalToMDYString.dbl</td><td>5</td><td/></row>
-		<row><td>decimaltotimestring.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DECIMA~1.DBL|DecimalToTimeString.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\DecimalToTimeString.dbl</td><td>5</td><td/></row>
-		<row><td>defaultbuttons.xml</td><td>ISX_DEFAULTCOMPONENT1</td><td>DEFAUL~1.XML|DefaultButtons.xml</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\CodeGenEngine\DefaultButtons.xml</td><td>5</td><td/></row>
-		<row><td>help.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>Help.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Documentation\Help.ico</td><td>1</td><td/></row>
-		<row><td>html_codegen.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>HTML_C~1.TPL|html_codegen.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\html_codegen.tpl</td><td>5</td><td/></row>
-		<row><td>html_rps_structure_docs.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>HTML_R~1.TPL|html_rps_structure_docs.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\html_rps_structure_docs.tpl</td><td>5</td><td/></row>
-		<row><td>internetexplorer.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>INTERN~1.ICO|InternetExplorer.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Installer\InternetExplorer.ico</td><td>1</td><td/></row>
-		<row><td>isnumeric.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>ISNUME~1.DBL|IsNumeric.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\IsNumeric.dbl</td><td>5</td><td/></row>
-		<row><td>iswhitespace.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>ISWHIT~1.DBL|IsWhitespace.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\IsWhitespace.dbl</td><td>5</td><td/></row>
-		<row><td>json_from_record.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>JSON_F~1.TPL|json_from_record.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\json_from_record.tpl</td><td>5</td><td/></row>
-		<row><td>lowercase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>LOWERC~1.DBL|LowerCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\LowerCase.dbl</td><td>5</td><td/></row>
-		<row><td>mapprep.exe</td><td>MapPrep.exe</td><td>MapPrep.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\MapPrep.exe</td><td>1</td><td/></row>
-		<row><td>methodcatalogapi.dll</td><td>MethodCatalogAPI.dll</td><td>MethodCatalogAPI.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\MethodCatalogAPI.dll</td><td>1</td><td/></row>
-		<row><td>mixedcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>MIXEDC~1.DBL|MixedCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\MixedCase.dbl</td><td>5</td><td/></row>
-		<row><td>oc_class_implementation.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>OC_CLA~1.TPL|oc_class_implementation.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\oc_class_implementation.tpl</td><td>5</td><td/></row>
-		<row><td>oc_class_interface.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>OC_CLA~1.TPL|oc_class_interface.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\oc_class_interface.tpl</td><td>5</td><td/></row>
-		<row><td>pascalcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>PASCAL~1.DBL|PascalCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\PascalCase.dbl</td><td>5</td><td/></row>
-		<row><td>quotedstring.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>QUOTED~1.DBL|QuotedString.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\QuotedString.dbl</td><td>5</td><td/></row>
-		<row><td>removeleading.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>REMOVE~1.DBL|RemoveLeading.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\RemoveLeading.dbl</td><td>5</td><td/></row>
-		<row><td>replacecharacter.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>REPLAC~1.DBL|ReplaceCharacter.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\ReplaceCharacter.dbl</td><td>5</td><td/></row>
-		<row><td>repositoryapi.dll</td><td>RepositoryAPI.dll</td><td>REPOSI~1.DLL|RepositoryAPI.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RepositoryAPI.dll</td><td>1</td><td/></row>
-		<row><td>rpsinfo.exe</td><td>RpsInfo.exe</td><td>RpsInfo.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\RpsInfo.exe</td><td>1</td><td/></row>
-		<row><td>smcinfo.exe</td><td>SmcInfo.exe</td><td>SmcInfo.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Bin\Release\SmcInfo.exe</td><td>1</td><td/></row>
-		<row><td>syn_collection.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CO~1.TPL|syn_collection.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_collection.tpl</td><td>5</td><td/></row>
-		<row><td>syn_collection_test.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CO~1.TPL|syn_collection_test.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_collection_test.tpl</td><td>5</td><td/></row>
-		<row><td>syn_csv_export.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CS~1.TPL|syn_csv_export.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_csv_export.tpl</td><td>5</td><td/></row>
-		<row><td>syn_data_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_DA~1.TPL|syn_data_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_data_class.tpl</td><td>5</td><td/></row>
-		<row><td>syn_io.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>syn_io.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_io.tpl</td><td>5</td><td/></row>
-		<row><td>syn_io_replicate.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_IO~1.TPL|syn_io_replicate.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_io_replicate.tpl</td><td>5</td><td/></row>
-		<row><td>syn_multi_data_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_MU~1.TPL|syn_multi_data_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_multi_data_class.tpl</td><td>5</td><td/></row>
-		<row><td>syn_oplock.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_OP~1.TPL|syn_oplock.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_oplock.tpl</td><td>5</td><td/></row>
-		<row><td>syn_winform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_WI~1.TPL|syn_winform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_winform.tpl</td><td>5</td><td/></row>
-		<row><td>syn_xdl.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>syn_xdl.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_xdl.tpl</td><td>5</td><td/></row>
-		<row><td>syn_xml_doc.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_doc.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_xml_doc.tpl</td><td>5</td><td/></row>
-		<row><td>syn_xml_elem.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_elem.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_xml_elem.tpl</td><td>5</td><td/></row>
-		<row><td>syn_xml_export.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_export.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_xml_export.tpl</td><td>5</td><td/></row>
-		<row><td>syn_xml_export_test.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_export_test.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_xml_export_test.tpl</td><td>5</td><td/></row>
-		<row><td>syn_xml_file.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_file.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\syn_xml_file.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TKN|synnet_mvvm.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm.tkn</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_data.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_data.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_data.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_data_util.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_data_util.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_data_util.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_global_resources1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_global_resources.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_global_resources.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_relay_command.tp1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_relay_command.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_relay_command.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_view_list.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_list.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_view_list.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_view_list_code.t1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_list_code.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_view_list_code.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_view_maint.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_maint.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_view_maint.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_view_maint_code.1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_maint_code.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_view_maint_code.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_view_statemanage1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_statemanager.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_view_statemanager.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_vm.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_vm.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_vm_list.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm_list.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_vm_list.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_vm_maint.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm_maint.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_vm_maint.tpl</td><td>5</td><td/></row>
-		<row><td>synnet_mvvm_vm_tk.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm_tk.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\synnet_mvvm_vm_tk.tpl</td><td>5</td><td/></row>
-		<row><td>tk_change.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_CHA~1.TPL|tk_change.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\tk_change.tpl</td><td>5</td><td/></row>
-		<row><td>tk_department.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_DEP~1.TKN|tk_department.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\tk_department.tkn</td><td>5</td><td/></row>
-		<row><td>tk_drill.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>tk_drill.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\tk_drill.tpl</td><td>5</td><td/></row>
-		<row><td>tk_input_window.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_INP~1.TPL|tk_input_window.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\tk_input_window.tpl</td><td>5</td><td/></row>
-		<row><td>tk_io.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>tk_io.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\tk_io.tpl</td><td>5</td><td/></row>
-		<row><td>tk_lookup.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_LOO~1.TPL|tk_lookup.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\tk_lookup.tpl</td><td>5</td><td/></row>
-		<row><td>tk_maint_simple.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_MAI~1.TPL|tk_maint_simple.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\tk_maint_simple.tpl</td><td>5</td><td/></row>
-		<row><td>tk_maint_tab.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_MAI~1.TPL|tk_maint_tab.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\tk_maint_tab.tpl</td><td>5</td><td/></row>
-		<row><td>tk_search.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_SEA~1.TPL|tk_search.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\tk_search.tpl</td><td>5</td><td/></row>
-		<row><td>uninstall.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>Uninstall.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\Dev\CodeGen\Installer\Uninstall.ico</td><td>1</td><td/></row>
-		<row><td>uppercase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>UPPERC~1.DBL|UpperCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\UpperCase.dbl</td><td>5</td><td/></row>
-		<row><td>vb_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>vb_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_class.tpl</td><td>5</td><td/></row>
-		<row><td>vb_webform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WEB~1.TPL|vb_webform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_webform.tpl</td><td>5</td><td/></row>
-		<row><td>vb_webform_absolute.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WEB~1.TPL|vb_webform_absolute.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_webform_absolute.tpl</td><td>5</td><td/></row>
-		<row><td>vb_webform_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WEB~1.TPL|vb_webform_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_webform_codebehind.tpl</td><td>5</td><td/></row>
-		<row><td>vb_webform_master.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WEB~1.TPL|vb_webform_master.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_webform_master.tpl</td><td>5</td><td/></row>
-		<row><td>vb_winform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WIN~1.TPL|vb_winform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_winform.tpl</td><td>5</td><td/></row>
-		<row><td>vb_winform_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WIN~1.TPL|vb_winform_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_winform_codebehind.tpl</td><td>5</td><td/></row>
-		<row><td>vb_winform_resources.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WIN~1.TPL|vb_winform_resources.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_winform_resources.tpl</td><td>5</td><td/></row>
-		<row><td>vb_xaml.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>vb_xaml.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_xaml.tpl</td><td>5</td><td/></row>
-		<row><td>vb_xaml_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_XAM~1.TPL|vb_xaml_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\vb_xaml_codebehind.tpl</td><td>5</td><td/></row>
-		<row><td>workbench.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>WORKBE~1.ICO|Workbench.ico</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Installer\Workbench.ico</td><td>5</td><td/></row>
-		<row><td>xf_java_add.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_add.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_add.tpl</td><td>5</td><td/></row>
-		<row><td>xf_java_can_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_can_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_can_delete.tpl</td><td>5</td><td/></row>
-		<row><td>xf_java_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_delete.tpl</td><td>5</td><td/></row>
-		<row><td>xf_java_get.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_get.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_get.tpl</td><td>5</td><td/></row>
-		<row><td>xf_java_get_all.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_get_all.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_get_all.tpl</td><td>5</td><td/></row>
-		<row><td>xf_java_update.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_update.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_update.tpl</td><td>5</td><td/></row>
-		<row><td>xf_java_user_tokens.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TKN|xf_java_user_tokens.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_user_tokens.tkn</td><td>5</td><td/></row>
-		<row><td>xf_java_validate.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_validate.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_java_validate.tpl</td><td>5</td><td/></row>
-		<row><td>xf_net_add.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_add.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_add.tpl</td><td>5</td><td/></row>
-		<row><td>xf_net_can_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_can_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_can_delete.tpl</td><td>5</td><td/></row>
-		<row><td>xf_net_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_delete.tpl</td><td>5</td><td/></row>
-		<row><td>xf_net_get.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_get.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_get.tpl</td><td>5</td><td/></row>
-		<row><td>xf_net_get_all.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_get_all.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_get_all.tpl</td><td>5</td><td/></row>
-		<row><td>xf_net_get_master_detail.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_get_master_detail.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_get_master_detail.tpl</td><td>5</td><td/></row>
-		<row><td>xf_net_select_all.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_select_all.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_select_all.tpl</td><td>5</td><td/></row>
-		<row><td>xf_net_update.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_update.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_update.tpl</td><td>5</td><td/></row>
-		<row><td>xf_net_user_tokens.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TKN|xf_net_user_tokens.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_user_tokens.tkn</td><td>5</td><td/></row>
-		<row><td>xf_net_validate.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_validate.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\xf_net_validate.tpl</td><td>5</td><td/></row>
-		<row><td>xfcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XfCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\Dev\CodeGen\Templates\XfCase.dbl</td><td>5</td><td/></row>
+		<row><td>camelcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CAMELC~1.DBL|CamelCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\CamelCase.dbl</td><td>5</td><td/></row>
+		<row><td>canopenfile.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CANOPE~1.DBL|CanOpenFile.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\CanOpenFile.dbl</td><td>5</td><td/></row>
+		<row><td>codegen.chm</td><td>CodeGen.chm</td><td>CodeGen.chm</td><td>0</td><td/><td/><td/><td>1</td><td>D:\CodePlex\CodeGen\Documentation\CodeGen.chm</td><td>1</td><td/></row>
+		<row><td>codegen.exe</td><td>CodeGen.exe</td><td>CodeGen.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\CodeGen.exe</td><td>1</td><td/></row>
+		<row><td>codegen_web_site.url</td><td>ISX_DEFAULTCOMPONENT1</td><td>CODEGE~1.URL|CodeGen Web Site.url</td><td>0</td><td/><td/><td/><td>1</td><td>D:\CodePlex\CodeGen\Installer\CodeGen Web Site.url</td><td>1</td><td/></row>
+		<row><td>codegenengine.dll</td><td>CodeGenEngine.dll</td><td>CODEGE~1.DLL|CodeGenEngine.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\CodeGenEngine.dll</td><td>1</td><td/></row>
+		<row><td>codegensampletemplates.sde</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.SDE|CodeGenSampleTemplates.sde</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\CodeGenSampleTemplates.sde</td><td>5</td><td/></row>
+		<row><td>codegensampletemplates.vpj</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPJ|CodeGenSampleTemplates.vpj</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\CodeGenSampleTemplates.vpj</td><td>5</td><td/></row>
+		<row><td>codegensampletemplates.vpw</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPW|CodeGenSampleTemplates.vpw</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\CodeGenSampleTemplates.vpw</td><td>5</td><td/></row>
+		<row><td>createfile.exe</td><td>CreateFile.exe</td><td>CREATE~1.EXE|CreateFile.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\CreateFile.exe</td><td>1</td><td/></row>
+		<row><td>cs_annotated_class.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ANN~1.TKN|cs_annotated_class.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_annotated_class.tkn</td><td>5</td><td/></row>
+		<row><td>cs_annotated_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ANN~1.TPL|cs_annotated_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_annotated_class.tpl</td><td>5</td><td/></row>
+		<row><td>cs_asp_data_provider.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ASP~1.TPL|cs_asp_data_provider.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_asp_data_provider.tpl</td><td>5</td><td/></row>
+		<row><td>cs_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>cs_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_class.tpl</td><td>5</td><td/></row>
+		<row><td>cs_mvvm.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>cs_mvvm.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_mvvm.tkn</td><td>5</td><td/></row>
+		<row><td>cs_mvvm_maint_cancelcommand.1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_cancelcommand.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_mvvm_maint_cancelcommand.tpl</td><td>5</td><td/></row>
+		<row><td>cs_mvvm_maint_manager.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_manager.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_mvvm_maint_manager.tpl</td><td>5</td><td/></row>
+		<row><td>cs_mvvm_maint_savecommand.tp1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_savecommand.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_mvvm_maint_savecommand.tpl</td><td>5</td><td/></row>
+		<row><td>cs_mvvm_maint_view.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_view.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_mvvm_maint_view.tpl</td><td>5</td><td/></row>
+		<row><td>cs_mvvm_maint_view_code.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_view_code.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_mvvm_maint_view_code.tpl</td><td>5</td><td/></row>
+		<row><td>cs_mvvm_maint_viewmodel.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_maint_viewmodel.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_mvvm_maint_viewmodel.tpl</td><td>5</td><td/></row>
+		<row><td>cs_mvvm_model.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_model.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_mvvm_model.tpl</td><td>5</td><td/></row>
+		<row><td>cs_mvvm_model_manual.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_MVV~1.TPL|cs_mvvm_model_manual.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_mvvm_model_manual.tpl</td><td>5</td><td/></row>
+		<row><td>cs_webform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WEB~1.TPL|cs_webform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_webform.tpl</td><td>5</td><td/></row>
+		<row><td>cs_webform_absolute.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WEB~1.TPL|cs_webform_absolute.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_webform_absolute.tpl</td><td>5</td><td/></row>
+		<row><td>cs_webform_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WEB~1.TPL|cs_webform_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_webform_codebehind.tpl</td><td>5</td><td/></row>
+		<row><td>cs_webform_master.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WEB~1.TPL|cs_webform_master.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_webform_master.tpl</td><td>5</td><td/></row>
+		<row><td>cs_winform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WIN~1.TPL|cs_winform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_winform.tpl</td><td>5</td><td/></row>
+		<row><td>cs_winform_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WIN~1.TPL|cs_winform_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_winform_codebehind.tpl</td><td>5</td><td/></row>
+		<row><td>cs_winform_resources.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_WIN~1.TPL|cs_winform_resources.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_winform_resources.tpl</td><td>5</td><td/></row>
+		<row><td>cs_xaml.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>cs_xaml.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_xaml.tpl</td><td>5</td><td/></row>
+		<row><td>cs_xaml_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_XAM~1.TPL|cs_xaml_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_xaml_codebehind.tpl</td><td>5</td><td/></row>
+		<row><td>cs_xaml_ig.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_XAM~1.TPL|cs_xaml_ig.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_xaml_ig.tpl</td><td>5</td><td/></row>
+		<row><td>cs_xaml_ig_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_XAM~1.TPL|cs_xaml_ig_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\cs_xaml_ig_codebehind.tpl</td><td>5</td><td/></row>
+		<row><td>databaseroutines.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseRoutines.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DatabaseRoutines.tpl</td><td>5</td><td/></row>
+		<row><td>databaseroutinesload.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseRoutinesLoad.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DatabaseRoutinesLoad.tpl</td><td>5</td><td/></row>
+		<row><td>databaseroutinesloadmapped.t1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseRoutinesLoadMapped.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DatabaseRoutinesLoadMapped.tpl</td><td>5</td><td/></row>
+		<row><td>databaseroutinestest.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseRoutinesTest.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DatabaseRoutinesTest.tpl</td><td>5</td><td/></row>
+		<row><td>databasetable.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTable.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DatabaseTable.tpl</td><td>5</td><td/></row>
+		<row><td>databasetablebase.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTableBase.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DatabaseTableBase.tpl</td><td>5</td><td/></row>
+		<row><td>databasetableconnection.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTableConnection.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DatabaseTableConnection.tpl</td><td>5</td><td/></row>
+		<row><td>databasetablemapped.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTableMapped.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DatabaseTableMapped.tpl</td><td>5</td><td/></row>
+		<row><td>databasetabletest.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DATABA~1.TPL|DatabaseTableTest.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DatabaseTableTest.tpl</td><td>5</td><td/></row>
+		<row><td>datamappingsexample.xml</td><td>ISX_DEFAULTCOMPONENT1</td><td>DATAMA~1.XML|DataMappingsExample.xml</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\RepositoryAPI\DataMappingsExample.xml</td><td>5</td><td/></row>
+		<row><td>decimaltomdystring.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DECIMA~1.DBL|DecimalToMDYString.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DecimalToMDYString.dbl</td><td>5</td><td/></row>
+		<row><td>decimaltotimestring.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>DECIMA~1.DBL|DecimalToTimeString.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\DecimalToTimeString.dbl</td><td>5</td><td/></row>
+		<row><td>defaultbuttons.xml</td><td>ISX_DEFAULTCOMPONENT1</td><td>DEFAUL~1.XML|DefaultButtons.xml</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\CodeGenEngine\DefaultButtons.xml</td><td>5</td><td/></row>
+		<row><td>help.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>Help.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\CodePlex\CodeGen\Documentation\Help.ico</td><td>1</td><td/></row>
+		<row><td>html_codegen.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>HTML_C~1.TPL|html_codegen.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\html_codegen.tpl</td><td>5</td><td/></row>
+		<row><td>html_rps_structure_docs.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>HTML_R~1.TPL|html_rps_structure_docs.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\html_rps_structure_docs.tpl</td><td>5</td><td/></row>
+		<row><td>internetexplorer.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>INTERN~1.ICO|InternetExplorer.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\CodePlex\CodeGen\Installer\InternetExplorer.ico</td><td>1</td><td/></row>
+		<row><td>isnumeric.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>ISNUME~1.DBL|IsNumeric.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\IsNumeric.dbl</td><td>5</td><td/></row>
+		<row><td>iswhitespace.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>ISWHIT~1.DBL|IsWhitespace.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\IsWhitespace.dbl</td><td>5</td><td/></row>
+		<row><td>json_from_record.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>JSON_F~1.TPL|json_from_record.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\json_from_record.tpl</td><td>5</td><td/></row>
+		<row><td>lowercase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>LOWERC~1.DBL|LowerCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\LowerCase.dbl</td><td>5</td><td/></row>
+		<row><td>mapprep.exe</td><td>MapPrep.exe</td><td>MapPrep.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\MapPrep.exe</td><td>1</td><td/></row>
+		<row><td>methodcatalogapi.dll</td><td>MethodCatalogAPI.dll</td><td>MethodCatalogAPI.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\MethodCatalogAPI.dll</td><td>1</td><td/></row>
+		<row><td>mixedcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>MIXEDC~1.DBL|MixedCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\MixedCase.dbl</td><td>5</td><td/></row>
+		<row><td>oc_class_implementation.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>OC_CLA~1.TPL|oc_class_implementation.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\oc_class_implementation.tpl</td><td>5</td><td/></row>
+		<row><td>oc_class_interface.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>OC_CLA~1.TPL|oc_class_interface.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\oc_class_interface.tpl</td><td>5</td><td/></row>
+		<row><td>pascalcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>PASCAL~1.DBL|PascalCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\PascalCase.dbl</td><td>5</td><td/></row>
+		<row><td>quotedstring.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>QUOTED~1.DBL|QuotedString.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\QuotedString.dbl</td><td>5</td><td/></row>
+		<row><td>removeleading.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>REMOVE~1.DBL|RemoveLeading.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\RemoveLeading.dbl</td><td>5</td><td/></row>
+		<row><td>replacecharacter.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>REPLAC~1.DBL|ReplaceCharacter.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\ReplaceCharacter.dbl</td><td>5</td><td/></row>
+		<row><td>repositoryapi.dll</td><td>RepositoryAPI.dll</td><td>REPOSI~1.DLL|RepositoryAPI.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\RepositoryAPI.dll</td><td>1</td><td/></row>
+		<row><td>rpsinfo.exe</td><td>RpsInfo.exe</td><td>RpsInfo.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\RpsInfo.exe</td><td>1</td><td/></row>
+		<row><td>smcinfo.exe</td><td>SmcInfo.exe</td><td>SmcInfo.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\SmcInfo.exe</td><td>1</td><td/></row>
+		<row><td>syn_collection.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CO~1.TPL|syn_collection.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_collection.tpl</td><td>5</td><td/></row>
+		<row><td>syn_collection_test.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CO~1.TPL|syn_collection_test.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_collection_test.tpl</td><td>5</td><td/></row>
+		<row><td>syn_csv_export.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_CS~1.TPL|syn_csv_export.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_csv_export.tpl</td><td>5</td><td/></row>
+		<row><td>syn_data_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_DA~1.TPL|syn_data_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_data_class.tpl</td><td>5</td><td/></row>
+		<row><td>syn_io.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>syn_io.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_io.tpl</td><td>5</td><td/></row>
+		<row><td>syn_io_replicate.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_IO~1.TPL|syn_io_replicate.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_io_replicate.tpl</td><td>5</td><td/></row>
+		<row><td>syn_multi_data_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_MU~1.TPL|syn_multi_data_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_multi_data_class.tpl</td><td>5</td><td/></row>
+		<row><td>syn_oplock.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_OP~1.TPL|syn_oplock.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_oplock.tpl</td><td>5</td><td/></row>
+		<row><td>syn_winform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_WI~1.TPL|syn_winform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_winform.tpl</td><td>5</td><td/></row>
+		<row><td>syn_xdl.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>syn_xdl.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_xdl.tpl</td><td>5</td><td/></row>
+		<row><td>syn_xml_doc.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_doc.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_xml_doc.tpl</td><td>5</td><td/></row>
+		<row><td>syn_xml_elem.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_elem.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_xml_elem.tpl</td><td>5</td><td/></row>
+		<row><td>syn_xml_export.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_export.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_xml_export.tpl</td><td>5</td><td/></row>
+		<row><td>syn_xml_export_test.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_export_test.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_xml_export_test.tpl</td><td>5</td><td/></row>
+		<row><td>syn_xml_file.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYN_XM~1.TPL|syn_xml_file.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\syn_xml_file.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TKN|synnet_mvvm.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm.tkn</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_data.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_data.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_data.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_data_util.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_data_util.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_data_util.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_global_resources1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_global_resources.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_global_resources.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_relay_command.tp1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_relay_command.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_relay_command.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_view_list.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_list.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_view_list.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_view_list_code.t1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_list_code.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_view_list_code.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_view_maint.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_maint.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_view_maint.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_view_maint_code.1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_maint_code.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_view_maint_code.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_view_statemanage1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_view_statemanager.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_view_statemanager.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_vm.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_vm.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_vm_list.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm_list.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_vm_list.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_vm_maint.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm_maint.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_vm_maint.tpl</td><td>5</td><td/></row>
+		<row><td>synnet_mvvm_vm_tk.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm_tk.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_vm_tk.tpl</td><td>5</td><td/></row>
+		<row><td>tk_change.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_CHA~1.TPL|tk_change.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_change.tpl</td><td>5</td><td/></row>
+		<row><td>tk_department.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_DEP~1.TKN|tk_department.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_department.tkn</td><td>5</td><td/></row>
+		<row><td>tk_drill.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>tk_drill.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_drill.tpl</td><td>5</td><td/></row>
+		<row><td>tk_input_window.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_INP~1.TPL|tk_input_window.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_input_window.tpl</td><td>5</td><td/></row>
+		<row><td>tk_io.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>tk_io.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_io.tpl</td><td>5</td><td/></row>
+		<row><td>tk_lookup.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_LOO~1.TPL|tk_lookup.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_lookup.tpl</td><td>5</td><td/></row>
+		<row><td>tk_maint_simple.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_MAI~1.TPL|tk_maint_simple.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_maint_simple.tpl</td><td>5</td><td/></row>
+		<row><td>tk_maint_tab.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_MAI~1.TPL|tk_maint_tab.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_maint_tab.tpl</td><td>5</td><td/></row>
+		<row><td>tk_search.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_SEA~1.TPL|tk_search.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_search.tpl</td><td>5</td><td/></row>
+		<row><td>uninstall.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>Uninstall.ico</td><td>0</td><td/><td/><td/><td>1</td><td>D:\CodePlex\CodeGen\Installer\Uninstall.ico</td><td>1</td><td/></row>
+		<row><td>uppercase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>UPPERC~1.DBL|UpperCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\UpperCase.dbl</td><td>5</td><td/></row>
+		<row><td>vb_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>vb_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_class.tpl</td><td>5</td><td/></row>
+		<row><td>vb_webform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WEB~1.TPL|vb_webform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_webform.tpl</td><td>5</td><td/></row>
+		<row><td>vb_webform_absolute.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WEB~1.TPL|vb_webform_absolute.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_webform_absolute.tpl</td><td>5</td><td/></row>
+		<row><td>vb_webform_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WEB~1.TPL|vb_webform_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_webform_codebehind.tpl</td><td>5</td><td/></row>
+		<row><td>vb_webform_master.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WEB~1.TPL|vb_webform_master.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_webform_master.tpl</td><td>5</td><td/></row>
+		<row><td>vb_winform.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WIN~1.TPL|vb_winform.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_winform.tpl</td><td>5</td><td/></row>
+		<row><td>vb_winform_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WIN~1.TPL|vb_winform_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_winform_codebehind.tpl</td><td>5</td><td/></row>
+		<row><td>vb_winform_resources.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_WIN~1.TPL|vb_winform_resources.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_winform_resources.tpl</td><td>5</td><td/></row>
+		<row><td>vb_xaml.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>vb_xaml.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_xaml.tpl</td><td>5</td><td/></row>
+		<row><td>vb_xaml_codebehind.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>VB_XAM~1.TPL|vb_xaml_codebehind.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\vb_xaml_codebehind.tpl</td><td>5</td><td/></row>
+		<row><td>workbench.ico</td><td>ISX_DEFAULTCOMPONENT1</td><td>WORKBE~1.ICO|Workbench.ico</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Installer\Workbench.ico</td><td>5</td><td/></row>
+		<row><td>xf_java_add.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_add.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_java_add.tpl</td><td>5</td><td/></row>
+		<row><td>xf_java_can_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_can_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_java_can_delete.tpl</td><td>5</td><td/></row>
+		<row><td>xf_java_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_java_delete.tpl</td><td>5</td><td/></row>
+		<row><td>xf_java_get.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_get.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_java_get.tpl</td><td>5</td><td/></row>
+		<row><td>xf_java_get_all.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_get_all.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_java_get_all.tpl</td><td>5</td><td/></row>
+		<row><td>xf_java_update.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_update.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_java_update.tpl</td><td>5</td><td/></row>
+		<row><td>xf_java_user_tokens.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TKN|xf_java_user_tokens.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_java_user_tokens.tkn</td><td>5</td><td/></row>
+		<row><td>xf_java_validate.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_JAV~1.TPL|xf_java_validate.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_java_validate.tpl</td><td>5</td><td/></row>
+		<row><td>xf_net_add.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_add.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_add.tpl</td><td>5</td><td/></row>
+		<row><td>xf_net_can_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_can_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_can_delete.tpl</td><td>5</td><td/></row>
+		<row><td>xf_net_delete.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_delete.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_delete.tpl</td><td>5</td><td/></row>
+		<row><td>xf_net_get.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_get.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_get.tpl</td><td>5</td><td/></row>
+		<row><td>xf_net_get_all.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_get_all.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_get_all.tpl</td><td>5</td><td/></row>
+		<row><td>xf_net_get_master_detail.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_get_master_detail.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_get_master_detail.tpl</td><td>5</td><td/></row>
+		<row><td>xf_net_select_all.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_select_all.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_select_all.tpl</td><td>5</td><td/></row>
+		<row><td>xf_net_update.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_update.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_update.tpl</td><td>5</td><td/></row>
+		<row><td>xf_net_user_tokens.tkn1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TKN|xf_net_user_tokens.tkn</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_user_tokens.tkn</td><td>5</td><td/></row>
+		<row><td>xf_net_validate.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XF_NET~1.TPL|xf_net_validate.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\xf_net_validate.tpl</td><td>5</td><td/></row>
+		<row><td>xfcase.dbl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>XfCase.dbl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\XfCase.dbl</td><td>5</td><td/></row>
 	</table>
 
 	<table name="FileSFPCatalog">
@@ -4069,12 +4071,12 @@
 		<col def="V0">Data</col>
 		<col def="S255">ISBuildSourcePath</col>
 		<col def="I2">ISIconIndex</col>
-		<row><td>ARPPRODUCTICON.exe</td><td/><td>D:\Dev\CodeGen\CodeGen\CodeGen.ico</td><td>0</td></row>
-		<row><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td/><td>D:\Dev\CodeGen\Documentation\Help.ico</td><td>0</td></row>
-		<row><td>NewShortcut3_73A2210FB1414994AE5A0DB59B7450FD.exe</td><td/><td>D:\Dev\CodeGen\Installer\Uninstall.ico</td><td>0</td></row>
-		<row><td>NewShortcut5_C876300F723C425EA5302CE5323157A3.exe</td><td/><td>D:\Dev\CodeGen\Installer\Workbench.ico</td><td>0</td></row>
-		<row><td>NewShortcut6_1EC12D35871C4DE3B0D12D2FB3F8E3AB.exe</td><td/><td>D:\Dev\CodeGen\Installer\InternetExplorer.ico</td><td>0</td></row>
-		<row><td>NewShortcut7_D01A559730AB4F9D8021DACF7507F215.exe</td><td/><td>D:\Dev\CodeGen\Installer\InternetExplorer.ico</td><td>0</td></row>
+		<row><td>ARPPRODUCTICON.exe</td><td/><td>D:\CodePlex\CodeGen\CodeGen\CodeGen.ico</td><td>0</td></row>
+		<row><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td/><td>D:\CodePlex\CodeGen\Documentation\Help.ico</td><td>0</td></row>
+		<row><td>NewShortcut3_73A2210FB1414994AE5A0DB59B7450FD.exe</td><td/><td>D:\CodePlex\CodeGen\Installer\Uninstall.ico</td><td>0</td></row>
+		<row><td>NewShortcut5_C876300F723C425EA5302CE5323157A3.exe</td><td/><td>D:\CodePlex\CodeGen\Installer\Workbench.ico</td><td>0</td></row>
+		<row><td>NewShortcut6_1EC12D35871C4DE3B0D12D2FB3F8E3AB.exe</td><td/><td>D:\CodePlex\CodeGen\Installer\InternetExplorer.ico</td><td>0</td></row>
+		<row><td>NewShortcut7_D01A559730AB4F9D8021DACF7507F215.exe</td><td/><td>D:\CodePlex\CodeGen\Installer\InternetExplorer.ico</td><td>0</td></row>
 	</table>
 
 	<table name="IniFile">
