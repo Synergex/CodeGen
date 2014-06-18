@@ -45,6 +45,9 @@ import CodeGen.RepositoryAPI
 import System.Collections
 .ifdef DBLNET
 import Microsoft.Win32
+import System
+import System.IO
+import System.Reflection
 .endc
 
 namespace CodeGen.Engine
@@ -430,13 +433,19 @@ namespace CodeGen.Engine
 		data extensionsAssembly, String
 		extensionsAssembly = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","ExtensionLibrary","")
 
-		if ((symphonyLocation!=^null)&&(symphonyLocation!="")&&(extensionsAssembly!=^null)&&(extensionsAssembly!=""))
+		;;Did we find the location of a Symphony Framework extensions assembly in the registry?
+		if (String.IsNullOrWhiteSpace(symphonyLocation)||String.IsNullOrWhiteSpace(extensionsAssembly))
 		begin
-			if (!symphonyLocation.EndsWith("\"))
-				symphonyLocation = symphonyLocation.Trim()+"\"
-			
-			extensionsAssembly = symphonyLocation + extensionsAssembly
+			;;No, let's look in the same location as the current assembly
+			data codeBaseUri, @UriBuilder, new UriBuilder(Assembly.GetExecutingAssembly().CodeBase)
+			symphonyLocation = Path.GetDirectoryName(Uri.UnescapeDataString(codeBaseUri.Path))
+			extensionsAssembly = "SymphonyCodeGenExtensions.dll"
+		end
 
+		extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
+
+		if (File.Exists(extensionsAssembly))
+		begin
 			;;Load the assembly
 			try
 			begin
@@ -478,14 +487,14 @@ namespace CodeGen.Engine
 				end
 				endtry
 			end
-		end
 
-		if (!ok)
-		begin
-			;;If we had a problem then don't retain any extensions
-			Env.RemoveExtensions()
+			if (!ok)
+			begin
+				;;If we had a problem then don't retain any extensions
+				Env.RemoveExtensions()
+			end
 		end
-		
+			
 		xreturn
 		
 	endsubroutine
