@@ -48,8 +48,6 @@
 ;;
 ;; Author:      <AUTHOR>
 ;;
-;; Date:        <DATE> <TIME>
-;;
 main <Structure_Name>CollectionTest
 
     .include "<STRUCTURE_NOALIAS>" repository, structure="<structure_name>"

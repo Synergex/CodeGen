@@ -52,8 +52,6 @@
 ;;
 ;; Author:      <AUTHOR>
 ;;
-;; Date:        <DATE> <TIME>
-;;
 function Export<StructureName>          ,^val
     optional in aDelimiter              ,a1
     optional in aReplaceDelimiterWith   ,a1

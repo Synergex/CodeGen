@@ -49,8 +49,6 @@
 ;;
 ;; Author:      <AUTHOR>
 ;;
-;; Date:        <DATE> <TIME>
-;;
 function <Structure_Name>Collection ,^VAL
 
     required out a_mh   ,int    ;Collection of structures (memory handle)

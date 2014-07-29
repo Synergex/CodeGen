@@ -49,13 +49,12 @@
 ;;
 ;; Type:        Class
 ;;
-;; Author:      <CODEGEN_VERSION>
-;;
-;; Created:     <DATE> at <TIME>
+;; Author:      <AUTHOR>
 ;;
 ;;*****************************************************************************
 
 .include "NETSRC:wpf.inc"
+
 import <NAMESPACE>
 
 namespace <NAMESPACE>

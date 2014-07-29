@@ -46,7 +46,7 @@
     <title>Structure <STRUCTURE_NAME> CodeGen Information</title>
 </head>
 <body>
-<a name="top"><h1><CODEGEN_VERSION> Repository Structure Report</h1></a>
+<a name="top"><h1>Repository Structure Report</h1></a>
 <h2>Structure <STRUCTURE_NAME> (<STRUCTURE_DESC>)</h2>
 
 <a href="#struct_tokens">Structure Tokens</a> :

@@ -41,7 +41,7 @@
 ;// POSSIBILITY OF SUCH DAMAGE.
 ;//
 ;//****************************************************************************
-!   Synergy ISAM XDL File created <DATE> <TIME>
+!   Synergy ISAM XDL File
 FILE
     NAME        "<FILE_NAME>"
     ADDRESSING  <FILE_ADDRESSING>
