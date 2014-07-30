@@ -209,42 +209,94 @@ namespace CodeGen.Engine
 		end
 
 		data ok, Boolean, true
-
-		;;Do we have a Symphony extensions assembly?
-
 		data symphonyLocation, String
-		symphonyLocation = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","ExtensionPath","")
-
 		data extensionsAssembly, String
+		data extensionsFound, boolean, false
+
+		;;Report whether we're running 32-bit or 64-bit
+		if (Env.DeveloperDebug)
+		begin
+			if (Environment.Is64BitProcess) then
+				Log("DEVDBG: Process is 64-bit",false,false)
+			else
+				Log("DEVDBG: Process is 32-bit",false,false)
+		end
+
+		;;Look for extensions in the registry
+
+		symphonyLocation = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","ExtensionPath","")
 		extensionsAssembly = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","ExtensionLibrary","")
 
-		;;Did we find the location of a Symphony Framework extensions assembly in the registry?
-		if (!String.IsNullOrWhiteSpace(symphonyLocation)&&!String.IsNullOrWhiteSpace(extensionsAssembly)) then
+		if (!String.IsNullOrWhiteSpace(symphonyLocation)&&!String.IsNullOrWhiteSpace(extensionsAssembly))
 		begin
-			if (Env.DeveloperDebug)
-				Log("DEVDBG: Extensions definition found in registry",false,false)
+			extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
+			if (File.Exists(extensionsAssembly)) then
+			begin
+				if (Env.DeveloperDebug)
+					Log("DEVDBG: Extensions definition found in registry and assembly found",false,false)
+				extensionsFound = true
+			end
+			else
+			begin
+				if (Env.DeveloperDebug)
+					Log("DEVDBG: Extensions definition found in registry but assembly not found",false,false)
+			end
 		end
-		else
+
+		;;If we didn't find extensions, and we're 64-bit, let's try looking in the 32-bit registry
+
+		if (!extensionsFound&&Environment.Is64BitProcess)
 		begin
-			if (Env.DeveloperDebug)
-				Log("DEVDBG: Extensions definition NOT found in registry, looking on disk",false,false)
-			;;No, let's look in the same location as the current assembly
+			symphonyLocation = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\SymphonyFramework","ExtensionPath","")
+			extensionsAssembly = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\SymphonyFramework","ExtensionLibrary","")
+
+			if (!String.IsNullOrWhiteSpace(symphonyLocation)&&!String.IsNullOrWhiteSpace(extensionsAssembly))
+			begin
+				extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
+				if (File.Exists(extensionsAssembly)) then
+				begin
+					if (Env.DeveloperDebug)
+						Log("DEVDBG: Extensions definition found in 32-bit registry and assembly found",false,false)
+					extensionsFound = true
+				end
+				else
+				begin
+					if (Env.DeveloperDebug)
+						Log("DEVDBG: Extensions definition found in 32-bit registry but assembly not found",false,false)
+				end
+			end
+		end
+
+		;;If we still didn't find extensions, let's look on disk
+		if (!extensionsFound)
+		begin
 			data codeBaseUri, @UriBuilder, new UriBuilder(Assembly.GetExecutingAssembly().CodeBase)
 			symphonyLocation = Path.GetDirectoryName(Uri.UnescapeDataString(codeBaseUri.Path))
 			extensionsAssembly = "SymphonyCodeGenExtensions.dll"
+			extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
+
+			if (File.Exists(extensionsAssembly)) then
+			begin
+				if (Env.DeveloperDebug)
+					Log("DEVDBG: Extensions found on disk",false,false)
+				extensionsFound = true
+			end
+			else
+			begin
+				if (Env.DeveloperDebug)
+					Log("DEVDBG: Extensions not found on disk",false,false)
+			end
 		end
 
-		extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
-		
-		if (Env.DeveloperDebug)
-			Log("DEVDBG: Using " + extensionsAssembly,false,false)
-			
-		if (File.Exists(extensionsAssembly)) then
+		if (extensionsFound)
 		begin
-			if (Env.DeveloperDebug)
-				Log("DEVDBG: Assembly exists",false,false)
+			;;Report the extensions assembly we're going to use
 
+			if (Env.DeveloperDebug)
+				Log("DEVDBG: Using " + extensionsAssembly,false,false)
+			
 			;;Load the assembly
+
 			try
 			begin
 				xcall openelb(extensionsAssembly)
@@ -259,6 +311,7 @@ namespace CodeGen.Engine
 			endtry
 				
 			;;Find the address for the entry point routine
+
 			data entryPointAddress, D_ADDR, 0
 			if (ok)
 			begin
@@ -275,6 +328,7 @@ namespace CodeGen.Engine
 			end
 				
 			;;Load the extensions
+
 			if (ok)
 			begin
 				try
@@ -305,10 +359,7 @@ namespace CodeGen.Engine
 				endtry
 			end
 		end
-		else
-			if (Env.DeveloperDebug)
-				Log("DEVDBG: Assembly not found!",false,false)
-			
+
 		if (Env.DeveloperDebug)
 			Log("DEVDBG: Finished loading extensions",false,false)
 
