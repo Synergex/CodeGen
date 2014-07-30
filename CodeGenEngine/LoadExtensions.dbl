@@ -62,13 +62,21 @@ namespace CodeGen.Engine
 			libraries			,@ArrayList
 			loadCustomTokens	,Boolean
 			usingExtDir			,Boolean
+			extensionsFound     ,Boolean
 		endrecord
 		
 	proc
 		
+		if (Env.DeveloperDebug)
+		begin
+			Log("DEVDBG: ----------------------------------------------------------",false,false)
+			Log("DEVDBG: OTHER EXTENSIONS",false,false)
+		end
+
 		ok = true
 		loadCustomTokens = false
 		usingExtDir = false
+		extensionsFound = false
 			
 		;;Do we have a CODEGEN_EXTDIR environment variable?
 		xcall getlog("CODEGEN_EXTDIR",customFileSpec,tmpLen)
@@ -81,28 +89,28 @@ namespace CodeGen.Engine
 		end
 			
 		;;Setup a file spec to locate custom token processor extensions
-.ifdef DBLNET
+		.ifdef DBLNET
 		if (customFileSpec(%trim(customFileSpec):1)!="\")
 			customFileSpec = %atrim(customFileSpec) + "\"
 		customFileSpec = %atrim(customFileSpec) + "custom*.dll"
-.else
-.ifdef D_GUI
+		.else
+		.ifdef D_GUI
 		if (customFileSpec(%trim(customFileSpec):1)!="\")
 			customFileSpec = %atrim(customFileSpec) + "\"
 		customFileSpec = %atrim(customFileSpec) + "custom*.elb"
-.endc
-.ifdef OS_UNIX
+		.endc
+		.ifdef OS_UNIX
 		if (customFileSpec(%trim(customFileSpec):1)!="/")
 			customFileSpec = %atrim(customFileSpec) + "/"
 		customFileSpec = %atrim(customFileSpec) + "custom*.elb"
-.endc
-.ifdef OS_VMS
+		.endc
+		.ifdef OS_VMS
 		customFileSpec = %atrim(customFileSpec) + "custom*.exe"
-.endc
-.endc
+		.endc
+		.endc
 			
 		if (Env.DeveloperDebug)
-			Log("DEVDBG: Searching for custom token extensions in "+customFileSpec,false,false)
+			Log("DEVDBG: Searching for extensions in "+customFileSpec,false,false)
 			
 		if (WinDir(customFileSpec,libraries,WinDirCase.NoChange))
 		begin
@@ -112,299 +120,73 @@ namespace CodeGen.Engine
 				data libSpec, String, "CODEGEN_EXE:"+(a)file
 				if (usingExtDir)
 					libSpec = "CODEGEN_EXTDIR:"+(a)file
+
+				if (Env.DeveloperDebug)
+					Log("DEVDBG: Found "+libSpec,false,false)
+					
 				try
 				begin
 					data address, D_ADDR, 0
 
-					if (Env.DeveloperDebug)
-						Log("DEVDBG: Activating " + libSpec,false,false)
-
 					xcall openelb(libSpec)
 					
+					extensionsFound = true
+
+					if (Env.DeveloperDebug)
+						Log("DEVDBG: Library opened",false,false)
+						
 					;;Get the address of the extensions load routine
-					if (address = %xaddr("LoadCustomExtensions",,1))
+					if (address = %xaddr("LoadCustomExtensions",,1)) then
 					begin
+						if (Env.DeveloperDebug)
+							Log("DEVDBG: LoadCustomExtensions() found",false,false)
 						try
 						begin
-							DebugLog("Loading extensions from "+libSpec,false,false)
+							if (Env.DeveloperDebug)
+								Log("DEVDBG: Calling LoadCustomExtensions()",false,false)
 							xcall xsubr(address)
 						end
 						catch (e, @Exception)
 						begin
-							ErrorLog("Failed to load custom extensions. LoadCustomExtensions() failed!")
-							Log("       Exception:" + e.Message,false,false)
-							if (e.InnerException!=^null)
-								Log("       Inner exception" + e.InnerException.Message,false,false)
+							if (Env.DeveloperDebug) then
+							begin
+								Log("DEVDBG: LoadCustomExtensions() failed. Error was: "+ e.Message,false,false)
+								if (e.InnerException!=^null)
+									Log("        Inner exception: " + e.InnerException.Message,false,false)
+							end
+							else
+							begin
+								ErrorLog("Failed to load extensions. LoadCustomExtensions() failed!")
+								Log("       Exception:" + e.Message,false,false)
+								if (e.InnerException!=^null)
+									Log("       Inner exception" + e.InnerException.Message,false,false)
+							end
 							ok = false
 						end
 						endtry
 					end
+					else
+					begin
+						if (Env.DeveloperDebug)
+							Log("DEVDBG: LoadCustomExtensions() NOT found!",false,false)
+					end
 				end
 				catch (e, @Exception)
 				begin
-					ErrorLog("Failed to open custom extensions library " + libSpec)
+					ErrorLog("Failed to open library!")
 					ok = false
 				end
 				endtry
 			end				
 		end
 
-		if (ok) then
+		if (Env.DeveloperDebug)
 		begin
-			if ((Env.CustomTokens.Count>0)
-			&	|| (Env.CustomFieldTokens.Count>0)
-			&	|| (Env.CustomSelectionTokens.Count>0)
-			&	|| (Env.CustomKeyTokens.Count>0)
-			&	|| (Env.CustomSegmentTokens.Count>0)
-			&	|| (Env.CustomEnumTokens.Count>0)
-			&	|| (Env.CustomEnumMemberTokens.Count>0)
-			&	|| (Env.CustomrelationTokens.Count>0)
-			&	|| (Env.CustomButtonTokens.Count>0)
-			&	|| (Env.CustomFileTokens.Count>0)
-			&	|| (Env.CustomTagTokens.Count>0))
-			begin
-				if (Env.CustomTokens.Count>0)
-				begin
-					DebugLog(" - Custom generic tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomToken
-						foreach customToken in Env.CustomTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomFieldTokens.Count>0)
-				begin
-					DebugLog(" - Custom field loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomFieldToken
-						foreach customToken in Env.CustomFieldTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomSelectionTokens.Count>0)
-				begin
-					DebugLog(" - Custom field selection loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomSelectionToken
-						foreach customToken in Env.CustomSelectionTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomKeyTokens.Count>0)
-				begin
-					DebugLog(" - Custom key loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomKeyToken
-						foreach customToken in Env.CustomKeyTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomSegmentTokens.Count>0)
-				begin
-					DebugLog(" - Custom key segment loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomSegmentToken
-						foreach customToken in Env.CustomSegmentTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomEnumTokens.Count>0)
-				begin
-					DebugLog(" - Custom enum loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomEnumToken
-						foreach customToken in Env.CustomEnumTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomEnumMemberTokens.Count>0)
-				begin
-					DebugLog(" - Custom enum member loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomEnumMemberToken
-						foreach customToken in Env.CustomEnumMemberTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomRelationTokens.Count>0)
-				begin
-					DebugLog(" - Custom relation loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomRelationToken
-						foreach customToken in Env.CustomRelationTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomButtonTokens.Count>0)
-				begin
-					DebugLog(" - Custom button loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomButtonToken
-						foreach customToken in Env.CustomButtonTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomFileTokens.Count>0)
-				begin
-					DebugLog(" - Custom file loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomFileToken
-						foreach customToken in Env.CustomFileTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-				
-				if (Env.CustomTagTokens.Count>0)
-				begin
-					DebugLog(" - Custom tag loop tokens have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customToken, @CustomTagToken
-						foreach customToken in Env.CustomTagTokens
-							DebugLog("   " + customToken.Token,false,false)
-					end
-				end
-			end
-
-			if ((Env.CustomFieldExpressions.Count>0)
-			&	|| (Env.CustomSelectionExpressions.Count>0)
-			&	|| (Env.CustomKeyExpressions.Count>0)
-			&	|| (Env.CustomSegmentExpressions.Count>0)
-			&	|| (Env.CustomEnumExpressions.Count>0)
-			&	|| (Env.CustomEnumMemberExpressions.Count>0)
-			&	|| (Env.CustomFileExpressions.Count>0)
-			&	|| (Env.CustomTagExpressions.Count>0)
-			&	|| (Env.CustomButtonExpressions.Count>0))
-			begin
-				if (Env.CustomFieldExpressions.Count>0)
-				begin
-					DebugLog(" - Custom field loop expressions have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customExpression, @CustomFieldExpression
-						foreach customExpression in Env.CustomFieldExpressions
-							DebugLog("   <IF " + customExpression.Expression+">",false,false)
-					end
-				end
-
-				if (Env.CustomSelectionExpressions.Count>0)
-				begin
-					DebugLog(" - Custom field selection loop expressions have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customExpression, @CustomSelectionExpression
-						foreach customExpression in Env.CustomSelectionExpressions
-							DebugLog("   <IF " + customExpression.Expression+">",false,false)
-					end
-				end
-				
-				if (Env.CustomKeyExpressions.Count>0)
-				begin
-					DebugLog(" - Custom key loop expressions have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customExpression, @CustomKeyExpression
-						foreach customExpression in Env.CustomKeyExpressions
-							DebugLog("   <IF " + customExpression.Expression+">",false,false)
-					end
-				end
-				
-				if (Env.CustomSegmentExpressions.Count>0)
-				begin
-					DebugLog(" - Custom key segment loop expressions have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customExpression, @CustomSegmentExpression
-						foreach customExpression in Env.CustomSegmentExpressions
-							DebugLog("   <IF " + customExpression.Expression+">",false,false)
-					end
-				end
-				
-				if (Env.CustomEnumExpressions.Count>0)
-				begin
-					DebugLog(" - Custom enum loop expressions have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customExpression, @CustomEnumExpression
-						foreach customExpression in Env.CustomEnumExpressions
-							DebugLog("   <IF " + customExpression.Expression+">",false,false)
-					end
-				end
-				
-				if (Env.CustomEnumMemberExpressions.Count>0)
-				begin
-					DebugLog(" - Custom enum member loop expressions have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customExpression, @CustomEnumMemberExpression
-						foreach customExpression in Env.CustomEnumMemberExpressions
-							DebugLog("   <IF " + customExpression.Expression+">",false,false)
-					end
-				end
-				
-				if (Env.CustomFileExpressions.Count>0)
-				begin
-					DebugLog(" - Custom file loop expressions have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customExpression, @CustomFileExpression
-						foreach customExpression in Env.CustomFileExpressions
-							DebugLog("   <IF " + customExpression.Expression+">",false,false)
-					end
-				end				
-				
-				if (Env.CustomTagExpressions.Count>0)
-				begin
-					DebugLog(" - Custom tag loop expressions have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customExpression, @CustomTagExpression
-						foreach customExpression in Env.CustomTagExpressions
-							DebugLog("   <IF " + customExpression.Expression+">",false,false)
-					end
-				end
-
-				if (Env.CustomButtonExpressions.Count>0)
-				begin
-					DebugLog(" - Custom button loop expressions have been loaded",false,false)
-					if (Env.DeveloperDebug)
-					begin
-						data customExpression, @CustomButtonExpression
-						foreach customExpression in Env.CustomButtonExpressions
-							DebugLog("   <IF " + customExpression.Expression+">",false,false)
-					end
-				end
-
-			end
-			
+			if (!extensionsFound)
+				Log("DEVDBG: No extensions found",false,false)
+			Log("DEVDBG: Finished loading extensions",false,false)
 		end
-		else
-		begin
-			;;If we had a problem then don't retain any extensions
-			;;This potentially removes Symphony extensions that were
-			;;successfully loaded earlier!
-			Env.RemoveExtensions()
-		end
-			
+		
 		xreturn
 		
 	endsubroutine
@@ -420,11 +202,14 @@ namespace CodeGen.Engine
 		
 	proc
 
+		if (Env.DeveloperDebug)
+		begin
+			Log("DEVDBG: ----------------------------------------------------------",false,false)
+			Log("DEVDBG: SYMPHONY FRAMEWORK EXTENSIONS",false,false)
+		end
+
 		data ok, Boolean, true
 
-		if (Env.DeveloperDebug)
-			Log("DEVDBG: Searching for Symphony extensions",false,false)
-		
 		;;Do we have a Symphony extensions assembly?
 
 		data symphonyLocation, String
@@ -434,8 +219,15 @@ namespace CodeGen.Engine
 		extensionsAssembly = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","ExtensionLibrary","")
 
 		;;Did we find the location of a Symphony Framework extensions assembly in the registry?
-		if (String.IsNullOrWhiteSpace(symphonyLocation)||String.IsNullOrWhiteSpace(extensionsAssembly))
+		if (!String.IsNullOrWhiteSpace(symphonyLocation)&&!String.IsNullOrWhiteSpace(extensionsAssembly)) then
 		begin
+			if (Env.DeveloperDebug)
+				Log("DEVDBG: Extensions definition found in registry",false,false)
+		end
+		else
+		begin
+			if (Env.DeveloperDebug)
+				Log("DEVDBG: Extensions definition NOT found in registry, looking on disk",false,false)
 			;;No, let's look in the same location as the current assembly
 			data codeBaseUri, @UriBuilder, new UriBuilder(Assembly.GetExecutingAssembly().CodeBase)
 			symphonyLocation = Path.GetDirectoryName(Uri.UnescapeDataString(codeBaseUri.Path))
@@ -443,17 +235,25 @@ namespace CodeGen.Engine
 		end
 
 		extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
-
-		if (File.Exists(extensionsAssembly))
+		
+		if (Env.DeveloperDebug)
+			Log("DEVDBG: Using " + extensionsAssembly,false,false)
+			
+		if (File.Exists(extensionsAssembly)) then
 		begin
+			if (Env.DeveloperDebug)
+				Log("DEVDBG: Assembly exists",false,false)
+
 			;;Load the assembly
 			try
 			begin
 				xcall openelb(extensionsAssembly)
+				if (Env.DeveloperDebug)
+					Log("DEVDBG: Assembly opened",false,false)
 			end
 			catch (e, @Exception)
 			begin
-				ErrorLog("Failed to load Symphony extensions assembly " + extensionsAssembly)
+				ErrorLog("Failed to open assembly. Error was " + e.Message)
 				ok = false
 			end
 			endtry
@@ -462,9 +262,14 @@ namespace CodeGen.Engine
 			data entryPointAddress, D_ADDR, 0
 			if (ok)
 			begin
-				if (!(entryPointAddress = %xaddr("LoadSymphonyExtensions",,1)))
+				if (entryPointAddress = %xaddr("LoadSymphonyExtensions",,1)) then
 				begin
-					ErrorLog("Routine LoadSymphonyExtensions() was not found in assembly " + extensionsAssembly)
+					if (Env.DeveloperDebug)
+						Log("DEVDBG: Found LoadSymphonyExtensions()",false,false)
+				end
+				else
+				begin
+					ErrorLog("LoadSymphonyExtensions() NOT found!")
 					ok = false
 				end
 			end
@@ -474,31 +279,306 @@ namespace CodeGen.Engine
 			begin
 				try
 				begin
-					DebugLog("Loading Symphony extensions",true,false)
+					if (Env.DeveloperDebug) then
+						Log("DEVDBG: Calling LoadSymphonyExtensions()",false,false)
+					else
+						DebugLog("Loading Symphony extensions",true,false)
 					xcall xsubr(entryPointAddress)
 				end
 				catch (e, @Exception)
 				begin
-					ErrorLog("Failed to load Symphony extensions. LoadSymphonyExtensions() failed!")
-					Log("       Exception: " + e.Message,false,false)
-					if (e.InnerException!=^null)
-						Log("       Inner exception: " + e.InnerException.Message,false,false)
+					if (Env.DeveloperDebug) then
+					begin
+						Log("DEVDBG: LoadSymphonyExtensions() failed. Error was: "+ e.Message,false,false)
+						if (e.InnerException!=^null)
+							Log("        Inner exception: " + e.InnerException.Message,false,false)
+					end
+					else
+					begin
+						ErrorLog("Failed to load Symphony extensions. LoadSymphonyExtensions() failed!")
+						Log("       Exception: " + e.Message,false,false)
+						if (e.InnerException!=^null)
+							Log("       Inner exception: " + e.InnerException.Message,false,false)
+					end
 					ok = false
 				end
 				endtry
 			end
-
-			if (!ok)
-			begin
-				;;If we had a problem then don't retain any extensions
-				Env.RemoveExtensions()
-			end
 		end
+		else
+			if (Env.DeveloperDebug)
+				Log("DEVDBG: Assembly not found!",false,false)
 			
+		if (Env.DeveloperDebug)
+			Log("DEVDBG: Finished loading extensions",false,false)
+
 		xreturn
 		
 	endsubroutine
 
 .endc
+
+	subroutine ReportExtensions
+		endparams
+	proc
+
+		if (Env.DeveloperDebug)
+		begin
+			Log("DEVDBG: ----------------------------------------------------------",false,false)
+			Log("DEVDBG: SUMMARY OF LOADED EXTENSIONS",false,false)
+		end
+
+		if ((Env.CustomTokens.Count>0)
+		&	|| (Env.CustomFieldTokens.Count>0)
+		&	|| (Env.CustomSelectionTokens.Count>0)
+		&	|| (Env.CustomKeyTokens.Count>0)
+		&	|| (Env.CustomSegmentTokens.Count>0)
+		&	|| (Env.CustomEnumTokens.Count>0)
+		&	|| (Env.CustomEnumMemberTokens.Count>0)
+		&	|| (Env.CustomrelationTokens.Count>0)
+		&	|| (Env.CustomButtonTokens.Count>0)
+		&	|| (Env.CustomFileTokens.Count>0)
+		&	|| (Env.CustomTagTokens.Count>0)) then
+		begin
+			if (Env.CustomTokens.Count>0)
+			begin
+				DebugLog(" - Custom generic tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomToken
+					foreach customToken in Env.CustomTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomFieldTokens.Count>0)
+			begin
+				DebugLog(" - Custom field loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomFieldToken
+					foreach customToken in Env.CustomFieldTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomSelectionTokens.Count>0)
+			begin
+				DebugLog(" - Custom field selection loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomSelectionToken
+					foreach customToken in Env.CustomSelectionTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomKeyTokens.Count>0)
+			begin
+				DebugLog(" - Custom key loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomKeyToken
+					foreach customToken in Env.CustomKeyTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomSegmentTokens.Count>0)
+			begin
+				DebugLog(" - Custom key segment loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomSegmentToken
+					foreach customToken in Env.CustomSegmentTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomEnumTokens.Count>0)
+			begin
+				DebugLog(" - Custom enum loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomEnumToken
+					foreach customToken in Env.CustomEnumTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomEnumMemberTokens.Count>0)
+			begin
+				DebugLog(" - Custom enum member loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomEnumMemberToken
+					foreach customToken in Env.CustomEnumMemberTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomRelationTokens.Count>0)
+			begin
+				DebugLog(" - Custom relation loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomRelationToken
+					foreach customToken in Env.CustomRelationTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomButtonTokens.Count>0)
+			begin
+				DebugLog(" - Custom button loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomButtonToken
+					foreach customToken in Env.CustomButtonTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomFileTokens.Count>0)
+			begin
+				DebugLog(" - Custom file loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomFileToken
+					foreach customToken in Env.CustomFileTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+			
+			if (Env.CustomTagTokens.Count>0)
+			begin
+				DebugLog(" - Custom tag loop tokens have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customToken, @CustomTagToken
+					foreach customToken in Env.CustomTagTokens
+						DebugLog("   " + customToken.Token,false,false)
+				end
+			end
+		end
+		else
+			DebugLog(" - No custom tokens have been loaded",false,false)
+		
+		if ((Env.CustomFieldExpressions.Count>0)
+		&	|| (Env.CustomSelectionExpressions.Count>0)
+		&	|| (Env.CustomKeyExpressions.Count>0)
+		&	|| (Env.CustomSegmentExpressions.Count>0)
+		&	|| (Env.CustomEnumExpressions.Count>0)
+		&	|| (Env.CustomEnumMemberExpressions.Count>0)
+		&	|| (Env.CustomFileExpressions.Count>0)
+		&	|| (Env.CustomTagExpressions.Count>0)
+		&	|| (Env.CustomButtonExpressions.Count>0)) then
+		begin
+			if (Env.CustomFieldExpressions.Count>0)
+			begin
+				DebugLog(" - Custom field loop expressions have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customExpression, @CustomFieldExpression
+					foreach customExpression in Env.CustomFieldExpressions
+						DebugLog("   <IF " + customExpression.Expression+">",false,false)
+				end
+			end
+			
+			if (Env.CustomSelectionExpressions.Count>0)
+			begin
+				DebugLog(" - Custom field selection loop expressions have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customExpression, @CustomSelectionExpression
+					foreach customExpression in Env.CustomSelectionExpressions
+						DebugLog("   <IF " + customExpression.Expression+">",false,false)
+				end
+			end
+			
+			if (Env.CustomKeyExpressions.Count>0)
+			begin
+				DebugLog(" - Custom key loop expressions have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customExpression, @CustomKeyExpression
+					foreach customExpression in Env.CustomKeyExpressions
+						DebugLog("   <IF " + customExpression.Expression+">",false,false)
+				end
+			end
+			
+			if (Env.CustomSegmentExpressions.Count>0)
+			begin
+				DebugLog(" - Custom key segment loop expressions have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customExpression, @CustomSegmentExpression
+					foreach customExpression in Env.CustomSegmentExpressions
+						DebugLog("   <IF " + customExpression.Expression+">",false,false)
+				end
+			end
+			
+			if (Env.CustomEnumExpressions.Count>0)
+			begin
+				DebugLog(" - Custom enum loop expressions have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customExpression, @CustomEnumExpression
+					foreach customExpression in Env.CustomEnumExpressions
+						DebugLog("   <IF " + customExpression.Expression+">",false,false)
+				end
+			end
+			
+			if (Env.CustomEnumMemberExpressions.Count>0)
+			begin
+				DebugLog(" - Custom enum member loop expressions have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customExpression, @CustomEnumMemberExpression
+					foreach customExpression in Env.CustomEnumMemberExpressions
+						DebugLog("   <IF " + customExpression.Expression+">",false,false)
+				end
+			end
+			
+			if (Env.CustomFileExpressions.Count>0)
+			begin
+				DebugLog(" - Custom file loop expressions have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customExpression, @CustomFileExpression
+					foreach customExpression in Env.CustomFileExpressions
+						DebugLog("   <IF " + customExpression.Expression+">",false,false)
+				end
+			end				
+			
+			if (Env.CustomTagExpressions.Count>0)
+			begin
+				DebugLog(" - Custom tag loop expressions have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customExpression, @CustomTagExpression
+					foreach customExpression in Env.CustomTagExpressions
+						DebugLog("   <IF " + customExpression.Expression+">",false,false)
+				end
+			end
+			
+			if (Env.CustomButtonExpressions.Count>0)
+			begin
+				DebugLog(" - Custom button loop expressions have been loaded",false,false)
+				if (Env.DeveloperDebug)
+				begin
+					data customExpression, @CustomButtonExpression
+					foreach customExpression in Env.CustomButtonExpressions
+						DebugLog("   <IF " + customExpression.Expression+">",false,false)
+				end
+			end
+			
+		end
+		else
+			DebugLog(" - No custom expressions have been loaded",false,false)
+		
+		xreturn
+
+	endsubroutine
 	
 endnamespace
