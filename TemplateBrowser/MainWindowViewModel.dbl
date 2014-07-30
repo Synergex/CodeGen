@@ -1,0 +1,196 @@
+
+import System
+import System.Collections.ObjectModel
+import System.ComponentModel
+import System.IO
+import System.Windows
+import System.Windows.Input
+
+namespace TemplateBrowser
+
+	public class MainWindowViewModel extends ViewModelBase
+
+		private templateFolder, String
+	
+.region "Constructors"
+
+		public method MainWindowViewModel
+			endparams
+		proc
+
+			CodeGenTemplates = new ObservableCollection<TemplateProxy>()
+			SymphonyTemplates = new ObservableCollection<TemplateProxy>()
+			UserTemplates = new ObservableCollection<TemplateProxy>()
+
+			data fileSpec, String
+
+			;;Load CodeGen sample templates
+
+			templateFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"Synergex\CodeGen\Templates")
+			foreach fileSpec in Directory.GetFiles(templateFolder,"*.tpl")
+				CodeGenTemplates.Add(new TemplateProxy(fileSpec))
+
+			;;Load Symphony Framework templates
+
+			data symphonyTemplateFolder, String, Environment.GetEnvironmentVariable("SYMPHONYTPL")
+			if (symphonyTemplateFolder!=^null)
+			begin
+				foreach fileSpec in Directory.GetFiles(symphonyTemplateFolder,"*.tpl")
+					SymphonyTemplates.Add(new TemplateProxy(fileSpec))
+			end
+
+			;;Load user templates
+
+			loadUserTemplates()
+
+			;;Display the first user template
+
+			if (UserTemplates.Count>0)
+				SelectedTemplate = UserTemplates[0]
+
+		endmethod
+
+.endregion
+
+.region "Main bindable properties"
+
+		public property CodeGenTemplates, @ObservableCollection<TemplateProxy>
+			method get
+			endmethod
+			method set
+			endmethod
+		endproperty
+
+		public property SymphonyTemplates, @ObservableCollection<TemplateProxy>
+			method get
+			endmethod
+			method set
+			endmethod
+		endproperty
+
+		public property UserTemplates, @ObservableCollection<TemplateProxy>
+			method get
+			endmethod
+			method set
+			endmethod
+		endproperty
+
+		private mSelectedTemplate, @TemplateProxy
+
+		public property SelectedTemplate, @TemplateProxy
+			method get
+			proc
+				mreturn mSelectedTemplate
+			endmethod
+			method set
+			proc
+				mSelectedTemplate = value
+				NotifyPropertyChanged("SelectedTemplate")
+				StatusBarText = SelectedTemplate.FullPath
+				try
+				begin
+					SelectedTemplateData = File.ReadAllText(SelectedTemplate.FullPath)
+				end
+				catch (e, @Exception)
+				begin
+					SelectedTemplateData = "Failed to read template file. Error was " + e.Message
+				end
+				endtry
+			endmethod
+		endproperty
+
+		private mSelectedTemplateData, String
+
+		public property SelectedTemplateData, String
+			method get
+			proc
+				mreturn mSelectedTemplateData
+			endmethod
+			method set
+			proc
+				mSelectedTemplateData = value
+				NotifyPropertyChanged("SelectedTemplateData")
+			endmethod
+		endproperty
+
+		private mStatusBarText, string
+
+		public property StatusBarText, String
+			method get
+			proc
+				mreturn mStatusBarText
+			endmethod
+			method set
+			proc
+				mStatusBarText = value
+				NotifyPropertyChanged("StatusBarText")
+			endmethod
+		endproperty
+		
+.endregion
+
+.region "OptionsCommand"
+
+		private mOptionsCommand, @ICommand
+
+		public property OptionsCommand, @ICommand
+			method get
+			proc
+				if (mOptionsCommand==^null)
+				begin
+					lambda doOptionsCommand(param)
+					begin
+						data dialog, @OptionsDialog, new OptionsDialog()
+						dialog.ShowDialog()
+						loadUserTemplates()
+					end
+					mOptionsCommand = new RelayCommand(doOptionsCommand)
+				end
+				mreturn mOptionsCommand
+			endmethod
+		endproperty
+
+.endregion
+
+.region "ExitCommand"
+
+		private mExitCommand, @ICommand
+
+		public property ExitCommand, @ICommand
+			method get
+			proc
+				if (mExitCommand==^null)
+				begin
+					lambda doExitCommand(param)
+					begin
+						Application.Current.Shutdown()
+					end
+					mExitCommand = new RelayCommand(doExitCommand)
+				end
+				mreturn mExitCommand
+			endmethod
+		endproperty
+
+.endregion
+
+.region "Helper methods"
+
+		private method loadUserTemplates, void
+			endparams
+		proc
+			UserTemplates.Clear()
+			data fileSpec, String
+			data userTemplatesFolder, String, Properties.Settings.Default.UserTemplateFolder
+			if (!string.IsNullOrWhiteSpace(userTemplatesFolder)&&Directory.Exists(userTemplatesFolder))
+			begin
+				foreach fileSpec in Directory.GetFiles(userTemplatesFolder,"*.tpl")
+					UserTemplates.Add(new TemplateProxy(fileSpec))
+			end
+			
+		endmethod
+
+.endregion
+
+	endclass
+
+endnamespace

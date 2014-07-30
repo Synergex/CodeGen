@@ -362,6 +362,7 @@
 		<row><td>RepositoryAPI.dll</td><td>{80BC519E-5598-49AA-9CEE-1EC5A928134C}</td><td>INSTALLDIR</td><td>2</td><td/><td>repositoryapi.dll</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>RpsInfo.exe</td><td>{55D50002-E0D4-455E-847E-23E475992027}</td><td>INSTALLDIR</td><td>2</td><td/><td>rpsinfo.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 		<row><td>SmcInfo.exe</td><td>{D51B6829-AF09-47AC-9C41-647CEEB9129D}</td><td>INSTALLDIR</td><td>2</td><td/><td>smcinfo.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
+		<row><td>TemplateBrowser.exe</td><td>{7C2FD0FE-23DF-47CD-9E95-6B9CCC9794F8}</td><td>INSTALLDIR</td><td>2</td><td/><td>templatebrowser.exe</td><td>9</td><td/><td/><td/><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td><td>/LogFile=</td></row>
 	</table>
 
 	<table name="Condition">
@@ -1909,6 +1910,7 @@
 		<row><td>AlwaysInstall</td><td>RepositoryAPI.dll</td></row>
 		<row><td>AlwaysInstall</td><td>RpsInfo.exe</td></row>
 		<row><td>AlwaysInstall</td><td>SmcInfo.exe</td></row>
+		<row><td>AlwaysInstall</td><td>TemplateBrowser.exe</td></row>
 	</table>
 
 	<table name="File">
@@ -2018,6 +2020,8 @@
 		<row><td>synnet_mvvm_vm_list.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm_list.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_vm_list.tpl</td><td>5</td><td/></row>
 		<row><td>synnet_mvvm_vm_maint.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm_maint.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_vm_maint.tpl</td><td>5</td><td/></row>
 		<row><td>synnet_mvvm_vm_tk.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>SYNNET~1.TPL|synnet_mvvm_vm_tk.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\synnet_mvvm_vm_tk.tpl</td><td>5</td><td/></row>
+		<row><td>templatebrowser.exe</td><td>TemplateBrowser.exe</td><td>TemplateBrowser.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\TemplateBrowser.exe</td><td>1</td><td/></row>
+		<row><td>templatebrowser.exe.config</td><td>ISX_DEFAULTCOMPONENT1</td><td>TemplateBrowser.exe.config</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Bin\Release\TemplateBrowser.exe.config</td><td>1</td><td/></row>
 		<row><td>tk_change.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_CHA~1.TPL|tk_change.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_change.tpl</td><td>5</td><td/></row>
 		<row><td>tk_drill.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>tk_drill.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_drill.tpl</td><td>5</td><td/></row>
 		<row><td>tk_input_window.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>TK_INP~1.TPL|tk_input_window.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Templates\tk_input_window.tpl</td><td>5</td><td/></row>
@@ -2215,6 +2219,7 @@
 		<row><td>RepositoryAPI.dll</td><td/><td/><td>_2F21230C_F0D5_4258_8B41_BFDD59CBECEF_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>RpsInfo.exe</td><td/><td/><td>_B1A4B82E_9FBB_4EC9_B6BB_1EB5286BC973_FILTER</td><td/><td/><td/><td/></row>
 		<row><td>SmcInfo.exe</td><td/><td/><td>_26A97ACD_6AA6_40BE_86DA_7A5DA85A8C08_FILTER</td><td/><td/><td/><td/></row>
+		<row><td>TemplateBrowser.exe</td><td/><td/><td>_B2630911_65F5_4F14_87B4_A99A74A7ACDD_FILTER</td><td/><td/><td/><td/></row>
 	</table>
 
 	<table name="ISCustomActionReference">
@@ -3960,6 +3965,7 @@
 		<row><td>ID_STRING6</td><td>1033</td><td>http://codegen.codeplex.com/workitem/list/basic</td><td>0</td><td/><td>-719291700</td></row>
 		<row><td>ID_STRING7</td><td>1033</td><td>http://codegen.codeplex.com/releases</td><td>0</td><td/><td>-719267124</td></row>
 		<row><td>ID_STRING8</td><td>1033</td><td>CodeGen</td><td>0</td><td/><td>-719313876</td></row>
+		<row><td>ID_STRING9</td><td>1033</td><td>Template Browser</td><td>0</td><td/><td>-207456017</td></row>
 		<row><td>IIDS_UITEXT_FeatureUninstalled</td><td>1033</td><td>This feature will remain uninstalled.</td><td>0</td><td/><td>-719269396</td></row>
 	</table>
 
@@ -4068,6 +4074,7 @@
 		<col def="S255">ISBuildSourcePath</col>
 		<col def="I2">ISIconIndex</col>
 		<row><td>ARPPRODUCTICON.exe</td><td/><td>D:\CodePlex\CodeGen\CodeGen\CodeGen.ico</td><td>0</td></row>
+		<row><td>NewShortcut1_3186AA3BE0094FC0A07E2BB0A7663F5A.exe</td><td/><td>D:\CodePlex\CodeGen\Bin\Release\TemplateBrowser.exe</td><td>0</td></row>
 		<row><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td/><td>D:\CodePlex\CodeGen\Documentation\Help.ico</td><td>0</td></row>
 		<row><td>NewShortcut3_73A2210FB1414994AE5A0DB59B7450FD.exe</td><td/><td>D:\CodePlex\CodeGen\Installer\Uninstall.ico</td><td>0</td></row>
 		<row><td>NewShortcut5_C876300F723C425EA5302CE5323157A3.exe</td><td/><td>D:\CodePlex\CodeGen\Installer\Workbench.ico</td><td>0</td></row>
@@ -4679,6 +4686,7 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<col def="L255">FileName</col>
 		<col def="s72">DirProperty</col>
 		<col def="i2">InstallMode</col>
+		<row><td>NewShortcut1</td><td>TemplateBrowser.exe</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut2</td><td>CodeGen.chm</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut3</td><td>CodeGen.exe</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut5</td><td>ISX_DEFAULTCOMPONENT5</td><td/><td>newfolder1</td><td>2</td></row>
@@ -4769,6 +4777,7 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<col def="S255">ISComments</col>
 		<col def="S255">ISShortcutName</col>
 		<col def="I4">ISAttributes</col>
+		<row><td>NewShortcut1</td><td>newfolder1</td><td>##ID_STRING9##</td><td>TemplateBrowser.exe</td><td>[INSTALLDIR]TemplateBrowser.exe</td><td/><td/><td/><td>NewShortcut1_3186AA3BE0094FC0A07E2BB0A7663F5A.exe</td><td>1</td><td>1</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut2</td><td>newfolder1</td><td>##ID_STRING11##</td><td>CodeGen.chm</td><td>[INSTALLDIR]CodeGen.chm</td><td/><td>##ID_STRING12##</td><td/><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td>0</td><td>3</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut3</td><td>newfolder1</td><td>##ID_STRING13##</td><td>CodeGen.exe</td><td>[SystemFolder]MsiExec.exe</td><td>/x [ProductCode]</td><td/><td/><td>NewShortcut3_73A2210FB1414994AE5A0DB59B7450FD.exe</td><td>0</td><td>1</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut5</td><td>newfolder1</td><td>##ID_STRING17##</td><td>ISX_DEFAULTCOMPONENT5</td><td>[ALLUSERSPROFILE]Synergex\CodeGen\CodeGenSampleTemplates.vpw</td><td/><td/><td/><td>NewShortcut5_C876300F723C425EA5302CE5323157A3.exe</td><td>0</td><td>3</td><td>CODEGEN1</td><td/><td/><td/><td/><td/><td/><td/></row>
