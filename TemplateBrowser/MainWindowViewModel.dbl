@@ -127,44 +127,88 @@ namespace TemplateBrowser
 			proc
 				mSelectedTemplate = value
 				NotifyPropertyChanged("SelectedTemplate")
-				StatusBarText = SelectedTemplate.FullPath
-				try
+				if (mSelectedTemplate.OriginalContent==^null)
 				begin
-					SelectedTemplateData = File.ReadAllText(SelectedTemplate.FullPath)
+					try
+					begin
+						mSelectedTemplate.OriginalContent = File.ReadAllText(SelectedTemplate.FullPath)
+					end
+					catch (e, @Exception)
+					begin
+						mSelectedTemplate.OriginalContent = "Failed to read template file. Error was " + e.Message
+					end
+					finally
+					begin
+						mSelectedTemplate.Content = mSelectedTemplate.OriginalContent
+					end
+					endtry
 				end
-				catch (e, @Exception)
-				begin
-					SelectedTemplateData = "Failed to read template file. Error was " + e.Message
-				end
-				endtry
 			endmethod
 		endproperty
 
-		private mSelectedTemplateData, String
+		private mTabSetEnabled, boolean, true
 
-		public property SelectedTemplateData, String
+		public property TabSetEnabled, boolean
 			method get
 			proc
-				mreturn mSelectedTemplateData
+				mreturn mTabSetEnabled
 			endmethod
 			method set
 			proc
-				mSelectedTemplateData = value
-				NotifyPropertyChanged("SelectedTemplateData")
+				mTabSetEnabled = value
+				NotifyPropertyChanged("TabSetEnabled")
 			endmethod
 		endproperty
 
-		private mStatusBarText, string
+.endregion
 
-		public property StatusBarText, String
+.region "SaveCommand"
+
+		private mSaveCommand, @ICommand
+
+		public property SaveCommand, @ICommand
 			method get
 			proc
-				mreturn mStatusBarText
+				if (mSaveCommand==^null)
+				begin
+					lambda doSaveCommand(param)
+					begin
+						SelectedTemplate.Save()
+					end
+					lambda canDoSaveCommand(param)
+					begin
+						data canSave, boolean, ((SelectedTemplate!=^null)&&SelectedTemplate.DataHasChanged)
+						TabSetEnabled = !canSave
+						mreturn canSave
+					end
+					mSaveCommand = new RelayCommand(doSaveCommand,canDoSaveCommand)
+				end
+				mreturn mSaveCommand
 			endmethod
-			method set
+		endproperty
+		
+.endregion
+
+.region "UndoCommand"
+
+		private mUndoCommand, @ICommand
+
+		public property UndoCommand, @ICommand
+			method get
 			proc
-				mStatusBarText = value
-				NotifyPropertyChanged("StatusBarText")
+				if (mUndoCommand==^null)
+				begin
+					lambda doUndo(param)
+					begin
+						SelectedTemplate.DiscardChanges()
+					end
+					lambda canUndo(param)
+					begin
+						mreturn ((SelectedTemplate!=^null)&&SelectedTemplate.DataHasChanged)
+					end
+					mUndoCommand = new RelayCommand(doUndo,canUndo)
+				end
+				mreturn mUndoCommand
 			endmethod
 		endproperty
 		
