@@ -93,27 +93,15 @@ namespace CodeGen.RepositoryAPI
 		endrecord
 		
 		local record
-			rec_type            ,3a2    ,',F'   ;;Fixed
-			&							,',M'   ;;Multiple
-			&							,',V'   ;;Variable
-			compress            ,2a2    ,'  '
-			&							,',C'   ;;Compress
-			page_size           ,5a4    ,'1024' ;;(default)
-			&							,'512'
-			&							,'2048'
-			&							,'4096'
-			&							,'8192'
-			static_rfa          ,2a2    ,'  '
-			&							,',S'
-			tbyte               ,2a2    ,'  '
-			&							,',T'
 			key_order           ,2a1    ,'A'    ;;ascending
 			&							,'D'    ;;descending
-			key_segtyp          ,5a1    ,'A'    ;;alpha (default)
+			key_segtyp          ,7a1    ,'A'    ;;alpha (default)
 			&							,'N'    ;;nocase
 			&							,'D'    ;;decimal
 			&							,'I'    ;;integer
 			&							,'U'    ;;unsigned
+			&							,'S'    ;;sequence
+			&							,'T'    ;;timestamp
 		endrecord
 		
 		.define append(x,y)     x = %atrim(x) + y
@@ -240,19 +228,60 @@ namespace CodeGen.RepositoryAPI
 				using (flsi_filtyp) select
 				('DBL ISAM'),
 				begin
-					;;Build file specification
+					;;Build the ISAMC file specification argument
 
-					if (flsi_density<50)
+					filespec = flsi_name									;;File specification
+
+					using flsi_rectyp select								;;Record type
+					(0),	append(filespec,',FIXED')
+					(1),	append(filespec,',MULTIPLE')
+					(2),	append(filespec,',VARIABLE')
+					endusing
+
+					if (flsi_compress)										;;Data compression
+						append(filespec,',COMPRESS')
+
+					if (flsi_density<50)									;;Default key density
 						flsi_density = 50
-					
-					filespec = flsi_name
-					append(filespec,rec_type(flsi_rectyp+1))
-					append(filespec,compress(flsi_compress+1))
 					append(filespec,',DENSITY='+%string(flsi_density))
-					append(filespec,',PAGE='+page_size(flsi_pagesize+1))
-					append(filespec,static_rfa(flsi_staticrfa+1))
-					append(filespec,tbyte(flsi_addressing+1))
-					
+
+					if (flsi_portable)										;;Portable integer specs
+					begin
+						upcase flsi_portable
+						if (flsi_portable=='I=') then
+							append(filespec,','+flsi_portable)
+						else
+							append(filespec,',I='+flsi_portable)
+					end
+
+					;;Network encrypt (,NETWORK_ENCRYPT) is not supported by Repository!
+
+					using flsi_pagesize select								;;Page size
+					(0),	append(filespec,',PAGE=1024')
+					(1),	append(filespec,',PAGE=512')
+					(2),	append(filespec,',PAGE=2048')
+					(3),	append(filespec,',PAGE=4096')
+					(4),	append(filespec,',PAGE=8192')
+					(5),	append(filespec,',PAGE=16384')
+					(6),	append(filespec,',PAGE=32768')
+					endusing
+
+					if (flsi_sgrfa)											;;Stored GRFA
+						append(filespec,',SGRFA')
+
+					;;Size limit (,SIZE_LIMIT=limit) is not supported by Repository!
+
+					if (flsi_staticrfa)										;;Static RFA
+						append(filespec,',STATIC_RFA')
+
+					if (flsi_addressing)									;;Terabyte
+						append(filespec,',TBYTE')
+
+					;;File text (,TEXT=text_spec) is not supported by Repository!
+
+					if (flsi_track)											;;Track changes
+						append(filespec,',TRACK_CHANGES')
+
 					;;Build key specifications
 					
 					xcall dd_key(dcs,DDK_SLIST,MAX_KEYS,keynames)
