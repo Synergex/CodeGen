@@ -79,7 +79,9 @@ proc
     open(Tt=0,i,"tt:")
     flags(7004020,1)
 
-	.ifdef DBLNET
+;;------------------------------------------------------------------------------
+.ifdef DBLNET
+;;------------------------------------------------------------------------------
 	
 	;;Explicitly set CODEGEN_EXE to the location of the running executable
 	TempString = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
@@ -92,17 +94,36 @@ proc
 	begin
 		;;No, look in the registry for the value set by InstallShield
 		data templateFolder, string
+		data templateFolderFound, boolean, false
+
 		templateFolder = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
         if ((templateFolder!=^null)&&(templateFolder!="")) then
 		begin
 			;;Found it
 			xcall setlog("CODEGEN_TPLDIR",templateFolder,TxtLen)
+			templateFolderFound = true
 		end
 		else
 		begin
-			;;Still nothing - default to current directory
+			;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+			if (Environment.Is64BitProcess)
+			begin
+				templateFolder = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","TemplatePath","")
+				if ((templateFolder!=^null)&&(templateFolder!=""))
+				begin
+					;;Found it
+					xcall setlog("CODEGEN_TPLDIR",templateFolder,TxtLen)
+					templateFolderFound = true
+				end
+			end
+		end
+
+		;;Still nothing? Default to current directory
+		if (!templateFolderFound)
+		begin
 			xcall setlog("CODEGEN_TPLDIR",".",TxtLen)
 		end
+
 		UnsetTemplate=true
 	end
 	
@@ -112,10 +133,20 @@ proc
 	begin
 		;;No, look in the registry for the value set by InstallShield
 		TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultAuthor","")
-        if (TempString)
+        if (TempString) then
 		begin
 			xcall setlog("CODEGEN_AUTHOR",TempString,TxtLen)
 			UnsetAuthor = true
+		end
+		else
+		begin
+			;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+			TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultAuthor","")
+			if (TempString)
+			begin
+				xcall setlog("CODEGEN_AUTHOR",TempString,TxtLen)
+				UnsetAuthor = true
+			end
 		end
 	end
 	
@@ -125,16 +156,28 @@ proc
 	begin
 		;;No, look in the registry for the value set by InstallShield
 		TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultCompany","")
-        if (TempString)
+        if (TempString) then
 		begin
 			xcall setlog("CODEGEN_COMPANY",TempString,TxtLen)
 			UnsetCompany = true
+		end
+		else
+		begin
+			;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+			TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultCompany","")
+			if (TempString)
+			begin
+				xcall setlog("CODEGEN_COMPANY",TempString,TxtLen)
+				UnsetCompany = true
+			end
 		end
 	end
 	
 	xcall CodeGen.Engine.CodeGenLauncher
 	
-	.else  ;End of Synergy .NET, start of Traditional Synergy code
+;;------------------------------------------------------------------------------
+.else  ;End of Synergy .NET, start of Traditional Synergy code
+;;------------------------------------------------------------------------------
 	
 	.ifdef D_GUI
 	;;Start a Registry API session
@@ -261,7 +304,9 @@ proc
 		xcall CodeGenLauncher
 	end
 	
-	.endc ;End of traditional Synergy processing
+;;------------------------------------------------------------------------------
+.endc ;End of traditional Synergy processing
+;;------------------------------------------------------------------------------
 	
 	;;Unset any environment variables that we set
 	if (UnsetTemplate)
