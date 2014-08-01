@@ -48,31 +48,18 @@ import System.IO
 
 main CodeGen
 
-	.ifdef D_GUI
-	.ifndef DBLNET
-	.include "CODEGEN_SRC:RegistryApi.def"
-	.endc
-	.endc
-	
 	record
-        tt              ,int								            ;;Terminal channel
-		ErrStatus       ,int                                            ;;Problem?
-		TxtLen          ,int                                            ;;Length of a string
-		UnsetTemplate   ,boolean                                        ;;Need to unset CODEGEN_TPLDIR
+        tt              ,int														;;Terminal channel
+		ErrStatus       ,int														;;Problem?
+		TxtLen          ,int														;;Length of a string
+		UnsetTemplate   ,boolean													;;Need to unset CODEGEN_TPLDIR
 		.ifdef D_GUI
-		UnsetExe        ,boolean                                        ;;Need to unset CODEGEN_EXE
-		UnsetAuthor     ,boolean                                        ;;Need to unset CODEGEN_AUTHOR
-		UnsetCompany    ,boolean                                        ;;Need to unset CODEGEN_COMPANY
-		.ifndef DBLNET
-		RegOpen         ,boolean                                        ;;Registry session open
-		RegHdl          ,D_ADDR                                         ;;Registry handle
-		RegHiveSys      ,int, HKEY_LOCAL_MACHINE                        ;;Registry hive
-		RegKey          ,a*, "SOFTWARE\Synergex\CodeGenTraditional\"    ;;Registry key
-		.endc
+		UnsetExe        ,boolean													;;Need to unset CODEGEN_EXE
+		UnsetAuthor     ,boolean													;;Need to unset CODEGEN_AUTHOR
+		UnsetCompany    ,boolean													;;Need to unset CODEGEN_COMPANY
 		.endc
 		TempString      ,a256
 	endrecord
-
 
 proc
 
@@ -120,9 +107,7 @@ proc
 
 		;;Still nothing? Default to current directory
 		if (!templateFolderFound)
-		begin
 			xcall setlog("CODEGEN_TPLDIR",".",TxtLen)
-		end
 
 		UnsetTemplate=true
 	end
@@ -179,39 +164,14 @@ proc
 .else  ;End of Synergy .NET, start of Traditional Synergy code
 ;;------------------------------------------------------------------------------
 	
-	.ifdef D_GUI
-	;;Start a Registry API session
-	if (ErrStatus=%RegStartSession(RegHdl)) then
-		writes(Tt,"ERROR: Failed to start registry session")
-	else
-		RegOpen=true
-	.endc
-	
 	if (!ErrStatus)
 	begin
 		;;Is CODEGEN_EXE already set in the environment?
 		xcall getlog("CODEGEN_EXE",TempString,TxtLen)
 		if (!TxtLen)
 		begin
-			.ifdef D_GUI
-			;;No, look in the registry for the value set by InstallShield
-			if (ErrStatus=%RegGetString(RegHdl,RegHiveSys,RegKey,"InstallPath",TempString)) then
-			begin
-				;;No InstallPath location found, we can't continue
-				writes(Tt,"ERROR: CodeGen is not correctly installed (can't determine CODEGEN_EXE)")
-				clear TempString
-			end
-			else
-			begin
-				;;Set CODEGEN_EXE:
-				xcall setlog("CODEGEN_EXE",atrim(TempString),TxtLen)
-				UnsetExe=true
-			end
-			.else
-			;;UNIX and OpenVMS
 			writes(Tt,"ERROR: CodeGen is not correctly installed (can't determine CODEGEN_EXE)")
 			ErrStatus=1
-			.endc
 		end
 	end
 	
@@ -221,80 +181,15 @@ proc
 		xcall getlog("CODEGEN_TPLDIR",TempString,TxtLen)
 		if (!TxtLen)
 		begin
-			.ifdef D_GUI
-			;;No, look in the registry for the value set by InstallShield
-			if (ErrStatus=%RegGetString(RegHdl,RegHiveSys,RegKey,"TemplatePath",TempString)) then
-			begin
-				;;No TemplatePath location found, default to current directory
-				TempString = "."
-				clear ErrStatus
-			end
-			else
-			begin
-				xcall setlog("CODEGEN_TPLDIR",atrim(TempString),TxtLen)
-				UnsetTemplate=true
-			end
-			.else
+			;;No, default to current directory
 			.ifdef OS_VMS
 			xcall setlog("CODEGEN_TPLDIR","SYS$DISK:",TxtLen)
 			.else
 			xcall setlog("CODEGEN_TPLDIR",".",TxtLen)
 			.endc
 			UnsetTemplate=true
-			.endc
 		end
 	end
-	
-	if (!ErrStatus)
-	begin
-		;;Is CODEGEN_AUTHOR already set in the environment?
-		xcall getlog("CODEGEN_AUTHOR",TempString,TxtLen)
-		if (!TxtLen)
-		begin
-			.ifdef D_GUI
-			;;No, look in the registry for the value set by InstallShield
-			if (ErrStatus=%RegGetString(RegHdl,RegHiveSys,RegKey,"DefaultAuthor",TempString)) then
-			begin
-				;;No DefaultAuthor found, that's OK, we have a default later
-				clear TempString, ErrStatus
-			end
-			else
-			begin
-				xcall setlog("CODEGEN_AUTHOR",atrim(TempString),TxtLen)
-				UnsetAuthor=true
-			end
-			.endc
-		end
-	end
-	
-	if (!ErrStatus)
-	begin
-		;;Is CODEGEN_COMPANY already set in the environment?
-		xcall getlog("CODEGEN_COMPANY",TempString,TxtLen)
-		if (!TxtLen)
-		begin
-			.ifdef D_GUI
-			;;No, look in the registry for the value set by InstallShield
-			if (ErrStatus=%RegGetString(RegHdl,RegHiveSys,RegKey,"DefaultCompany",TempString)) then
-			begin
-				;;No DefaultCompany found. That's OK, we have a default later.
-				clear TempString, ErrStatus
-			end
-			else
-			begin
-				;;Set CODEGEN_COMPANY:
-				xcall setlog("CODEGEN_COMPANY",atrim(TempString),TxtLen)
-				UnsetCompany=true
-			end
-			.endc
-		end
-	end
-	
-	.ifdef D_GUI
-	;;End the Registry API session
-	if (RegOpen)
-		xcall RegEndSession(RegHdl)
-	.endc
 	
 	;;Off we go
 	if (!ErrStatus)
@@ -323,10 +218,3 @@ proc
     stop
 
 endmain
-
-.ifdef D_GUI
-.ifndef DBLNET
-.include "CODEGEN_SRC:RegistryApi.dbl"
-.endc
-.endc
-
