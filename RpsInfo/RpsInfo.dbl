@@ -67,7 +67,9 @@ proc
     open(tt=0,i,"tt:")
     xcall flags(7004000,1)
     xcall flags(20,0)
-    ;---------------------------------------------------------------------------
+	
+	.ifndef DBLNET
+	;---------------------------------------------------------------------------
     ;Dbr or dbs?
     ;
     begin
@@ -76,7 +78,8 @@ proc
         xcall tnmbr(tmpi4a,tmpi4b)
         if (tmpi4b!=2)
             dbr = true
-    end
+	end
+	.endc
 
     ;---------------------------------------------------------------------------
     ;What are we being asked to do?
@@ -96,13 +99,15 @@ proc
     if (ok)
         call usage
 
+	.ifndef DBLNET
     .ifdef D_GUI
     if (dbr)
     begin
         display(tt,13,10,"Press a key: ")
         accept(tt,TmpBuf)
     end
-    .endc
+	.endc
+	.endc
 
     close tt
     stop
@@ -776,17 +781,19 @@ proc
     (RpsFilePageSize.PageSize4096),
         writes(tt,"4096 bytes")
     (RpsFilePageSize.PageSize8192),
-        writes(tt,"8192 bytes")
+		writes(tt,"8192 bytes")
+	.ifdef DBLV10
     (RpsFilePageSize.PageSize16384),
         writes(tt,"16384 bytes")
     (RpsFilePageSize.PageSize32768),
-        writes(tt,"32768 bytes")
+		writes(tt,"32768 bytes")
+	.endc
     endusing
 
     writes(tt, "  File density       : " + %string(f.Density)+"%")
 
     display(tt,"  Address size       : ")
-    using f.PageSize select
+    using f.Addressing select
     (RpsFileAddressing.Addressing32Bit),
         writes(tt,"32 bit")
     (RpsFileAddressing.Addressing40Bit),
@@ -804,6 +811,22 @@ proc
         writes(tt,"YES")
     else
         writes(tt,"NO")
+
+	.ifdef DBLV10
+    display(tt,"  Stored GRFA's      : ")
+    if (f.StoredGRFA) then
+        writes(tt,"YES")
+    else
+		writes(tt,"NO")
+	.endc
+
+	.ifdef DBLV10
+    display(tt,"  Change tracking    : ")
+    if (f.ChangeTracking) then
+        writes(tt,"YES")
+    else
+		writes(tt,"NO")
+	.endc
 
     writes(tt, "  Keys               : " + %string(f.Keys.Count))
 
