@@ -61,76 +61,82 @@ namespace CodeGen.Engine
         required inout ErrStatus                ,int
         endparams
 
+		stack record
+			result								,boolean
+		endrecord
+
     proc
 
         Loop1ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
         Loop1ConditionApplies.Add((@boolean)false)
 
+		result = false
+
         using ((a)Loop1ConditionMode[Loop1ConditionMode.Count-1]) select
 		
 		("ASCENDING "),
             if (Key.SortOrder==RpsKeyOrder.Ascending)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("AUTO_SEQUENCE"),
 			if (Key.Segments[0].DataType==RpsKeySegmentDataType.AutoSequence)
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+				result = true
 				
 		("AUTO_TIMESTAMP"),
 			if (Key.Segments[0].DataType==RpsKeySegmentDataType.AutoTimestamp)
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+				result = true
 				
 		("CHANGES "),
             if (Key.Modifiable)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("DESCENDING "),
             if (Key.SortOrder==RpsKeyOrder.Descending)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("DUPLICATES "),
             if (Key.Duplicates==RpsKeyDuplicates.Duplicates)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("DUPLICATESATFRONT "),
             if (Key.InsertDuplicates==RpsKeyInsertDups.AtFront)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("DUPLICATESATEND "),
             if (Key.InsertDuplicates==RpsKeyInsertDups.AtEnd)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("MORE "),
             if (!PrimaryKeyOnly&&(KeyNbr<Str.Keys.Count-1))
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("MULTIPLE_SEGMENTS "),
             if (Key.Segments.Count>1)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("NOCHANGES "),
             if (!Key.Modifiable)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("NODUPLICATES "),
             if (Key.Duplicates==RpsKeyDuplicates.NoDuplicates)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("NOMORE "),
             if (PrimaryKeyOnly||(KeyNbr==Str.Keys.Count-1))
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("NULLKEY "),
             if (Key.NullKey!=RpsKeyNullType.None)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("NULLVALUE "),
             if (Key.NullKeyValue.Length>1)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("SINGLE_SEGMENT "),
             if (Key.Segments.Count==1)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("COUNTER_","NOT_COUNTER_"),
 			if (!ProcessCounterExpression(Loop1ConditionMode,Loop1ConditionApplies))
@@ -153,7 +159,7 @@ namespace CodeGen.Engine
 			begin
 				if (ut.Name=="<"+utName+">")
 				begin
-					Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+					result = true
 					exitloop
 				end
 			end
@@ -168,7 +174,7 @@ namespace CodeGen.Engine
 			
 			if (Env.UserTokens==^null) then
 			begin
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+				result = true
 			end
 			else
 			begin
@@ -184,7 +190,7 @@ namespace CodeGen.Engine
 						exitloop
 					end
 				end
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)(!found)
+				result = (!found)
 			end
 		end
 		
@@ -201,7 +207,7 @@ namespace CodeGen.Engine
 				begin
 					if (customExpression.Expression.eqs.(a)Loop1ConditionMode[Loop1ConditionMode.Count-1])
 					begin
-						Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)customExpression.Evaluate(Str,Key,KeyNbr)
+						result = customExpression.Evaluate(Str,Key,KeyNbr)
 						customExpressionProcessed = true
 						exitloop
 					end
@@ -216,6 +222,8 @@ namespace CodeGen.Engine
         end
 		
 		endusing
+
+		Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)result
 
 		if (ErrStatus) then
 			freturn false

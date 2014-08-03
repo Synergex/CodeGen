@@ -59,13 +59,15 @@ namespace CodeGen.Engine
         required inout ErrStatus                ,int
         endparams
 		
-		stack record local_data
+		stack record
 			theEnum                             ,@RpsEnum
+			result								,boolean
 		endrecord
 		
     proc
 
 		theEnum = Enums[EnumNbr]
+		result = false
 
         Loop1ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
         Loop1ConditionApplies.Add((@boolean)false)
@@ -74,19 +76,19 @@ namespace CodeGen.Engine
 		
 		("DESCRIPTION"),
 			if (theEnum.Description)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("LONG_DESCRIPTION"),
 			if (theEnum.LongDescription)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("MORE "),
             if (EnumNbr<Enums.Count-1)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("NOMORE "),
             if (EnumNbr==Enums.Count-1)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("COUNTER_","NOT_COUNTER"),
 			if (!ProcessCounterExpression(Loop1ConditionMode,Loop1ConditionApplies))
@@ -109,7 +111,7 @@ namespace CodeGen.Engine
 			begin
 				if (ut.Name=="<"+utName+">")
 				begin
-					Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+					result = true
 					exitloop
 				end
 			end
@@ -124,7 +126,7 @@ namespace CodeGen.Engine
 			
 			if (Env.UserTokens==^null) then
 			begin
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+				result = true
 			end
 			else
 			begin
@@ -140,7 +142,7 @@ namespace CodeGen.Engine
 						exitloop
 					end
 				end
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)(!found)
+				result = (!found)
 			end
 		end
 		
@@ -157,7 +159,7 @@ namespace CodeGen.Engine
 				begin
 					if (customExpression.Expression.eqs.(a)Loop1ConditionMode[Loop1ConditionMode.Count-1])
 					begin
-						Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)customExpression.Evaluate(theEnum)
+						result = customExpression.Evaluate(theEnum)
 						customExpressionProcessed = true
 						exitloop
 					end
@@ -172,6 +174,8 @@ namespace CodeGen.Engine
         end
 		
 		endusing
+
+		Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)result
 
 		if (ErrStatus) then
 			freturn false

@@ -58,43 +58,49 @@ namespace CodeGen.Engine
         required inout ErrStatus                ,int
         endparams
 
-    proc
+		stack record
+			result								,boolean
+		endrecord
+	
+	proc
 
         Loop1ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
         Loop1ConditionApplies.Add((@boolean)false)
+
+		result = false
 
         using ((a)Loop1ConditionMode[Loop1ConditionMode.Count-1]) select
 		
 		("CAPTION "),
             if (Env.Buttons[BtnNbr].Caption)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("ELB "),
             if (Env.Buttons[BtnNbr].ElbName)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("IMAGE "),
             if (Env.Buttons[BtnNbr].ImageName)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("METHOD "),
             if (Env.Buttons[BtnNbr].MethodName)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("QUICKSELECT "),
             if (Env.Buttons[BtnNbr].QuickSelect)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("OKBUTTON "),
 			if     (instr(1,StringTools.LowerCase(Env.Buttons[BtnNbr].Name),"ok")
 			&	|| (instr(1,StringTools.LowerCase(Env.Buttons[BtnNbr].Caption),"ok")))
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("CANCELBUTTON "),
 			if     (instr(1,StringTools.LowerCase(Env.Buttons[BtnNbr].Name),"cancel")
 			&	|| instr(1,StringTools.LowerCase(Env.Buttons[BtnNbr].Name),"abandon")
 			&	|| (instr(1,StringTools.LowerCase(Env.Buttons[BtnNbr].Caption),"cancel")))
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("GENERICBUTTON "),
 			if     !instr(1,StringTools.LowerCase(Env.Buttons[BtnNbr].Name),"ok")
@@ -102,15 +108,15 @@ namespace CodeGen.Engine
 			&	&& !instr(1,StringTools.LowerCase(Env.Buttons[BtnNbr].Name),"cancel")
 			&	&& !instr(1,StringTools.LowerCase(Env.Buttons[BtnNbr].Name),"abandon")
 			&	&& !instr(1,StringTools.LowerCase(Env.Buttons[BtnNbr].Caption),"cancel")
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("MORE "),
             if (BtnNbr<Env.Buttons.Count-1)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("NOMORE "),
 			if (BtnNbr==Env.Buttons.Count-1)
-                Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("COUNTER_","NOT_COUNTER_"),
 			if (!ProcessCounterExpression(Loop1ConditionMode,Loop1ConditionApplies))
@@ -133,7 +139,7 @@ namespace CodeGen.Engine
 			begin
 				if (ut.Name=="<"+utName+">")
 				begin
-					Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+					result = true
 					exitloop
 				end
 			end
@@ -148,7 +154,7 @@ namespace CodeGen.Engine
 			
 			if (Env.UserTokens==^null) then
 			begin
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)true
+				result = true
 			end
 			else
 			begin
@@ -164,7 +170,7 @@ namespace CodeGen.Engine
 						exitloop
 					end
 				end
-				Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)(!found)
+				result = (!found)
 			end
 		end
 
@@ -181,7 +187,7 @@ namespace CodeGen.Engine
 				begin
 					if (customExpression.Expression.eqs.(a)Loop1ConditionMode[Loop1ConditionMode.Count-1])
 					begin
-						Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)customExpression.Evaluate(Env.Buttons[BtnNbr])
+						result = customExpression.Evaluate(Env.Buttons[BtnNbr])
 						customExpressionProcessed = true
 						exitloop
 					end
@@ -196,6 +202,8 @@ namespace CodeGen.Engine
         end
 		
 		endusing
+
+		result = result
 
 		if (ErrStatus) then
 			freturn false

@@ -63,11 +63,13 @@ namespace CodeGen.Engine
 
 		stack record
 			theEnum                             ,@RpsEnum
+			result								,boolean
 		endrecord
 
 	proc
 
 		theEnum = Enums[EnumNbr]
+		result = false
 
         Loop2ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
         Loop2ConditionApplies.Add((@boolean)false)
@@ -76,19 +78,19 @@ namespace CodeGen.Engine
 
         ("EXPLICIT_VALUE"),
 			if (theEnum.Members[EnumMemberNbr].ExplicitValue)
-                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+                result = true
 
         ("NOEXPLICIT_VALUE"),
 			if (!theEnum.Members[EnumMemberNbr].ExplicitValue)
-                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+                result = true
 
         ("MORE"),
 			if (EnumMemberNbr<theEnum.Members.Count-1)
-                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+                result = true
 
         ("NOMORE"),
 			if (EnumMemberNbr==theEnum.Members.Count-1)
-                Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+                result = true
 		
 		("COUNTER_","NOT_COUNTER_"),
 			if (!ProcessCounterExpression(Loop2ConditionMode,Loop2ConditionApplies))
@@ -111,7 +113,7 @@ namespace CodeGen.Engine
 			begin
 				if (ut.Name=="<"+utName+">")
 				begin
-					Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+					result = true
 					exitloop
 				end
 			end
@@ -126,7 +128,7 @@ namespace CodeGen.Engine
 			
 			if (Env.UserTokens==^null) then
 			begin
-				Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)true
+				result = true
 			end
 			else
 			begin
@@ -142,7 +144,7 @@ namespace CodeGen.Engine
 						exitloop
 					end
 				end
-				Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)(!found)
+				result = (!found)
 			end
 		end
 		
@@ -159,7 +161,7 @@ namespace CodeGen.Engine
 				begin
 					if (customExpression.Expression.eqs.(a)Loop2ConditionMode[Loop2ConditionMode.Count-1])
 					begin
-						Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)customExpression.Evaluate(theEnum.Members[EnumMemberNbr])
+						result = customExpression.Evaluate(theEnum.Members[EnumMemberNbr])
 						customExpressionProcessed = true
 						exitloop
 					end
@@ -174,6 +176,8 @@ namespace CodeGen.Engine
         end
 		
 		endusing
+
+		Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)result
 
 		if (ErrStatus) then
 			freturn false
