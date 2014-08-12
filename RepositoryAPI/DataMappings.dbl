@@ -27,23 +27,28 @@ namespace CodeGen.RepositoryAPI
 
 			;;Do we have a DataMappings.xml file?
 			begin
-				data tmpCh, int, 0
+				data tmpCh, int
+				data dataMapFile, a128
 				data xmlFileFound, Boolean, false
-				try
+				xcall getlog("CODEGEN_DATAMAPPING_FILE",dataMapFile,tmpCh)
+				if (tmpCh)
 				begin
-					open(tmpCh,i:s,"CODEGEN_EXE:DataMappings.xml")
-					close tmpch
-					xmlFileFound = true
+					try
+					begin
+						open(tmpCh=0,i:s,dataMapFile)
+						close tmpch
+						xmlFileFound = true
+					end
+					catch (ex)
+					begin
+						;;No DataMappings.xml, just go with default mappings
+						nop
+					end
+					endtry
+					
+					if (xmlFileFound)
+						parseXmlFile(dataMapFile)
 				end
-				catch (ex)
-				begin
-					;;No DataMappings.xml, just go with default mappings
-					nop
-				end
-				endtry
-
-				if (xmlFileFound)
-					parseXmlFile()
 			end
 
 		endmethod
@@ -254,6 +259,7 @@ namespace CodeGen.RepositoryAPI
 		endmethod
 
 		private method parseXmlFile, void
+			required in xmlFile, a
 			endparams
 			.include "DBLDIR:synxml.def"
 			record localData
@@ -268,13 +274,13 @@ namespace CodeGen.RepositoryAPI
 			
 			;;Parse the XML file
 			parser = xml_parser_create()
-			xdoc = xml_parser_parsefile(parser,"CODEGEN_EXE:DataMappings.xml")
+			xdoc = xml_parser_parsefile(parser,xmlFile)
 			xml_parser_delete(parser)
 			if (!xdoc) then
 			begin
 				data parserError, a256
 				xcall xml_parser_error(parser,parserError)
-				throw new RpsDataMappingException("DataMappings.xml is not a valid XML file. " + atrim(parserError))
+				throw new RpsDataMappingException(%atrim(xmlFile) + " is not a valid XML file. " + atrim(parserError))
 			end
 			else
 			begin
@@ -286,7 +292,7 @@ namespace CodeGen.RepositoryAPI
 				root = xml_doc_getRoot(xdoc)
 				xml_elem_getName(root,rootName)
 				if (rootName!="DataMappings")
-					throw new Exception("DataMappings.xml root node '" + atrim(rootName) + "' is invalid")
+					throw new Exception("Data mappings file root node '" + atrim(rootName) + "' is invalid")
 					
 				;;Iterate through the root nodes child elements
 				sections = xml_elem_children(root)
@@ -313,7 +319,7 @@ namespace CodeGen.RepositoryAPI
 					("SynergyDotNet "),
 						thisMapping = mSnMappings
 					(),
-						throw new RpsDataMappingException("DataMappings.xml element '" + atrim(sectionName) + "' is not supported.")
+						throw new RpsDataMappingException("Data mappings file element '" + atrim(sectionName) + "' is not supported.")
 					endusing
 					
 					;;If we get here then we found a section in the XML file
@@ -339,7 +345,7 @@ namespace CodeGen.RepositoryAPI
 							
 							;;Make sure the mapping has a value
 							if (!%trimz(mappingValue))
-								throw new RpsDataMappingException("DataMappings.xml element '" + atrim(sectionName) + "." + atrim(mappingName) + "' does not have a value.")
+								throw new RpsDataMappingException("Data mappings file element '" + atrim(sectionName) + "." + atrim(mappingName) + "' does not have a value.")
 
 							;;Make sure it's one we recognize, and use the value as the mapped data type
 							using mappingName select
@@ -406,7 +412,7 @@ namespace CodeGen.RepositoryAPI
 							("StructField "),
 								thisMapping.StructFieldMapping = atrim(mappingValue)
 							(),
-								throw new RpsDataMappingException("DataMappings.xml element '" + atrim(sectionName) + "." + atrim(mappingName) + "' is not supported.")
+								throw new RpsDataMappingException("Data mappings file element '" + atrim(sectionName) + "." + atrim(mappingName) + "' is not supported.")
 							endusing
 						end
 					end

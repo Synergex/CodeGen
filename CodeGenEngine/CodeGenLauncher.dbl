@@ -65,7 +65,6 @@ namespace CodeGen.Engine
 			Structures  ,@RpsStructureCollection;;Collection of repository structures
 			FileIndex   ,[#]int                 ;;Array of file indexes to use
 			FileDef     ,@RpsFile               ;;Repository file definition name
-			
 		endrecord
 		
 		external function
@@ -80,6 +79,12 @@ namespace CodeGen.Engine
 .define D_SEPERATOR         "/"
 .endc
 		
+.ifdef OS_VMS
+		stack record
+			UndefineMappings	,boolean
+		endrecord
+.endc
+
 	proc
 		
 		;;Open the terminal and save the channel in the Environment class
@@ -203,6 +208,48 @@ namespace CodeGen.Engine
 			ErrStatus=-1
 		end
 		
+		;;-------------------------------------------------------------------------
+		;;Do we have a custom data mappings file specified?
+
+		.ifdef OS_VMS
+		UndefineMappings = false
+		.endc
+		if (!ErrStatus)
+		begin
+			if (CommandLine("cdm ",1,ClBuffer))
+			begin
+				if (%trimz(ClBuffer[1])) then
+				begin
+					;;Try open the data mappings file.
+					data mapfile, String, %atrim(ClBuffer[1])
+					try
+					begin
+						data tmpch, i4, 0
+						open(tmpch,i:s,ClBuffer[1])
+						close tmpch
+						;;We opened the file, so we'll try to use it for custom data mappings later.
+						xcall setlog("CODEGEN_DATAMAPPING_FILE",mapfile,tmpch)
+						.ifdef OS_VMS
+						UndefineMappings = true
+						.endc
+						if (Env.DeveloperDebug)
+							DebugLog("DEVDBG: Custom data mapping file set by -cdm to "+mapfile,false,false)
+					end
+					catch (e, @Exception )
+					begin
+						ErrorLog("Failed to open custom data mappings file " + mapfile)
+						ErrStatus=1
+					end
+					endtry
+				end
+				else
+				begin
+					ErrorLog("No data mappings file specified after -cdm option!")
+					ErrStatus=1
+				end
+			end
+		end
+
 		;;-------------------------------------------------------------------------
 		;;See if we have a template file location specified with CODEGEN_TPLDIR
 		;;If present, this location overrides the default location (current dir)
@@ -1638,21 +1685,30 @@ namespace CodeGen.Engine
 			Log(msg,(Env.Verbose||Env.Debug),false)
 		end
 
-		if (Env.ListFiles && (Env.OutputFiles.Count>0))
+		if (Env.ListFiles && (Env.OutputFiles!=^null) && (Env.OutputFiles.Count>0))
 		begin
 			data fileSpec, String
 			foreach fileSpec in Env.OutputFiles
 				Log(fileSpec,false,false)
 		end
 		
-.ifdef D_GUI
+		.ifdef D_GUI
 		if (Env.Dbr)
 		begin
 			data TmpBuf, a1
 			display(Env.Tt,13,10,"Press a key: ")
 			accept(Env.Tt,TmpBuf)
 		end
-.endc
+		.endc
+		
+		.ifdef OS_VMS
+		;;Remove the custom mappings file so it doesn't persist to the next command
+		if (UndefineMappings)
+		begin
+			data tmpstatus, i4
+			xcall setlog("CODEGEN_DATAMAPPING_FILE",,tmpstatus)
+		end
+		.endc
 		
 		close Env.Tt
 		
