@@ -45,28 +45,26 @@ import System.Collections
 namespace CreateFile
 	
 	function DoCreateFile, boolean
-		required in  a_dcs          ,a		;;Repository control data
-		required in  filename		,string
-		optional in  a_filespec		,a
-		optional in  a_overwrite	,n
-		optional out a_filecreated  ,a		;;File name created
-		optional out a_errtxt       ,a		;;Error text
+		required in  a_dcs          ,a			;;Repository control data
+		required in  filename		,String
+		required in  a_filespec		,String
+		required in  a_overwrite	,boolean
+		required out a_filecreated  ,String		;;File name created
+		required out a_errtxt       ,String		;;Error text
 		endparams
 	
 		.include "RPSLIB:ddinfo.def"
 		
-		.define MAX_KEYS			,20     ;;20 max keys defined per file
+		.define MAX_KEYS			,20			;;20 max keys defined per file
 		.define append(x,y)			x = %atrim(x) + y
 		
 		stack record
 			ok						,boolean
-			overwrite				,boolean
 			fileAlreadyExisted		,boolean
 			isamc_filespec			,a255
 			isamc_keyspec			,[MAX_KEYS]a255
 			keynames				,[MAX_KEYS]a30
 			keydata					,@ArrayList
-			errtxt					,a80
 		endrecord
 		
 		local record
@@ -86,9 +84,6 @@ namespace CreateFile
 		ok = true
 		dcs = a_dcs
 
-		;;Overwrite existing files?
-		overwrite = (^passed(a_overwrite) && a_overwrite)
-
 		;;Get the file specification record for the file
 		if (ok)
 		begin
@@ -98,7 +93,7 @@ namespace CreateFile
 			if (!fls_info.flsi_nmkeys)
 			begin
 				ok = false
-				errtxt = "Structure has no keys defined!"
+				a_errtxt = "Repository structure " + %atrim(fls_info.flsi_sname) + " has no keys defined!"
 			end
 		end
 	
@@ -106,7 +101,7 @@ namespace CreateFile
 		if (ok)
 		begin
 			;;If necessary, override the name of the file to be created
-			if (^passed(a_filespec)&&a_filespec)
+			if (a_filespec.Length)
 				fls_info.flsi_name = a_filespec
 			
 			;;Does the file exist?
@@ -124,9 +119,9 @@ namespace CreateFile
 			endtry
 		
 			;;Should we replace an existing file?
-			if (fileAlreadyExisted&&!overwrite)
+			if (fileAlreadyExisted&&!a_overwrite)
 			begin
-				errtxt = "File already exists, use -r to replace"
+				a_errtxt = "File " + %atrim(fls_info.flsi_name) + " already exists, use -r to replace!"
 				ok = false
 			end
 		end
@@ -227,7 +222,7 @@ namespace CreateFile
 						;;Look for any keys that have an explicit key of reference specified that disagrees with the key definition order
 						if (((keydata.Count==0)&&ki_krf)||(keydata.Count&&ki_krf&&(ki_krf!=keydata.Count)))
 						begin
-							errtxt = "Key of reference settings don't match key positions in repository"
+							a_errtxt = "Repository structure " + %atrim(fls_info.flsi_name) + " key of reference settings don't match key positions!"
 							ok = false
 							exitloop
 						end
@@ -394,17 +389,13 @@ namespace CreateFile
 		if (ok)
 		begin
 			if (fileAlreadyExisted) then
-				errtxt = "File replaced."
+				a_errtxt = "file replaced"
 			else
-				errtxt = "File created."	
+				a_errtxt = "file created"	
 		end
 
-		if (^passed(a_filecreated))
-			a_filecreated = fls_info.flsi_name
+		a_filecreated = %atrim(fls_info.flsi_name)
 		
-		if (^passed(a_errtxt))
-			a_errtxt = errtxt
-
 		freturn ok
 
 	endfunction
