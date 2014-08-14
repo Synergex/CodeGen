@@ -36,10 +36,12 @@
 ;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
 ;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-;; POSSIBILITY OF SUCH DAMAGE.
 ;;
+;; POSSIBILITY OF SUCH DAMAGE.
 ;;*****************************************************************************
 ;;
+import System.Collections
+
 namespace CreateFile
 	
 	function DoCreateFile, boolean
@@ -63,7 +65,7 @@ namespace CreateFile
 			isamc_filespec			,a255
 			isamc_keyspec			,[MAX_KEYS]a255
 			keynames				,[MAX_KEYS]a30
-			keydata					,[MAX_KEYS]a^size(k_info)
+			keydata					,@ArrayList
 			errtxt					,a80
 		endrecord
 		
@@ -215,152 +217,164 @@ namespace CreateFile
 				xcall dd_key(dcs,DDK_SLIST,MAX_KEYS,keynames)
 			
 				;;Get the key info for each key
+				keydata = new ArrayList()
 				for key_idx from 1 thru fls_info.flsi_nmkeys
 				begin
 					xcall dd_key(dcs,DDK_INFO,keynames[key_idx],k_info)
-					keydata[key_idx] = k_info
+					;;Keep the access keys, ignore any foreign keys
+					if (k_info.ki_ktype==KI_ACC)
+					begin
+						;;Look for any keys that have an explicit key of reference specified that disagrees with the key definition order
+						if (((keydata.Count==0)&&ki_krf)||(keydata.Count&&ki_krf&&(ki_krf!=keydata.Count)))
+						begin
+							errtxt = "Key of reference settings don't match key positions in repository"
+							ok = false
+							exitloop
+						end
+						keydata.Add((@a)k_info)
+					end
 				end
-			
-				;;Sort the array of keys
-				;;TODO: Don't think this achieves anything. The first field is the "sequence number", but DDK_SLIST already returns the keys in sequenxe order!
-				xcall qsort(keydata[1],fls_info.flsi_nmkeys)
-			
+
 				;;For each key ...
-				for key_idx from 1 thru fls_info.flsi_nmkeys
+				if (ok)
 				begin
-					k_info = keydata[key_idx]
-				
-					;;Build the ISAMC key specification string
-				
-					;;Start position for first segment
-					isamc_keyspec[key_idx] = 'START='+%string(k_info.ki_segpos(1))
-				
-					;;Start position for subsequent segments
-					if (k_info.ki_nmseg>=2)
+					for key_idx from 1 thru fls_info.flsi_nmkeys
 					begin
-						data seg_idx, i4
-						for seg_idx from 2 thru k_info.ki_nmseg
-							append(isamc_keyspec[key_idx],':'+%string(k_info.ki_segpos(seg_idx)))
-					end
+						k_info = (a)(keydata[key_idx-1])
 				
-					;;Length of first segment
-					append(isamc_keyspec[key_idx],',LENGTH='+%string(k_info.ki_seglen(1)))
+						;;Build the ISAMC key specification string
 				
-					;;Length of subsequent segments
-					if (k_info.ki_nmseg>=2)
-					begin
-						data seg_idx, i4
-						for seg_idx from 2 thru k_info.ki_nmseg
-							append(isamc_keyspec[key_idx],':'+%string(k_info.ki_seglen(seg_idx)))
-					end
+						;;Start position for first segment
+						isamc_keyspec[key_idx] = 'START='+%string(k_info.ki_segpos(1))
 				
-					;;Key name
-					append(isamc_keyspec[key_idx],',NAME='+k_info.ki_name)
-				
-					;;Segment data type (optional)
-					if (k_info.ki_segdtyp(1))
-					begin
-						append(isamc_keyspec[key_idx],',TYPE='+key_segtyp(k_info.ki_segdtyp(1)))
+						;;Start position for subsequent segments
 						if (k_info.ki_nmseg>=2)
 						begin
 							data seg_idx, i4
 							for seg_idx from 2 thru k_info.ki_nmseg
-								append(isamc_keyspec[key_idx],':'+key_segtyp(k_info.ki_segdtyp(seg_idx)))
+								append(isamc_keyspec[key_idx],':'+%string(k_info.ki_segpos(seg_idx)))
 						end
-					end
 				
-					;;Segment sequences (optional)
-					if (k_info.ki_segord(1))
-					begin
-						append(isamc_keyspec[key_idx],',ORDER='+key_order(k_info.ki_segord(1)))
+						;;Length of first segment
+						append(isamc_keyspec[key_idx],',LENGTH='+%string(k_info.ki_seglen(1)))
+				
+						;;Length of subsequent segments
 						if (k_info.ki_nmseg>=2)
 						begin
 							data seg_idx, i4
 							for seg_idx from 2 thru k_info.ki_nmseg
-								append(isamc_keyspec[key_idx],':'+key_order(k_info.ki_segord(seg_idx)))
+								append(isamc_keyspec[key_idx],':'+%string(k_info.ki_seglen(seg_idx)))
 						end
-					end
 				
-					;;Key density
-					if (k_info.ki_density<50)
-						k_info.ki_density = 50
+						;;Key name
+						append(isamc_keyspec[key_idx],',NAME='+k_info.ki_name)
 				
-					append(isamc_keyspec[key_idx],',DENSITY='+%string(k_info.ki_density))
+						;;Segment data type (optional)
+						if (k_info.ki_segdtyp(1))
+						begin
+							append(isamc_keyspec[key_idx],',TYPE='+key_segtyp(k_info.ki_segdtyp(1)))
+							if (k_info.ki_nmseg>=2)
+							begin
+								data seg_idx, i4
+								for seg_idx from 2 thru k_info.ki_nmseg
+									append(isamc_keyspec[key_idx],':'+key_segtyp(k_info.ki_segdtyp(seg_idx)))
+							end
+						end
 				
-					;;Duplicates?
-					using k_info.ki_dups select
-					(KI_DPS),
-					begin
-						append(isamc_keyspec[key_idx],',DUPS')
-						.ifndef OS_VMS
-						using k_info.ki_insert select
-						(KI_FRT),
-							append(isamc_keyspec[key_idx],',NOATEND')
-						(KI_END),
-							append(isamc_keyspec[key_idx],',ATEND')
+						;;Segment sequences (optional)
+						if (k_info.ki_segord(1))
+						begin
+							append(isamc_keyspec[key_idx],',ORDER='+key_order(k_info.ki_segord(1)))
+							if (k_info.ki_nmseg>=2)
+							begin
+								data seg_idx, i4
+								for seg_idx from 2 thru k_info.ki_nmseg
+									append(isamc_keyspec[key_idx],':'+key_order(k_info.ki_segord(seg_idx)))
+							end
+						end
+				
+						;;Key density
+						if (k_info.ki_density<50)
+							k_info.ki_density = 50
+				
+						append(isamc_keyspec[key_idx],',DENSITY='+%string(k_info.ki_density))
+				
+						;;Duplicates?
+						using k_info.ki_dups select
+						(KI_DPS),
+						begin
+							append(isamc_keyspec[key_idx],',DUPS')
+							.ifndef OS_VMS
+							using k_info.ki_insert select
+							(KI_FRT),
+								append(isamc_keyspec[key_idx],',NOATEND')
+							(KI_END),
+								append(isamc_keyspec[key_idx],',ATEND')
+							endusing
+							.endc
+						end
+						(KI_NDPS),
+							append(isamc_keyspec[key_idx],',NODUPS')
 						endusing
-						.endc
-					end
-					(KI_NDPS),
-						append(isamc_keyspec[key_idx],',NODUPS')
-					endusing
 				
-					;;Changes?
-					using k_info.ki_mod select
-					(KI_MDF),
-						append(isamc_keyspec[key_idx],',MODIFY')
-					(KI_NMDF),
-						append(isamc_keyspec[key_idx],',NOMODIFY')
-					endusing
+						;;Changes?
+						using k_info.ki_mod select
+						(KI_MDF),
+							append(isamc_keyspec[key_idx],',MODIFY')
+						(KI_NMDF),
+							append(isamc_keyspec[key_idx],',NOMODIFY')
+						endusing
 				
-					;;Order
-					using k_info.ki_order select
-					(KI_ASC),
-						append(isamc_keyspec[key_idx],',ASCEND')
-					(KI_DES),
-						append(isamc_keyspec[key_idx],',NOASCEND')
-					endusing
+						;;Order
+						using k_info.ki_order select
+						(KI_ASC),
+							append(isamc_keyspec[key_idx],',ASCEND')
+						(KI_DES),
+							append(isamc_keyspec[key_idx],',NOASCEND')
+						endusing
 				
-					;;Key compression (OpenVMS only)
-					.ifdef OS_VMS
-					if (k_info.ki_cmpidx||k_info.ki_cmprec||k_info.ki_cmpkey)
-					begin
-						;;All options?
-						if (k_info.ki_cmpidx&&k_info.ki_cmprec&&k_info.ki_cmpkey) then
-							append(isamc_keyspec[key_idx],',COMPRESS=ALL')
-						else
+						;;Key compression (OpenVMS only)
+						.ifdef OS_VMS
+						if (k_info.ki_cmpidx||k_info.ki_cmprec||k_info.ki_cmpkey)
 						begin
-							if (k_info.ki_cmpidx)
-								append(isamc_keyspec[key_idx],',COMPRESS=INDEX')
-							if (k_info.ki_cmprec)
-								append(isamc_keyspec[key_idx],',COMPRESS=RECORD')
-							if (k_info.ki_cmpkey)
-								append(isamc_keyspec[key_idx],',COMPRESS=KEY')
+							;;All options?
+							if (k_info.ki_cmpidx&&k_info.ki_cmprec&&k_info.ki_cmpkey) then
+								append(isamc_keyspec[key_idx],',COMPRESS=ALL')
+							else
+							begin
+								if (k_info.ki_cmpidx)
+									append(isamc_keyspec[key_idx],',COMPRESS=INDEX')
+								if (k_info.ki_cmprec)
+									append(isamc_keyspec[key_idx],',COMPRESS=RECORD')
+								if (k_info.ki_cmpkey)
+									append(isamc_keyspec[key_idx],',COMPRESS=KEY')
+							end
 						end
-					end
-					.endc
+						.endc
 				
-					;;Null key?
-					using k_info.ki_null select
-					(KI_REP),
-						append(isamc_keyspec[key_idx],',NULL=REPLICATE')
-					(KI_NONREP),
-						append(isamc_keyspec[key_idx],',NULL=NOREPLICATE')
-					(KI_SHORT),
-						append(isamc_keyspec[key_idx],',NULL=SHORT')
-					endusing
+						;;Null key?
+						using k_info.ki_null select
+						(KI_REP),
+							append(isamc_keyspec[key_idx],',NULL=REPLICATE')
+						(KI_NONREP),
+							append(isamc_keyspec[key_idx],',NULL=NOREPLICATE')
+						(KI_SHORT),
+							append(isamc_keyspec[key_idx],',NULL=SHORT')
+						endusing
 				
-					;;Null key value
-					if (k_info.ki_nullval)
-					begin
-						data nullval, a255
-						xcall dd_key(dcs, DDK_TEXT, k_info.ki_nullval, nullval)
-						append(isamc_keyspec[key_idx],',VALUE_NULL='+%atrim(nullval))
+						;;Null key value
+						if (k_info.ki_nullval)
+						begin
+							data nullval, a255
+							xcall dd_key(dcs, DDK_TEXT, k_info.ki_nullval, nullval)
+							append(isamc_keyspec[key_idx],',VALUE_NULL='+%atrim(nullval))
+						end
 					end
 				end
-			
+
 				;;Create the file
-				xcall isamc(%atrim(isamc_filespec),fls_info.flsi_recsz,fls_info.flsi_nmkeys,isamc_keyspec)
+				if (ok)
+					xcall isamc(%atrim(isamc_filespec),fls_info.flsi_recsz,fls_info.flsi_nmkeys,isamc_keyspec)
 			
 			end
 		
