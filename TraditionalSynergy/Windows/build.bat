@@ -173,7 +173,7 @@ cd exe
 rem ---------------------------------------------------------------------------
 echo Building CreateFile ...
 
-dbl -%DBG%XTo CODEGEN_OBJ:createfile.dbo CREATEFILE_SRC:CreateFile.dbl
+dbl -%DBG%XTo CODEGEN_OBJ:createfile.dbo CREATEFILE_SRC:CreateFile.dbl CREATEFILE_SRC:CreateFileFromRpsFile.dbl CREATEFILE_SRC:CreateFileFromRpsStruct.dbl CREATEFILE_SRC:DoCreateFile.dbl
 if ERRORLEVEL 1 goto CREATEFILE_COMPILE_ERROR
 dblink -%DBG%o CODEGEN_EXE:createfile.dbr CODEGEN_OBJ:createfile.dbo CODEGEN_EXE:codegenengine.elb
 if ERRORLEVEL 1 goto CREATEFILE_LINK_ERROR
