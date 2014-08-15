@@ -40,6 +40,7 @@
 ;;
 ;;*****************************************************************************
 
+import System.Collections
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
 
@@ -57,7 +58,8 @@ main RpsInfo
         ok              ,boolean, true
         dbr             ,boolean, false
         ClStrCount      ,int                    ;Command line structure count
-        ClBuffer        ,[10]a30
+		ClBuffer        ,[10]a30
+		ClValues		,@ArrayList
         strs            ,@RpsStructureCollection
         fils            ,@RpsFileCollection
     endrecord
@@ -84,13 +86,13 @@ proc
     ;---------------------------------------------------------------------------
     ;What are we being asked to do?
 
-    if (ok&&CommandLine("s "))
+    if (ok&&CommandLineParser.Parse("s"))
     begin
         call StructureInfo
         clear ok
     end
 
-    if (ok&&CommandLine("f "))
+    if (ok&&CommandLineParser.Parse("f"))
     begin
         call FileInfo
         clear ok
@@ -143,14 +145,11 @@ usage,
 ;
 StructureInfo,
 
-    if (CommandLine("s ",10,ClBuffer,ClStrCount) && !ClStrCount)
-    begin
-        ClBuffer[1] = "*"
-        ClStrCount  = 1
-    end
-
+	if (CommandLineParser.Parse("s",ClValues) && !ClValues.Count )
+		ClValues.Add((String)"*")
+	
     ;All or specific structures?
-    if (ClBuffer[1]=="*") then
+    if (((String)ClValues[0])=="*") then
     begin
         ;Process all structures
         strs = new RpsStructureCollection(RpsLoadMode.Load)
@@ -165,14 +164,13 @@ StructureInfo,
         ;Process specified structures
         data StrNum, int
         strs = new RpsStructureCollection(RpsLoadMode.NoLoad)
-        for StrNum from 1 thru ClStrCount
+        for StrNum from 0 thru ClValues.Count-1
         begin
-            upcase ClBuffer[StrNum]
             try
-                strs.Add(new RpsStructure(ClBuffer[StrNum]))
+                strs.Add(new RpsStructure(((String)ClValues[StrNum]).ToUpper()))
             catch (ex)
             begin
-                writes(tt,"ERROR: Structure "+atrim(ClBuffer[StrNum])+" not found!")
+				writes(tt,"ERROR: Structure " + (String)ClValues[StrNum] + " not found!")
                 ok = false
             end
             endtry
@@ -189,14 +187,11 @@ StructureInfo,
 ;
 FileInfo,
 
-    if (CommandLine("f ",10,ClBuffer,ClStrCount) && !ClStrCount)
-    begin
-        ClBuffer[1] = "*"
-        ClStrCount  = 1
-    end
-
+    if (CommandLineParser.Parse("f",ClValues) && !ClValues.Count)
+		ClValues.Add((String)"*")
+		
     ;All or specific files?
-    if (ClBuffer[1]=="*") then
+    if (((String)ClValues[0])=="*") then
     begin
         ;Process all files
         fils = new RpsFileCollection(RpsLoadMode.Load)
@@ -211,14 +206,15 @@ FileInfo,
         ;Process specified files
         data FilNum, int
         fils = new RpsFileCollection(RpsLoadMode.NoLoad)
-        for FilNum from 1 thru ClStrCount
+        for FilNum from 0 thru ClValues.Count-1
         begin
-            upcase ClBuffer[FilNum]
-            try
-                fils.Add(new RpsFile(ClBuffer[FilNum]))
+			try
+			begin
+				fils.Add(new RpsFile(((String)ClValues[FilNum]).ToUpper()))
+			end
             catch (ex)
             begin
-                writes(tt,"ERROR: File definition "+atrim(ClBuffer[FilNum])+" not found!")
+                writes(tt,"ERROR: File definition " + (String)ClValues[FilNum] + " not found!")
                 ok = false
             end
             endtry
@@ -252,7 +248,7 @@ subroutine Structures
 
 proc
 
-    verbose = CommandLine("v ")
+    verbose = CommandLineParser.Parse("v")
 
     for ix from 0 thru strs.Count-1
     begin
@@ -530,19 +526,19 @@ proc
     Writes(tt,"  Tags        : " + %string(s.Tags.Count))
     Writes(tt,"  Files       : " + %string(s.Files.Count))
 
-    if (CommandLine("f "))
+    if (CommandLineParser.Parse("f"))
         xcall FieldsVerbose(s.Fields)
 
-    if (CommandLine("k "))
+    if (CommandLineParser.Parse("k"))
         xcall KeysVerbose(s.Keys)
 
-    if (CommandLine("r "))
+    if (CommandLineParser.Parse("r"))
         xcall RelationsVerbose(s.Relations)
 
-    if (CommandLine("m "))
+    if (CommandLineParser.Parse("m"))
         xcall FormatsVerbose(s.Formats)
 
-    if (CommandLine("t "))
+    if (CommandLineParser.Parse("t"))
         xcall TagsVerbose(s.Tags)
 
     xreturn
@@ -830,7 +826,7 @@ proc
 
     writes(tt, "  Keys               : " + %string(f.Keys.Count))
 
-    if (CommandLine("k "))
+    if (CommandLineParser.Parse("k"))
         xcall Keys(f.Keys)
 
     xreturn
@@ -967,7 +963,7 @@ proc
     else
         writes(tt, "NO")
 
-    if (CommandLine("ks "))
+    if (CommandLineParser.Parse("ks"))
         xcall KeySegments(k.Segments)
 
     xreturn
