@@ -41,7 +41,6 @@
 ;;*****************************************************************************
 
 import CodeGen.Engine
-import CodeGen.RepositoryAPI
 import System.Collections
 
 enum MappingLocation
@@ -50,6 +49,8 @@ enum MappingLocation
 endenum
 
 main MapPrep
+
+	.include "RPSLIB:ddinfo.def"
 
     record
         tt              ,int                    ;;Terminal channel
@@ -70,8 +71,9 @@ main MapPrep
 		KeepKeys        ,boolean, false
 		KeepField       ,boolean
 		CommandLineName	,boolean, false			;;Did we get the new structure name from the command line?
-        Structures      ,@RpsStructureCollection
-		str				,@RpsStructure
+		SchemaCreated	,boolean				;;Was a new schema created for the current structure?
+		LoadToRps		,boolean, false			;;Load new schemas into repository?
+		LeaveSchema		,boolean, false
 		buffer          ,a132
         OldFieldName    ,String
         AltName         ,String
@@ -90,6 +92,10 @@ main MapPrep
         SynergyPath     ,String
         .endc
     endrecord
+
+	structure strIdentifier
+						,a30
+	endstructure
 
 proc
 
@@ -139,11 +145,21 @@ proc
 	;;Prompt mode (fields only)?
 	;;
 	PromptFields = (ok&&CommandLineParser.Parse("pf"))
-	
+
 	;;-------------------------------------------------------------------------
 	;;Retain key definitions in mapped structure?
 	;;
 	KeepKeys = (ok&&CommandLineParser.Parse("k"))
+	
+	;;-------------------------------------------------------------------------
+	;;Load new schemas into repository?
+	;;
+	LoadToRps = (ok&&CommandLineParser.Parse("l"))
+	
+	;;-------------------------------------------------------------------------
+	;;Leave schema file after repository load?
+	;;
+	LeaveSchema = (ok&&CommandLineParser.Parse("ls"))
 	
 	;;-------------------------------------------------------------------------
     ;;Make sure we have a Synergy/DE environment
@@ -184,35 +200,49 @@ proc
 			if (verbose)
 				writes(tt,"Structure validation phase")
 			
+			;;Start a DDLIB session
+			xcall dd_init(dcs)
+
 			;;All or specific structures?
 			if (((String)StructureNames[0])=="*") then
 			begin
 				;;All structures
-				Structures = new RpsStructureCollection(RpsLoadMode.Load)
-				if (!Structures.Count)
+				data StructureCount, i4
+				data MemHandle, D_ADDR
+				StructureNames = new ArrayList()
+				xcall dd_name(dcs,DDN_COUNT,DDN_STRUCT,StructureCount)
+				if (StructureCount)
 				begin
-					writes(tt," - ERROR: No structures were found in your repository!")
+					data ix, int
+					MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*StructureCount)
+					xcall dd_name(dcs,DDN_LIST,DDN_STRUCT,StructureCount,^m(strIdentifier,MemHandle))
+					for ix from 1 thru StructureCount
+						StructureNames.Add((String)%atrim(^m(strIdentifier[ix],MemHandle)))
+					MemHandle = %mem_proc(DM_FREE,MemHandle)
+				end
+				if (!StructureNames.Count)
+				begin
+					writes(tt,"ERROR: No structures were found in your repository!")
 					ok = false
 				end
 			end
 			else
 			begin
 				;;Process specified structures
-				data strName, String
-				Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
-				foreach strName in StructureNames
+				foreach StructureName in StructureNames
 				begin
-					strName = strName.ToUpper()
-					try
-						Structures.Add(new RpsStructure(strName))
-					catch (ex)
+					xcall dd_struct(dcs,DDS_INFO,StructureName,s_info)
+					if (dcs.error)
 					begin
-						writes(tt," - ERROR: Structure " + strName + " not found!")
+						writes(tt,"ERROR: Structure " + StructureName.ToUpper() + " not found!")
 						ok = false
 					end
-					endtry
 				end
 			end
+
+			;;End the DDLIB session
+			xcall dd_exit(dcs)
+			
 		end
 		else
 		begin
@@ -234,7 +264,7 @@ proc
 				writes(tt,"ERROR: The -n option must be followed by a single new structure name!")
 				ok = false
 			end
-			else if (Structures.Count>1) then
+			else if (StructureNames.Count>1) then
 			begin
 				writes(tt,"ERROR: The -n option can only be used when processing a single structure!")
 				ok = false
@@ -272,27 +302,27 @@ proc
             writes(tt,"Schema processing phase")
 
 		;;Can't use FOREACH because of the CALL statements!
-        for strNum from 0 thru Structures.Count-1
+        for strNum from 0 thru StructureNames.Count-1
 		begin
-
-			str = Structures[strNum]
+			StructureName = (string)StructureNames[strNum]
+			SchemaCreated = false
 
 			;;-------------------------------------------------------------------------
 			;;Export schema for the existing structure
 			
 			if (verbose)
-				writes(tt," - Exporting structure " + str.Name + " to schema " + str.Name + ".SCH")
+				writes(tt," - Exporting structure " + StructureName + " to schema " + StructureName + ".SCH")
 						
 			.ifdef OS_VMS
-			RpsCommand="$rpsutl -e " + str.Name + ".SCH -es " + str.Name + "=kr"
+			RpsCommand="$rpsutl -e " + StructureName + ".SCH -es " + StructureName + "=kr"
 			xcall spawn(RpsCommand,D_NOWINDOW)
-			RpsCommand='$CONVERT/FDL="RECORD; FORMAT VARIABLE" ' + str.Name + '.SCH ' + str + '.SCH'
+			RpsCommand='$CONVERT/FDL="RECORD; FORMAT VARIABLE" ' + StructureName + '.SCH ' + StructureName + '.SCH'
 			xcall spawn(RpsCommand,D_NOWINDOW)
 			.else
 			.ifdef DBLNET
-			RpsCommand = atrim(SynergyPath) + "dbl\bin\dbs.exe RPS:rpsutl -e " + str.Name + ".SCH -es " + str.Name + "=kr"
+			RpsCommand = atrim(SynergyPath) + "dbl\bin\dbs.exe RPS:rpsutl -e " + StructureName + ".SCH -es " + StructureName + "=kr"
 			.else
-			RpsCommand="dbs RPS:rpsutl -e " + str.Name + ".SCH -es " + str.Name + "=kr"
+			RpsCommand="dbs RPS:rpsutl -e " + StructureName + ".SCH -es " + StructureName + "=kr"
 			.endc
 			xcall spawn(RpsCommand,D_NOWINDOW)
 			.endc
@@ -301,15 +331,15 @@ proc
 			;;Process the schema file
 			
 			if (verbose)
-                writes(tt," - Processing schema " + str.Name + ".SCH")
+				writes(tt," - Processing schema " + StructureName + ".SCH")
 
             try
             begin
-                open(InCh=0,i:s,str.Name+".SCH")
+				open(InCh=0,i:s,StructureName+".SCH")
             end
             catch (e, @Exception)
             begin
-                writes(tt,"ERROR: Failed to open schema file " + str.Name + ".SCH")
+				writes(tt,"ERROR: Failed to open schema file " + StructureName + ".SCH")
                 writes(tt,"       " + e.Message)
                 nextloop
             end
@@ -371,7 +401,7 @@ proc
 				
 			try
 			begin
-				xcall delet(str.Name + ".SCH")
+				xcall delet(StructureName + ".SCH")
 			end
 			catch (e, @Exception)
 			begin
@@ -391,13 +421,62 @@ proc
 				foreach OutBuf in NewSchemaData
 					writes(OutCh,OutBuf)
 				close OutCh
-				writes(tt,"Created " + NewStructureName + ".SCH")
+				SchemaCreated = true
 			end
 			catch (e, @Exception)
 			begin
 				writes(tt,"ERROR: Failed to create schema file " + NewStructureName + ".SCH")
 			end
 			endtry
+
+			;;-------------------------------------------------------------------------
+			;;Load the new schema into the repository
+			
+			if (SchemaCreated)
+			begin
+				if (LoadToRps) then
+				begin
+					writes(tt,"Loading new structure " + NewStructureName + " into repository")
+					.ifdef OS_VMS
+					RpsCommand="$rpsutl -i " + NewStructureName + ".SCH -ia"
+					xcall spawn(RpsCommand,D_NOWINDOW)
+					.else
+					.ifdef DBLNET
+					RpsCommand = %atrim(SynergyPath) + "dbl\bin\dbs.exe RPS:rpsutl -i " + NewStructureName + ".SCH -ia"
+					.else
+					RpsCommand="dbs RPS:rpsutl -i " + NewStructureName + ".SCH -ia"
+					.endc
+					begin
+						data pipech, i4, 0
+						data pipebuff, a256
+						open(pipech,i,"|"+RpsCommand)
+						repeat
+						begin
+							reads(pipech,pipebuff,eofpipe)
+							writes(tt,%atrim(pipebuff))
+						end
+					eofpipe,
+						close pipech
+					end
+					.endc
+					if (!LeaveSchema)
+					begin
+						try
+						begin
+							xcall delet(NewStructureName + ".SCH")
+						end
+						catch (e, @Exception)
+						begin
+							writes(tt,"ERROR: Failed to delete schema " + StructureName + ".SCH")
+						end
+						endtry
+					end
+				end
+				else
+				begin
+					writes(tt,"Created " + NewStructureName + ".SCH")
+				end
+			end
 		end
 	end
 
@@ -419,10 +498,13 @@ proc
 structure,
 
     ;;Extract the structure name from the schema
-    pos1 = instr(11,buffer," ")
-	StructureName = buffer(11,pos1-1)
 	if (!CommandLineName)
-		NewStructureName = StructureName + "_MAPPED"
+	begin
+		if (StructureName.Length<=23) then
+			NewStructureName = StructureName + "_MAPPED"
+		else
+			NewStructureName = StructureName(1:23) + "_MAPPED"
+	end
 	
 	;;Are we prompting the user a new structure name?
 	if (PromptStructure)
@@ -452,8 +534,11 @@ structure,
 			end
 		end
 	end
-	
-	;;Set the new structure name
+
+	;;Find the first space after the current structure name ("Structure XXXXXX   DBL ISAM")
+	pos1 = instr(11,buffer," ")
+
+	;;Inject the new structure name
 	buffer = buffer(1:10) + NewStructureName + buffer(pos1:%trim(buffer))
 
     ;;Create a buffer for multiple lines of data and add the first line
@@ -1047,6 +1132,10 @@ usage,
 	writes(tt,"  -pf   Prompt for alternate field names only")
 	writes(tt,"")
 	writes(tt,"  -u    Put mappings in user text instead of long description")
+	writes(tt,"")
+	writes(tt,"  -l    Load new schemas directly into repository")
+	writes(tt,"")
+	writes(tt,"  -ls   Leave schema file after repository load")
 	writes(tt,"")
 	writes(tt,"  -k    Retain key definitions in mapped structure")
 	writes(tt,"")
