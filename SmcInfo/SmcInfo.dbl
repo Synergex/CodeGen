@@ -40,6 +40,7 @@
 ;;
 ;;*****************************************************************************
 
+import System.Collections
 import CodeGen.Engine
 import CodeGen.MethodCatalogAPI
 
@@ -52,8 +53,7 @@ main SmcInfo
 	record
 		ok              ,boolean, true
 		dbr             ,boolean, false
-		ClArgCount      ,int                    ;Command line option argument count
-		ClBuffer        ,[1]a256
+		ClValues        ,@ArrayList
 		smc				,@Smc
 	endrecord
 	
@@ -62,6 +62,7 @@ proc
 	open(tt=0,i,"tt:")
 	xcall flags(7004000,1)
 	xcall flags(20,0)
+
 	;---------------------------------------------------------------------------
 	;Dbr or dbs?
 	;
@@ -75,14 +76,29 @@ proc
 	
 	;---------------------------------------------------------------------------
 
-	if (CommandLine("f ",1,ClBuffer)) then
+	if (!CommandLineParser.Parse("f",ClValues)) then
 	begin
-		if (ClBuffer[1]) then
+		call usage
+		ok = false
+	end
+	else
+	begin
+		if (!ClValues.Count) then
+		begin
+			writes(tt,"ERROR: No SMC export file found after the -f option!")
+			ok = false
+		end
+		else if (ClValues.Count>1) then
+		begin
+			writes(tt,"ERROR: Only one SMC export file can be specified after the -f option!")
+			ok = false
+		end
+		else
 		begin
 			;;OK, we got a file name
 			try
 			begin
-				smc = new Smc(ClBuffer[1])
+				smc = new Smc((String)ClValues[0])
 			end
 			catch (e, @Exception)
 			begin
@@ -90,57 +106,50 @@ proc
 				ok = false
 			end
 			endtry
-
-			if (ok)
+		end
+	end
+	
+	;;One or all interfaces?
+	if (ok)
+	begin
+		if (CommandLineParser.Parse("i",ClValues)) then
+		begin
+			if (!ClValues.Count) then
 			begin
-				;;One or all interfaces?
-				if (CommandLine("i ",1,ClBuffer)) then
-				begin
-					if (ClBuffer[1]) then
-					begin
-						data smcInterface, @SmcInterface
-						data done, boolean, false
-						foreach smcInterface in smc.Interfaces.GetEnumerator()
-						begin
-							if (smcInterface.name==ClBuffer[1])
-							begin
-								ShowInterface(smcInterface)
-								done = true
-								exitloop
-							end
-						end
-						if (!done)
-							writes(tt,"ERROR: interface not " + %atrim(ClBuffer[1]) + " found!")
-					end
-					else
-						writes(tt,"ERROR: No interface specified after -i option!")
-				end
-				else
-				begin
-					;;No interface specified, show them all
-					data smcInterface, @SmcInterface
-					foreach smcInterface in smc.Interfaces.GetEnumerator()
-						ShowInterface(smcInterface)
-				end
+				writes(tt,"ERROR: No interface name was found after the -i option!")
+				ok = false
 			end
-
-			ok = false ;Don't display usage
+			else if (ClValues.Count>1) then
+			begin
+				writes(tt,"ERROR: Only one interface name can be specified after the -f option!")
+				ok = false
+			end
+			else
+			begin
+				data smcInterface, @SmcInterface
+				data done, boolean, false
+				foreach smcInterface in smc.Interfaces.GetEnumerator()
+				begin
+					if (smcInterface.name.eqs.(String)ClValues[0])
+					begin
+						ShowInterface(smcInterface)
+						done = true
+						exitloop
+					end
+				end
+				if (!done)
+					writes(tt,"ERROR: Interface " + (String)ClValues[0] + " was not found!")
+			end
 		end
 		else
 		begin
-			writes(tt,"ERROR: No file spec specified after -f option!")
-			ok = false
+			;;No interface specified, show them all
+			data smcInterface, @SmcInterface
+			foreach smcInterface in smc.Interfaces.GetEnumerator()
+				ShowInterface(smcInterface)
 		end
 	end
-	else
-	begin
-		writes(tt,"ERROR: You must use the -f option to specify an SMC export file!")
-		ok = false
-	end
 	
-	if (ok)
-		call usage
-		
 .ifdef D_GUI
 	if (dbr)
 	begin
@@ -153,9 +162,9 @@ proc
 	close tt
 	stop
 	
-;-------------------------------------------------------------------------------
-;Display usage information
-;
+	;-------------------------------------------------------------------------------
+	;Display usage information
+	;
 usage,
 	writes(tt,"")
 	writes(tt,"Usage: SmcInfo -f <SmcXmlFile> [-i <InterfaceName>]")
@@ -176,20 +185,16 @@ subroutine ShowInterface
 		tt, int	;Terminal channel
 	endcommon
 proc
-
 	writes(tt,"")
 	writes(tt,"Interface: " + currentInterface.name)
 	writes(tt,"")
-
 	if (currentInterface.Methods.Count)
 	begin
 		data currentMethod, @SmcMethod
 		foreach currentMethod in currentInterface.Methods.GetEnumerator()
 			xcall ShowMethod(currentMethod)
 	end
-	
 	xreturn
-
 endsubroutine
 
 subroutine ShowMethod
@@ -199,7 +204,6 @@ subroutine ShowMethod
 		tt, int	;Terminal channel
 	endcommon
 proc
-	
 	writes(tt,"    Method      : " + currentMethod.name)
 	using currentMethod.MethodType select
 	(MethodType.Subroutine),
@@ -210,7 +214,6 @@ proc
 	writes(tt,"    Return type : ")
 	writes(tt,"    Parameters  : " + %string(currentMethod.Parameters.Count))
 	writes(tt,"")
-
 	if (currentMethod.Parameters.Count)
 	begin
 		data currentParameter, @SmcParameter
@@ -218,9 +221,7 @@ proc
 			xcall ShowParameter(currentParameter)
 		writes(tt,"")
 	end
-	
-	xreturn
-	
+	xreturn	
 endsubroutine
 
 subroutine ShowParameter
@@ -230,9 +231,6 @@ subroutine ShowParameter
 		tt, int	;Terminal channel
 	endcommon
 proc
-	
 	writes(tt,"        Parameter    : " + currentParameter.name)
-	
 	xreturn
-	
 endsubroutine
