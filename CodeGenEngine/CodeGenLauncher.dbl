@@ -56,37 +56,36 @@ namespace CodeGen.Engine
 		.include "CODEGEN_SRC:codegen.def"
 		
 		static record
-			ErrStatus   ,int                    ;;Main error status variables
-			StrNum      ,int                    ;;Structure number being processed
-			WscFile     ,a80                    ;;UI Toolkit window script file
-			ProFormaFile,a80                    ;;BusinessCraft ProForma file name
-			ClBuffer    ,[10]a256               ;;Command line option values
-			Templates   ,@ArrayList             ;;Collection of template names
-			Structures  ,@RpsStructureCollection;;Collection of repository structures
-			FileIndex   ,[#]int                 ;;Array of file indexes to use
-			FileDef     ,@RpsFile               ;;Repository file definition name
+			ErrStatus			,int						;;Main error status variables
+			FileIndex			,[#]int						;;Array of file indexes to use
+			WscFile				,String						;;UI Toolkit window script file
+			ProFormaFile		,String						;;BusinessCraft ProForma file name
+			ClValues			,@ArrayList					;;Command line option values (New - CommandLineParser.Parse)
+			Templates			,@ArrayList					;;Collection of template names
+			Structures			,@RpsStructureCollection	;;Collection of repository structures
+			FileDef				,@RpsFile					;;Repository file definition name
 		endrecord
 		
 		external function
-			CleanScriptField	, a
 			xsubr				,^val
 		endexternal
 		
-.ifdef D_GUI
-.define D_SEPERATOR         "\"
-.endc
-.ifdef OS_UNIX
-.define D_SEPERATOR         "/"
-.endc
+		.ifdef D_GUI
+		.define D_SEPERATOR     "\"
+		.endc
+
+		.ifdef OS_UNIX
+		.define D_SEPERATOR     "/"
+		.endc
 		
-.ifdef OS_VMS
+		.ifdef OS_VMS
 		stack record
 			UndefineMappings	,boolean
 		endrecord
-.endc
+		.endc
 
 	proc
-		
+
 		;;Open the terminal and save the channel in the Environment class
 		begin
 			data tmpTT, int, 0
@@ -98,28 +97,28 @@ namespace CodeGen.Engine
 		;;-------------------------------------------------------------------------
 		;;Dbr or dbs?
 		
-.ifdef DBLNET
+		.ifdef DBLNET
 		Env.Dbr = 0
-.else
+		.else
 		begin
 			data terminal ,int
 			data runtime  ,int
 			xcall tnmbr(terminal,runtime)
 			Env.Dbr = (runtime==0)
 		end
-.endc
+		.endc
 		
 		;;-------------------------------------------------------------------------
 		;;Echo command line?
 		
-		if (CommandLine("e "))
+		if (CommandLineParser.Parse("e"))
 		begin
 			data command, a256
 			data tmpPos, int
 			cmdln(command)
-.ifdef DBLNET
+			.ifdef DBLNET
 			Log(atrim(command),false,false)
-.else
+			.else
 			;;Find codegen_exe:codegen in the command line
 			;;TODO: This won't work in .NET
 			if (tmpPos = instr(1,StringTools.LowerCase(command),"codegen_exe:codegen.dbr ")) then
@@ -130,47 +129,45 @@ namespace CodeGen.Engine
 					command = command(tmpPos+20,trimz(command))
 			end
 			Log("codegen "+atrim(command),false,false)
-.endc
+			.endc
 		end
 		
 		;;-------------------------------------------------------------------------
 		;;Verbose mode?
 		
-		if (CommandLine("v "))
-			Env.Verbose = true
+		Env.Verbose = CommandLineParser.Parse("v")
 		
 		;;-------------------------------------------------------------------------
 		;;Debug mode?
 		
-		if (CommandLine("d "))
+		if (CommandLineParser.Parse("d"))
 		begin
 			Env.Verbose = true
 			Env.Debug = true
 			
 			;;Do we also need Repository API debug logging
-			if (CommandLine("rpsdebug "))
+			if (CommandLineParser.Parse("rpsdebug"))
 				Repository.LogChannel = Env.Tt
 		end
 		
 		;;-------------------------------------------------------------------------
 		;;Developer debug mode?
 		
-		if (CommandLine("debug "))
+		if (CommandLineParser.Parse("debug"))
 		begin
 			Env.Verbose = true
 			Env.Debug = true
 			Env.DeveloperDebug = true
 			
 			;;Do we also need Repository API debug logging
-			if (CommandLine("rpsdebug "))
+			if (CommandLineParser.Parse("rpsdebug"))
 				Repository.LogChannel = Env.Tt
 		end
 		
 		;;-------------------------------------------------------------------------
 		;;Display file names mode
 
-		if (CommandLine("lf ")&&(!Env.Verbose))
-				Env.ListFiles = true
+		Env.ListFiles = (CommandLineParser.Parse("lf") && (!Env.Verbose))
 
 		;;-------------------------------------------------------------------------
 		;;Display headings
@@ -180,7 +177,7 @@ namespace CodeGen.Engine
 		;;-------------------------------------------------------------------------
 		;;Are we being asked for usage information?
 		
-		if (CommandLine("h ") || CommandLine("?"))
+		if (CommandLineParser.Parse("h") || CommandLineParser.Parse("?"))
 		begin
 			Usage()
 			ErrStatus=-1
@@ -189,7 +186,7 @@ namespace CodeGen.Engine
 		;;-------------------------------------------------------------------------
 		;;Are we being asked for documentation?
 		
-		if (CommandLine("docs"))
+		if (CommandLineParser.Parse("docs"))
 		begin
 			Documentation()
 			ErrStatus=-1
@@ -198,13 +195,13 @@ namespace CodeGen.Engine
 		;;-------------------------------------------------------------------------
 		;;Are we being asked for version information?
 		
-		if (CommandLine("version"))
+		if (CommandLineParser.Parse("version"))
 		begin
-.ifdef DBLNET
+			.ifdef DBLNET
 			Log(CODEGEN_APPNAME+" "+CODEGEN_VERSION+" (Synergy .NET "+SYN_VERSION+" built "+datecompiled()+")",true,false)
-.else
+			.else
 			Log(CODEGEN_APPNAME+" "+CODEGEN_VERSION+" (Traditional Synergy "+SYN_VERSION+" built "+datecompiled()+")",true,false)
-.endc
+			.endc
 			ErrStatus=-1
 		end
 		
@@ -214,38 +211,36 @@ namespace CodeGen.Engine
 		.ifdef OS_VMS
 		UndefineMappings = false
 		.endc
+
 		if (!ErrStatus)
 		begin
-			if (CommandLine("cdm ",1,ClBuffer))
+			if (CommandLineParser.Parse("cdm",ClValues))
 			begin
-				if (%trimz(ClBuffer[1])) then
+				if (!ClValues.Count) then
 				begin
-					;;Try open the data mappings file.
-					data mapfile, String, %atrim(ClBuffer[1])
-					try
-					begin
-						data tmpch, i4, 0
-						open(tmpch,i:s,ClBuffer[1])
-						close tmpch
-						;;We opened the file, so we'll try to use it for custom data mappings later.
-						xcall setlog("CODEGEN_DATAMAPPING_FILE",mapfile,tmpch)
-						.ifdef OS_VMS
-						UndefineMappings = true
-						.endc
-						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Custom data mapping file set by -cdm to "+mapfile,false,false)
-					end
-					catch (e, @Exception )
-					begin
-						ErrorLog("Failed to open custom data mappings file " + mapfile)
-						ErrStatus=1
-					end
-					endtry
+					ErrorLog("No data mappings file was found after the -cdm option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one data mappings can be specified after the -cdm option!")
+					ErrStatus=1
+				end
+				else if (!FileTools.FileExists((String)ClValues[0])) then
+				begin
+					ErrorLog("Failed to open custom data mappings file " + (String)ClValues[0])
+					ErrStatus=1
 				end
 				else
 				begin
-					ErrorLog("No data mappings file specified after -cdm option!")
-					ErrStatus=1
+					;;We opened the file, so we'll try to use it for custom data mappings later.
+					data sts, int
+					xcall setlog("CODEGEN_DATAMAPPING_FILE",(String)ClValues[0],sts)
+					.ifdef OS_VMS
+					UndefineMappings = true
+					.endc
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Custom data mapping file set by -cdm to " + (String)ClValues[0],false,false)
 				end
 			end
 		end
@@ -261,10 +256,10 @@ namespace CodeGen.Engine
 			getlog("CODEGEN_TPLDIR",TmpBuf,length)
 			if (length)
 			begin
-.ifdef D_SEPERATOR
+				.ifdef D_SEPERATOR
 				if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!=D_SEPERATOR))
 					TmpBuf(length+1:1) = D_SEPERATOR
-.endc
+				.endc
 				Env.TemplateDir = TmpBuf
 
 				if (Env.DeveloperDebug)
@@ -278,18 +273,31 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			if (CommandLine("i ",1,ClBuffer))
+			if (CommandLineParser.Parse("i",ClValues))
 			begin
-				data length, int
-				length = trim(ClBuffer[1])
-.ifdef D_SEPERATOR
-				if ((ClBuffer[1](length:1)!=":") && (ClBuffer[1](length:1)!=D_SEPERATOR))
-					ClBuffer[1](length+1:1)=D_SEPERATOR
-.endc
-				Env.TemplateDir = ClBuffer[1]
-				
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Template location set by -i to "+Env.TemplateDir,false,false)				
+				if (!ClValues.Count) then
+				begin
+					ErrorLog("No template location was found after the -i option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one template location can be specified after the -i option!")
+					ErrStatus=1
+				end
+				else
+				begin
+					data location, String, (String)ClValues[0]
+					data length, int, location.Length
+					.ifdef D_SEPERATOR
+					if ((location(length:1)!=":") && (location(length:1)!=D_SEPERATOR))
+						location = location + D_SEPERATOR
+					.endc
+					Env.TemplateDir = location
+					
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Template location set by -i to " + Env.TemplateDir,false,false)				
+				end
 			end
 		end
 		
@@ -315,10 +323,10 @@ namespace CodeGen.Engine
 			getlog("CODEGEN_OUTDIR",TmpBuf,length)
 			if (length)
 			begin
-.ifdef D_SEPERATOR
+				.ifdef D_SEPERATOR
 				if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!=D_SEPERATOR))
 					TmpBuf(length+1:1)=D_SEPERATOR
-.endc
+				.endc
 				Env.OutputDir = TmpBuf
 				
 				if (Env.DeveloperDebug)
@@ -332,21 +340,34 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			if (CommandLine("o ",1,ClBuffer))
+			if (CommandLineParser.Parse("o",ClValues))
 			begin
-				data length, int
-				length=trim(ClBuffer[1])
-.ifdef D_SEPERATOR
-				if ((ClBuffer[1](length:1)!=":") && (ClBuffer[1](length:1)!=D_SEPERATOR))
-					ClBuffer[1](length+1:1)=D_SEPERATOR
-.endc
-				Env.OutputDir = ClBuffer[1]
-				
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Output location set by -o to "+Env.OutputDir,false,false)				
+				if (!ClValues.Count) then
+				begin
+					ErrorLog("No outout location was found after the -o option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one output location can be specified after the -o option!")
+					ErrStatus=1
+				end
+				else
+				begin
+					data location, String, (String)ClValues[0]
+					data length, int, location.Length
+					.ifdef D_SEPERATOR
+					if ((location(length:1)!=":") && (location(length:1)!=D_SEPERATOR))
+						location = location + D_SEPERATOR
+					.endc
+					Env.OutputDir = location
+					
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Output location set by -o to " + Env.OutputDir,false,false)				
+				end
 			end
 		end
-		
+
 		;;-------------------------------------------------------------------------
 		;;Report output location (verbose mode only)
 		
@@ -364,18 +385,11 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			try
+			if (!FileTools.CanCreateFileInFolder(Env.OutputDir))
 			begin
-				data tmpch, int
-				open(tmpch=0,o:s,Env.OutputDir+"temp.tmp")
-				purge tmpch
-			end
-			catch (ex)
-			begin
-				ErrorLog("Can't create files in "+Env.OutputDir)
+				ErrorLog("Can't create files in " + Env.OutputDir)
 				ErrStatus=1
 			end
-			endtry
 		end
 		
 		;;-------------------------------------------------------------------------
@@ -383,11 +397,11 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			if (CommandLine("r ")) then
+			if (CommandLineParser.Parse("r")) then
 				VerboseLog("Replace files:     YES",false,false)
 			else
 			begin
-				flags(300,1)
+				xcall flags(300,1)
 				VerboseLog("Replace files:     NO",false,false)
 			end
 		end
@@ -398,12 +412,12 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			data TmpBuf, a80
+			data tmpbuf, a80
 			data length, int
-			getlog("CODEGEN_AUTHOR",TmpBuf,length)
+			getlog("CODEGEN_AUTHOR",tmpbuf,length)
 			if (length)
 			begin
-				Env.Author = TmpBuf
+				Env.Author = %atrim(tmpbuf)
 				if (Env.DeveloperDebug)
 					DebugLog("DEVDBG: Author name set by CODEGEN_AUTHOR to "+Env.Author,false,false)				
 			end
@@ -415,12 +429,12 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			data TmpBuf, a80
+			data tmpbuf, a80
 			data length, int
-			getlog("CODEGEN_COMPANY",TmpBuf,length)
+			getlog("CODEGEN_COMPANY",tmpbuf,length)
 			if (length)
 			begin
-				Env.Company = TmpBuf
+				Env.Company = %atrim(tmpbuf)
 				if (Env.DeveloperDebug)
 					DebugLog("DEVDBG: Company name set by CODEGEN_COMPANY to "+Env.Company,false,false)				
 			end
@@ -432,12 +446,12 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			data TmpBuf, a80
+			data tmpbuf, a80
 			data length, int
-			getlog("SYNDEFNS",TmpBuf,length)
+			getlog("SYNDEFNS",tmpbuf,length)
 			if (length)
 			begin
-				Env.DefaultNamespace = TmpBuf
+				Env.DefaultNamespace = %atrim(tmpbuf)
 
 				if (Env.DeveloperDebug)
 					DebugLog("DEVDBG: Namespace set by SYNDEFNS to "+Env.DefaultNamespace,false,false)				
@@ -450,37 +464,48 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			if (CommandLine("n ",1,ClBuffer))
+			if (CommandLineParser.Parse("n",ClValues))
 			begin
-				if (ClBuffer[1]) then
+				if (!ClValues.Count) then
 				begin
-					Env.DefaultNamespace = ClBuffer[1]
-					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Namespace set by -n to " + Env.DefaultNamespace,false,false)				
+					ErrorLog("No namespace was found after the -n option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one namespace can be specified after the -n option!")
+					ErrStatus=1
 				end
 				else
 				begin
-					ErrorLog("No namespace specified after -n option!")
-					ErrStatus=1
+					Env.DefaultNamespace = (String)ClValues[0]
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Namespace set by -n to " + Env.DefaultNamespace,false,false)				
 				end
 			end
 		end
 		
 		;;-------------------------------------------------------------------------
 		;;Are we being asked to use a field / group member prefix
+
 		if (!ErrStatus)
 		begin
-			if (CommandLine("prefix ",1,ClBuffer)) then
+			if (CommandLineParser.Parse("prefix",ClValues)) then
 			begin
-				if (trimz(ClBuffer[1])) then
+				if (!ClValues.Count) then
 				begin
-					Env.ClDoFieldPrefix = true
-					Env.ClFieldPrefix = ClBuffer[1]
+					ErrorLog("No field prefix value was found after the -prefix option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one field prefix value can be specified after the -prefix option!")
+					ErrStatus=1
 				end
 				else
 				begin
-					ErrorLog("No prefix specified after -prefix option!")
-					ErrStatus=1
+					Env.ClDoFieldPrefix = true
+					Env.ClFieldPrefix = (String)ClValues[0]
 				end
 			end
 			else
@@ -495,22 +520,26 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			if (CommandLine("cw ",1,ClBuffer))
+			if (CommandLineParser.Parse("cw",ClValues))
 			begin
-				if (ClBuffer[1]) then
+				if (!ClValues.Count) then
 				begin
-					if (StringTools.IsNumeric(ClBuffer[1])) then
-						Env.CharacterWidth = integer(atrim(ClBuffer[1]))
-					else
-					begin
-						ErrorLog("Character width after -cw must be numeric!")
-						ErrStatus=1
-					end
+					ErrorLog("No character width was found after the -cw option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one character width can be specified after the -cw option!")
+					ErrStatus=1
+				end
+				else if (!StringTools.IsNumeric((String)ClValues[0])) then
+				begin
+					ErrorLog("The character width after the -cw option must be numeric!")
+					ErrStatus=1
 				end
 				else
 				begin
-					ErrorLog("No character width specified after -cw option!")
-					ErrStatus=1
+					Env.CharacterWidth = %integer((String)ClValues[0])
 				end
 			end
 		end
@@ -520,22 +549,26 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			if (CommandLine("ch ",1,ClBuffer))
+			if (CommandLineParser.Parse("ch",ClValues))
 			begin
-				if (ClBuffer[1]) then
+				if (!ClValues.Count) then
 				begin
-					if (StringTools.IsNumeric(ClBuffer[1])) then
-						Env.CharacterHeight = integer(atrim(ClBuffer[1]))
-					else
-					begin
-						ErrorLog("Character height after -ch must be numeric!")
-						ErrStatus=1
-					end
+					ErrorLog("No character height was found after the -ch option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one character height can be specified after the -ch option!")
+					ErrStatus=1
+				end
+				else if (!StringTools.IsNumeric((String)ClValues[0])) then
+				begin
+					ErrorLog("The character height after the -ch option must be numeric!")
+					ErrStatus=1
 				end
 				else
 				begin
-					ErrorLog("No character height specified after -ch option!")
-					ErrStatus=1
+					Env.CharacterHeight = %integer((String)ClValues[0])
 				end
 			end
 		end
@@ -545,130 +578,117 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			if (CommandLine("opk ",1,ClBuffer))
+			if (CommandLineParser.Parse("opk",ClValues))
 			begin
-				if (ClBuffer[1]) then
+				if (!ClValues.Count) then
 				begin
-					if (StringTools.IsNumeric(ClBuffer[1])) then
-					begin
-						Env.OverridePrimaryKeyNum = integer(atrim(ClBuffer[1]))
-						DebugLog("<PRIMARY_KEY> blocks will use key "+string(Env.OverridePrimaryKeyNum),true,false)
-					end
-					else
-					begin
-						ErrorLog("Key number after -opk must be numeric!")
-						ErrStatus=1
-					end
+					ErrorLog("No key number was found after the -opk option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one key number can be specified after the -opk option!")
+					ErrStatus=1
+				end
+				else if (!StringTools.IsNumeric((String)ClValues[0])) then
+				begin
+					ErrorLog("The key number specified after the -opk option must be numeric!")
+					ErrStatus=1
 				end
 				else
 				begin
-					ErrorLog("No key number specified after -opk option!")
-					ErrStatus=1
+					Env.OverridePrimaryKeyNum = %integer((String)ClValues[0])
+					DebugLog("<PRIMARY_KEY> blocks will use key "+string(Env.OverridePrimaryKeyNum),true,false)
 				end
 			end
 		end
 		
 		;;-------------------------------------------------------------------------
-		;;Get a list of template files in template directory
+		;;Determine which templates are to be processed
+
 		if (!ErrStatus)
 		begin
-			
-			data ClTplCount, d4
-			
 			VerboseLog("",false,false)
-			
-			if (CommandLine("t ",10,ClBuffer,ClTplCount)) then
-			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Found -t command line option",true,false)
-				
-				;;Do we have a -t, but no template names
-				if (!ClTplCount) then
-				begin
-					ErrorLog("No templates specified after -t option!")
-					ErrStatus=1
-				end
-				else
-				begin
-					if (ClBuffer[1]=="*") then
-					begin
-						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Processing all templates (-t *)",false,false)
 
-						if (!WinDir(Env.TemplateDir+"*.tpl",Templates,WinDirCase.NoChange))
-						begin
-							ErrorLog("No templates to process in "+Env.TemplateDir)
-							Log("       Set template directory with CODEGEN_TPLDIR or -t option.",false,false)
-							ErrStatus=1
-						end
-					end
-					else
-					begin
-						data ix, int
-						
-						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Processing specific templates specified via -t option",false,false)
-							
-						;;Create a new templates collection
-						Templates = new ArrayList(integer(ClTplCount))
-						
-						;;Check that all specified template files exist
-						for ix from 1 thru ClTplCount
-						begin
-							
-							data AlreadyThere, boolean, false
-							
-							;;Add ".tpl" if necessary
-							if (!instr(1,StringTools.LowerCase(ClBuffer[ix]),".tpl"))
-								ClBuffer[ix]=atrim(ClBuffer[ix])+".tpl"
-							
-							;;Does this template spec contain a wildward?
-							if (instr(1,ClBuffer[ix],"*")) then
-							begin
-								data TmpTemplates, @ArrayList
-								TmpTemplates = new ArrayList()
-								if (WinDir(Env.TemplateDir+ClBuffer[ix],TmpTemplates,WinDirCase.NoChange)) then
-								begin
-									;;Add these templates to the list to process, if not
-									;;already there
-									data tmpTemplate, @a
-									foreach tmpTemplate in TmpTemplates
-									begin
-										;;Add the template to the collection
-										AlUtil.AddIfMissing(Templates,tmpTemplate)
-									end
-								end
-								else
-									Log("WARNING: No templates match "+atrim(ClBuffer[ix]),false,true)
-							end
-							else
-							begin
-								;;Make sure the template can be opened
-								try
-								begin
-									data tmpch, int
-									open(tmpch=0,i:s,Env.TemplateDir+ClBuffer[ix])
-									close tmpch
-								end
-								catch (ex)
-								begin
-									ErrorLog("Template "+atrim(ClBuffer[ix])+" not found!")
-									ErrStatus=1
-									exitloop
-								end
-								endtry
-								
-								;;Add the template to the collection
-								AlUtil.AddIfMissing(Templates,ClBuffer[ix])
-							end
-						end
-					end
-				end
+			if (!CommandLineParser.Parse("t",ClValues)) then
+			begin
+				Log("Nothing to do! Specify template(s) with the -t option.",false,false)
+				ErrStatus=1
+			end
+			else if (!ClValues.Count) then
+			begin
+				ErrorLog("No template names were found after the -t option!")
+				ErrStatus=1
 			end
 			else
 			begin
-				Log("Nothing to do - specify template(s) with -t option!",false,false)
-				ErrStatus=1
+				if (((String)ClValues[0])=="*") then
+				begin
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Processing all templates (-t *)",false,false)
+						
+					if (!%WinDir(Env.TemplateDir+"*.tpl",Templates,WinDirCase.NoChange))
+					begin
+						ErrorLog("No templates to process in "+Env.TemplateDir)
+						Log("       Set template directory with CODEGEN_TPLDIR or -t option.",false,false)
+						ErrStatus=1
+					end
+				end
+				else
+				begin
+					data ix, int
+					
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Processing specific templates specified via -t option",false,false)
+					
+					;;Create a new templates collection
+					Templates = new ArrayList()
+					
+					;;Check that all specified template files exist
+					for ix from 0 thru ClValues.Count-1
+					begin
+						data AlreadyThere, boolean, false
+						
+						;;Add ".tpl" if necessary
+						if (!%instr(1,(String)ClValues[ix],".tpl"))
+							ClValues[ix] = (String)ClValues[ix] + ".tpl"
+						
+						;;Does this template spec contain a wildward?
+						if (%instr(1,(String)ClValues[ix],"*")) then
+						begin
+							data TmpTemplates, @ArrayList
+							TmpTemplates = new ArrayList()
+							if (%WinDir(Env.TemplateDir+(String)ClValues[ix],TmpTemplates,WinDirCase.NoChange)) then
+							begin
+								;;Add these templates to the list to process, if not
+								;;already there
+								data tmpTemplate, String
+								foreach tmpTemplate in TmpTemplates
+								begin
+									;;Add the template to the collection
+									AlUtil.AddIfMissing(Templates,tmpTemplate)
+								end
+							end
+							else
+								Log("WARNING: No templates match " + (String)ClValues[ix],false,true)
+						end
+						else
+						begin
+							;;Make sure the template can be opened
+							if (FileTools.FileExists(Env.TemplateDir+(String)ClValues[ix])) then
+							begin
+								;;Add the template to the collection
+								AlUtil.AddIfMissing(Templates,(String)ClValues[ix])
+							end
+							else
+							begin
+								ErrorLog("Template " + (String)ClValues[ix] + " not found!")
+								ErrStatus=1
+								exitloop
+							end
+						end
+					end
+				end
 			end
 			
 			if (!ErrStatus)
@@ -677,20 +697,20 @@ namespace CodeGen.Engine
 				;;Report templates to process
 				if (Env.Verbose)
 				begin
-					data tmpTemplate, @a
+					data tmpTemplate, String
 					Log("Template(s):",false,false)
 					foreach tmpTemplate in Templates
-						Log(" - " + (a)tmpTemplate,false,false)
+						Log(" - " + tmpTemplate,false,false)
 				end
 				;;Remove .tpl file extensions
 				for ix from 0 thru Templates.Count-1
 				begin
-.ifdef OS_VMS
-					Templates[ix] = (@a)((a)Templates[ix]-".TPL")   ;;Temp fix for VMS, needs more work!!!
-					Templates[ix] = (@a)((a)Templates[ix]-".tpl")   ;;Temp fix for VMS, needs more work!!!
-.else
-					Templates[ix] = (@a)((a)Templates[ix]-".tpl")
-.endc
+					.ifdef OS_VMS
+					Templates[ix] = (String)(((a)((String)Templates[ix]))-".TPL")   ;;Temp fix for VMS, needs more work!!!
+					Templates[ix] = (String)(((a)((String)Templates[ix]))-".tpl")   ;;Temp fix for VMS, needs more work!!!
+					.else
+					Templates[ix] = (String)(((a)((String)Templates[ix]))-".tpl")
+					.endc
 				end
 			end
 		end
@@ -700,30 +720,44 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			if (CommandLine("u ",1,ClBuffer))
+			if (CommandLineParser.Parse("u",ClValues))
 			begin
-				data tmpch, int
-
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Loading user tokens from token file (-u)",false,false)
-					
-				try
+				if (!ClValues.Count) then
 				begin
-.ifdef DBLNET
-					UserTokenCollection.LoadTokensFromFile(ClBuffer[1])
-.else
-					data UserTokens, @UserTokenCollection
-					UserTokens = new UserTokenCollection(ClBuffer[1])
-					if (UserTokens.Count)
-						Env.UserTokens = UserTokens
-.endc
-				end
-				catch (ex)
-				begin
-					ErrorLog("Failed to open or process user token file "+Env.TemplateDir+atrim(ClBuffer[1]))
+					ErrorLog("No user defined token file was found after the -u option!")
 					ErrStatus=1
 				end
-				endtry
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one user defined token file can be specified after the -u option!")
+					ErrStatus=1
+				end
+				else
+				begin
+					data tmpch, int
+					data tokenFile, String, (String)ClValues[0]
+					
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Attempting to load user defined tokens from " + Env.TemplateDir + tokenFile,false,false)
+					
+					try
+					begin
+						.ifdef DBLNET
+						UserTokenCollection.LoadTokensFromFile(tokenFile)
+						.else
+						data UserTokens, @UserTokenCollection
+						UserTokens = new UserTokenCollection(tokenFile)
+						if (UserTokens.Count)
+							Env.UserTokens = UserTokens
+						.endc
+					end
+					catch (ex)
+					begin
+						ErrorLog("Failed to open or process user defined token file " + Env.TemplateDir + tokenFile)
+						ErrStatus=1
+					end
+					endtry
+				end
 			end
 		end
 		
@@ -732,29 +766,25 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			data ClUtCount, d4
-			
-			if (CommandLine("ut ",10,ClBuffer,clUtCount))
+			if (CommandLineParser.Parse("ut",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Loading user tokens from command line (-ut)",false,false)					
-				
-				if (!ClUtCount)
+				if (!ClValues.Count) then
 				begin
-					ErrorLog("No user tokens specified after -ut option!")
+					ErrorLog("No user tokens were found after the -ut option!")
 					ErrStatus=1
 				end
-				
-				if (!ErrStatus)
+				else
 				begin
-.ifdef DBLNET
-					UserTokenCollection.AddTokens(clBuffer,clUtCount)
-.else
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Loading user tokens from command line (-ut)",false,false)
+					.ifdef DBLNET
+					UserTokenCollection.AddTokens(ClValues)
+					.else
 					if (Env.UserTokens==^null) then
-						Env.UserTokens = new UserTokenCollection(clBuffer,clUtCount)
+						Env.UserTokens = new UserTokenCollection(ClValues)
 					else
-						Env.UserTokens.AddTokens(clBuffer,clUtCount)
-.endc
+						Env.UserTokens.AddTokens(ClValues)
+					.endc
 				end
 			end
 		end		
@@ -764,69 +794,72 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			data fileCount, int
-			if (CommandLine("file ",1,ClBuffer,fileCount))
+			if (CommandLineParser.Parse("file",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Repository file name was specified via -file",false,false)					
-
-				if (fileCount!=1)
+				if (!ClValues.Count) then
 				begin
-					ErrorLog("Must specify exactly one file definition name after the -file option!")
+					ErrorLog("No file definition name was found after the -file option!")
 					ErrStatus=1
 				end
-				
-				if (!ErrStatus)
+				else if (ClValues.Count>1) then
 				begin
+					ErrorLog("Only one file definition name can be specified after the -file option!")
+					ErrStatus=1
+				end
+				else
+				begin
+					data fileName, String, ((String)ClValues[0]).ToUpper()
+
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Repository file " + fileName + " was specified via the -file option",false,false)					
+						
 					;;Get the file details from the repository
-					upcase ClBuffer[1]
 					try
 					begin
-						FileDef = new RpsFile(ClBuffer[1])
+						FileDef = new RpsFile(fileName)
 					end
 					catch (e, @RpsFileException)
 					begin
-						ErrorLog("Failed to load repository file definition " + ClBuffer[1])
+						ErrorLog("Failed to load repository file definition " + fileName + "!")
 						ErrStatus = 1
 					end
 					endtry
-				end
-				
-				if (!ErrStatus)
-				begin
-					;;Make sure the file has at least one structure defined, and if so set them as the structures to process
-					if (FileDef.StructureCount>0) then
+					
+					if (!ErrStatus)
 					begin
-						Structures = FileDef.Structures
-						Env.RpsInUse = true
-						
-						;;Default all structures to use the file being processed
+						;;Make sure the file has at least one structure defined,
+						;;and if so set as the structure(s) to process
+						if (!FileDef.StructureCount) then
 						begin
-							data ix, int
-							FileIndex = new int[Structures.Count]
-							for ix from 0 thru Structures.Count-1
+							ErrorLog("Repository file " + fileName + " does not have any structures assigned!")
+							ErrStatus = 1
+						end
+						else
+						begin
+							Structures = FileDef.Structures
+							Env.RpsInUse = true
+							
+							;;Default all structures to use the file being processed
 							begin
-								data iy, int
-								FileIndex[ix+1] = 0
-								for iy from 0 thru Structures[ix].Files.Count-1
+								data ix, int
+								FileIndex = new int[Structures.Count]
+								for ix from 0 thru Structures.Count-1
 								begin
-									if (Structures[ix].Files[iy].Name==FileDef.Name)
+									data iy, int
+									FileIndex[ix+1] = 0
+									for iy from 0 thru Structures[ix].Files.Count-1
 									begin
-										FileIndex[ix+1] = iy
-										exitloop
+										if (Structures[ix].Files[iy].Name==FileDef.Name)
+										begin
+											FileIndex[ix+1] = iy
+											exitloop
+										end
 									end
 								end
 							end
 						end
-						
-					end
-					else
-					begin
-						ErrorLog("Repository file " + atrim(ClBuffer[1]) + " doesn't have any structures assigned")
-						ErrStatus = 1
 					end
 				end
-				
 			end
 		end
 		
@@ -835,27 +868,29 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			data WscCount, int
-			if (CommandLine("w ",1,ClBuffer,WscCount))
+			WscFile = ""
+			if (CommandLineParser.Parse("w",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Window script was specified via -w",false,false)					
-				
-				if (FileDef!=^null)
+				if (!ClValues.Count) then
 				begin
-					ErrorLog("Can't use -file and -w options together!")
+					ErrorLog("No window script file name was found after the -w option!")
 					ErrStatus=1
 				end
-				
-				if (!ErrStatus)
+				else if (ClValues.Count>1) then
 				begin
-					if (WscCount==1) then
-						WscFile = ClBuffer[1]
-					else
-					begin
-						ErrorLog("Must specify exactly one window script name after the -w option!")
-						ErrStatus=1
-					end
+					ErrorLog("Only one window script file name can be specified after the -w option!")
+					ErrStatus=1
+				end
+				else if (FileDef!=^null) then
+				begin
+					ErrorLog("Options -file and -w  can not be used together!")
+					ErrStatus=1
+				end
+				else
+				begin
+					WscFile = (String)ClValues[0]
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Window script file " + WscFile + " was specified via the -w option",false,false)					
 				end
 			end
 		end
@@ -865,12 +900,11 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			if (CommandLine("wn "))
+			if (CommandLineParser.Parse("wn"))
 			begin
 				Env.NoWscAttributes = true
-				
 				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Script field attributes will be ignored because of -wn",false,false)
+					DebugLog("DEVDBG: Window script field attributes will be ignored because of the -wn option",false,false)
 			end
 		end
 		
@@ -879,33 +913,34 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			data ProFormaCount, int
-			if (CommandLine("proforma ",1,ClBuffer,ProFormaCount))
+			ProFormaFile = ""
+			if (CommandLineParser.Parse("proforma",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: ProForma file was specified via -proforma",false,false)					
-				
-				if (FileDef!=^null)
+				if (!ClValues.Count) then
+				begin
+					ErrorLog("No ProForma file name was found after the -proforma option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("You can only specify one ProForma file name after the -proforma option!")
+					ErrStatus=1
+				end
+				else if (FileDef!=^null) then
 				begin
 					ErrorLog("Can't use -file and -proforma options together!")
 					ErrStatus=1
 				end
-				
-				if (WscFile)
+				else if (WscFile.Length) then
 				begin
 					ErrorLog("Can't use -w and -proforma options together!")
 					ErrStatus=1
 				end
-				
-				if (!ErrStatus)
+				else
 				begin
-					if (ProFormaCount==1) then
-						ProFormaFile = ClBuffer[1]
-					else
-					begin
-						ErrorLog("Must specify exactly one ProForma name after the -proforma option!")
-						ErrStatus=1
-					end
+					ProFormaFile = (String)ClValues[0]
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: ProForma file was specified via -proforma",false,false)					
 				end
 			end
 		end
@@ -913,7 +948,7 @@ namespace CodeGen.Engine
 		;;-------------------------------------------------------------------------
 		;;Do we have a custom assembly containing a BusinessCreft ProForma processor?
 		
-		if (!ErrStatus&&ProFormaFile)
+		if (!ErrStatus&&ProFormaFile.Length)
 		begin
 			data customFileSpec, a256
 			data tmpLen, i4
@@ -962,7 +997,7 @@ namespace CodeGen.Engine
 			end
 			else
 			begin
-				data file, String, (a)libraries[0]
+				data file, String, (String)libraries[0]
 				data libSpec, String, "CODEGEN_EXE:"+file
 				if (usingExtDir)
 					libSpec = "CODEGEN_EXTDIR:"+file
@@ -986,38 +1021,30 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			data WscCount, int
-			if (CommandLine("ws ",1,ClBuffer,WscCount))
+			if (CommandLineParser.Parse("ws",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Selection window processing requested via -ws",false,false)					
-					
-				if (WscCount!=1) then
+				if (!ClValues.Count) then
 				begin
-					ErrorLog("Must specify exactly one window script name after the -ws option!")
+					ErrorLog("No window script file name was found after the -ws option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count>1) then
+				begin
+					ErrorLog("Only one window script file name can be specified after the -ws option!")
+					ErrStatus=1
+				end
+				else if (!FileTools.FileExists((String)ClValues[0])) then
+				begin
+					ErrorLog("Failed to open selection window script " + (String)ClValues[0] + "!")
 					ErrStatus=1
 				end
 				else
 				begin
-					;;Open the file, fail if can't
-					try
-					begin
-						data WscChn, int
-						open(WscChn=0,i:s,ClBuffer[1])
-						close WscChn
-					end
-					catch (ex)
-					begin
-						ErrorLog("Can't open selection window script " + atrim(ClBuffer[1]) + " Check your -ws option!")
-						ErrStatus=1
-					end
-					endtry
-					
 					;;Store the selection windows script file for later
 					if (!ErrStatus)
 					begin
-						Env.SelectionWindowScript = ClBuffer[1]
-						DebugLog("Selection window processing enabled from file "+Env.SelectionWindowScript,false,false)
+						Env.SelectionWindowScript = (String)ClValues[0]
+						DebugLog("Selection window processing enabled from file " + Env.SelectionWindowScript,false,false)
 					end
 				end
 			end
@@ -1028,128 +1055,117 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			data ClStrCount, int
-			if (CommandLine("s ",10,ClBuffer,ClStrCount))
+			if (CommandLineParser.Parse("s",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Found -s command line option",true,false)
-					
-				if (FileDef!=^null)
+				if (!ClValues.Count) then
+				begin
+					ErrorLog("No structure names were specified after the -s option!")
+					ErrStatus=1
+				end
+				else if (FileDef!=^null) then
 				begin
 					ErrorLog("Can't use -file and -s options together!")
 					ErrStatus=1
 				end
-				
-				if (!ErrStatus)
+				else if (WscFile.Length) then
 				begin
-					if (WscFile) then
-					begin
-						ErrorLog("Can't use -w and -s options together!")
-						ErrStatus=1
-					end
-					else if (ProFormaFile)
-					begin
-						ErrorLog("Can't use -proforma and -s options together!")
-						ErrStatus=1
-					end
+					ErrorLog("Can't use -w and -s options together!")
+					ErrStatus=1
 				end
-				
-				if (!ErrStatus)
+				else if (ProFormaFile.Length) then
 				begin
-					if (ClStrCount) then
-						Env.RpsInUse = true
-					else
-					begin
-						ErrorLog("No structures specified after -s option!")
-						ErrStatus=1
-					end
+					ErrorLog("Can't use -proforma and -s options together!")
+					ErrStatus=1
+				end
+				else
+				begin
+					Env.RpsInUse = true
 					
-					if (!ErrStatus)
+					;;All or specific structures?
+					if (((String)ClValues[0])=="*") then
 					begin
-						;;All or specific structures?
-						if (ClBuffer[1]=="*") then
+						if (Env.DeveloperDebug)
+							DebugLog("DEVDBG: Loading all structures (-s *)",false,false)
+						
+						;;Process all structures
+						try
 						begin
-							if (Env.DeveloperDebug)
-								DebugLog("DEVDBG: Loading all structures (-s *)",false,false)
-								
-							;;Process all structures
-							try
+							Structures = new RpsStructureCollection(RpsLoadMode.Load)
+							if (Structures.Count) then
+								Env.AllStructures = true
+							else
 							begin
-								Structures = new RpsStructureCollection(RpsLoadMode.Load)
-								if (Structures.Count) then
-									Env.AllStructures = true
-								else
-								begin
-									ErrorLog("Repository contains no structures!")
-									ErrStatus=1
-								end
-							end
-							catch (ex, @RpsException)
-							begin
-								ErrorLog(ex.Message)
+								ErrorLog("Repository contains no structures!")
 								ErrStatus=1
 							end
-							endtry
 						end
-						else
+						catch (ex, @RpsException)
 						begin
-							;;Process specified structures
-							data ix, int
+							ErrorLog(ex.Message)
+							ErrStatus=1
+						end
+						endtry
+					end
+					else
+					begin
+						;;Process specified structures
+						data ix, int
+						
+						if (Env.DeveloperDebug)
+							DebugLog("DEVDBG: Loading specific structures specified via -s option ",false,false)
+							
+						Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+						
+						for ix from 0 thru ClValues.Count-1
+						begin
+							data newStructure, @RpsStructure
+							data errorText, String
 
+							ClValues[ix] = ((String)ClValues[ix]).ToUpper()
+							
 							if (Env.DeveloperDebug)
-								DebugLog("DEVDBG: Loading specific structures specified via -s option ",false,false)
-
-							Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
-
-							for ix from 1 thru ClStrCount
+								DebugLog("DEVDBG: Loading structure " + (String)ClValues[ix],false,false)
+							
+							;;Load the structure from the repository
+							try
 							begin
-								data newStructure, @RpsStructure
-								data errorText, String
-
+								newStructure = new RpsStructure((String)ClValues[ix])
+							end
+							catch (ex)
+							begin
+								ErrorLog(ex.Message)
 								if (Env.DeveloperDebug)
-									DebugLog("DEVDBG: Loading structure "+atrim(ClBuffer[ix]),false,false)
-									
-								;;Load the structure from the repository
-								try
+									DebugLog("DEVDBG: Error occured in CodeGen.RepositoryAPI.RpsStructure.RpsStructure('" + (String)ClValues[ix] + "')",false,false)
+								ErrStatus = 1
+							end
+							endtry
+							
+							if (!ErrStatus)
+							begin
+								if (Env.SelectionWindowScript)
 								begin
-									newStructure = new RpsStructure(ClBuffer[ix])
-								end
-								catch (ex)
-								begin
-									ErrorLog(ex.Message)
-									if (Env.DeveloperDebug)
-										DebugLog("DEVDBG: Error occured in CodeGen.RepositoryAPI.RpsStructure.RpsStructure('"+atrim(ClBuffer[ix])+"')",false,false)
-									ErrStatus = 1
-								end
-								endtry
-
-								if (!ErrStatus)
-								begin
-									if (Env.SelectionWindowScript)
+									if (!ProcessSelectionWindows(newStructure,errorText))
 									begin
-										if (!ProcessSelectionWindows(newStructure,errorText))
-										begin
-											ErrorLog("Failed to resolve selection windows for structure " + newStructure.Name + char(13) + char(10) + "       " + errorText)
-											ErrStatus = 1
-											exitloop
-										end
+										ErrorLog("Failed to resolve selection windows for structure " + newStructure.Name)
+										Log("       " + errorText,false,false)
+										ErrStatus = 1
+										exitloop
 									end
 								end
-
-								if (!ErrStatus)
-									Structures.Add(newStructure)
 							end
+							
+							if (!ErrStatus)
+								Structures.Add(newStructure)
 						end
-						
-						;;Default all structures to use the first file assigned
-						if (!ErrStatus)
-						begin
-							data ix, int
-							FileIndex = new int[Structures.Count]
-							for ix from 1 thru Structures.Count
-								FileIndex[ix] = 0
-						end
-						
+					end
+					
+					;;Default all structures to use the first file assigned
+					if (!ErrStatus)
+					begin
+						data ix, int
+						FileIndex = new int[Structures.Count]
+						for ix from 1 thru Structures.Count
+							FileIndex[ix] = 0
 					end
 				end
 			end
@@ -1160,32 +1176,34 @@ namespace CodeGen.Engine
 		
 		if (!ErrStatus)
 		begin
-			Env.SubSetName = ""
-			if (CommandLine("subset ",1,ClBuffer))
+			if (CommandLineParser.Parse("subset",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Field subset processing requested via -subset",false,false)					
-					
-				if (!ClBuffer[1])
+				if (!ClValues.Count) then
 				begin
-					ErrorLog("No subset name specified after the -subset option!")
+					ErrorLog("No subset name was found after the -subset option!")
 					ErrStatus=1
 				end
-				
-				if (!ErrStatus&&!Env.RpsInUse)
+				else if (ClValues.Count>1) then
 				begin
-					ErrorLog("Can't use -subset without a repository structure!")
+					ErrorLog("Only one subset name can be specified after the -subset option!")
 					ErrStatus=1
 				end
-				
-				if (!ErrStatus&&Structures.Count>1)
+				else if (!Env.RpsInUse) then
 				begin
-					ErrorLog("Option -subset is only valid when processing a single structure!")
+					ErrorLog("The -subset option can not be used without a repository structure!")
 					ErrStatus=1
 				end
-				
-				if (!ErrStatus)
-					Env.SubSetName = ClBuffer[1]
+				else if (Structures.Count>1) then
+				begin
+					ErrorLog("The -subset can only be used when processing a single structure!")
+					ErrStatus=1
+				end
+				else
+				begin
+					Env.SubSetName = (String)ClValues[0]
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Subset processing was enabled for subset " + Env.SubSetName,false,false)					
+				end
 			end
 		end
 		
@@ -1199,22 +1217,22 @@ namespace CodeGen.Engine
 			Env.Buttons = new WscButtonCollection()
 			
 			;;Now parse the script file
-			if (WscFile) then
+			if (WscFile.Length) then
 			begin
 				data errTxt, string
 
 				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Parsing window script "+atrim(WscFile),false,false)					
+					DebugLog("DEVDBG: Parsing window script " + WscFile,false,false)					
 					
 				ErrStatus = ParseWindowScript(WscFile,Structures,errTxt)
 			end
-			else if (ProFormaFile)
+			else if (ProFormaFile.Length)
 			begin
 				data errTxt, string
 				data address, D_ADDR
 				
 				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Parsing ProForma file "+atrim(ProFormaFile),false,false)					
+					DebugLog("DEVDBG: Parsing ProForma file " + ProFormaFile,false,false)					
 				
 				if (address = %xaddr("ParseProForma",,1))
 				begin
@@ -1226,7 +1244,7 @@ namespace CodeGen.Engine
 					begin
 						DebugLog("Executing ParseProForma()",false,false)
 
-						if (ErrStatus = %xsubr(address,ProFormaFile))
+						if (ErrStatus = %xsubr(address,(a)ProFormaFile))
 							exit
 
 						;;Did we get any structures loaded?
@@ -1273,7 +1291,7 @@ namespace CodeGen.Engine
 			
 			;;If we got buttons from the script file, but we're being told not to do
 			;;button processing (-bn), then delete the buttons
-			if (CommandLine("bn ")&&Env.Buttons.Count)
+			if (CommandLineParser.Parse("bn")&&Env.Buttons.Count)
 			begin
 				DebugLog("Removing script file buttons because of -bn",false,false)
 				Env.Buttons.Clear()
@@ -1284,11 +1302,11 @@ namespace CodeGen.Engine
 			;;load default buttons (-bd) and were not being told to not use any buttons
 			;;(-bn) then add the default buttons that are defined in
 			;;CODEGEN_EXE:DefaultButtons.xml
-			if (((!Env.Buttons.Count)||(CommandLine("ba ")))&&(!CommandLine("bd "))&&(!CommandLine("bn ")))
+			if (((!Env.Buttons.Count)||(CommandLineParser.Parse("ba")))&&(!CommandLineParser.Parse("bd"))&&(!CommandLineParser.Parse("bn")))
 			begin
 				if (!Env.Buttons.Count) then
 					DebugLog("Loading default buttons because no script file buttons were found",true,false)
-				else if (CommandLine("ba "))
+				else if (CommandLineParser.Parse("ba"))
 					DebugLog("Loading default buttons because of command line option -ba",true,false)
 				Env.Buttons.LoadDefaultButtons()
 			end
@@ -1316,105 +1334,96 @@ namespace CodeGen.Engine
 		;;Do we have structure aliases specified
 		
 		if (!ErrStatus&&Structures!=^null)
-		begin
-			data tmpStr, @RpsStructure
-			data ClAliasCount, int
-			data AliasIndex, int
-			
+		begin			
 			;;First, default all alias names to the same as the structure name
+			data tmpStr, @RpsStructure
 			foreach tmpStr in Structures.GetEnumerator()
 				tmpStr.Alias = tmpStr.Name
 			
 			;;Now apply specific aliases from the command line
-			if (CommandLine("a ",10,ClBuffer,ClAliasCount))
+			if (CommandLineParser.Parse("a",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Structure aliasing requested via -a",false,false)					
-				
-				if (WscFile)
-				begin
-					ErrorLog("Can't use -w and -a options together!")
-					ErrStatus=1
-				end
-				
-				if ((!ErrStatus) && (!ClAliasCount))
+				if (!ClValues.Count) then
 				begin
 					ErrorLog("No aliases specified after -a option!")
 					ErrStatus=1
 				end
-				
-				if ((!ErrStatus) && (ClAliasCount > Structures.Count))
+				else if (ClValues.Count>Structures.Count) then
 				begin
 					ErrorLog("More aliases than repository structures!")
 					ErrStatus=1
 				end
-				
-				VerboseLog("Applying structure aliases",true,false)
-				for AliasIndex from 1 thru ClAliasCount
+				else if (WscFile.Length) then
 				begin
-					Structures[AliasIndex-1].Alias = StringTools.UpperCase(ClBuffer[AliasIndex])
-					VerboseLog(" - Structure " + Structures[AliasIndex-1].Name + " aliased as " + Structures[AliasIndex-1].Alias,false,false)
+					ErrorLog("Can't use -w and -a options together!")
+					ErrStatus=1
+				end
+				else
+				begin
+					data AliasIndex, int
+					VerboseLog("Applying structure aliases",true,false)
+					for AliasIndex from 0 thru ClValues.Count - 1
+					begin
+						Structures[AliasIndex].Alias = ((String)ClValues[AliasIndex]).ToUpper()
+						VerboseLog(" - Structure " + Structures[AliasIndex].Name + " aliased as " + Structures[AliasIndex].Alias,false,false)
+					end
 				end
 			end
 		end
 		
 		;;-------------------------------------------------------------------------
-		;;Do we have alternate repository file references specified
+		;;Do we have alternate repository file overrides specified
 		
 		if (!ErrStatus&&Structures!=^null)
 		begin
-			data clFileCount, int
-			data clFileIndex, int
-			
-			if (CommandLine("fo ",10,ClBuffer,clFileCount))
+			if (CommandLineParser.Parse("fo",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: File overrides requested via -fo",false,false)					
-				
-				if (WscFile)
+				if (!ClValues.Count) then
 				begin
-					ErrorLog("Can't use file overrides (-fo) when processing a script file (-w)!")
+					ErrorLog("No repository file override names were found after the -fo option!")
 					ErrStatus=1
 				end
-				
-				if ((!ErrStatus) && (!clFileCount))
+				else if (ClValues.Count>Structures.Count) then
 				begin
-					ErrorLog("No repository file names specified after -fo option!")
+					ErrorLog("You can't specify more repository file override names than structures!")
 					ErrStatus=1
 				end
-				
-				if ((!ErrStatus) && (clFileCount > Structures.Count))
+				else if (WscFile.Length) then
 				begin
-					ErrorLog("More file name overrides (-fo) than structures (-s) !")
+					ErrorLog("File overrides can't be used when processing a window script file!")
 					ErrStatus=1
 				end
-				
-				;;Check that the alternate file names are valid for the structures
-				for clFileIndex from 1 thru clFileCount
+				else
 				begin
-					data tmpStr, @RpsStructure
-					data strFileIndex, int
-					data foundFile, Boolean, false
-					upcase ClBuffer[clFileIndex]
-					
-					tmpStr = Structures[clFileIndex-1]
-					
-					for strFileIndex from 0 thru tmpStr.Files.Count-1
+					;;Check that the alternate file names are valid for the structures
+					data clFileIndex, int
+					VerboseLog("File overrides have been requested:",true,false)					
+					for clFileIndex from 0 thru ClValues.Count-1
 					begin
-						if (tmpStr.Files[strFileIndex].Name.eqs.ClBuffer[clFileIndex])
+						data clFileName, String, ((String)ClValues[clFileIndex]).ToUpper()
+						data matchingStructure, @RpsStructure
+						data strFileIndex, int
+						data foundFile, Boolean, false
+						
+						matchingStructure = Structures[clFileIndex]
+						
+						for strFileIndex from 0 thru matchingStructure.Files.Count-1
 						begin
-							;;Found it - this is the one we need later
-							FileIndex[clFileIndex] = strFileIndex
-							foundFile = true
-							VerboseLog("Using file definition " + tmpStr.Files[strFileIndex].Name,true,false)
+							if (matchingStructure.Files[strFileIndex].Name.eqs.clFileName)
+							begin
+								;;Found it - this is the one we need later
+								FileIndex[clFileIndex] = strFileIndex
+								foundFile = true
+								VerboseLog(" - Using file " + clFileName + " with structure " + matchingStructure.Name,false,false)
+								exitloop
+							end
+						end
+						if (!foundFile)
+						begin
+							ErrorLog("Structure " + matchingStructure.Name + " is not assigned to file " + clFileName + "!")
+							ErrStatus=1
 							exitloop
 						end
-					end
-					if (!foundFile)
-					begin
-						ErrorLog("Structure "+tmpStr.Name+" is not assigned to file "+atrim(ClBuffer[clFileIndex])+"!")
-						ErrStatus=1
-						exitloop
 					end
 				end
 			end
@@ -1433,76 +1442,68 @@ namespace CodeGen.Engine
 		end
 		
 		;;-------------------------------------------------------------------------
-		;;See if we have any special structure processing filters specified
+		;;See if we have any special field processing filters specified
 		if (!ErrStatus)
 		begin
-			data ClFilterCount, int
-			
 			;;Default to enable "excluded by language" filter
 			Env.ExcludeLanguage = true
-			
-			if (CommandLine("f ",5,ClBuffer,ClFilterCount))
-			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Custom structure processing filters specified via -f",false,false)
 
-				if (Env.GenFromWsc) then
+			if (CommandLineParser.Parse("f",ClValues))
+			begin
+				if (!ClValues.Count) then
 				begin
-					;;Can use filters if we're processing a script file, the fields
-					;;to include are determined by the script file.
-					ErrorLog("Can't use -w and -f options together!")
+					ErrorLog("No field processing filters were found after the -f option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count > 5) then
+				begin
+					ErrorLog("Too many field processing filters were found after the -f option!")
+					ErrStatus=1
+				end
+				else if (Env.GenFromWsc) then
+				begin
+					ErrorLog("Field processing filters can't be used when processing a window script file!")
 					ErrStatus=1
 				end
 				else
 				begin
-					if (!ClFilterCount) then
+					data ix, int
+					VerboseLog("Custom field filters are in use",true,false)
+					for ix from 0 thru ClValues.Count-1
 					begin
-						;;We have a -f, but no filter names
-						ErrorLog("No filters specified after -f option!")
-						ErrStatus=1
-					end
-					else
-					begin
-						
-						data ix, int
-						
-						VerboseLog("Custom field filters in use",false,false)
-						
-						for ix from 1 thru ClFilterCount
+						using ((String)ClValues[ix]).ToLower() select
+						("o"),  ;;Include overlay fields
 						begin
-							using ClBuffer[ix] select
-							("o","O"),  ;;Include overlay fields
-							begin
-								Env.IncludeOverlays = true
-								VerboseLog(" - Overlays will be included",false,false)
-							end
-							("l","L"),  ;;Ignore excluded by language flag
-							begin
-								Env.ExcludeLanguage = false
-								VerboseLog(" - 'Excluded by Language' will be ignored",false,false)
-							end
-							("t","T"),  ;;Honor excluded by toolkit flag
-							begin
-								Env.ExcludeToolkit = true
-								VerboseLog(" - 'Excluded by Toolkit' will be honored",false,false)
-							end
-							("r","R"),  ;;Honor excluded by report writer flag
-							begin
-								Env.ExcludeReport = true
-								VerboseLog(" - 'Excluded by ReportWriter' will be honored",false,false)
-							end
-							("w","W"),  ;;Honor excluded by web flag
-							begin
-								Env.ExcludeWeb = true
-								VerboseLog(" - 'Excluded by Web' will be honored",false,false)
-							end
-							(),     ;;Invalid option
-							begin
-								ErrorLog("Invalid -f filter!")
-								ErrStatus=1
-							end
-							endusing
+							Env.IncludeOverlays = true
+							VerboseLog(" - Overlays will be included",false,false)
 						end
+						("l"),  ;;Ignore excluded by language flag
+						begin
+							Env.ExcludeLanguage = false
+							VerboseLog(" - 'Excluded by Language' will be ignored",false,false)
+						end
+						("t"),  ;;Honor excluded by toolkit flag
+						begin
+							Env.ExcludeToolkit = true
+							VerboseLog(" - 'Excluded by Toolkit' will be honored",false,false)
+						end
+						("r"),  ;;Honor excluded by report writer flag
+						begin
+							Env.ExcludeReport = true
+							VerboseLog(" - 'Excluded by ReportWriter' will be honored",false,false)
+						end
+						("w"),  ;;Honor excluded by web flag
+						begin
+							Env.ExcludeWeb = true
+							VerboseLog(" - 'Excluded by Web' will be honored",false,false)
+						end
+						(),     ;;Invalid option
+						begin
+							ErrorLog("An invalid field filter -f " + (String)ClValues[ix] + " was encountered!")
+							ErrStatus=1
+							exitloop
+						end
+						endusing
 					end
 				end
 			end
@@ -1513,74 +1514,65 @@ namespace CodeGen.Engine
 
 		if (!ErrStatus)
 		begin
-			data ClFilterCount, int
-			
 			;;Default to using both types of group field prefixes
 			Env.GroupPrefix = true
 			Env.GroupMemberPrefix = true
 			
-			if (CommandLine("g ",3,ClBuffer,ClFilterCount))
+			if (CommandLineParser.Parse("g",ClValues))
 			begin
-				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Custom group processing rules specified via -g",false,false)
-
-				if (Env.GenFromWsc) then
+				if (!ClValues.Count) then
 				begin
-					;;Can specify group prefixes if we're processing a script file,
-					;;the field names are determined by the script file.
-					ErrorLog("Can't use -w and -g options together!")
+					ErrorLog("No group processing options were found after the -g option!")
+					ErrStatus=1
+				end
+				else if (ClValues.Count > 3) then
+				begin
+					ErrorLog("Too many group processing options were found after the -g option!")
+					ErrStatus=1
+				end
+				else if (Env.GenFromWsc) then
+				begin
+					ErrorLog("Group processing options can't be used when processing a window script file!")
 					ErrStatus=1
 				end
 				else
 				begin
-					if (!ClFilterCount) then
+					data ix, int
+					VerboseLog("Custom group processing rules are in use",true,false)
+					for ix from 0 thru ClValues.Count-1
 					begin
-						;;We have a -g, but no prefix specs
-						ErrorLog("No group prefix options specified after -g option!")
-						ErrStatus=1
-					end
-					else
-					begin
-						
-						data ix, int
-						
-						VerboseLog("Custom group rules in use",false,false)
-						
-						for ix from 1 thru ClFilterCount
+						using ((String)ClValues[ix]).ToLower() select
+						("f"),  ;;Do not prefix group fields with group name
 						begin
-							using ClBuffer[ix] select
-							("f","F"),  ;;Do not prefix group fields with group name
-							begin
-								Env.GroupPrefix = false
-								VerboseLog(" - Group members not prefixed with group field name",false,false)
-							end
-							("i","I"),
-							begin
-								Env.DontExpandImplicitGroups = true
-								VerboseLog(" - Implicit groups not expanded to individual fields",false,false)
-							end
-							("r","R"),  ;;Do not use repository group field prefix
-							begin
-								Env.GroupMemberPrefix = false
-								VerboseLog(" - Repository group member prefix not used",false,false)
-							end
-							(),     ;;Invalid option
-							begin
-								ErrorLog("Invalid -g option!")
-								ErrStatus=1
-							end
-							endusing
+							Env.GroupPrefix = false
+							VerboseLog(" - Group members will not benot prefixed with the group name",false,false)
 						end
+						("i"),
+						begin
+							Env.DontExpandImplicitGroups = true
+							VerboseLog(" - Implicit groups will not be expanded to individual fields",false,false)
+						end
+						("r"),  ;;Do not use repository group field prefix
+						begin
+							Env.GroupMemberPrefix = false
+							VerboseLog(" - Repository group member prefix will not be used",false,false)
+						end
+						(),     ;;Invalid option
+						begin
+							ErrorLog("An invalid group processing option -f " + (String)ClValues[ix] + " was encountered!")
+							ErrStatus=1
+							exitloop
+						end
+						endusing
 					end
 				end
 			end
 		end
 		
 		;;-------------------------------------------------------------------------
-		;;Are we being asked to process multiple structures at the same time (in
-		;;the same template)
+		;;Are we being asked to process multiple structures at the same time (in the same template)
 		
-		if ((!ErrStatus)&&(Env.RpsInUse)&&(CommandLine("ms ")||((FileDef!=^null)&&(Structures.Count>1))))
+		if ((!ErrStatus)&&(Env.RpsInUse)&&(CommandLineParser.Parse("ms")||((FileDef!=^null)&&(Structures.Count>1))))
 		begin
 			data structureToCheck, @RpsStructure
 			
@@ -1611,7 +1603,7 @@ namespace CodeGen.Engine
 			begin
 				Env.CurrentStructures = Structures
 				Env.FileIndexes = FileIndex
-				VerboseLog("Processing "+string(Structures.Count)+" structures concurrently",true,false)
+				VerboseLog("Processing " + %string(Structures.Count) + " structures concurrently",true,false)
 			end
 		end
 		
@@ -1636,20 +1628,17 @@ namespace CodeGen.Engine
 				call process_templates
 			else
 			begin
+				data StrNum, int
 				for StrNum from 0 thru Structures.Count-1
 				begin
 					;;Check the structure, flatten arrays and groups, etc.
-					if (CheckStructure(Structures[StrNum])) then
+					if (CheckStructure(Structures[StrNum]))
+					begin
 						Env.CurrentStructure = Structures[StrNum]
-					else
-						nextloop
-					
-					Env.FileIndex = FileIndex[StrNum+1]
-					
-					;;Generate code for this structure
-					call process_templates
-					
-					Env.CurrentStructure = ^null
+						Env.FileIndex = FileIndex[StrNum+1]						
+						call process_templates						
+						Env.CurrentStructure = ^null
+					end
 				end
 			end
 
@@ -1721,10 +1710,10 @@ namespace CodeGen.Engine
 		
 		;;Process each template
 		begin
-			data tmpTemplate, @a
+			data tmpTemplate, String
 			foreach tmpTemplate in Templates
 			begin
-				Env.CurrentTemplate =(a)tmpTemplate
+				Env.CurrentTemplate = tmpTemplate
 				
 				;;If we're processing multiple structures in the same template then make
 				;;sure that context is set to the first structure for each template

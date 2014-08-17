@@ -218,7 +218,7 @@ namespace CodeGen.Engine
 			stack record
 				ErrStatus   ,boolean                ;;Main error status variable
 				StrNum      ,int                    ;;Structure number being processed
-				WscFile     ,a80                    ;;UI Toolkit window script file
+				WscFile     ,String                 ;;UI Toolkit window script file
 				Templates   ,@ArrayList             ;;Collection of template names
 				Structures  ,@RpsStructureCollection;;Collection of repository structures
 				FileIndex   ,[#]int                 ;;Array of file indexes to use
@@ -237,7 +237,7 @@ namespace CodeGen.Engine
 			;;level which has been done for the whole taskset.
 			;;-------------------------------------------------------------------------
 			ErrStatus = false
-			clear WscFile
+			WscFile = ""
 			
 			;;-------------------------------------------------------------------------
 			;;Echo command line?
@@ -253,8 +253,7 @@ namespace CodeGen.Engine
 			;;-------------------------------------------------------------------------
 			;;Display file names mode
 			
-			if (mTaskSet.ListGeneratedFiles&&(!Env.Verbose))
-				Env.ListFiles = true
+			Env.ListFiles = (mTaskSet.ListGeneratedFiles&&(!Env.Verbose))
 			
 			;;-------------------------------------------------------------------------
 			;;Do we have a custom data mappings file specified?
@@ -264,7 +263,7 @@ namespace CodeGen.Engine
 				if (!String.IsNullOrWhiteSpace(mTaskSet.DataMappingsFile))
 				begin
 					;;Try open the data mappings file.
-					if (File.Exists(mTaskSet.DataMappingsFile)) then
+					if (FileTools.FileExists(mTaskSet.DataMappingsFile)) then
 					begin
 						data tmpsts, i4
 						xcall setlog("CODEGEN_DATAMAPPING_FILE",mTaskSet.DataMappingsFile,tmpsts)
@@ -285,16 +284,16 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data TmpBuf, a256
+				data tmpbuf, a256
 				data length, int
-				getlog("CODEGEN_TPLDIR",TmpBuf,length)
+				getlog("CODEGEN_TPLDIR",tmpbuf,length)
 				if (length)
 				begin
-					if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!="\"))
-						TmpBuf(length+1:1) = "\"
-					Env.TemplateDir = TmpBuf
+					if ((tmpbuf(length:1)!=":") && (tmpbuf(length:1)!="\"))
+						tmpbuf(length+1:1) = "\"
+					Env.TemplateDir = tmpbuf
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Template location set by CODEGEN_TPLDIR to "+Env.TemplateDir,false,false)				
+						DebugLog("DEVDBG: Template location set by CODEGEN_TPLDIR to " + Env.TemplateDir,false,false)				
 				end
 			end
 			
@@ -335,16 +334,16 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data TmpBuf, a256
+				data tmpbuf, a256
 				data length, int
-				getlog("CODEGEN_OUTDIR",TmpBuf,length)
+				getlog("CODEGEN_OUTDIR",tmpbuf,length)
 				if (length)
 				begin
-					if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!="\"))
-						TmpBuf(length+1:1)="\"
-					Env.OutputDir = TmpBuf
+					if ((tmpbuf(length:1)!=":") && (tmpbuf(length:1)!="\"))
+						tmpbuf(length+1:1)="\"
+					Env.OutputDir = tmpbuf
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Output location set by CODEGEN_OUTDIR to "+Env.OutputDir,false,false)				
+						DebugLog("DEVDBG: Output location set by CODEGEN_OUTDIR to " + Env.OutputDir,false,false)				
 				end
 			end
 			
@@ -385,18 +384,11 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				try
-				begin
-					data tmpch, int
-					open(tmpch=0,o:s,Env.OutputDir+"temp.tmp")
-					purge tmpch
-				end
-				catch (ex)
+				if (!FileTools.CanCreateFileInFolder(Env.OutputDir))
 				begin
 					ErrorLog("Can't create files in " + Env.OutputDir)
-					ErrStatus = true
+					ErrStatus=1
 				end
-				endtry
 			end
 			
 			;;-------------------------------------------------------------------------
@@ -422,14 +414,14 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data TmpBuf, a80
+				data tmpbuf, a80
 				data length, int
-				getlog("CODEGEN_AUTHOR",TmpBuf,length)
+				getlog("CODEGEN_AUTHOR",tmpbuf,length)
 				if (length)
 				begin
-					Env.Author = TmpBuf
+					Env.Author = tmpbuf
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Author name set by CODEGEN_AUTHOR to "+Env.Author,false,false)				
+						DebugLog("DEVDBG: Author name set by CODEGEN_AUTHOR to " + Env.Author,false,false)				
 				end
 			end
 			
@@ -439,14 +431,14 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data TmpBuf, a80
+				data tmpbuf, a80
 				data length, int
-				getlog("CODEGEN_COMPANY",TmpBuf,length)
+				getlog("CODEGEN_COMPANY",tmpbuf,length)
 				if (length)
 				begin
-					Env.Company = TmpBuf
+					Env.Company = tmpbuf
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Company name set by CODEGEN_COMPANY to "+Env.Company,false,false)				
+						DebugLog("DEVDBG: Company name set by CODEGEN_COMPANY to " + Env.Company,false,false)				
 				end
 			end
 			
@@ -456,13 +448,13 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data TmpBuf, a80
+				data tmpbuf, a80
 				data length, int
-				getlog("SYNDEFNS",TmpBuf,length)
+				getlog("SYNDEFNS",tmpbuf,length)
 				if (length)
-					Env.DefaultNamespace = TmpBuf
+					Env.DefaultNamespace = tmpbuf
 				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Namespace set by SYNDEFNS to "+Env.DefaultNamespace,false,false)				
+					DebugLog("DEVDBG: Namespace set by SYNDEFNS to " + Env.DefaultNamespace,false,false)				
 			end
 			
 			;;-------------------------------------------------------------------------
@@ -522,7 +514,7 @@ namespace CodeGen.Engine
 				
 				if (task.Templates.Count==0) then
 				begin
-					Log("Nothing to do - specify template(s) via the Templates property option!",false,false)
+					Log("Nothing to do! Specify template(s) via the Templates property!",false,false)
 					ErrStatus = true
 				end
 				else
@@ -561,7 +553,7 @@ namespace CodeGen.Engine
 								begin
 									;;Add these templates to the list to process, if not
 									;;already there
-									data tmpTemplate, @a
+									data tmpTemplate, String
 									foreach tmpTemplate in TmpTemplates
 									begin
 										;;Add the template to the collection
@@ -574,19 +566,12 @@ namespace CodeGen.Engine
 							else
 							begin
 								;;Make sure the template can be opened
-								try
-								begin
-									data tmpch, int
-									open(tmpch=0,i:s,Env.TemplateDir+task.Templates[ix])
-									close tmpch
-								end	
-								catch (ex)
+								if (!FileTools.FileExists(Env.TemplateDir+task.Templates[ix]))
 								begin
 									ErrorLog("Template " + task.Templates[ix] + " not found!")
 									ErrStatus = true
 									exitloop
 								end
-								endtry
 								
 								;;Add the template to the collection
 								AlUtil.AddIfMissing(Templates,task.Templates[ix])
@@ -601,14 +586,14 @@ namespace CodeGen.Engine
 					;;Report templates to process
 					if (Env.Verbose)
 					begin
-						data tmpTemplate, @a
+						data tmpTemplate, String
 						Log("Template(s):",false,false)
 						foreach tmpTemplate in Templates
-							Log(" - " + (a)tmpTemplate,false,false)
+							Log(" - " + tmpTemplate,false,false)
 					end
 					;;Remove .tpl file extensions
 					for ix from 0 thru Templates.Count-1
-						Templates[ix] = (@a)((a)Templates[ix]-".tpl")
+						Templates[ix] = (String)(((a)Templates[ix])-".tpl")
 				end
 			end
 			
@@ -736,20 +721,16 @@ namespace CodeGen.Engine
 				if (task.SelectionWindowScript!=String.Empty)
 				begin
 					;;Open the file, fail if can't
-					try
+					if (FileTools.FileExists(task.SelectionWindowScript)) then
 					begin
-						data WscChn, int
-						open(WscChn=0,i:s,task.SelectionWindowScript)
-						close WscChn
 						Env.SelectionWindowScript = task.SelectionWindowScript
 						DebugLog("Selection window processing enabled from file "+Env.SelectionWindowScript,false,false)
 					end
-					catch (ex)
+					else
 					begin
 						ErrorLog("Can't open selection window script " + task.SelectionWindowScript.Trim() + " Check your -ws option!")
 						ErrStatus = true
 					end
-					endtry
 				end
 			end
 			
@@ -880,7 +861,7 @@ namespace CodeGen.Engine
 				Env.Buttons = new WscButtonCollection()
 				
 				;;Now parse the script file
-				if (WscFile)
+				if (WscFile.Length)
 				begin
 					data errTxt, string
 					ErrStatus = (boolean)ParseWindowScript(WscFile,Structures,errTxt)
@@ -956,7 +937,7 @@ namespace CodeGen.Engine
 					if (Env.DeveloperDebug)
 						DebugLog("DEVDBG: Structure aliasing requested via Aliases property",false,false)					
 						
-					if (WscFile)
+					if (WscFile.Length)
 					begin
 						ErrorLog("Can't use WindowScript and Aliases properties together!")
 						ErrStatus = true
@@ -987,7 +968,7 @@ namespace CodeGen.Engine
 			begin
 				if (task.FileOverrides.Count>0)
 				begin
-					if (WscFile)
+					if (WscFile.Length)
 					begin
 						ErrorLog("Can't use file overrides FileOverrides property when processing a script file!")
 						ErrStatus = true
@@ -1252,10 +1233,10 @@ namespace CodeGen.Engine
 			
 			;;Process each template
 			begin
-				data tmpTemplate, @a
+				data tmpTemplate, String
 				foreach tmpTemplate in Templates
 				begin
-					Env.CurrentTemplate =(a)tmpTemplate
+					Env.CurrentTemplate = tmpTemplate
 					
 					;;If we're processing multiple structures in the same template then make
 					;;sure that context is set to the first structure for each template

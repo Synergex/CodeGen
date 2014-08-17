@@ -43,6 +43,7 @@
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
 .ifdef DBLNET
+import System.Collections
 import System.Collections.ObjectModel
 .else
 import System.Collections
@@ -204,8 +205,7 @@ namespace CodeGen.Engine
 		;;; present in Env.UserTokens. If a named token already exists then its value is replaced.
 		;;; </summary>
 		public static method AddTokens, void
-			required in TokenArray, [*]a
-			required in TokenCount, n
+			required in TokenArray, @ArrayList
 			endparams
 			record
 				ix      ,int
@@ -214,23 +214,24 @@ namespace CodeGen.Engine
 				value   ,string
 			endrecord
 		proc
-
+			
 			;;This methos is used by CodeGenLauncher for command-line user tokens.
 			
 			VerboseLog("Loading user defined tokens from command line:",true,false)
 			
 			if (Env.UserTokens == ^null)
 				Env.UserTokens = new ObservableCollection<UserToken>()
-
-			for ix from 1 thru TokenCount
-			begin
 				
+			for ix from 0 thru TokenArray.Count-1
+			begin
 				;;Make sure the token looks right (name=value)
-				if (((delim=instr(1,TokenArray[ix],"="))<2) || (delim==trim(TokenArray[ix])) )
-					throw new CodegenException("Command line token " + atrim(TokenArray[ix]) + " is invalid!")
+				data source, String, (String)TokenArray[ix]
+				if (!source.Contains("=")||source.StartsWith("=")||source.EndsWith("="))
+					throw new CodegenException("Command line token " + source + " is invalid!")
 					
-				token = "<" + atrim(TokenArray[ix](1:delim-1)) + ">"
-				value = atrim(TokenArray[ix](delim+1:trim(TokenArray[ix])))
+				delim = %instr(1,source,"=")
+				token = "<" + source(1:delim-1) + ">"
+				value = source(delim+1:%trim(source))
 				
 				;;If the token is already in the collection then update its value
 				;;Otherwise add a new user token
@@ -255,9 +256,7 @@ namespace CodeGen.Engine
 			
 		endmethod
 		
-
 	endclass
-		
 
 .else
 
@@ -282,17 +281,16 @@ namespace CodeGen.Engine
             LoadTokensFromFile(UserTokenFile)
         endmethod
 
-        ;;Constructor (load tokens from command line array)
-        public method UserTokenCollection
-            required in TokenArray, [*]a
-            required in TokenCount, n
-            endparams
-        proc
-            p_Collection = new ArrayList()
-            AddTokens(TokenArray,TokenCount)
-        endmethod
-
-        ;;Destructor
+		;;Constructor (load tokens from command line array)
+		public method UserTokenCollection
+			required in TokenArray, @ArrayList
+			endparams
+		proc
+			p_Collection = new ArrayList()
+			AddTokens(TokenArray)
+		endmethod
+		
+;;Destructor
         method ~UserTokenCollection
         proc
             clear p_Collection
@@ -407,56 +405,55 @@ eout,               if (rdlen()) then
             endmethod
         endproperty
 
-        ;;Add command line tokens to existing collection, replacing any existing ones
-        public method AddTokens, void
-            required in TokenArray, [*]a
-            required in TokenCount, n
-            endparams
-            record
-                ix      ,int
-                delim   ,int
-                token   ,string
-                value   ,string
-            endrecord
-        proc
-
-            VerboseLog("Loading user defined tokens from command line:",true,false)
-
-            for ix from 1 thru TokenCount
-            begin
-
-                ;;Make sure the token looks right (name=value)
-                if (((delim=instr(1,TokenArray[ix],"="))<2) || (delim==trim(TokenArray[ix])) )
-                    throw new CodegenException("Command line token " + atrim(TokenArray[ix]) + " is invalid!")
-
-                token = "<" + atrim(TokenArray[ix](1:delim-1)) + ">"
-                value = atrim(TokenArray[ix](delim+1:trim(TokenArray[ix])))
-
-                ;;If the token is already in the collection then update its value
-                ;;Otherwise add a new user token
-                begin
-                    data tmpToken, @UserToken
-                    data existingToken, Boolean, false
-                    foreach tmpToken in p_Collection
-                    begin
-                        if (tmpToken.Name.eqs.token)
-                        begin
-                            tmpToken.Value = value
-                            existingToken = true
-                            exitloop
-                        end
-                    end
-                    if (!existingToken)
-                        p_Collection.Add(new UserToken(token,value))
-                end
-
-                VerboseLog(" - User token " + token + " = " + value,false,false)
-            end
-
-
-        endmethod
-
-        ;;; <summary>
+		;;Add command line tokens to existing collection, replacing any existing ones
+		public method AddTokens, void
+			required in TokenArray, @ArrayList
+			endparams
+			record
+				ix      ,int
+				delim   ,int
+				token   ,string
+				value   ,string
+			endrecord
+		proc
+			
+			VerboseLog("Loading user defined tokens from command line:",true,false)
+			
+			for ix from 0 thru TokenArray.Count - 1
+			begin
+				;;Make sure the token looks right (name=value)
+				data source, String, (String)TokenArray[ix]
+				if (!source.Contains("=")||source.StartsWith("=")||source.EndsWith("="))
+					throw new CodegenException("Command line token " + source + " is invalid!")
+				
+				delim = %instr(1,source,"=")
+				token = "<" + source(1:delim-1) + ">"
+				value = source(delim+1:%trim(source))
+				
+				;;If the token is already in the collection then update its value
+				;;Otherwise add a new user token
+				begin
+					data tmpToken, @UserToken
+					data existingToken, Boolean, false
+					foreach tmpToken in p_Collection
+					begin
+						if (tmpToken.Name.eqs.token)
+						begin
+							tmpToken.Value = value
+							existingToken = true
+							exitloop
+						end
+					end
+					if (!existingToken)
+						p_Collection.Add(new UserToken(token,value))
+				end
+				
+				VerboseLog(" - User token " + token + " = " + value,false,false)
+			end
+			
+		endmethod
+		
+		;;; <summary>
         ;;; Expose the internal ArrayList so consumers can use FOREACH
         ;;; </summary>
         ;;; <returns>Internal ArrayList used to store user tokens.</returns>
