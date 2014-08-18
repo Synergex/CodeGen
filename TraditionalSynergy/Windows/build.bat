@@ -165,9 +165,9 @@ rem if ERRORLEVEL 1 goto CUSTOM_LINK_ERROR
 rem ---------------------------------------------------------------------------
 echo Building CodeGen ...
 
-dbl -%DBG%XTo CODEGEN_OBJ:codegen.dbo MAINLINE_SRC:CodeGen.dbl
+dbl -%DBG%XTo CODEGEN_OBJ:codegen.dbo MAINLINE_SRC:CodeGen.dbl MAINLINE_SRC:CodeGenLauncher.dbl
 if ERRORLEVEL 1 goto CODEGEN_COMPILE_ERROR
-dblink -%DBG%o CODEGEN_EXE:codegen.dbr CODEGEN_OBJ:codegen.dbo CODEGEN_EXE:codegenengine.elb
+dblink -%DBG%o CODEGEN_EXE:codegen.dbr CODEGEN_OBJ:codegen.dbo CODEGEN_EXE:codegenengine.elb CODEGEN_EXE:repositoryapi.elb
 if ERRORLEVEL 1 goto CODEGEN_LINK_ERROR
 cd exe
 rem ---------------------------------------------------------------------------
