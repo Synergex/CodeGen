@@ -1,0 +1,892 @@
+;;*****************************************************************************
+;;
+;; Title:       ParseScriptField.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Parses a window script input fields parameters
+;;
+;; Date:        9th November 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    function ParseScriptField, ^val
+        required inout Field, @RpsField
+        required in FieldParams, a
+        endparams
+
+        record local_vars
+            ErrStatus       ,int
+            StartPos        ,int
+            EndPos          ,int
+            FieldAttribute  ,a512
+        endrecord
+		
+    proc
+
+        init local_vars
+
+        DebugLog(" - Parsing script field " + Field.Name,false,false)
+
+        repeat
+        begin
+
+            ;;Are we done?
+            if (EndPos==trim(FieldParams))
+                exitloop
+
+            ;;Set start position for next search
+            StartPos = EndPos + 1
+
+            ;;Do we have another token?
+            EndPos=instr(StartPos,FieldParams,"|")
+
+            if (!EndPos) then
+                exitloop
+            else
+            begin
+
+                FieldAttribute = FieldParams(StartPos,EndPos-1)
+
+                using FieldAttribute select
+
+                ("ALLOW"),
+                begin
+                    ;;ALLOW(valid[,...])
+                    data CommaPos, int
+                    ;;Remove the "ALLOW(" and the ")", leaving just a list of values
+                    FieldAttribute = FieldAttribute - "ALLOW("
+                    clear FieldAttribute(trim(FieldAttribute):1)
+                    ;;Create the collection
+                    Field.AllowList = new ArrayList()
+                    repeat
+                    begin
+                        ;;If this value is quoted then remove the quotes
+                        using FieldAttribute(1:1) select
+                        ("'"),
+                        begin
+                            FieldAttribute = FieldAttribute - "'"
+                            FieldAttribute = FieldAttribute - "'"
+                        end
+                        ('"'),
+                        begin
+                            FieldAttribute = FieldAttribute - '"'
+                            FieldAttribute = FieldAttribute - '"'
+                        end
+                        endusing
+                        ;;Add the value to the collection
+                        if (CommaPos=instr(1,FieldAttribute,",")) then
+                        begin
+                            Field.AllowList.Add((@a)FieldAttribute(1,CommaPos-1))
+                            FieldAttribute = FieldAttribute(CommaPos+1,trim(FieldAttribute))
+                        end
+                        else
+                        begin
+                            Field.AllowList.Add((@a)FieldAttribute(1,trim(FieldAttribute)))
+                            exitloop
+                        end
+                    end
+                    if (Env.Debug)
+                    begin
+                        data ix, int
+                        Log(" - Script specifies allow list of " + string(Field.AllowList.Count) + " items.",false,false)
+                        display(Env.Tt,"   - ")
+                        for ix from 0 thru Field.AllowList.Count-1
+                        begin
+                            display(Env.Tt, (a)Field.AllowList[ix])
+                            if (ix<Field.AllowList.Count-1)
+                                display(Env.Tt,", ")
+                        end
+                        Log("",false,false)
+                    end
+                end
+
+                ("NOALLOW"),
+                begin
+                    Field.AllowList.Clear()
+                    Field.AllowListMaxLength = 0
+                end
+
+                ("ARRIVE_METHOD"),
+                begin
+                    ;;ARRIVE_METHOD(arrive_method)
+					Field.ArriveMethod = StringTools.QuotedString(FieldAttribute)
+                end
+
+                ("NOARRIVE_METHOD"),
+                    Field.ArriveMethod = ""
+
+                ("AUTOMATIC"),
+                    Field.DefaultAuotmatic = true
+
+                ("NOAUTOMATIC"),
+                    Field.DefaultAuotmatic = false
+
+                ("BLANK_IF_ZERO","BLANK_IFZERO","BZRO"),
+                    Field.BlankIfZero = true
+
+                ("NOBLANK_IF_ZERO","NOBLANK_IFZERO","NOBZRO"),
+                    Field.BlankIfZero = false
+
+                ("BLINK","ITALIC"),
+                    Field.RenditionBlink = true
+
+                ("NOBLINK","NOITALIC"),
+                    Field.RenditionBlink = false
+
+                ("BOLD"),
+                    Field.RenditionHighlight = true
+
+                ("NOBOLD"),
+                    Field.RenditionHighlight = false
+
+                ("BREAK"),
+                begin
+                    ;;BREAK[(CHANGE|ALWAYS|RETURN)]
+                    using FieldAttribute select
+                    ("BREAK(ALWAYS)"),
+                        Field.BreakMode = RpsFieldBreak.Always
+                    ("BREAK(CHANGE)"),
+                        Field.BreakMode = RpsFieldBreak.Change
+                    ("BREAK(RETURN)"),
+                        Field.BreakMode = RpsFieldBreak.OnReturn
+                    ("BREAK"),
+                        Field.BreakMode = RpsFieldBreak.Change
+                    endusing
+                end
+
+                ("NOBREAK"),
+                    Field.BreakMode=RpsFieldBreak.None
+
+                ("CHANGE_METHOD"),
+                begin
+                    ;;CHANGE_METHOD(change_method)
+					Field.ChangeMethod = StringTools.QuotedString(FieldAttribute)
+                end
+
+                ("NOCHANGE_METHOD"),
+                    Field.ChangeMethod = ""
+
+                ("CHECKBOX"),
+                    Field.ViewAs = RpsFieldViewAs.Checkbox
+
+                ("NOCHECKBOX"),
+                    Field.ViewAs = RpsFieldViewAs.Field
+
+                ("COLOR"),
+                begin
+                    ;;COLOR(palette#)
+					Field.ColorPalette = (RpsColorPalette)StringTools.NumberFromParens(FieldAttribute)
+                end
+
+                ("NOCOLOR"),
+                    Field.ColorPalette = (RpsColorPalette)0
+
+                ("COPY"),
+                begin
+                    Field.DefaultAction = RpsFieldDefaultAction.Copy
+                    Field.DefaultValue = ""
+                end
+
+                ("DATE"),
+                begin
+                    ;;DATE([TODAY][,PERIOD][,SHORT])
+                    ;;Set the field subclass
+                    using Field.DataType select
+                    (RpsFieldDataType.Decimal),
+                    begin
+                        using Field.Size select
+                        (4),
+                            Field.DataTypeSubClass = RpsFieldSubclass.DateYYPP
+                        (5),
+                            Field.DataTypeSubClass = RpsFieldSubclass.DateYYJJJ
+                        (6),
+                            Field.DataTypeSubClass = RpsFieldSubclass.DateYYMMDD
+                        (7),
+                            Field.DataTypeSubClass = RpsFieldSubclass.DateYYYYJJJ
+                        (8),
+                            Field.DataTypeSubClass = RpsFieldSubclass.DateYYYYMMDD
+                        endusing
+                    end
+                    (RpsFieldDataType.Integer),
+                    begin
+                        using Field.Size select
+                        (2),
+                            Field.DataTypeSubClass = RpsFieldSubclass.DateYYPP
+                        (4),
+                            Field.DataTypeSubClass = RpsFieldSubclass.DateYYYYMMDD
+                        endusing
+                    end
+                    endusing
+                    ;;Default to today?
+                    Field.DateDefaultToday = instr(1,FieldAttribute,"TODAY")
+                    ;;Short date?
+                    Field.AllowShortDate = instr(1,FieldAttribute,"SHORT")
+                end
+
+                ("NODATE"),
+                begin
+                    Field.DataTypeSubClass = (RpsFieldSubclass)0
+                    Field.DateDefaultToday = false
+                    Field.AllowShortDate = false
+                end
+
+                ("DECREMENT"),
+                begin
+                    Field.DefaultAction = RpsFieldDefaultAction.Decrement
+                    Field.DefaultValue = ""
+                end
+
+                ("DEFAULT"),
+                begin
+                    ;;DEFAULT(default)
+                    if (instr(1,FieldAttribute,"'")||instr(1,FieldAttribute,'"')) then
+						Field.DefaultValue = StringTools.QuotedString(FieldAttribute)
+                    else
+						Field.DefaultValue = string(StringTools.NumberFromParens(FieldAttribute))
+                    Field.DefaultAction = RpsFieldDefaultAction.Default
+                end
+
+                ("NODEFAULT"),
+                begin
+                    Field.DefaultAction = RpsFieldDefaultAction.None
+                    Field.DefaultValue = ""
+                end
+
+                ("DISABLED"),
+                    Field.Disabled = true
+
+                ("NODISABLED","ENABLED"),
+                    Field.Disabled = false
+
+                ("DSP_LENGTH"),
+                begin
+                    ;;DSP_LENGTH(display_length)
+					Field.DisplayLength = StringTools.NumberFromParens(FieldAttribute)
+                end
+
+                ("NODSP_LENGTH"),
+                    Field.DisplayLength = 0
+
+                ("DISPLAY_METHOD"),
+                begin
+                    ;;DISPLAY_METHOD(display_method)
+					Field.DisplayMethod = StringTools.QuotedString(FieldAttribute)
+                end
+
+                ("NODISPLAY_METHOD"),
+                    Field.DisplayMethod = ""
+
+                ("DRILL_METHOD"),
+                begin
+                    ;;DRILL_METHOD(drill_method)
+					Field.DrillMethod = StringTools.QuotedString(FieldAttribute)
+                end
+
+                ("NODRILL_METHOD"),
+                    Field.DrillMethod = ""
+
+                ("EDITFMT_METHOD"),
+                begin
+                    ;;EDITFMT_METHOD(editfmt_method)
+					Field.EditFormatMethod = StringTools.QuotedString(FieldAttribute)
+                end
+
+                ("NOEDITFMT_METHOD"),
+                    Field.EditFormatMethod = ""
+
+                ("ENUMERATED"),
+                begin
+                    ;;ENUMERATED(display_length[,base][,step])
+                    data OpenParenPos, int
+                    data CloseParenPos, int
+                    data CommaOnePos, int
+                    data CommaTwoPos, int
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    CommaOnePos = instr(OpenParenPos,FieldAttribute,",")
+                    CommaTwoPos = instr(CommaOnePos+1,FieldAttribute,",")
+                    if (!CommaOnePos) then
+                    begin
+						Field.EnumeratedDisplayLength = StringTools.NumberFromParens(FieldAttribute)
+                        ;;No base or step specified
+                        Field.EnumeratedBaseValue = 1
+                        Field.EnumeratedStepValue = 1
+                    end
+                    else
+                    begin
+                        Field.EnumeratedDisplayLength = integer(FieldAttribute(OpenParenPos+1,CommaOnePos-1))
+                        if (!CommaTwoPos) then
+                        begin
+                            ;;No step value specified
+                            Field.EnumeratedBaseValue = integer(FieldAttribute(CommaOnePos+1,CloseParenPos-1))
+                            Field.EnumeratedStepValue = 1
+                        end
+                        else
+                        begin
+                            ;;We have a step value also
+                            Field.EnumeratedBaseValue = integer(FieldAttribute(CommaOnePos+1,CommaTwoPos-1))
+                            Field.EnumeratedStepValue = integer(FieldAttribute(CommaTwoPos+1,CloseParenPos-1))
+                        end
+                    end
+                end
+
+                ("NOENUMERATED"),
+                begin
+                    Field.EnumeratedDisplayLength = 0
+                    Field.EnumeratedBaseValue = 0
+                    Field.EnumeratedStepValue = 0
+                end
+
+                ("FIELD_POSITION","FPOS"),
+                begin
+                    ;;FIELD_POSITION([CHANGE,]row,column) or FPOS([CHANGE,]row,column)
+                    data OpenParenPos, int
+                    data CommaPos, int
+                    data CloseParenPos, int
+                    if (instr(1,FieldAttribute,"CHANGE,")) then
+                    begin
+                        Field.FieldPositionMode = RpsPositionMode.Relative
+                        FieldAttribute = FieldAttribute - "CHANGE,"
+                    end
+                    else
+                        Field.FieldPositionMode = RpsPositionMode.Absolute
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CommaPos = instr(1,FieldAttribute,",")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    Field.FieldRow = integer(FieldAttribute(OpenParenPos+1,CommaPos-1))
+                    Field.FieldColumn = integer(FieldAttribute(CommaPos+1,CloseParenPos-1))
+                end
+
+                ("NOFIELD_POSITION","NOFPOS"),
+                begin
+                    Field.FieldRow = 0
+                    Field.FieldColumn = 0
+                end
+
+                ("FONT"),
+                begin
+                    ;;FONT(palette_name)
+					Field.FieldFont = StringTools.StringFromParens(FieldAttribute)
+                end
+
+                ("NOFONT"),
+                    Field.FieldFont = ""
+
+                ("FORMAT","FMT"),
+                begin
+                    ;;FORMAT(fmt_string) or FMT(fmt_string)
+					Field.FormatName = StringTools.QuotedString(FieldAttribute)
+                end
+
+                ("NOFORMAT","NOFMT"),
+                    Field.FormatName = ""
+
+                ("HELP"),
+                begin
+                    ;;HELP(help_id)
+					Field.HelpIdentifier = StringTools.StringFromParens(FieldAttribute)
+                end
+
+                ("NOHELP"),
+                    Field.HelpIdentifier = ""
+
+                ("HIGHLIGHT"),
+                    Field.RenditionHighlight = true
+
+                ("NOHIGHLIGHT"),
+                    Field.RenditionHighlight = false
+
+                ("HYPERLINK_METHOD"),
+                begin
+                    ;;HYPERLINK_METHOD(hyperlink_method)
+					Field.HyperlinkMethod = StringTools.QuotedString(FieldAttribute)
+                end
+
+                ("NOHYPERLINK_METHOD"),
+                    Field.HyperlinkMethod = ""
+
+                ("INCREMENT"),
+                begin
+                    Field.DefaultAction = RpsFieldDefaultAction.Increment
+                    Field.DefaultValue = ""
+                end
+
+                ("INFORMATION"),
+                begin
+                    ;;INFORMATION(info_string)
+					Field.InfoLineText = StringTools.QuotedString(FieldAttribute)
+                end
+
+                ("NOINFORMATION"),
+                    Field.InfoLineText = ""
+
+                ("INPUT_LENGTH"),
+                begin
+                    ;;INPUT_LENGTH(input_length)
+					Field.InputLength = StringTools.NumberFromParens(FieldAttribute)
+                end
+
+                ("NOINPUT_LENGTH"),
+                    Field.InputLength = 0
+
+                ("JUSTIFY"),
+                begin
+                    ;;JUSTIFY(LEFT|RIGHT|CENTER)
+                    using FieldAttribute select
+                    ("JUSTIFY(LEFT)"),
+                        Field.InputJustification = RpsJustification.Left
+                    ("JUSTIFY(RIGHT)"),
+                        Field.InputJustification = RpsJustification.Right
+                    ("JUSTIFY(CENTER)"),
+                        Field.InputJustification = RpsJustification.Center
+                    endusing
+                end
+
+                ("NOJUSTIFY"),
+                begin
+                    using Field.DataType select
+                    (RpsFieldDataType.Alpha,RpsFieldDataType.User),
+                        Field.InputJustification = RpsJustification.Left
+                    (RpsFieldDataType.Decimal,RpsFieldDataType.Integer),
+                        Field.InputJustification = RpsJustification.Right
+                    endusing
+                end
+
+                ("LEAVE_METHOD"),
+                begin
+                    ;;LEAVE_METHOD(leave_method)
+					Field.LeaveMethod = StringTools.QuotedString(FieldAttribute)
+                end
+
+                ("NOLEAVE_METHOD"),
+                    Field.LeaveMethod = ""
+
+                ("MATCH"),
+                begin
+                    ;;MATCH(option[,option])
+                    ;;options are CASE or NOCASE and EXACT or NOEXACT
+                    if (instr(1,FieldAttribute,"CASE"))
+                        Field.AllowListMatchCase = true
+                    if (instr(1,FieldAttribute,"NOCASE"))
+                        Field.AllowListMatchCase = false
+                    if (instr(1,FieldAttribute,"EXACT"))
+                        Field.AllowListMatchExact = true
+                    if (instr(1,FieldAttribute,"NOEXACT"))
+                        Field.AllowListMatchExact = false
+                end
+
+                ("NEGATIVE"),
+                begin
+                    ;;NEGATIVE[(ALLOWED|ONLY|ORZERO)]
+                    using FieldAttribute select
+                    ("NEGATIVE(ALLOWED)"),
+                        Field.NegativeAllowed = RpsFieldNegatives.Allowed
+                    ("NEGATIVE(ONLY)"),
+                        Field.NegativeAllowed = RpsFieldNegatives.Only
+                    ("NEGATIVE(ORZERO)"),
+                        Field.NegativeAllowed = RpsFieldNegatives.OrZero
+                    ("NEGATIVE"),
+                        Field.NegativeAllowed = RpsFieldNegatives.Allowed
+                    endusing
+                end
+
+                ("NONEGATIVE"),
+                    Field.NegativeAllowed = RpsFieldNegatives.None
+
+                ("NODECIMAL","NODECIMAL_REQUIRED"),
+                    Field.NoDecimalRequired = true
+
+                ("DECIMAL_REQUIRED"),
+                    Field.NoDecimalRequired = false
+
+                ("NOECHO"),
+                begin
+                    ;;NOECHO[(display_character)]
+                    Field.NoEcho = True
+					Field.NoEchoCharacter = StringTools.StringFromParens(FieldAttribute)
+                end
+
+                ("ECHO"),
+                begin
+                    Field.NoEcho = false
+                    Field.NoEchoCharacter = ""
+                end
+
+                ("NOTERM"),
+                    Field.NoTerminatorRequired = true
+
+                ("TERM"),
+                    Field.NoTerminatorRequired = false
+
+                ("PAINT"),
+                begin
+                    ;;PAINT(character)
+                    Field.PaintCharacterSpecified = true
+					Field.PaintCharacter = StringTools.StringFromParens(FieldAttribute)
+                end
+
+                ("NOPAINT"),
+                begin
+                    Field.PaintCharacterSpecified = false
+                    Field.PaintCharacter = ""
+                end
+
+                ("POS"),
+                begin
+                    ;;POSITION([CHANGE,]row,column)
+                    data OpenParenPos, int
+                    data CommaPos, int
+                    data CloseParenPos, int
+                    if (instr(1,FieldAttribute,"CHANGE,")) then
+                    begin
+                        Field.PromptPositionMode = RpsPositionMode.Relative
+                        FieldAttribute = FieldAttribute - "CHANGE,"
+                    end
+                    else
+                        Field.PromptPositionMode = RpsPositionMode.Absolute
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CommaPos = instr(1,FieldAttribute,",")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    Field.PromptRow = integer(FieldAttribute(OpenParenPos+1,CommaPos-1))
+                    Field.PromptColumn = integer(FieldAttribute(CommaPos+1,CloseParenPos-1))
+                end
+
+                ("NOPOS","NOPOSITION"),
+                begin
+                    Field.PromptRow = 0
+                    Field.PromptColumn = 0
+                end
+
+                ("PROMPT"),
+                begin
+                    ;;PROMPT(prompt)
+					Field.Prompt = StringTools.QuotedString(FieldAttribute)
+                    ;;if we didn't get anything back from QuotedString then it must be a numeric prompt length
+                    if (!Field.Prompt)
+						Field.Prompt = string(StringTools.NumberFromParens(FieldAttribute))
+                end
+
+                ("NOPROMPT"),
+                    Field.Prompt = ""
+
+                ("PROMPTFONT"),
+                begin
+                    ;;PROMPTFONT(palette_name)
+					Field.PromptFont = StringTools.StringFromParens(FieldAttribute)
+                end
+
+                ("NOPROMPTFONT"),
+                    Field.PromptFont = ""
+
+                ("RADIO"),
+                    Field.ViewAs = RpsFieldViewAs.RadioButtons
+
+                ("NORADIO"),
+                    Field.ViewAs = RpsFieldViewAs.Field
+
+                ("RANGE"),
+                begin
+                    ;;RANGE(minimum,maximum)
+                    data OpenParenPos, int
+                    data CommaPos, int
+                    data CloseParenPos, int
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CommaPos = instr(1,FieldAttribute,",")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    Field.NumericRangeExists = 1
+                    Field.NumericRangeMinimum = ^d(FieldAttribute(OpenParenPos+1,CommaPos-1),10)
+                    Field.NumericRangeMaximum = ^d(FieldAttribute(CommaPos+1,CloseParenPos-1),10)
+                end
+
+                ("NORANGE"),
+                begin
+                    Field.NumericRangeExists = 0
+                    Field.NumericRangeMinimum = 0
+                    Field.NumericRangeMaximum = 0
+                end
+
+                ("READONLY"),
+                    Field.ReadOnly = true
+
+                ("NOREADONLY"),
+                    Field.ReadOnly = false
+
+                ("REQUIRED"),
+                    Field.Required = true
+
+                ("NOREQUIRED"),
+                    Field.Required = false
+
+                ("RETAIN_POSITION"),
+                    Field.RetainPosition = true
+
+                ("NORETAIN_POSITION"),
+                    Field.RetainPosition = false
+
+                ("REVERSE"),
+                    Field.RenditionReverse = true
+
+                ("NOREVERSE"),
+                    Field.RenditionReverse = false
+
+                ("SELECT"),
+                begin
+                    ;;SELECT(srow,scolumn,[height],entry[,...])
+                    data CommaOnePos, int
+                    data CommaTwoPos, int
+                    data CommaThreePos, int
+                    ;;Remove the "SELECT(" and ")"
+                    FieldAttribute = FieldAttribute - "SELECT("
+                    clear FieldAttribute(trim(FieldAttribute):1)
+                    ;;Find the required commas
+                    CommaOnePos = instr(1,FieldAttribute,",")
+                    CommaTwoPos = instr(CommaOnePos+1,FieldAttribute,",")
+                    CommaThreePos = instr(CommaTwoPos+1,FieldAttribute,",")
+                    ;;Extract the row and column
+                    Field.SelectionListType = RpsFieldSelectionType.List
+                    Field.SelectionWindowRow = integer(FieldAttribute(1,CommaOnePos-1))
+                    Field.SelectionWindowColumn = integer(FieldAttribute(CommaOnePos+1,CommaTwoPos-1))
+                    ;;Extract the height if present
+                    if (CommaThreePos!=(CommaTwoPos+1)) then
+                        Field.SelectionWindowHeight = integer(FieldAttribute(CommaTwoPos+1,CommaThreePos-1))
+                    else
+                        Field.SelectionWindowHeight = 0
+                    ;;Remove the row, column and height to leave only the entries
+                    FieldAttribute = FieldAttribute(CommaThreePos+1,trim(FieldAttribute))
+                    ;;Create the collection of entries
+                    Field.SelectionList = new ArrayList()
+                    repeat
+                    begin
+                        ;;If this value is quoted then remove the quotes
+                        using FieldAttribute(1:1) select
+                        ("'"),
+                        begin
+                            FieldAttribute = FieldAttribute - "'"
+                            FieldAttribute = FieldAttribute - "'"
+                        end
+                        ('"'),
+                        begin
+                            FieldAttribute = FieldAttribute - '"'
+                            FieldAttribute = FieldAttribute - '"'
+                        end
+                        endusing
+                        ;;Add the value to the collection
+                        if (CommaOnePos=instr(1,FieldAttribute,",")) then
+                        begin
+                            Field.SelectionList.Add((@a)FieldAttribute(1,CommaOnePos-1))
+                            FieldAttribute = FieldAttribute(CommaOnePos+1,trim(FieldAttribute))
+                        end
+                        else
+                        begin
+                            Field.SelectionList.Add((@a)FieldAttribute(1,trim(FieldAttribute)))
+                            exitloop
+                        end
+                    end
+                end
+
+                ("NOSELECT"),
+                begin
+                    Field.SelectionList.Clear()
+                    Field.SelectionListType = (RpsFieldSelectionType)0
+                    Field.SelectionWindowRow = 0
+                    Field.SelectionWindowColumn = 0
+                    Field.SelectionWindowHeight = 0
+                    Field.SelectionWindowName = ""
+                end
+
+                ("SELWND"),
+                begin
+                    ;;SELWND(srow,scolumn,window)
+                    data OpenParenPos, int
+                    data CloseParenPos, int
+                    data CommaOnePos, int
+                    data CommaTwoPos, int
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    CommaOnePos = instr(OpenParenPos,FieldAttribute,",")
+                    CommaTwoPos = instr(CommaOnePos+1,FieldAttribute,",")
+                    Field.SelectionListType = RpsFieldSelectionType.Window
+                    Field.SelectionWindowRow = integer(FieldAttribute(OpenParenPos+1,CommaOnePos-1))
+                    Field.SelectionWindowColumn = integer(FieldAttribute(CommaOnePos+1,CommaTwoPos-1))
+                    Field.SelectionWindowName = FieldAttribute(CommaTwoPos+1,CloseParenPos-1)
+                end
+
+                ("NOSELWND"),
+                begin
+                    Field.SelectionListType = (RpsFieldSelectionType)0
+                    Field.SelectionWindowRow = 0
+                    Field.SelectionWindowColumn = 0
+                    Field.SelectionWindowName = ""
+                end
+
+                ("TIME"),
+                begin
+                    ;;TIME([AMPM][,NOW])
+                    ;;Set the field subclass
+                    using Field.DataType select
+                    (RpsFieldDataType.Decimal),
+                    begin
+                        using Field.Size select
+                        (4),
+                            Field.DataTypeSubClass = RpsFieldSubclass.TimeHHMM
+                        (6),
+                            Field.DataTypeSubClass = RpsFieldSubclass.TimeHHMMSS
+                        endusing
+                    end
+                    (RpsFieldDataType.Integer),
+                    begin
+                        using Field.Size select
+                        (2),
+                            Field.DataTypeSubClass = RpsFieldSubclass.TimeHHMM
+                        (4),
+                            Field.DataTypeSubClass = RpsFieldSubclass.TimeHHMMSS
+                        endusing
+                    end
+                    endusing
+                    ;;Default to now?
+                    Field.TimeDefaultNow = instr(1,FieldAttribute,"NOW")
+                    ;;AM/PM time?
+                    Field.TimeAmPm = instr(1,FieldAttribute,"AMPM")
+                end
+
+                ("NOTIME"),
+                begin
+                    Field.DataTypeSubclass = (RpsFieldSubclass)0
+                    Field.TimeDefaultNow = false
+                    Field.TimeAmPm = false
+                end
+
+                ("UNDERLINE"),
+                    Field.RenditionUnderline = true
+
+                ("NOUNDERLINE"),
+                    Field.RenditionUnderline = false
+
+                ("UPPER_CASE_ONLY","UC","UPPER_CASE"),
+                    Field.UpperCase = true
+
+                ("NOUPPER_CASE_ONLY","NOUC","LOWER_CASE_ALLOWED"),
+                    Field.UpperCase = false
+
+                ("USER"), ;;User text and user defined field type
+                begin
+                    ;;USER([user_text][,user_type])
+                    data OpenParenPos, int
+                    data CommaPos, int
+                    data CloseParenPos, int
+                    OpenParenPos = instr(1,FieldAttribute,"(")
+                    CommaPos = instr(1,FieldAttribute,",")
+                    CloseParenPos = instr(1,FieldAttribute,")")
+                    if (!CommaPos) then
+                    begin
+                        ;;No user type specified
+						Field.UserText = StringTools.QuotedString(FieldAttribute)
+                        Field.UserFieldType = ""
+                    end
+                    else
+                    begin
+                        ;;We have a user-defined type, and maybe user text too
+                        if (CommaPos==(OpenParenPos+1)) then
+                        begin
+                            ;;No user text
+                            Field.UserText = ""
+							Field.UserFieldType = StringTools.QuotedString(FieldAttribute)
+                        end
+                        else
+                        begin
+                            ;;We also have user text
+							Field.UserText = StringTools.QuotedString(FieldAttribute)
+                            FieldAttribute = FieldAttribute(CommaPos,CloseParenPos)
+							Field.UserFieldType = StringTools.QuotedString(FieldAttribute)
+                        end
+                    end
+                end
+
+                ("NOUSER"),
+                begin
+                    Field.UserFieldType = ""
+                    Field.UserText = ""
+                end
+
+                ("VIEW_LENGTH"),
+                begin
+                    ;;VIEW_LENGTH(view_length)
+					Field.ViewLength = StringTools.NumberFromParens(FieldAttribute)
+                end
+
+                ("NOVIEW_LENGTH"),
+                    Field.ViewLength = 0
+
+                ("WAIT"),
+                begin
+                    ;;WAIT(IMMEDIATE|GLOBAL|FOREVER|seconds)
+                    using FieldAttribute select
+                    ("WAIT(IMMEDIATE)"),
+                        Field.InputTimeoutMode = RpsFieldTimeout.Immediate
+                    ("WAIT(FOREVER)"),
+                        Field.InputTimeoutMode = RpsFieldTimeout.Forever
+                    ("WAIT(GLOBAL)"),
+                        Field.InputTimeoutMode = RpsFieldTimeout.Global
+                    (),
+                    begin
+                        Field.InputTimeoutMode = RpsFieldTimeout.Time
+						Field.InputTimeout = StringTools.NumberFromParens(FieldAttribute)
+                    end
+                    endusing
+                end
+
+                (),
+                begin
+                    ErrorLog("Unrecognized input field parameter " + atrim(FieldAttribute))
+                    ErrStatus = 1
+                    exitloop
+                end
+
+                endusing
+            end
+
+        end
+
+        freturn ErrStatus
+
+    endfunction
+
+endnamespace
+

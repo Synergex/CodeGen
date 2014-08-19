@@ -1,0 +1,148 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsRelation.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a single relation for a Repository structure
+;;
+;; Date:        19th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.define DDINFO_DEFINES_ONLY
+.include "RPSLIB:ddinfo.def"
+.undefine DDINFO_DEFINES_ONLY
+
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.RepositoryAPI
+
+    public class RpsRelation
+
+        ;;Relation attribute data
+        protected mRelationName     ,String
+        protected mFromStructure    ,String
+        protected mFromKey          ,String
+        protected mToStructure      ,String
+        protected mToKey            ,String
+
+        ;; Constructor
+        public method RpsRelation
+            required in StructureName, String
+            required in RelationName, String
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsRelation(StructureName,RelationName) constructor")
+            Repository.CheckIsOpen()
+            LoadRelation(StructureName,RelationName)
+        endmethod
+
+        ;; Load relation
+        private method LoadRelation, void
+            required in StructureName, String
+            required in RelationName, String
+            endparams
+        proc
+            ;;Save the structure and relation names
+            mFromStructure = atrim(StructureName.ToUpper())
+            mRelationName = atrim(RelationName.ToUpper())
+            begin
+                data ms_info, s_info
+                data fromKey, a30
+                data toStructure, a30
+                data toKey, a30
+                ;;Set the current structure?
+                dd_struct(Repository.RpsControl,DDS_INFO,mFromStructure,ms_info)
+                if (Repository.RpsControl.error)
+                    throw new RpsRelationException("Failed to set current repository structure to "+mFromStructure)
+                ;;Load the relation information
+                dd_relation(Repository.RpsControl,DDR_INFO,mRelationName,fromKey,toStructure,toKey)
+                if (Repository.RpsControl.error) then
+                    throw new RpsRelationException("Failed to get information for repository relation "+mFromStructure+"."+mRelationName)
+                else
+                begin
+                    mFromKey = atrim(fromKey)
+                    mToStructure = atrim(toStructure)
+                    mToKey = atrim(toKey)
+                end
+            end
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;Public properties to expose the attributes to the outside world
+
+        ;; Relation name
+        public property Name, String
+            method get
+            proc
+                mreturn mRelationName
+            endmethod
+        endproperty
+
+        ;; From Structure
+        public property FromStructure, String
+            method get
+            proc
+                mreturn mFromStructure
+            endmethod
+        endproperty
+        
+        ;; From key
+        public property FromKey, String
+            method get
+            proc
+                mreturn mFromKey
+            endmethod
+        endproperty
+
+        ;; To structure
+        public property ToStructure, String
+            method get
+            proc
+                mreturn mToStructure
+            endmethod
+        endproperty
+
+        ;; To key
+        public property ToKey, String
+            method get
+            proc
+                mreturn mToKey
+            endmethod
+        endproperty
+
+    endclass
+
+endnamespace
+

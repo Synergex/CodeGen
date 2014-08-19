@@ -1,0 +1,246 @@
+;;*****************************************************************************
+;;
+;; Title:       ProcessTagExpression.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Processes tag loop expressions
+;;
+;; Date:        26th July 2013
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.Engine
+	
+	function ProcessTagExpression               ,boolean
+		
+		required in    Str                      ,@RpsStructure
+		required in    Tag                      ,@RpsTag
+		required in    TagNbr                   ,int		; (0-based index into Tags collection)
+		required in    TokenStart               ,int
+		required in    TokenEnd                 ,int
+		required inout Loop1ConditionMode       ,@ArrayList
+		required inout Loop1ConditionApplies    ,@ArrayList
+		required inout Loop1OutputOff           ,boolean
+		required inout buffer                   ,a
+		required inout ErrStatus                ,int
+		endparams
+
+		stack record
+			Fld									,@RpsField
+			result								,boolean
+		endrecord
+		
+	proc
+		
+		;;Get a handle on the field associated with the tag
+		clear Fld
+		if (Tag.Field.Length>0)
+			foreach Fld in Str.Fields.GetEnumerator()
+				if (Fld.Name==Tag.Field)
+					exitloop
+		
+		Loop1ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
+		Loop1ConditionApplies.Add((@boolean)false)
+
+		result = false
+		
+		using ((a)Loop1ConditionMode[Loop1ConditionMode.Count-1]) select
+
+		;PROCESS TAG EXPRESSIONS HERE
+
+		("COMPARISON_EQ "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator==RpsTagOperator.OpEQ))
+		
+		("COMPARISON_GE "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator==RpsTagOperator.OpGE))
+		
+		("COMPARISON_GT "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator==RpsTagOperator.OpGT))
+		
+		("COMPARISON_LE "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator==RpsTagOperator.OpLE))
+		
+		("COMPARISON_LT "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator==RpsTagOperator.OpLT))
+		
+		("COMPARISON_NE "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator==RpsTagOperator.OpNE))
+
+		("COMPARISON_NOT_EQ "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator!=RpsTagOperator.OpEQ))
+		
+		("COMPARISON_NOT_GE "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator!=RpsTagOperator.OpGE))
+		
+		("COMPARISON_NOT_GT "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator!=RpsTagOperator.OpGT))
+		
+		("COMPARISON_NOT_LE "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator!=RpsTagOperator.OpLE))
+		
+		("COMPARISON_NOT_LT "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator!=RpsTagOperator.OpLT))
+		
+		("COMPARISON_NOT_NE "),
+			result = ((Fld!=^null)&&(Tag.ComparisonOperator!=RpsTagOperator.OpNE))
+		
+		("CONNECTOR_NONE "),
+			result = (Tag.ComparisonConnector==RpsTagComparison.None)
+		
+		("CONNECTOR_AND "),
+			result = (Tag.ComparisonConnector==RpsTagComparison.CompareAnd)
+		
+		("CONNECTOR_OR "),
+			result = (Tag.ComparisonConnector==RpsTagComparison.CompareOr)
+			
+		("CONNECTOR_NOT_NONE "),
+			result = (Tag.ComparisonConnector!=RpsTagComparison.None)
+		
+		("CONNECTOR_NOT_AND "),
+			result = (Tag.ComparisonConnector!=RpsTagComparison.CompareAnd)
+		
+		("CONNECTOR_NOT_OR "),
+			result = (Tag.ComparisonConnector!=RpsTagComparison.CompareOr)
+			
+		("COUNTER_","NOT_COUNTER_"),
+			if (!ProcessCounterExpression(Loop1ConditionMode,Loop1ConditionApplies))
+				ErrStatus = 1
+
+		("FIRST_TAG"),
+			result = (TagNbr==0)
+		
+		("LAST_TAG"),
+			result = (TagNbr==Str.Tags.Count-1)
+		
+		("MULTIPLE_TAGS"),
+			result = (Str.Tags.Count>1)
+		
+		("SINGLE_TAG"),
+			result = (Str.Tags.Count==1)
+		
+		;;Presence of a user token
+		("USERTOKEN_"),
+		begin
+			data utName, string, buffer(TokenStart+4,TokenEnd-1) - "USERTOKEN_"
+			data ut, @UserToken
+			
+			if (Env.UserTokens==^null)
+				exit
+			
+.ifdef DBLNET
+			foreach ut in Env.UserTokens
+.else
+			foreach ut in Env.UserTokens.GetEnumerator()
+.endc
+			begin
+				if (ut.Name=="<"+utName+">")
+				begin
+					result = true
+					exitloop
+				end
+			end
+		end
+		
+		;;Absence of a user token
+		("NOT_USERTOKEN_"),
+		begin
+			data utName, string, buffer(TokenStart+4,TokenEnd-1) - "NOT_USERTOKEN_"
+			data ut, @UserToken
+			data found, boolean, false
+			
+			if (Env.UserTokens==^null) then
+			begin
+				result = true
+			end
+			else
+			begin
+.ifdef DBLNET
+				foreach ut in Env.UserTokens
+.else
+				foreach ut in Env.UserTokens.GetEnumerator()
+.endc
+				begin
+					if (ut.Name=="<"+utName+">")
+					begin
+						found=true
+						exitloop
+					end
+				end
+				result = (!found)
+			end
+		end
+		
+		(),
+		begin
+			;;If we haven't evaluated an expression by the time we get here then the only
+			;;remaining possibility is that there may be a custom expression extension
+			data customExpressionProcessed, Boolean, false
+			
+			if (Env.CustomTagExpressions.Count>0)
+			begin
+				data customExpression, @CustomTagExpression
+				foreach customExpression in Env.CustomTagExpressions
+				begin
+					if (customExpression.Expression.eqs.(a)Loop1ConditionMode[Loop1ConditionMode.Count-1])
+					begin
+						result = customExpression.Evaluate(Str,Tag,TagNbr)
+						customExpressionProcessed = true
+						exitloop
+					end
+				end
+			end
+			
+			if (customExpressionProcessed)
+				exit
+			
+			ErrorLog("Invalid tag loop expression " + buffer(TokenStart,TokenEnd))
+			ErrStatus = 1
+		end
+			
+		endusing
+		
+		Loop1ConditionApplies[Loop1ConditionApplies.Count-1] = (@boolean)result
+
+		if (ErrStatus) then
+			freturn false
+		else
+			freturn ProcessExpression(TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,false,buffer)
+		
+	endfunction
+	
+endnamespace

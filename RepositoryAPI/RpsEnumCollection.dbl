@@ -1,0 +1,299 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsEnumCollection.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a collection of repository enumeration definitions
+;;
+;; Date:        2nd November 2009
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.define DDINFO_DEFINES_ONLY
+.include "RPSLIB:ddinfo.def"
+.undefine DDINFO_DEFINES_ONLY
+
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.RepositoryAPI
+
+    public class RpsEnumCollection
+
+        private mCollection, @ArrayList
+
+        ;; Constructor (all enumerations)
+        public method RpsEnumCollection
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsEnumCollection() constructor")
+            mCollection = new ArrayList()
+            Repository.CheckIsOpen()
+            LoadAllEnumerations()
+        endmethod
+
+        ;; Constructor (enumerations used by a structures fields)
+        public method RpsEnumCollection
+            required in StructureName, String
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsEnumCollection(StructureName) constructor")
+            mCollection = new ArrayList()
+            Repository.CheckIsOpen()
+            LoadStructureEnumerations(StructureName)
+        endmethod
+
+        ;; Destructor
+        method ~RpsEnumCollection
+        proc
+            clear mCollection
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;; Private methods and properties
+
+        ;; Load all enumerations
+        private method LoadAllEnumerations, void
+            endparams
+            record local_data
+                MemHandle, int
+                EnumCount, int
+                ix, int
+            endrecord
+        proc
+            init local_data
+            try
+            begin
+                ;Get the number of enumerations in the repository
+                dd_name(Repository.RpsControl,DDN_COUNT,DDN_ENUM,EnumCount)
+                if (Repository.RpsControl.error)
+                    throw new RpsEnumException("Failed to get repository enumeration count")
+                ;Do we have any enumerations to load?
+                if (EnumCount)
+                begin
+                    ;Allocate enumeration name memory and get enum names
+                    MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*EnumCount)
+                    dd_name(Repository.RpsControl,DDN_LIST,DDN_ENUM,EnumCount,^m(strIdentifier,MemHandle))
+                    if (Repository.RpsControl.error)
+                        throw new RpsEnumException("Failed to get repository enumeration names")
+                    for ix from 1 thru EnumCount
+                        mCollection.Add(new RpsEnum(^m(strIdentifier[ix],MemHandle)))
+                end
+            end
+            finally
+            begin
+                ;;Free enumeration names array
+                if (MemHandle)
+                    MemHandle = %mem_proc(DM_FREE,MemHandle)
+            end
+            endtry
+        endmethod
+
+        ;; Load enumerations used by a structure
+        private method LoadStructureEnumerations, void
+            required in StructureName, String
+            endparams
+            record
+                str, @RpsStructure
+                ix, int
+            endrecord
+        proc
+            str = new RpsStructure(StructureName)
+            for ix from 0 thru str.Fields.Count-1
+            begin
+                if (str.Fields[ix].EnumName)
+                begin
+                    data enm, @RpsEnum
+                    data done, boolean, false
+                    ;;Look for the enum in our existing collection
+                    foreach enm in mCollection
+                    begin
+                        if (enm.Name==str.Fields[ix].EnumName)
+                        begin
+                            done = true
+                            exitloop
+                        end
+                    end
+                    ;;Skip it if we already have it
+                    if (done)
+                        nextloop
+                    ;;Add to collection
+                    mCollection.Add(new RpsEnum(str.Fields[ix].EnumName))
+                end
+            end
+            str = ^null
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;; Public methods and properties
+
+        ;;; <summary>
+        ;;; Expose the internal ArrayList so consumers can use FOREACH
+        ;;; </summary>
+        ;;; <returns>Internal ArrayList used to store the collection.</returns>
+        public method GetEnumerator, @ArrayList
+            endparams
+        proc
+            mreturn mCollection
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;The follwoing members make the collection look just like an ArrayList
+
+        ;;Gets or sets the number of elements that the collection can contain.
+        public property Capacity, int
+            method get
+            proc
+                mreturn mCollection.Capacity
+            endmethod
+            method set
+            proc
+                mCollection.Capacity = value
+            endmethod
+        endproperty
+
+        ;;Gets the number of elements actually contained in the collection.
+        public property Count, int
+            method get
+            proc
+                mreturn mCollection.Count
+            endmethod
+        endproperty
+
+        ;;Gets or sets the element at the specified index.
+        public property Indexer, @RpsEnum
+            required in Index, int
+            method get
+            proc
+                mreturn (RpsEnum)mCollection[Index]
+            endmethod
+            method set
+            proc
+                mCollection[Index] = value
+            endmethod
+        endproperty
+
+        ;;Adds an element to the end of the collection.
+        public method Add, int
+            required in RpsEnum, @RpsEnum
+            endparams
+        proc
+            mreturn mCollection.Add(RpsEnum)
+        endmethod
+
+        ;;Removes the element at the specified index of the collection.
+        public method RemoveAt, void
+            required in Index, int
+        proc
+            mCollection.RemoveAt(Index)
+        endmethod
+
+        ;;Searches for the specified element and returns the one-based index
+        ;;of the first occurrence within the entire collection.
+        public method IndexOf, int
+            required in RpsEnum, @RpsEnum
+        proc
+            mreturn mCollection.IndexOf(RpsEnum)
+        endmethod
+
+        ;;Searches for the specified element and returns the one-based index
+        ;;of the first occurrence within the range of elements in the
+        ;;collection that extends from the specified index to the last element.
+        public method IndexOf, int
+            required in RpsEnum, @RpsEnum
+            required in StartIndex, int
+        proc
+            mreturn mCollection.IndexOf(RpsEnum,StartIndex)
+        endmethod
+
+        ;;Searches for the specified element and returns the one-based index
+        ;;of the first occurrence within the range of elements in the
+        ;;collection that starts at the specified index and contains the
+        ;;specified number of elements.
+        public method IndexOf, int
+            required in RpsEnum, @RpsEnum
+            required in StartIndex, int
+            required in Count, int
+        proc
+            mreturn mCollection.IndexOf(RpsEnum,StartIndex,Count)
+        endmethod
+
+        ;;Removes all elements from the collection.
+        public method Clear, void
+        proc
+            mCollection.Clear()
+        endmethod
+
+        ;;Inserts an element into the collection at the specified index.
+        public method Insert, void
+            required in AtIndex, int
+            required in RpsEnum, @RpsEnum
+            endparams
+        proc
+            mCollection.Insert(AtIndex,RpsEnum)
+        endmethod
+
+        ;;Searches for the specified object and returns the one-based index of
+        ;;the last occurrence within the entire collection.
+        public method LastIndexOf, int
+            required in RpsEnum, @RpsEnum
+        proc
+            mreturn mCollection.LastIndexOf(RpsEnum)
+        endmethod
+
+        ;;Searches for the specified object and returns the one-based index of
+        ;;the last occurrence within the range of elements in the collection
+        ;;that extends from the first element to the specified index.
+        public method LastIndexOf, int
+            required in RpsEnum, @RpsEnum
+            required in StartIndex, int
+        proc
+            mreturn mCollection.LastIndexOf(RpsEnum,StartIndex)
+        endmethod
+
+        ;;Searches for the specified object and returns the one-based index of
+        ;;the last occurrence within the range of elements in the collection
+        ;;that contains the specified number of elements and ends at the
+        ;;specified index.
+        public method LastIndexOf, int
+            required in RpsEnum, @RpsEnum
+            required in StartIndex, int
+            required in Count, int
+        proc
+            mreturn mCollection.LastIndexOf(RpsEnum,StartIndex,Count)
+        endmethod
+
+    endclass
+
+endnamespace

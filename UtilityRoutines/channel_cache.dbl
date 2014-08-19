@@ -1,0 +1,179 @@
+;;*****************************************************************************
+;;
+;; Title:       channel_cache.dbl
+;;
+;; Type:        API
+;;
+;; Description: Maintains a cache of information about open channels
+;;
+;; Date:        14th April 2008
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+;;
+;; Title:       channel_cache_init.dbl
+;;
+;; Description: Initializes and resizes a dynamic memory array which is used to
+;;              cache the last record read and locked on a channel.  The cache
+;;              can then be used on subsequent update operations to determine
+;;              if a record has been updated since it was read and locked.
+;;
+subroutine channel_cache_init
+    a_channel,      n   ;passed in channel number
+    endparams
+
+    global common
+        cc$cache,       [1024]i4    ;Channel cache
+    endcommon
+
+    stack record
+        recsize     ,i4     ;Record size
+    endrecord
+
+proc
+
+    xcall getfa(a_channel,"RSZ",recsize)
+    if (cc$cache[a_channel]) then
+    begin
+        cc$cache[a_channel] = %mem_proc(DM_RESIZ,recsize,cc$cache[a_channel])
+        clear ^m(cc$cache[a_channel])
+    end
+    else
+        cc$cache[a_channel] = %mem_proc(DM_ALLOC|DM_STATIC|DM_BLANK,recsize)
+
+    xreturn
+
+endsubroutine
+
+;;*****************************************************************************
+;;
+;; Title:       channel_cache_update.dbl
+;;
+;; Description: Updates the current record stored in the channel cache
+;;
+;;
+subroutine channel_cache_update
+    a_channel,      n   ;Channel number
+    a_data,         a   ;Data buffer
+    endparams
+
+    external common
+        cc$cache,       [1024]i4    ;Channel cache
+    endcommon
+
+proc
+
+    ^m(cc$cache[a_channel]) = a_data
+
+    xreturn
+
+endsubroutine
+
+;;*****************************************************************************
+;;
+;; Title:       channel_cache_compare.dbl
+;;
+;; Description: Compares a record to the last record stored in the channel
+;;              cache in order to determine if the record has changed.
+;;
+;;
+function channel_cache_compare, ^val
+    a_channel,      n   ;passed in channel number
+    a_data,         a   ;passed data buffer
+    endparams
+
+    external common
+        cc$cache,       [1024]i4    ;Channel cache
+    endcommon
+
+proc
+
+    if (^m(cc$cache[a_channel])==a_data) then
+        freturn 0
+    else
+        freturn 1
+
+endfunction
+
+;;*****************************************************************************
+;;
+;; Title:       channel_cache_retrieve.dbl
+;;
+;; Description: Retrieved the last record stored in the channel cache.
+;;
+subroutine channel_cache_retrieve
+    a_channel,      n   ;passed in channel number
+    a_data,         a   ;returned data buffer
+    endparams
+
+    external common
+        cc$cache,       [1024]i4    ;Channel cache
+    endcommon
+
+proc
+
+    a_data = ^m(cc$cache[a_channel])
+
+    xreturn
+
+endsubroutine
+
+;;*****************************************************************************
+;;
+;; Title:       channel_cache_release.dbl
+;;
+;; Description: Release the channel cache memory for a specific channel.
+;;
+subroutine channel_cache_release
+    a_channel,      n   ;passed in channel number
+    endparams
+
+    external common
+        cc$cache,       [1024]i4    ;Channel cache
+    endcommon
+
+proc
+
+    try
+    begin
+        cc$cache[a_channel] = %mem_proc(DM_FREE,cc$cache[a_channel])
+    end
+    catch (ex)
+    begin
+        nop
+    end
+    endtry
+
+    xreturn
+
+endparams
+

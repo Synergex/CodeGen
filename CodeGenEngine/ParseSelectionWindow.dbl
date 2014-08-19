@@ -1,0 +1,227 @@
+;;*****************************************************************************
+;;
+;; Title:       ParseSelectionWindow.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Parse a UI Toolkit selection window in a script file
+;;
+;; Date:        30th July 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections
+import CodeGen.Engine
+
+namespace CodeGen.Engine
+    
+    function ParseSelectionWindow       ,Boolean
+        required in  WscFile            ,String
+        required in  SelectionWindow    ,String
+        required out Selections         ,@ArrayList
+        required out ErrorMessage       ,String
+        endparams
+        
+        record local_data
+            ok						,Boolean	;;Return value
+            ScriptFile				,String     ;;Script file spec
+            WscChn					,int        ;;Script file channel
+            WscRec					,a1024      ;;A record from the script file
+            WscRec2					,a1024      ;;A record from the script file
+            GotWindow				,Boolean    ;;Did we find a selection window?
+			InWindow				,Boolean    ;;Are we currently processing a selection window?
+			selectionWindowUpper	,string
+        endrecord
+        
+    proc
+        init local_data
+        ScriptFile = WscFile
+        ok = true
+        ErrorMessage = ""
+        
+        ;;Add default file extension if needed
+        if (!instr(1,ScriptFile,"."))
+            ScriptFile=atrim(ScriptFile)+".wsc"
+        
+        ;;Open the file, fail if can't
+        try
+        begin
+            open(WscChn=0,i:s,ScriptFile)
+            DebugLog("Parsing window script "+WscFile,true,false)
+        end
+        catch (ex)
+        begin
+            ErrorMessage = "Can't open window script " + ScriptFile
+            freturn false
+        end
+        endtry
+        
+		selectionWindowUpper = SelectionWindow.ToUpper()
+
+		DebugLog(" - Searching for selection window " + selectionWindowUpper,false,false)
+
+        clear InWindow
+        
+        repeat
+        begin
+            ;;Read a record
+            reads(WscChn,WscRec,eowsc)
+            
+            ;;Ignore blank lines
+            if (!WscRec)
+                nextloop
+                
+            ;;Ignore comments
+            if (WscRec==";")
+                nextloop
+                
+            ;;Check for continuation lines and concatenate them into single lines
+            repeat
+            begin
+                data ix, int
+                data pos1, int, 1
+                if (WscRec(trim(WscRec):1)!="-")
+                    exitloop
+                ;;Strip off the continuation
+                WscRec = WscRec(1:trim(WscRec)-1)
+                ;;Read the next record
+                reads(WscChn,WscRec2,eowsc)
+                ;;Find the first non-whitespace character in the additional line
+                for ix from 1 thru trim(WscRec2)
+                begin
+                    if (WscRec2(ix:1))
+                    begin
+                        pos1 = ix
+                        if (pos1>1)
+                            pos1-=1
+                        exitloop
+                    end
+                end
+                ;;Add this line to the previous one
+                WscRec = atrim(WscRec) + WscRec2(pos1,trim(WscRec2))
+            end
+            
+            ;;If we're processing a selection window and we find a .end then we're
+            ;;done, otherwise ignore it
+			if (StringTools.LowerCase(WscRec)==".end")
+            begin
+                if (InWindow) then
+                begin
+					DebugLog(" - Found end of selection window "+selectionWindowUpper,false,false)
+                    GotWindow = true
+                    exitloop
+                end
+                else
+                    nextloop
+            end
+            
+            ;;Look for the start of a selection window
+			if (StringTools.LowerCase(WscRec)==".select")
+            begin
+                data pos1, int
+                data WndName, String
+                
+                ;;Remove the .select
+				upcase WscRec
+				locase WscRec(1:7)
+                WscRec = WscRec - ".select "
+                ;;Find the , for the end of the window name and extract the name
+				pos1 = instr(1,WscRec,",")
+				;;If there was a comma then the selection window name should be all the data up to it.
+				;;If not then we should only be looking at a selection window name
+				if (pos1) then
+					WndName = StringTools.UpperCase(WscRec(1:pos1-1))
+				else
+					WndName = StringTools.UpperCase(%atrim(WscRec))
+
+                ;;Is this the one we were looking for?
+				if (WndName.nes.selectionWindowUpper)
+                    nextloop
+                
+                ;;Yes, found it!
+                InWindow = true
+                Selections = new ArrayList()
+
+				DebugLog(" - Found selection window "+selectionWindowUpper,false,false)
+                nextloop
+            end
+
+			if (InWindow&&StringTools.LowerCase(WscRec)==".item")
+            begin
+                data pos1, int
+                
+                ;;Remove the .item
+                locase WscRec(1:5)
+                WscRec = WscRec - ".item "
+                
+                ;;If there are any commas then remove the data after the first comma
+                if (pos1=instr(1,WscRec,","))
+                    WscRec = WscRec(1,pos1-1)
+                
+                ;;What remains is the selection item text, which might be quoted
+
+                ;Remove any quotes
+                while (%instr(1,WscRec,'"'))
+                    WscRec = WscRec - '"'
+                while (%instr(1,WscRec,"'"))
+                    WscRec = WscRec - "'"
+
+                ;;Add the selection to the collection of selections
+                Selections.Add((@a)atrim(WscRec))
+                
+                DebugLog(" - Found selection item "+atrim(WscRec),false,false)
+                nextloop
+            end
+
+        end
+        
+    eowsc, 
+        close WscChn
+        
+        ;;Did we find an input window
+        if (!GotWindow) then
+        begin
+			ErrorMessage = "Selection window " + selectionWindowUpper + " was not found in window script " + ScriptFile
+            ok = false
+        end
+        else if (Selections.Count==0)
+        begin
+			ErrorMessage = "Selection window " + selectionWindowUpper + " contained no items!"
+            ok = false
+        end
+        
+        freturn ok
+        
+    endfunction
+    
+endnamespace

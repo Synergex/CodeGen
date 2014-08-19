@@ -1,0 +1,970 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsInfo.dbl
+;;
+;; Type:        Program
+;;
+;; Description: Retrieve information from repository
+;;
+;; Date:        3rd February 2010
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+main RpsInfo
+
+    global common RpsInfoData
+        tt              ,int                    ;Terminal channel
+        indent          ,int
+        tmpbuf          ,a132
+    endcommon
+
+    record
+        ok              ,boolean, true
+        dbr             ,boolean, false
+		ClValues		,@ArrayList
+        strs            ,@RpsStructureCollection
+        fils            ,@RpsFileCollection
+    endrecord
+
+proc
+
+    open(tt=0,i,"tt:")
+    xcall flags(7004000,1)
+    xcall flags(20,0)
+	
+	.ifndef DBLNET
+	;---------------------------------------------------------------------------
+    ;Dbr or dbs?
+    ;
+    begin
+        data tmpi4a, int
+        data tmpi4b, int
+        xcall tnmbr(tmpi4a,tmpi4b)
+        if (tmpi4b!=2)
+            dbr = true
+	end
+	.endc
+
+    ;---------------------------------------------------------------------------
+    ;What are we being asked to do?
+
+    if (ok&&CommandLineParser.Parse("s"))
+    begin
+        call StructureInfo
+        clear ok
+    end
+
+    if (ok&&CommandLineParser.Parse("f"))
+    begin
+        call FileInfo
+        clear ok
+    end
+
+    if (ok)
+        call usage
+
+	.ifndef DBLNET
+    .ifdef D_GUI
+    if (dbr)
+    begin
+        display(tt,13,10,"Press a key: ")
+        accept(tt,TmpBuf)
+    end
+	.endc
+	.endc
+
+    close tt
+    stop
+
+;-------------------------------------------------------------------------------
+;Display usage information
+;
+usage,
+    writes(tt,"")
+    writes(tt,"RpsInfo [options]            Displays information from repository")
+    writes(tt,"")
+    writes(tt,"  Options:")
+    writes(tt,"")
+    writes(tt,"  -s [structure [,...]]      Display structure details")
+    writes(tt,"    -v                       Display verbose information")
+    writes(tt,"      -f                     Include field details")
+    writes(tt,"      -k                     Include key details")
+    writes(tt,"        -ks                  Include key segment details")
+    writes(tt,"      -r                     Include relation details")
+    writes(tt,"      -m                     Include format details")
+    writes(tt,"      -t                     Include tag details")
+    writes(tt,"")
+    writes(tt,"  -f [file [,...]]           Display file information")
+    writes(tt,"   -k                        Include key information")
+    writes(tt,"     -ks                     Include key segment information")
+    writes(tt,"")
+    ok = false
+
+    return
+
+;-------------------------------------------------------------------------------
+;Display information about structure(s)
+;
+StructureInfo,
+
+	if (CommandLineParser.Parse("s",ClValues) && !ClValues.Count )
+		ClValues.Add((String)"*")
+	
+    ;All or specific structures?
+    if (((String)ClValues[0])=="*") then
+    begin
+        ;Process all structures
+        strs = new RpsStructureCollection(RpsLoadMode.Load)
+        if (!strs.Count)
+        begin
+            writes(tt,"ERROR: Repository contains no structures!")
+            ok = false
+        end
+    end
+    else
+    begin
+        ;Process specified structures
+        data StrNum, int
+        strs = new RpsStructureCollection(RpsLoadMode.NoLoad)
+        for StrNum from 0 thru ClValues.Count-1
+        begin
+            try
+                strs.Add(new RpsStructure(((String)ClValues[StrNum]).ToUpper()))
+            catch (ex)
+            begin
+				writes(tt,"ERROR: Structure " + (String)ClValues[StrNum] + " not found!")
+                ok = false
+            end
+            endtry
+        end
+    end
+
+    if (ok)
+        xcall Structures(strs)
+
+    return
+
+;-------------------------------------------------------------------------------
+;Display information about file(s)
+;
+FileInfo,
+
+    if (CommandLineParser.Parse("f",ClValues) && !ClValues.Count)
+		ClValues.Add((String)"*")
+		
+    ;All or specific files?
+    if (((String)ClValues[0])=="*") then
+    begin
+        ;Process all files
+        fils = new RpsFileCollection(RpsLoadMode.Load)
+        if (!fils.Count)
+        begin
+            writes(tt,"ERROR: Repository contains no file definitions!")
+            ok = false
+        end
+    end
+    else
+    begin
+        ;Process specified files
+        data FilNum, int
+        fils = new RpsFileCollection(RpsLoadMode.NoLoad)
+        for FilNum from 0 thru ClValues.Count-1
+        begin
+			try
+			begin
+				fils.Add(new RpsFile(((String)ClValues[FilNum]).ToUpper()))
+			end
+            catch (ex)
+            begin
+                writes(tt,"ERROR: File definition " + (String)ClValues[FilNum] + " not found!")
+                ok = false
+            end
+            endtry
+        end
+    end
+
+    if (ok)
+        xcall Files(fils)
+
+    return
+
+endmain
+
+;-------------------------------------------------------------------------------
+;Process structures
+;
+subroutine Structures
+    required in strs    ,@RpsStructureCollection
+    endparams
+    stack record
+		verbose         ,boolean
+		str				,@RpsStructure
+    endrecord
+proc
+    verbose = CommandLineParser.Parse("v")
+    foreach str in strs.GetEnumerator()
+    begin
+        if (verbose) then
+            xcall StructureVerbose(str)
+        else
+            xcall Structure(str)
+    end
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process a structure (simple record layout)
+;
+subroutine Structure
+    required in s   ,@RpsStructure
+    endparams
+
+    external common RpsInfoData
+        tt          ,int                    ;Terminal channel
+        indent      ,int
+        tmpbuf      ,a132
+    endcommon
+
+proc
+
+    writes(tt,"")
+
+    tmpbuf = "structure " + s.Name.ToLower()
+    tmpbuf(50:1) = ";"
+    tmpbuf = %atrim(tmpbuf) + s.Description
+    writes(tt,%atrim(tmpbuf))
+
+    xcall Fields(s.Fields)
+
+    writes(tt,"endstructure")
+
+    xreturn
+
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process fields
+;
+subroutine Fields, reentrant
+    required in flds    ,@RpsFieldCollection
+    endparams
+    external common RpsInfoData
+        tt              ,int                    ;Terminal channel
+        indent          ,int
+        tmpbuf          ,a132
+    endcommon
+    stack record
+        fld             ,@RpsField
+    endrecord
+proc
+    incr indent
+    foreach fld in flds.GetEnumerator()
+    begin
+        if (fld.GroupType==RpsFieldGroup.No) then
+            xcall Field(fld)
+        else
+            xcall Group(fld)
+    end
+    decr indent
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process a field
+;
+subroutine Field, reentrant
+    required in f   ,@RpsField
+    endparams
+
+    external common RpsInfoData
+        tt          ,int                    ;Terminal channel
+        indent      ,int
+        tmpbuf      ,a132
+    endcommon
+
+proc
+
+    ;Field name
+    clear tmpbuf
+    tmpbuf((indent*2)+1:30) = f.Name.ToLower()
+
+    ;Comma
+    tmpbuf(36:1) = ","
+
+    ;Data type, size
+    tmpbuf = %atrim(tmpbuf) + %FieldDataDefinition(f)
+
+    ;Overlay definition
+    if (f.OverlaysField)
+        tmpbuf = %atrim(tmpbuf) + " " + %OverlayDef(f,true)
+
+    ;Description
+    if (%trim(tmpbuf) > 49) then
+    begin
+        data cmtbuf, a132, " "
+        cmtbuf(50:1) = ";"
+        cmtbuf = %atrim(cmtbuf) + f.Description
+        writes(tt,%atrim(cmtbuf))
+    end
+    else
+    begin
+        tmpbuf(50:1) = ";"
+        tmpbuf = %atrim(tmpbuf) + f.Description
+    end
+
+    writes(tt,%atrim(tmpbuf))
+
+    xreturn
+
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Return a field overlay specification
+;
+function OverlayDef, string
+    required in f           ,@RpsField
+    required in lowerCase   ,boolean
+    endparams
+    stack record
+        overlayDef  ,string
+    endrecord
+proc
+
+    overlayDef = ""
+
+    if (f.OverlaysField)
+    begin
+        if (lowerCase) then
+			overlayDef = "@" + StringTools.LowerCase(f.OverlaysField)
+        else
+            overlayDef = "@" + f.OverlaysField
+
+        if (f.OverlayOffset)
+            overlayDef = overlayDef + "+" + %string(f.OverlayOffset)
+    end
+
+    freturn overlayDef
+
+endfunction
+
+;-------------------------------------------------------------------------------
+;Process a group
+;
+subroutine Group, reentrant
+    required in f   ,@RpsField
+    endparams
+
+    external common RpsInfoData
+        tt          ,int                    ;Terminal channel
+        indent      ,int
+        tmpbuf      ,a132
+    endcommon
+
+proc
+
+    clear tmpbuf
+
+    ;Group name and comma
+    tmpbuf((indent*2)+1:5) = "group"
+    tmpbuf = %atrim(tmpbuf) + " " + f.Name.ToLower() + " ,"
+
+    ;Data type, size
+    tmpbuf = %atrim(tmpbuf) + %FieldDataDefinition(f)
+
+    ;Overlay definition
+    if (f.OverlaysField)
+        tmpbuf = %atrim(tmpbuf) + " " + %OverlayDef(f,true)
+
+    ;Description
+    if (%trim(tmpbuf) > 49) then
+    begin
+        data cmtbuf, a132, " "
+        cmtbuf(50:1) = ";"
+        cmtbuf = %atrim(cmtbuf) + f.Description
+        writes(tt,%atrim(cmtbuf))
+    end
+    else
+    begin
+        tmpbuf(50:1) = ";"
+        tmpbuf = %atrim(tmpbuf) + f.Description
+    end
+
+    writes(tt,%atrim(tmpbuf))
+
+    xcall GroupFields(f.GroupFields)
+
+    clear tmpbuf
+    tmpbuf((indent*2)+1:8) = "endgroup"
+    writes(tt,%atrim(tmpbuf))
+
+    xreturn
+
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process a groups fields
+;
+subroutine GroupFields, reentrant
+    required in flds    ,@RpsFieldCollection
+    endparams
+    external common RpsInfoData
+        tt              ,int                    ;Terminal channel
+        indent          ,int
+        tmpbuf          ,a132
+    endcommon
+    stack record
+        fld             ,@RpsField
+    endrecord
+proc
+    incr indent
+	foreach fld in flds.GetEnumerator()
+    begin
+		if (fld.GroupType==RpsFieldGroup.No) then
+			xcall Field(fld)
+        else
+			xcall Group(fld)
+    end
+    decr indent
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process a structure (verbose output)
+;
+subroutine StructureVerbose
+    required in s   ,@RpsStructure
+    endparams
+
+    external common RpsInfoData
+        tt          ,int                    ;Terminal channel
+        indent      ,int
+        tmpbuf      ,a132
+    endcommon
+
+proc
+
+    writes(tt,"")
+    writes(tt,"Structure: " + s.Name)
+    writes(tt,"")
+    Writes(tt,"  Description : " + s.Description)
+    Writes(tt,"  File type   : " + s.FileType)
+    Writes(tt,"  Length      : " + %string(s.Length))
+    Writes(tt,"  Fields      : " + %string(s.Fields.Count))
+    Writes(tt,"  Keys        : " + %string(s.Keys.Count))
+    Writes(tt,"  Relations   : " + %string(s.Relations.Count))
+    Writes(tt,"  Formats     : " + %string(s.Formats.Count))
+    Writes(tt,"  Tags        : " + %string(s.Tags.Count))
+    Writes(tt,"  Files       : " + %string(s.Files.Count))
+
+    if (CommandLineParser.Parse("f"))
+        xcall FieldsVerbose(s.Fields)
+
+    if (CommandLineParser.Parse("k"))
+        xcall KeysVerbose(s.Keys)
+
+    if (CommandLineParser.Parse("r"))
+        xcall RelationsVerbose(s.Relations)
+
+    if (CommandLineParser.Parse("m"))
+        xcall FormatsVerbose(s.Formats)
+
+    if (CommandLineParser.Parse("t"))
+        xcall TagsVerbose(s.Tags)
+
+    xreturn
+
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process fields (verbose output)
+;
+subroutine FieldsVerbose
+    required in flds, @RpsFieldCollection
+    endparams
+    external common RpsInfoData
+        tt          ,int                    ;Terminal channel
+        indent      ,int
+        tmpbuf      ,a132
+    endcommon
+    stack record
+        fld         ,@RpsField
+    endrecord
+proc
+    foreach fld in flds.GetEnumerator()
+    begin
+        writes(tt,"")
+        writes(tt,"  Field: " + fld.Name)
+        writes(tt,"")
+        writes(tt,"    Description : " + fld.Description)
+        writes(tt,"    Type        : " + %FieldDataDefinition(fld))
+        writes(tt,"    Overlay     : " + %OverlayDef(fld,false))
+    end
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process keys (verbose output)
+;
+subroutine KeysVerbose
+    required in keys, @RpsKeyCollection
+    endparams
+    external common RpsInfoData
+        tt          ,int                    ;Terminal channel
+        indent      ,int
+        tmpbuf      ,a132
+    endcommon
+    stack record
+        k           ,@RpsKey
+    endrecord
+proc
+    foreach k in keys.GetEnumerator()
+    begin
+        writes(tt,"")
+        writes(tt,"  Key: " + k.Name)
+    end
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process relations (verbose output)
+;
+subroutine RelationsVerbose
+    required in rels, @RpsRelationCollection
+    endparams
+    external common RpsInfoData
+        tt          ,int                    ;Terminal channel
+        indent      ,int
+        tmpbuf      ,a132
+    endcommon
+    stack record
+        r           ,@RpsRelation
+    endrecord
+proc
+    foreach r in rels.GetEnumerator()
+    begin
+        writes(tt,"")
+        writes(tt,"  Relation: " + r.Name)
+    end
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process formats (verbose output)
+;
+subroutine FormatsVerbose
+    required in fmts, @RpsFormatCollection
+    endparams
+    external common RpsInfoData
+        tt          ,int                    ;Terminal channel
+        indent      ,int
+        tmpbuf      ,a132
+    endcommon
+    stack record
+        f           ,@RpsFormat
+    endrecord
+proc
+    foreach f in fmts.GetEnumerator()
+    begin
+        writes(tt,"")
+        writes(tt,"  Format: " + f.Name)
+    end
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process tags (verbose output)
+;
+subroutine TagsVerbose
+    required in tags, @RpsTagCollection
+    endparams
+    external common RpsInfoData
+        tt          ,int                    ;Terminal channel
+        indent      ,int
+        tmpbuf      ,a132
+    endcommon
+    stack record
+        t           ,@RpsTag
+    endrecord
+proc
+    foreach t in tags.GetEnumerator()
+    begin
+        writes(tt,"")
+        writes(tt,"  Tag: " + t.Name)
+    end
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process files
+;
+subroutine Files
+    required in fils    ,@RpsFileCollection
+    endparams
+    external common RpsInfoData
+        tt              ,int                    ;Terminal channel
+        indent          ,int
+        tmpbuf          ,a132
+    endcommon
+    stack record
+        f               ,@RpsFile
+    endrecord
+proc
+    foreach f in fils.GetEnumerator()
+        xcall File(f)
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Process a file
+;
+subroutine File
+    required in f, @RpsFile
+    endparams
+
+    external common RpsInfoData
+        tt              ,int                    ;Terminal channel
+        indent          ,int
+        tmpbuf          ,a132
+    endcommon
+
+proc
+
+    writes(tt,"")
+    writes(tt,"File: " + f.Name)
+    writes(tt,"")
+
+    writes(tt, "  Description        : " + f.Description)
+    writes(tt, "  Type               : " + f.FileType)
+    writes(tt, "  Physical file      : " + f.FileSpec)
+    writes(tt, "  Structure count    : " + %string(f.StructureCount))
+    writes(tt, "  First structure    : " + f.FirstStructure)
+
+    display(tt,"  Record type        : ")
+    using f.RecordType select
+    (RpsRecordType.FixedLength),
+        writes(tt,"FIXED LENGTH")
+    (RpsRecordType.VariableLength),
+        writes(tt,"VARIABLE LENGTH")
+    (RpsRecordType.MultipleFixedLength),
+        writes(tt,"MULTIPLE FIXED LENGTH")
+    endusing
+
+    display(tt,"  Page size          : ")
+    using f.PageSize select
+    (RpsFilePageSize.PageSize512),
+        writes(tt,"512 bytes")
+    (RpsFilePageSize.PageSize1024),
+        writes(tt,"1024 bytes")
+    (RpsFilePageSize.PageSize2048),
+        writes(tt,"2048 bytes")
+    (RpsFilePageSize.PageSize4096),
+        writes(tt,"4096 bytes")
+    (RpsFilePageSize.PageSize8192),
+		writes(tt,"8192 bytes")
+	.ifdef DBLV10
+    (RpsFilePageSize.PageSize16384),
+        writes(tt,"16384 bytes")
+    (RpsFilePageSize.PageSize32768),
+		writes(tt,"32768 bytes")
+	.endc
+    endusing
+
+    writes(tt, "  File density       : " + %string(f.Density)+"%")
+
+    display(tt,"  Address size       : ")
+    using f.Addressing select
+    (RpsFileAddressing.Addressing32Bit),
+        writes(tt,"32 bit")
+    (RpsFileAddressing.Addressing40Bit),
+        writes(tt,"40 bit")
+    endusing
+
+    display(tt,"  Record compression : ")
+    if (f.RecordCompression) then
+        writes(tt,"YES")
+    else
+        writes(tt,"NO")
+
+    display(tt,"  Static RFA's       : ")
+    if (f.StaticRfa) then
+        writes(tt,"YES")
+    else
+        writes(tt,"NO")
+
+	.ifdef DBLV10
+    display(tt,"  Stored GRFA's      : ")
+    if (f.StoredGRFA) then
+        writes(tt,"YES")
+    else
+		writes(tt,"NO")
+	.endc
+
+	.ifdef DBLV10
+    display(tt,"  Change tracking    : ")
+    if (f.ChangeTracking) then
+        writes(tt,"YES")
+    else
+		writes(tt,"NO")
+	.endc
+
+    writes(tt, "  Keys               : " + %string(f.Keys.Count))
+
+    if (CommandLineParser.Parse("k"))
+        xcall Keys(f.Keys)
+
+    xreturn
+
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Display a files keys
+;
+subroutine Keys
+    required in keys, @RpsKeyCollection
+    endparams
+    external common RpsInfoData
+        tt      ,int
+        indent  ,int
+        tmpbuf  ,a132
+    endcommon
+    stack record
+        k		,@RpsKey
+    endrecord
+proc
+    foreach k in keys.GetEnumerator()
+        xcall Key(k)
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Display a files key
+;
+subroutine Key
+    required in k, @RpsKey
+    endparams
+
+    external common RpsInfoData
+        tt      ,int
+        indent  ,int
+        tmpbuf  ,a132
+    endcommon
+
+proc
+
+    writes(tt,"")
+    writes(tt, "  Key                : " + k.Name)
+    writes(tt, "  Description        : " + k.Description)
+    writes(tt, "  Key of reference   : " + %string(k.KeyOfReference))
+
+    display(tt,"  Type               : ")
+    using k.KeyType select
+    (RpsKeyType.Access),
+        writes(tt,"ACCESS")
+    (RpsKeyType.Foreign),
+        writes(tt,"FOREIGN")
+    endusing
+
+    writes(tt, "  Length             : " + %string(k.Size))
+
+    display(tt,"  Sequence           : ")
+    using k.SortOrder select
+    (RpsKeyOrder.Ascending),
+        writes(tt,"ASCENDING")
+    (RpsKeyOrder.Descending),
+        writes(tt,"DESCENDING")
+    endusing
+
+    display(tt,"  Duplicates allowed : ")
+    using k.Duplicates select
+    (RpsKeyDuplicates.Duplicates),
+        writes(tt,"YES")
+    (RpsKeyDuplicates.NoDuplicates),
+        writes(tt,"NO")
+    endusing
+
+    if (k.Duplicates==RpsKeyDuplicates.Duplicates)
+    begin
+        display(tt,"  Instert duplicates  : ")
+        using k.InsertDuplicates select
+        (RpsKeyInsertDups.AtFront),
+            writes(tt,"BEFORE EXISTING")
+        (RpsKeyInsertDups.AtEnd),
+            writes(tt,"AFTER EXISTING")
+        endusing
+    end
+
+    display(tt,"  Changes allowed    : ")
+    if (k.Modifiable) then
+        writes(tt,"YES")
+    else
+        writes(tt,"NO")
+
+    display(tt,"  Null key           : ")
+    using k.NullKey select
+    (RpsKeyNullType.None),
+        writes(tt,"NO")
+    (RpsKeyNullType.Replicating),
+        writes(tt,"REPLICATING")
+    (RpsKeyNullType.NonReplicating),
+        writes(tt,"NON-REPLICATING")
+    (RpsKeyNullType.Short),
+        writes(tt,"SHORT")
+    endusing
+
+    if (k.NullKey!=RpsKeyNullType.None)
+        writes(tt, "  Null key value     : " + k.NullKeyValue)
+
+    writes(tt, "  Density            : " + %string(k.Density) + "%")
+
+    display(tt, "  Index compression  : ")
+    if (k.CompressIndex) then
+        writes(tt, "YES")
+    else
+        writes(tt, "NO")
+
+    display(tt, "  Data compression   : ")
+    if (k.CompressData) then
+        writes(tt, "YES")
+    else
+        writes(tt, "NO")
+
+    display(tt, "  Key compression    : ")
+    if (k.CompressKey) then
+        writes(tt, "YES")
+    else
+        writes(tt, "NO")
+
+    display(tt, "  ODBC accessible    : ")
+    if (k.OdbcAccessible) then
+        writes(tt, "YES")
+    else
+        writes(tt, "NO")
+
+    if (CommandLineParser.Parse("ks"))
+        xcall KeySegments(k.Segments)
+
+    xreturn
+
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Display a keys segments
+;
+subroutine KeySegments
+    required in segs, @RpsKeySegmentCollection
+    endparams
+	stack record
+		ix      ,int
+	endrecord
+proc
+	for ix from 0 thru segs.Count-1
+		xcall KeySegment(ix,segs[ix])	
+    xreturn
+endsubroutine
+
+;-------------------------------------------------------------------------------
+;Display a files key
+;
+subroutine KeySegment
+    required in segNum, int
+    required in s, @RpsKeySegment
+    endparams
+
+    external common RpsInfoData
+        tt      ,int
+        indent  ,int
+        tmpbuf  ,a132
+    endcommon
+
+proc
+
+    writes(tt,"")
+    writes(tt, "    Segment        : " + %string(segNum))
+
+    display(tt,"    Type           : ")
+    using s.SegmentType select
+    (RpsKeySegmentType.Field),
+    begin
+        writes(tt,"FIELD")
+        writes(tt, "    Field name     : " + s.Field)
+    end
+    (RpsKeySegmentType.Literal),
+    begin
+        writes(tt,"LITERAL")
+        writes(tt, "    Literal value  : " + s.LiteralValue)
+    end
+    (RpsKeySegmentType.External),
+    begin
+        writes(tt,"EXTERNAL")
+        writes(tt, "    Structure      : " + s.Structure)
+        writes(tt, "    Field name     : " + s.Field)
+    end
+    (RpsKeySegmentType.RecordNumber),
+        writes(tt,"RECORD NUMBER")
+    endusing
+
+
+    writes(tt, "    Position       : " + %string(s.Position))
+    writes(tt, "    Length         : " + %string(s.Length))
+
+    display(tt,"    Data type      : ")
+    using s.DataType select
+    (RpsKeySegmentDataType.Alpha),
+        writes(tt,"ALPHA")
+    (RpsKeySegmentDataType.NoCaseAlpha),
+        writes(tt,"CASE-INSENSITIVE ALPHA")
+    (RpsKeySegmentDataType.Decimal),
+        writes(tt,"DECIMAL")
+    (RpsKeySegmentDataType.SignedInteger),
+        writes(tt,"SIGNED INTEGER")
+    (RpsKeySegmentDataType.UnsignedInteger),
+        writes(tt,"UNSIGNED INTEGER")
+    endusing
+
+    display(tt,"    Order          : ")
+    using s.Order select
+    (RpsKeySegmentOrder.Ascending),
+        writes(tt,"ASCENDING")
+    (RpsKeySegmentOrder.Descending),
+        writes(tt,"DESCENDING")
+    endusing
+
+    xreturn
+
+endsubroutine
+
+

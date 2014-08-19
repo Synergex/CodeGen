@@ -1,0 +1,231 @@
+;;*****************************************************************************
+;;
+;; Title:       StructureViewControl.dbl
+;;
+;; Type:        Class (User Control)
+;;
+;; Description: Displays information about a repository structure.
+;;
+;; Date:        21st August 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.ComponentModel
+import System.Data
+import System.Drawing
+import System.Windows.Forms
+import CodeGen.RepositoryAPI
+
+.Array 0
+namespace RpsBrowser.Controls
+
+	public partial class StructureViewControl extends UserControl
+		
+		private mStructure		,@RpsStructure				;;Files first (or only) structure
+		private mClassFactory	,@DynamicClassFactory		;;Class factory for data
+		
+		private ch				,i4						;;File channel number
+		
+		private mFieldsCtl		,@FieldListControl			;;Field list control
+		private mFieldCtrl		,@FieldViewControl			;;Field view control
+		private mKeysCtrl		,@KeyListControl			;;Key list control
+		private mKeyCtrl		,@KeyViewControl			;;Key view control
+		private mDataCtl		,@DataViewControl			;;Data view control
+		private mClassCtl		,@ClassViewControl			;;Class view control
+		
+        private fieldsRootNode  ,@TreeNode
+
+		public method StructureViewControl
+			required in aStr, @RpsStructure
+			endparams
+		proc
+			this.InitializeComponent()
+			this.Dock = DockStyle.Fill
+
+			ch = 0
+
+			;;Load the first structure and remove overlay fields
+			mStructure = aStr
+			mStructure.Fields.RemoveOverlays()
+			
+			;;Create a dynamic class factory
+			try
+			begin
+				mClassFactory = CodeGenerationHelper.CreateClassFactory(mStructure)
+			end
+			catch (ex, @NotImplementedException)
+			begin
+				MessageBox.Show(string.Format("Structure contains a field type of {0} which is currently not supported. Data and class views will be unavailable.",ex.Message))
+			end
+			endtry
+			
+			;;Load fields into the tree
+			begin
+				data field, @RpsField
+				
+				fieldsRootNode = tree.Nodes.Add("Fields")
+
+				foreach field in mStructure.Fields.GetEnumerator()
+				begin
+					data fieldNode, @TreeNode
+					fieldNode = fieldsRootNode.Nodes.Add(field.Name)
+					fieldNode.Tag = field
+				end
+
+                tree.SelectedNode = fieldsRootNode
+                mFieldsCtl = new FieldListControl(mStructure.Fields)
+                addhandler(mFieldsCtl.SelectedFieldChanged,selectedFieldChanged)
+				showControl(mFieldsCtl)
+			end
+
+			;;Load keys into the tree
+			begin
+				data keysRootNode, @TreeNode
+				data key, @RpsKey
+
+                keysRootNode = tree.Nodes.Add("Keys")
+				foreach key in mStructure.Keys.GetEnumerator()
+				begin
+					data keyNode, @TreeNode
+					keyNode = keysRootNode.Nodes.Add(key.Name)
+					keyNode.Tag = key
+				end
+			end
+
+			if (mClassFactory!=^null)
+			begin
+                tree.Nodes.Add(new TreeNode("Data"))
+                tree.Nodes.Add(new TreeNode("Class"))
+			end
+
+			;;Prepare the field and key view controls for use
+			mFieldCtrl = new FieldViewControl()
+			mKeyCtrl = new KeyViewControl()
+
+		endmethod
+
+		method ~StructureViewControl
+			endparams
+		proc
+			if (ch&&%chopen(ch))
+				close ch
+		endmethod
+		
+        private method tree_AfterSelect, void
+            sender, @object 
+            e, @System.Windows.Forms.TreeViewEventArgs 
+            endparams
+        proc
+            ;;If the selected node has a tag then it's a field or a key
+            if (e.Node.Tag==^null) then
+            begin
+                using e.Node.Text select
+                ("Fields"),
+                begin
+                    if (mFieldsCtl==^null)
+                    begin
+                        mFieldsCtl = new FieldListControl(mStructure.Fields)
+                        addhandler(mFieldsCtl.SelectedFieldChanged,selectedFieldChanged)
+                    end
+                    showControl(mFieldsCtl)
+                end
+                ("Keys"),
+                begin
+                    if (mKeysCtrl==^null)
+                        mKeysCtrl = new KeyListControl(mStructure.Keys)
+                    showControl(mKeysCtrl)
+                end
+                ("Data"),
+                begin
+                    if (mDataCtl==^null)
+                        mDataCtl = new DataViewControl(mStructure, mClassFactory)
+                    showControl(mDataCtl)
+                end
+                ("Class"),
+                begin
+                    if (mClassCtl==^null)
+                        mClassCtl = new ClassViewControl(mClassFactory)
+                    showControl(mClassCtl)
+                end
+                endusing
+            end
+            else
+            begin
+                if (e.Node.Tag.is.RpsField) then
+                begin
+                    mFieldCtrl.ShowField((RpsField)e.Node.Tag)
+                    showControl(mFieldCtrl)
+                end
+                else if (e.Node.Tag.is.RpsKey)
+                begin
+                    mKeyCtrl.ShowKey((RpsKey)e.Node.Tag)
+                    showControl(mKeyCtrl)
+                end
+            end
+        endmethod
+
+        private method selectedFieldChanged, void
+            required in fieldName, String
+            endparams
+        proc
+            ;;Make sure the field that was selected in the grid is displayed as selected
+            ;;in the tree
+            data node, @TreeNode
+            foreach node in fieldsRootNode.Nodes
+            begin
+                if (node.Text.Equals(fieldName))
+                begin
+                    node.EnsureVisible()
+                    tree.Focus()
+                    tree.SelectedNode = node
+                end
+            end
+
+        endmethod
+
+		private method showControl, Void
+			required in ctrlToShow, @UserControl
+			endparams
+		proc
+			if ((contentPanel.Controls.Count==0)||(contentPanel.Controls[0]!=ctrlToShow))
+			begin
+				contentPanel.Controls.Clear()
+				contentPanel.Controls.Add(ctrlToShow)
+			end
+		endmethod
+        
+	endclass
+endnamespace
+

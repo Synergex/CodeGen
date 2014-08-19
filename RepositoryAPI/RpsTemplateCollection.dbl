@@ -1,0 +1,310 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsTemplateCollection.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a collection of Repository templates
+;;
+;; Date:        19th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.define DDINFO_DEFINES_ONLY
+.include "RPSLIB:ddinfo.def"
+.undefine DDINFO_DEFINES_ONLY
+
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.RepositoryAPI
+
+    ;;; <summary>
+    ;;; Represents a collection of Repository templates
+    ;;; </summary>
+    public class RpsTemplateCollection
+
+        private mCollection, @ArrayList
+
+        ;;; <summary>
+        ;;; Constructor
+        ;;; </summary>
+        public method RpsTemplateCollection
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsTemplateCollection() constructor")
+            mCollection = new ArrayList()
+            Repository.CheckIsOpen()
+            LoadTemplates()
+        endmethod
+
+        ;;; <summary>
+        ;;; Destructor
+        ;;; </summary>
+        method ~RpsTemplateCollection
+        proc
+            clear mCollection
+        endmethod
+
+        ;;; <summary>
+        ;;; Loads all of the templates in the repository
+        ;;; </summary>
+        ;;; <returns></returns>
+        private method LoadTemplates, void
+            endparams
+            record local_data
+                MemHandle, int
+                TemplateCount, int
+                ix, int
+            endrecord
+        proc
+            init local_data
+            try
+            begin
+                ;;Get the number of templates in the repository
+                dd_name(Repository.RpsControl,DDN_COUNT,DDN_TEMPLATE,TemplateCount)
+                if (Repository.RpsControl.error)
+                    throw new RpsTemplateException("Failed to get number of repository templates")
+                ;;Do we have any templates to load?
+                if (TemplateCount)
+                begin
+                    ;;Allocate template name memory and get template names
+                    MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*TemplateCount)
+                    dd_name(Repository.RpsControl,DDN_LIST,DDN_TEMPLATE,TemplateCount,^m(strIdentifier,MemHandle))
+                    if (Repository.RpsControl.error)
+                        throw new RpsTemplateException("Failed to get repository template names")
+                    for ix from 1 thru TemplateCount
+                        mCollection.Add(new RpsTemplate(^m(strIdentifier[ix],MemHandle)))
+                end
+            end
+            finally
+            begin
+                ;;Release template names memory
+                if (TemplateCount)
+                    MemHandle = %mem_proc(DM_FREE,MemHandle)
+            end
+            endtry
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;; Public methods and properties
+
+        ;;; <summary>
+        ;;; Expose the internal ArrayList so consumers can use FOREACH
+        ;;; </summary>
+        ;;; <returns>Internal ArrayList used to store the collection.</returns>
+        public method GetEnumerator, @ArrayList
+            endparams
+        proc
+            mreturn mCollection
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;The following members make the collection look just like an ArrayList
+
+        ;;; <summary>
+        ;;; Gets or sets the number of elements that the collection can contain.
+        ;;; </summary>
+        public property Capacity, int
+            method get
+            proc
+                mreturn mCollection.Capacity
+            endmethod
+            method set
+            proc
+                mCollection.Capacity = value
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; Gets the number of elements actually contained in the collection.
+        ;;; </summary>
+        ;;; <returns>Number of elements</returns>
+        public property Count, int
+            method get
+            proc
+                mreturn mCollection.Count
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; Gets or sets the element at the specified index.
+        ;;; </summary>
+        ;;; <returns>Template for specified index</returns>
+        public property Indexer, @RpsTemplate
+            required in Index, int
+            method get
+            proc
+                mreturn (RpsTemplate)mCollection[Index]
+            endmethod
+            method set
+            proc
+                mCollection[Index] = value
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; Adds an element to the end of the collection.
+        ;;; </summary>
+        ;;; <param name="RpsTemplate"></param>
+        ;;; <returns>Index number of the item that was added</returns>
+        public method Add, int
+            required in RpsTemplate, @RpsTemplate
+            endparams
+        proc
+            mreturn mCollection.Add(RpsTemplate)
+        endmethod
+
+        ;;; <summary>
+        ;;; Removes the element at the specified index of the collection.
+        ;;; </summary>
+        ;;; <param name="Index">Index number of item to remove</param>
+        public method RemoveAt, void
+            required in Index, int
+        proc
+            mCollection.RemoveAt(Index)
+        endmethod
+
+        ;;; <summary>
+        ;;; Searches for the specified element and returns the one-based index
+        ;;; of the first occurrence within the entire collection.
+        ;;; </summary>
+        ;;; <param name="RpsTemplate">Template to locate</param>
+        ;;; <returns>Index number of matching template</returns>
+        public method IndexOf, int
+            required in RpsTemplate, @RpsTemplate
+        proc
+            mreturn mCollection.IndexOf(RpsTemplate)
+        endmethod
+
+        ;;; <summary>
+        ;;; Searches for the specified element and returns the one-based index
+        ;;; of the first occurrence within the range of elements in the collection
+        ;;; that extends from the specified index to the last element.
+        ;;; </summary>
+        ;;; <param name="RpsTemplate">Template to locate</param>
+        ;;; <param name="StartIndex">Index to start from</param>
+        ;;; <returns>Index number of matching template</returns>
+        public method IndexOf, int
+            required in RpsTemplate, @RpsTemplate
+            required in StartIndex, int
+        proc
+            mreturn mCollection.IndexOf(RpsTemplate,StartIndex)
+        endmethod
+
+        ;;; <summary>
+        ;;; Searches for the specified element and returns the one-based index
+        ;;; of the first occurrence within the range of elements in the collection
+        ;;; that starts at the specified index and contains the specified number of
+        ;;; elements.
+        ;;; </summary>
+        ;;; <param name="RpsTemplate">Template to locate</param>
+        ;;; <param name="StartIndex">Index to start from</param>
+        ;;; <param name="Count">Offset</param>
+        ;;; <returns>Index number of matching template</returns>
+        public method IndexOf, int
+            required in RpsTemplate, @RpsTemplate
+            required in StartIndex, int
+            required in Count, int
+        proc
+            mreturn mCollection.IndexOf(RpsTemplate,StartIndex,Count)
+        endmethod
+
+        ;;; <summary>
+        ;;; Removes all elements from the collection.
+        ;;; </summary>
+        public method Clear, void
+        proc
+            mCollection.Clear()
+        endmethod
+
+        ;;; <summary>
+        ;;; Inserts an element into the collection at the specified index.
+        ;;; </summary>
+        ;;; <param name="AtIndex">Index to insert new item at</param>
+        ;;; <param name="RpsTemplate">Template to insert</param>
+        public method Insert, void
+            required in AtIndex, int
+            required in RpsTemplate, @RpsTemplate
+            endparams
+        proc
+            mCollection.Insert(AtIndex,RpsTemplate)
+        endmethod
+
+        ;;; <summary>
+        ;;; Searches for the specified object and returns the one-based index of
+        ;;; the last occurrence within the entire collection.
+        ;;; </summary>
+        ;;; <param name="RpsTemplate">Template to locate</param>
+        ;;; <returns>Last index number of matching template</returns>
+        public method LastIndexOf, int
+            required in RpsTemplate, @RpsTemplate
+        proc
+            mreturn mCollection.LastIndexOf(RpsTemplate)
+        endmethod
+
+        ;;; <summary>
+        ;;; Searches for the specified object and returns the one-based index of
+        ;;; the last occurrence within the range of elements in the collection that
+        ;;; extends from the first element to the specified index.
+        ;;; </summary>
+        ;;; <param name="RpsTemplate">Template to locate</param>
+        ;;; <param name="StartIndex">Index to start from</param>
+        ;;; <returns>Index number of matching template</returns>
+        public method LastIndexOf, int
+            required in RpsTemplate, @RpsTemplate
+            required in StartIndex, int
+        proc
+            mreturn mCollection.LastIndexOf(RpsTemplate,StartIndex)
+        endmethod
+
+        ;;; <summary>
+        ;;; Searches for the specified object and returns the one-based index of
+        ;;; the last occurrence within the range of elements in the collection that
+        ;;; contains the specified number of elements and ends at the specified index.
+        ;;; </summary>
+        ;;; <param name="RpsTemplate">Template to locate</param>
+        ;;; <param name="StartIndex">Index to start from</param>
+        ;;; <param name="Count">Offset</param>
+        ;;; <returns>Index number of matching template</returns>
+        public method LastIndexOf, int
+            required in RpsTemplate, @RpsTemplate
+            required in StartIndex, int
+            required in Count, int
+        proc
+            mreturn mCollection.LastIndexOf(RpsTemplate,StartIndex,Count)
+        endmethod
+
+    endclass
+
+endnamespace

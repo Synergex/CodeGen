@@ -1,0 +1,190 @@
+;;*****************************************************************************
+;;
+;; Title:       TemplateProxy.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Reporesents the attributes of a template file
+;;
+;; Date:        30th July 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.IO
+
+namespace TemplateBrowser
+
+	public class TemplateProxy extends ViewModelBase
+
+		public method TemplateProxy
+			endparams
+		proc
+			
+		endmethod
+
+		public method TemplateProxy
+			required in templatePath, String
+			endparams
+		proc
+			FileName = Path.GetFileName(templatePath)
+			FullPath = templatePath
+			IsReadOnly = (((File.GetAttributes(templatePath) & FileAttributes.ReadOnly) == FileAttributes.ReadOnly) || !fileIsWritable(templatePath))
+		endmethod
+
+		private method fileIsWritable, boolean
+			required in templatePath, String
+			endparams
+		proc
+			data canWrite, boolean, true
+			try
+			begin
+				data fs, @FileStream, File.OpenWrite(templatePath)
+				fs.Close()
+			end
+			catch (e, @Exception)
+			begin
+				canWrite = false
+			end
+			endtry
+			mreturn canWrite
+		end
+
+		private mFileName, String
+
+		public property FileName, String
+			method get
+			proc
+				mreturn mFileName
+			endmethod
+			method set
+			proc
+				mFileName = value
+				NotifyPropertyChanged("FileName")
+			endmethod
+		endproperty
+		
+		private mFullPath, String
+
+		public property FullPath, String
+			method get
+			proc
+				mreturn mFullPath
+			endmethod
+			method set
+			proc
+				mFullPath = value
+				NotifyPropertyChanged("FullPath")
+			endmethod
+		endproperty
+	
+		private mContent, String
+
+		public property Content, String
+			method get
+			proc
+				mreturn mContent
+			endmethod
+			method set
+			proc
+				mContent = value
+				NotifyPropertyChanged("Content")
+			endmethod
+		endproperty
+	
+		private mOriginalContent, String
+
+		public property OriginalContent, String
+			method get
+			proc
+				mreturn mOriginalContent
+			endmethod
+			method set
+			proc
+				mOriginalContent = value
+				NotifyPropertyChanged("OriginalContent")
+			endmethod
+		endproperty
+
+		private mIsReadOnly, boolean, false
+
+		public property IsReadOnly, boolean
+			method get
+			proc
+				mreturn mIsReadOnly
+			endmethod
+			method set
+			proc
+				mIsReadOnly = value
+				NotifyPropertyChanged("IsReadOnly")
+			endmethod
+		endproperty
+		
+		public method Save, boolean
+			endparams
+		proc
+			data saved, boolean, true
+			if (IsReadOnly) then
+				saved = false
+			else
+			begin
+				try
+				begin
+					File.WriteAllText(FullPath,Content)
+					OriginalContent = Content
+				end
+				catch (e, @Exception)
+				begin
+					saved = false
+				end
+				endtry
+			end
+			mreturn saved
+		endmethod
+
+		public property DataHasChanged, boolean
+			method get
+			proc
+				mreturn (Content!=OriginalContent)
+			endmethod
+		endproperty
+
+		public method DiscardChanges, void
+			endparams
+		proc
+			Content = OriginalContent
+		endmethod
+
+	endclass
+
+endnamespace
