@@ -216,13 +216,14 @@ namespace CodeGen.Engine
 			endparams
 			
 			stack record
-				ErrStatus   ,boolean                ;;Main error status variable
-				StrNum      ,int                    ;;Structure number being processed
-				WscFile     ,String                 ;;UI Toolkit window script file
-				Templates   ,@ArrayList             ;;Collection of template names
-				Structures  ,@RpsStructureCollection;;Collection of repository structures
-				FileIndex   ,[#]int                 ;;Array of file indexes to use
-				FileDef     ,@RpsFile               ;;Repository file definition name
+				ErrStatus		,boolean					;;Main error status variable
+				StrNum			,int						;;Structure number being processed
+				FileIndex		,[#]int						;;Array of file indexes to use
+				WscFile			,String						;;UI Toolkit window script file
+				ProFormaFile	,String						;;BusinessCraft ProForma file name
+				Templates		,@ArrayList					;;Collection of template names
+				Structures		,@RpsStructureCollection	;;Collection of repository structures
+				FileDef			,@RpsFile					;;Repository file definition name
 			endrecord
 			
 			external function
@@ -410,7 +411,7 @@ namespace CodeGen.Engine
 			
 			;;-------------------------------------------------------------------------
 			;;See if we have an author name specified with CODEGEN_AUTHOR
-			;;If present, this location overrides the default author of CodeGen
+			;;If present, this location overrides the default author (CodeGen)
 			
 			if (!ErrStatus)
 			begin
@@ -426,8 +427,8 @@ namespace CodeGen.Engine
 			end
 			
 			;;-------------------------------------------------------------------------
-			;;See if we have an author name specified with CODEGEN_COMPANY
-			;;If present, this location overrides the default author of Synergex
+			;;See if we have an company name specified with CODEGEN_COMPANY
+			;;If present, this location overrides the default company (Synergex)
 			
 			if (!ErrStatus)
 			begin
@@ -502,8 +503,13 @@ namespace CodeGen.Engine
 			;;Are we being asked to override the key that is used with the <PRIMARY_KEY> construct?
 			
 			if (!ErrStatus)
+			begin
 				if (task.PrimaryKeyNumber!=0)
+				begin
 					Env.OverridePrimaryKeyNum = task.PrimaryKeyNumber
+					DebugLog("<PRIMARY_KEY> blocks will use key "+string(Env.OverridePrimaryKeyNum),true,false)
+				end
+			end
 					
 			;;-------------------------------------------------------------------------
 			;;Get a list of template files in template directory
@@ -702,7 +708,11 @@ namespace CodeGen.Engine
 						ErrStatus = true
 					end
 					else
+					begin
 						WscFile = task.WindowScript
+						if (Env.DeveloperDebug)
+							DebugLog("DEVDBG: Window script file " + WscFile + " will br processed",false,false)
+					end
 				end
 			end
 			
@@ -713,8 +723,7 @@ namespace CodeGen.Engine
 				Env.NoWscAttributes = task.IgnoreScriptFieldAttributes
 			
 			;;-------------------------------------------------------------------------
-			;;Are we provided with a UI Toolkit window script to search for selection
-			;;windows in?
+			;;Are we provided with a UI Toolkit window script to search for selection windows in?
 			
 			if (!ErrStatus)
 			begin
@@ -834,25 +843,27 @@ namespace CodeGen.Engine
 				Env.SubSetName = ""
 				if (task.Subset!=String.Empty)
 				begin
-					if (!Env.RpsInUse)
+					if (!Env.RpsInUse) then
 					begin
 						ErrorLog("Can't use SubSetName without a repository structure!")
 						ErrStatus = true
 					end
-					
-					if (!ErrStatus&&Structures.Count>1)
+					else if (!ErrStatus&&Structures.Count>1) then
 					begin
 						ErrorLog("SubSetName property can only be used when processing a single structure!")
 						ErrStatus = true
 					end
-					
-					if (!ErrStatus)
+					else
+					begin
 						Env.SubSetName = task.Subset
+						if (Env.DeveloperDebug)
+							DebugLog("DEVDBG: Subset processing was enabled for subset " + Env.SubSetName,false,false)					
+					end
 				end
 			end
 			
 			;;-------------------------------------------------------------------------
-			;;If we have a window script file then process it
+			;;If we have a window script file or ProForma file then process it
 			
 			if (!ErrStatus)
 			begin
@@ -861,12 +872,67 @@ namespace CodeGen.Engine
 				Env.Buttons = new WscButtonCollection()
 				
 				;;Now parse the script file
-				if (WscFile.Length)
+				if (WscFile.Length) then
 				begin
 					data errTxt, string
+
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Parsing window script " + WscFile,false,false)					
+					
 					ErrStatus = (boolean)ParseWindowScript(WscFile,Structures,errTxt)
 				end
-				
+				else if (ProFormaFile.Length)
+				begin
+					data errTxt, string
+					data address, D_ADDR
+					
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Parsing ProForma file " + ProFormaFile,false,false)					
+					
+					if (address = %xaddr("ParseProForma",,1))
+					begin
+						data pfStructure, @RpsStructure
+						
+						Env.ProFormaStructures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+						
+						try
+						begin
+							DebugLog("Executing ParseProForma()",false,false)
+							
+							if (ErrStatus = (boolean)%xsubr(address,(a)ProFormaFile))
+								exit
+								
+							;;Did we get any structures loaded?
+							if (!Env.ProFormaStructures.Count)
+							begin
+								ErrorLog("ParseProForma() did not load any structures!")
+								ErrStatus = true
+							end
+						end
+						catch (e, @Exception)
+						begin
+							ErrorLog("Failed to execute ParseProForma()")
+							Log("       " + e.Message,false,false)
+							if (e.InnerException!=^null)
+								Log("       " + e.InnerException.Message,false,false)
+							ErrStatus = true
+						end
+						endtry
+						
+						;;Load the structures from ParseProForma()
+						if (!ErrStatus)
+						begin
+							if (Structures == ^null)
+								Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+							
+							foreach pfStructure in Env.ProFormaStructures.GetEnumerator()
+								Structures.Add(pfStructure)
+								
+							Env.RpsInUse = true
+						end
+					end
+				end
+								
 				if (ErrStatus)
 					exit
 				
@@ -1016,7 +1082,8 @@ namespace CodeGen.Engine
 			end
 			
 			;;-------------------------------------------------------------------------
-			;;See if we have any special structure processing filters specified
+			;;See if we have any special field processing filters specified
+
 			if (!ErrStatus)
 			begin
 				;;Default to enable "excluded by language" filter
