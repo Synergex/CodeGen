@@ -64,7 +64,6 @@ namespace CodeGen.Engine
             dll         ,D_ADDR ;;DLL Handle
         endrecord
 
-.ifdef D_GUI
         stack record WIN32_FIND_DATA
             FileAttributes      ,i4     ;;File attribute bit flags
             CreationTimeLow     ,i4     ;; Low-order 32 bits of file creation time (UTC format)
@@ -84,9 +83,7 @@ namespace CodeGen.Engine
 		stack record
 			sh					,i4     ;;Search handle
 			spec				,a260   ;;Search spec
-			.ifdef DBLNET
             dllArgs             ,[#]@Object
-			.endc
 		endrecord
 		
         .define INVALID_HANDLE_VALUE		-1
@@ -99,28 +96,19 @@ namespace CodeGen.Engine
         .define FILE_ATTRIBUTE_TEMPORARY    %x(100)
         .define FILE_ATTRIBUTE_COMPRESSED   %x(800)
         .define FILE_ATTRIBUTE_OFFLINE      %x(1000)
-.endc
 	
 	proc
 
-.ifdef D_GUI
-		;;------------------------------------------------------------------------
-		;; Windows Code
-		;;
 		dll = dll_open("kernel32.dll")
 
         fill(char(0),spec)
         spec(1:trim(searchSpec))=searchSpec
 
         ;;Look for the first file
-        .ifdef DBLNET
         dllArgs = new Object[2]
         dllArgs[1] = (Object)^addr(spec)
         dllArgs[2] = (Object)^addr(WIN32_FIND_DATA)
         sh = dll_netcall(dll,DLL_TYPE_WINAPI,"FindFirstFileA",dllArgs)
-        .else
-        sh = dll_call(dll,DLL_TYPE_WINAPI,"FindFirstFileA",^addr(spec),^addr(WIN32_FIND_DATA))
-        .endc
 
         if (sh!=INVALID_HANDLE_VALUE)
         begin
@@ -137,14 +125,10 @@ namespace CodeGen.Engine
             ;;Continue the search
             repeat
             begin
-                .ifdef DBLNET
                 dllArgs = new Object[2]
                 dllArgs[1] = (Object)sh
                 dllArgs[2] = (Object)^addr(WIN32_FIND_DATA)
                 if (dll_netcall(dll,DLL_TYPE_WINAPI,"FindNextFileA",dllArgs)) then
-                .else
-                if (dll_call(dll,DLL_TYPE_WINAPI,"FindNextFileA",sh,^addr(WIN32_FIND_DATA))) then
-                .endc
                 begin
                     ;;Found another file, check it's not a directory
                     if (!(FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
@@ -160,91 +144,13 @@ namespace CodeGen.Engine
             end
 
             ;;Close the search handle
-            .ifdef DBLNET
             dllArgs = new Object[1]
             dllArgs[1] = (Object)sh
             dll_netcall(dll,DLL_TYPE_WINAPI,"FindClose",dllArgs)
-            .else
-            dll_call(dll,DLL_TYPE_WINAPI,"FindClose",sh)
-            .endc
 
         end
 
         dll = dll_close(dll)
-.endc
-
-.ifdef OS_UNIX
-		;;------------------------------------------------------------------------
-		;; UNIX Code
-		;;
-		try
-		begin
-			data FileName, a260, ""
-			open(dll=0,i,"|find " + atrim(searchSpec) + " -exec basename {} \; 2> /dev/null")
-			repeat
-			begin
-				reads(dll,FileName)
-				WinDirChangeCase(FileName,resultsCase)
-				if (matchingFiles==^null)
-					matchingFiles = new ArrayList()
-				matchingFiles.Add((String)atrim(FileName))
-			end
-		end
-		catch (e, @EndOfFileException )
-		begin
-			nop
-		end
-		finally
-		begin
-			close dll
-		end
-		endtry
-
-.endc
-
-.ifdef OS_VMS
-		;;------------------------------------------------------------------------
-		;; OpenVMS Code
-		;;
-		try
-		begin
-			data FileName, a260
-			data pos, int
-
-			open(dll=0,i,"|dir/nohead/notrail/nodate/nosize/noown/noprot/noacl " + atrim(searchSpec)+";")
-			repeat
-			begin
-				reads(dll,FileName)
-				
-				if (FileName=="%DIRECT-W-NOFILES")
-					exitloop
-					
-				;;Remove the directory spec
-				if (pos=%rvstr(1,FileName,"]"))
-					FileName = FileName(pos+1,trim(FileName))
-					
-				;;Remove the version number
-				if (pos=instr(1,FileName,";"))
-					FileName = FileName(1,pos-1)
-					
-				WinDirChangeCase(FileName,resultsCase)
-				
-				if (matchingFiles==^null)
-					matchingFiles = new ArrayList()
-				
-				matchingFiles.Add((String)%atrim(FileName))
-			end
-		end
-		catch (e, @EndOfFileException)
-		begin
-			nop
-		end
-		finally
-		begin
-			close dll
-		end
-		endtry
-.endc
 
         freturn ((matchingFiles!=^null)&&(matchingFiles.Count>0))
 

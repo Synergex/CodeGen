@@ -64,7 +64,6 @@ main MapPrep
 		mapLocation		,MappingLocation
 		mappingDone     ,boolean                ;;Have we added a mapping?
 		ok              ,boolean, true
-        dbr             ,boolean, false
         verbose         ,boolean, false
 		PromptStructure ,boolean, false
 		PromptFields    ,boolean, false
@@ -88,9 +87,7 @@ main MapPrep
 		NewSchemaData	,@ArrayList
 		NewFieldNames	,@ArrayList
         FieldDesc       ,a80
-        .ifdef DBLNET
         SynergyPath     ,String
-        .endc
     endrecord
 
 	structure strIdentifier
@@ -102,19 +99,6 @@ proc
     open(tt=0,i,"tt:")
     xcall flags(7004000,1)
     xcall flags(20,0)
-
-    ;;-------------------------------------------------------------------------
-    ;;Dbr or dbs?
-    ;;
-    .ifndef DBLNET
-    begin
-        data tmpi4a, int
-        data tmpi4b, int
-        xcall tnmbr(tmpi4a,tmpi4b)
-        if (tmpi4b!=2)
-            dbr = true
-    end
-    .endc
 
     ;;-------------------------------------------------------------------------
     ;;Report usage
@@ -164,7 +148,6 @@ proc
 	;;-------------------------------------------------------------------------
     ;;Make sure we have a Synergy/DE environment
 
-	.ifdef DBLNET
 	begin
 		data sdeFound, int
 		data sdePath, a256
@@ -177,7 +160,6 @@ proc
 			ok = false
 		end
 	end
-    .endc
 
 	;;-------------------------------------------------------------------------
 	;;Determine where we will store the mapping data
@@ -313,19 +295,8 @@ proc
 			if (verbose)
 				writes(tt," - Exporting structure " + StructureName + " to schema " + StructureName + ".SCH")
 						
-			.ifdef OS_VMS
-			RpsCommand="$rpsutl -e " + StructureName + ".SCH -es " + StructureName + "=kr"
-			xcall spawn(RpsCommand,D_NOWINDOW)
-			RpsCommand='$CONVERT/FDL="RECORD; FORMAT VARIABLE" ' + StructureName + '.SCH ' + StructureName + '.SCH'
-			xcall spawn(RpsCommand,D_NOWINDOW)
-			.else
-			.ifdef DBLNET
 			RpsCommand = atrim(SynergyPath) + "dbl\bin\dbs.exe RPS:rpsutl -e " + StructureName + ".SCH -es " + StructureName + "=kr"
-			.else
-			RpsCommand="dbs RPS:rpsutl -e " + StructureName + ".SCH -es " + StructureName + "=kr"
-			.endc
 			xcall spawn(RpsCommand,D_NOWINDOW)
-			.endc
 			
 			;;-------------------------------------------------------------------------
 			;;Process the schema file
@@ -437,15 +408,7 @@ proc
 				if (LoadToRps) then
 				begin
 					writes(tt,"Loading new structure " + NewStructureName + " into repository")
-					.ifdef OS_VMS
-					RpsCommand="$rpsutl -i " + NewStructureName + ".SCH -ia"
-					xcall spawn(RpsCommand,D_NOWINDOW)
-					.else
-					.ifdef DBLNET
 					RpsCommand = %atrim(SynergyPath) + "dbl\bin\dbs.exe RPS:rpsutl -i " + NewStructureName + ".SCH -ia"
-					.else
-					RpsCommand="dbs RPS:rpsutl -i " + NewStructureName + ".SCH -ia"
-					.endc
 					begin
 						data pipech, i4, 0
 						data pipebuff, a256
@@ -458,7 +421,7 @@ proc
 					eofpipe,
 						close pipech
 					end
-					.endc
+
 					if (!LeaveSchema)
 					begin
 						try
@@ -479,15 +442,6 @@ proc
 			end
 		end
 	end
-
-    .ifdef D_GUI
-    if (dbr)
-    begin
-        data TmpBuf, a1
-        display(tt,13,10,"Press a key: ")
-        accept(tt,TmpBuf)
-    end
-    .endc
 
     close tt
     stop
