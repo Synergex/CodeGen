@@ -108,7 +108,9 @@ namespace CodeGen.Engine
                 &   || (Env.ExcludeWeb&&Field.ExcludedByWeb)
                 &   )
                 begin
-                    Struct.Fields.RemoveAt(ix)
+					if (Env.DeveloperDebug)
+						DebugLog("DEVDBG: Removing field  " + Field.Name + " because of field filters",false,false)
+					Struct.Fields.RemoveAt(ix)
                     ix-=1
                     nextloop
                 end
@@ -116,15 +118,55 @@ namespace CodeGen.Engine
                 ;; If there is a subset specified then remove all fields that are
                 ;; not a member of that subset
 
-                if (Env.SubSetName)
+                if (Env.SubSetName) then
                 begin
 					if ((!instr(1,Field.UserText,"@SUB="+Env.SubSetName+";"))&&(!instr(1,Field.LongDescription,"@SUB="+Env.SubSetName+";")))
                     begin
-                        Struct.Fields.RemoveAt(ix)
+						if (Env.DeveloperDebug)
+							DebugLog("DEVDBG: Removing field  " + Field.Name + ", not a subset member",false,false)
+						Struct.Fields.RemoveAt(ix)
                         ix-=1
                         nextloop
                     end
-                end
+				end
+				else if (Env.SubSetFields.Count>0)
+				begin
+					data fieldName, String
+					data foundField, boolean, false
+					foreach fieldName in Env.SubSetFields
+					begin
+						if fieldName.eqs.Field.Name
+						begin
+							foundField = true
+							exitloop
+						end
+					end
+					if (foundField) then
+					begin
+						if (Env.DeveloperDebug)
+							DebugLog("DEVDBG: Retaining field " + Field.Name + " as a subset member",false,false)
+					end
+					else
+					begin
+						if (Env.DeveloperDebug)
+							DebugLog("DEVDBG: Removing field  " + Field.Name + ", not a subset member",false,false)
+						Struct.Fields.RemoveAt(ix)
+						ix-=1
+						nextloop
+					end
+;					DebugLog(">>>>>>>>>>>>>>>>>>> TESTING " + Field.Name,false,false)
+;					if (Env.SubSetFields.IndexOf(Field.Name)) then
+;					begin
+;						DebugLog(">>>>>>>>>>>>>>>>>>> KEEPING " + Field.Name,false,false)
+;					end
+;					else
+;					begin
+;						DebugLog(">>>>>>>>>>>>>>>>>>> REMOVING " + Field.Name,false,false)
+;						Struct.Fields.RemoveAt(ix)
+;						ix-=1
+;						nextloop
+;					end
+				end
 
                 ;; Make sure field isn't an ENUM field
                 ;TODO: Enums are just an i4, so we should be able to add support
