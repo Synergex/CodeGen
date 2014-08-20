@@ -3955,7 +3955,6 @@
 		<row><td>ID_STRING13</td><td>1033</td><td>UNINST~1|Uninstall CodeGen</td><td>0</td><td/><td>-719315764</td></row>
 		<row><td>ID_STRING14</td><td>1033</td><td>*=-PATH</td><td>0</td><td/><td>-719270548</td></row>
 		<row><td>ID_STRING15</td><td>1033</td><td>[~];[INSTALLDIR]</td><td>0</td><td/><td>-719272596</td></row>
-		<row><td>ID_STRING17</td><td>1033</td><td>SAMPLE~1|Sample Templates</td><td>0</td><td/><td>1973471888</td></row>
 		<row><td>ID_STRING18</td><td>1033</td><td>CODEGE~1|CodeGen Web Site</td><td>0</td><td/><td>1973480528</td></row>
 		<row><td>ID_STRING19</td><td>1033</td><td>CODEGE~1|CodeGen on CodePlex</td><td>0</td><td/><td>1973439600</td></row>
 		<row><td>ID_STRING2</td><td>1033</td><td>Synergex PSG</td><td>0</td><td/><td>-719271284</td></row>
@@ -4077,7 +4076,6 @@
 		<row><td>NewShortcut1_3186AA3BE0094FC0A07E2BB0A7663F5A.exe</td><td/><td>D:\CodePlex\CodeGen\Trunk\TemplateBrowser\Bin\Release\TemplateBrowser.exe</td><td>0</td></row>
 		<row><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td/><td>D:\CodePlex\CodeGen\Trunk\Documentation\Help.ico</td><td>0</td></row>
 		<row><td>NewShortcut3_73A2210FB1414994AE5A0DB59B7450FD.exe</td><td/><td>D:\CodePlex\CodeGen\Trunk\Installer\Uninstall.ico</td><td>0</td></row>
-		<row><td>NewShortcut5_C876300F723C425EA5302CE5323157A3.exe</td><td/><td>D:\CodePlex\CodeGen\Trunk\Installer\Workbench.ico</td><td>0</td></row>
 		<row><td>NewShortcut6_1EC12D35871C4DE3B0D12D2FB3F8E3AB.exe</td><td/><td>D:\CodePlex\CodeGen\Trunk\Installer\InternetExplorer.ico</td><td>0</td></row>
 		<row><td>NewShortcut7_D01A559730AB4F9D8021DACF7507F215.exe</td><td/><td>D:\CodePlex\CodeGen\Trunk\Installer\InternetExplorer.ico</td><td>0</td></row>
 	</table>
@@ -4689,7 +4687,6 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<row><td>NewShortcut1</td><td>TemplateBrowser.exe</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut2</td><td>CodeGen.chm</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut3</td><td>CodeGen.exe</td><td/><td>newfolder1</td><td>2</td></row>
-		<row><td>NewShortcut5</td><td>ISX_DEFAULTCOMPONENT5</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut6</td><td>ISX_DEFAULTCOMPONENT1</td><td/><td>newfolder1</td><td>2</td></row>
 		<row><td>NewShortcut7</td><td>ISX_DEFAULTCOMPONENT1</td><td/><td>newfolder1</td><td>2</td></row>
 	</table>
@@ -4780,7 +4777,6 @@ UwBpAG4AZwBsAGUASQBtAGEAZwBlAAEARQB4AHAAcgBlAHMAcwA=
 		<row><td>NewShortcut1</td><td>newfolder1</td><td>##ID_STRING9##</td><td>TemplateBrowser.exe</td><td>[INSTALLDIR]TemplateBrowser.exe</td><td/><td/><td/><td>NewShortcut1_3186AA3BE0094FC0A07E2BB0A7663F5A.exe</td><td>1</td><td>1</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut2</td><td>newfolder1</td><td>##ID_STRING11##</td><td>CodeGen.chm</td><td>[INSTALLDIR]CodeGen.chm</td><td/><td>##ID_STRING12##</td><td/><td>NewShortcut2_26448BE8DF304823B0CAB96C5121E5F1.exe</td><td>0</td><td>3</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut3</td><td>newfolder1</td><td>##ID_STRING13##</td><td>CodeGen.exe</td><td>[SystemFolder]MsiExec.exe</td><td>/x [ProductCode]</td><td/><td/><td>NewShortcut3_73A2210FB1414994AE5A0DB59B7450FD.exe</td><td>0</td><td>1</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
-		<row><td>NewShortcut5</td><td>newfolder1</td><td>##ID_STRING17##</td><td>ISX_DEFAULTCOMPONENT5</td><td>[ALLUSERSPROFILE]Synergex\CodeGen\CodeGenSampleTemplates.vpw</td><td/><td/><td/><td>NewShortcut5_C876300F723C425EA5302CE5323157A3.exe</td><td>0</td><td>3</td><td>CODEGEN1</td><td/><td/><td/><td/><td/><td/><td/></row>
 		<row><td>NewShortcut6</td><td>newfolder1</td><td>##ID_STRING18##</td><td>ISX_DEFAULTCOMPONENT1</td><td>[INSTALLDIR]CodeGen Web Site.url</td><td/><td/><td/><td>NewShortcut6_1EC12D35871C4DE3B0D12D2FB3F8E3AB.exe</td><td>0</td><td>3</td><td/><td/><td/><td/><td/><td/><td/><td/></row>
 	</table>
 

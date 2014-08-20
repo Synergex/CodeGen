@@ -40,12 +40,10 @@
 ;;
 ;;*****************************************************************************
 
+import System.Collections
+import System.Collections.ObjectModel
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
-import System.Collections
-.ifdef DBLNET
-import System.Collections.ObjectModel
-.endc
 
 subroutine CodeGenLauncher
 		
@@ -68,20 +66,6 @@ subroutine CodeGenLauncher
 		xsubr				,^val
 	endexternal
 		
-	.ifdef D_GUI
-	.define D_SEPERATOR     "\"
-	.endc
-
-	.ifdef OS_UNIX
-	.define D_SEPERATOR     "/"
-	.endc
-		
-	.ifdef OS_VMS
-	stack record
-		UndefineMappings	,boolean
-	endrecord
-	.endc
-
 proc
 
 	;;Open the terminal and save the channel in the Environment class
@@ -95,17 +79,8 @@ proc
 	;;-------------------------------------------------------------------------
 	;;Dbr or dbs?
 		
-	.ifdef DBLNET
 	Env.Dbr = 0
-	.else
-	begin
-		data terminal ,int
-		data runtime  ,int
-		xcall tnmbr(terminal,runtime)
-		Env.Dbr = (runtime==0)
-	end
-	.endc
-		
+
 	;;-------------------------------------------------------------------------
 	;;Echo command line?
 		
@@ -114,20 +89,7 @@ proc
 		data command, a256
 		data tmpPos, int
 		cmdln(command)
-		.ifdef DBLNET
 		Log(atrim(command),false,false)
-		.else
-		;;Find codegen_exe:codegen in the command line
-		;;TODO: This won't work in .NET
-		if (tmpPos = instr(1,StringTools.LowerCase(command),"codegen_exe:codegen.dbr ")) then
-			command = command(tmpPos+24,trimz(command))
-		else
-		begin
-			if (tmpPos = instr(1,StringTools.LowerCase(command),"codegen_exe:codegen "))
-				command = command(tmpPos+20,trimz(command))
-		end
-		Log("codegen "+atrim(command),false,false)
-		.endc
 	end
 		
 	;;-------------------------------------------------------------------------
@@ -195,20 +157,12 @@ proc
 		
 	if (CommandLineParser.Parse("version"))
 	begin
-		.ifdef DBLNET
-		Log(CODEGEN_APPNAME+" "+CODEGEN_VERSION+" (Synergy .NET "+SYN_VERSION+" built "+datecompiled()+")",true,false)
-		.else
-		Log(CODEGEN_APPNAME+" "+CODEGEN_VERSION+" (Traditional Synergy "+SYN_VERSION+" built "+datecompiled()+")",true,false)
-		.endc
+		Log(CODEGEN_APPNAME+" "+CODEGEN_VERSION+" (Synergy "+SYN_VERSION+" built "+datecompiled()+")",true,false)
 		ErrStatus=-1
 	end
 		
 	;;-------------------------------------------------------------------------
 	;;Do we have a custom data mappings file specified?
-
-	.ifdef OS_VMS
-	UndefineMappings = false
-	.endc
 
 	if (!ErrStatus)
 	begin
@@ -234,9 +188,6 @@ proc
 				;;We opened the file, so we'll try to use it for custom data mappings later.
 				data sts, int
 				xcall setlog("CODEGEN_DATAMAPPING_FILE",(String)ClValues[0],sts)
-				.ifdef OS_VMS
-				UndefineMappings = true
-				.endc
 				if (Env.DeveloperDebug)
 					DebugLog("DEVDBG: Custom data mapping file set by -cdm to " + (String)ClValues[0],false,false)
 			end
@@ -254,10 +205,8 @@ proc
 		getlog("CODEGEN_TPLDIR",TmpBuf,length)
 		if (length)
 		begin
-			.ifdef D_SEPERATOR
-			if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!=D_SEPERATOR))
-				TmpBuf(length+1:1) = D_SEPERATOR
-			.endc
+			if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!="\"))
+				TmpBuf(length+1:1) = "\"
 			Env.TemplateDir = TmpBuf
 
 			if (Env.DeveloperDebug)
@@ -287,14 +236,8 @@ proc
 			begin
 				data location, String, (String)ClValues[0]
 				data length, int, location.Length
-				.ifdef D_SEPERATOR
-				if ((location(length:1)!=":") && (location(length:1)!=D_SEPERATOR))
-					location = location + D_SEPERATOR
-				.endc
-				.ifdef OS_VMS
-				if (location==".")
-					location = "[]"
-				.endc
+				if ((location(length:1)!=":") && (location(length:1)!="\"))
+					location = location + "\"
 				Env.TemplateDir = location
 					
 				if (Env.DeveloperDebug)
@@ -325,10 +268,8 @@ proc
 		getlog("CODEGEN_OUTDIR",TmpBuf,length)
 		if (length)
 		begin
-			.ifdef D_SEPERATOR
-			if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!=D_SEPERATOR))
-				TmpBuf(length+1:1)=D_SEPERATOR
-			.endc
+			if ((TmpBuf(length:1)!=":") && (TmpBuf(length:1)!="\"))
+				TmpBuf(length+1:1)="\"
 			Env.OutputDir = TmpBuf
 				
 			if (Env.DeveloperDebug)
@@ -358,14 +299,8 @@ proc
 			begin
 				data location, String, (String)ClValues[0]
 				data length, int, location.Length
-				.ifdef D_SEPERATOR
-				if ((location(length:1)!=":") && (location(length:1)!=D_SEPERATOR))
-					location = location + D_SEPERATOR
-				.endc
-				.ifdef OS_VMS
-				if (location==".")
-					location = "[]"
-				.endc
+				if ((location(length:1)!=":") && (location(length:1)!="\"))
+					location = location + "\"
 				Env.OutputDir = location
 					
 				if (Env.DeveloperDebug)
@@ -698,6 +633,7 @@ proc
 		if (!ErrStatus)
 		begin
 			data ix, int
+			
 			;;Report templates to process
 			if (Env.Verbose)
 			begin
@@ -706,16 +642,10 @@ proc
 				foreach tmpTemplate in Templates
 					Log(" - " + tmpTemplate,false,false)
 			end
+
 			;;Remove .tpl file extensions
 			for ix from 0 thru Templates.Count-1
-			begin
-				.ifdef OS_VMS
-				Templates[ix] = (String)(((a)((String)Templates[ix]))-".TPL")   ;;Temp fix for VMS, needs more work!!!
-				Templates[ix] = (String)(((a)((String)Templates[ix]))-".tpl")   ;;Temp fix for VMS, needs more work!!!
-				.else
 				Templates[ix] = (String)(((a)((String)Templates[ix]))-".tpl")
-				.endc
-			end
 		end
 	end
 
@@ -751,14 +681,7 @@ proc
 					
 				try
 				begin
-					.ifdef DBLNET
 					UserTokenCollection.LoadTokensFromFile(tokenFile)
-					.else
-					data UserTokens, @UserTokenCollection
-					UserTokens = new UserTokenCollection(tokenFile)
-					if (UserTokens.Count)
-						Env.UserTokens = UserTokens
-					.endc
 				end
 				catch (ex)
 				begin
@@ -786,14 +709,7 @@ proc
 			begin
 				if (Env.DeveloperDebug)
 					DebugLog("DEVDBG: Loading user tokens from command line (-ut)",false,false)
-				.ifdef DBLNET
 				UserTokenCollection.AddTokens(ClValues)
-				.else
-				if (Env.UserTokens==^null) then
-					Env.UserTokens = new UserTokenCollection(ClValues)
-				else
-					Env.UserTokens.AddTokens(ClValues)
-				.endc
 			end
 		end
 	end		
@@ -978,25 +894,9 @@ proc
 		end
 			
 		;;Setup a file spec to locate custom token processor extensions
-.ifdef DBLNET
 		if (customFileSpec(%trim(customFileSpec):1)!="\")
 			customFileSpec = %atrim(customFileSpec) + "\"
 		customFileSpec = %atrim(customFileSpec) + "CodeGenProForma.dll"
-.else
-.ifdef D_GUI
-		if (customFileSpec(%trim(customFileSpec):1)!="\")
-			customFileSpec = %atrim(customFileSpec) + "\"
-		customFileSpec = %atrim(customFileSpec) + "CodeGenProForma.elb"
-.endc
-.ifdef OS_UNIX
-		if (customFileSpec(%trim(customFileSpec):1)!="/")
-			customFileSpec = %atrim(customFileSpec) + "/"
-		customFileSpec = %atrim(customFileSpec) + "CodeGenProForma.elb"
-.endc
-.ifdef OS_VMS
-		customFileSpec = %atrim(customFileSpec) + "CodeGenProForma.exe"
-.endc
-.endc
 			
 		;;Search for and open custom token processor extensions
 		if (!WinDir(customFileSpec,libraries,WinDirCase.NoChange)) then
@@ -1485,9 +1385,7 @@ proc
 		
 	if (!ErrStatus)
 	begin
-		.ifdef DBLNET
 		LoadSymphonyExt()
-		.endc
 		LoadExtensions()
 		ReportExtensions()
 	end
@@ -1731,24 +1629,6 @@ proc
 		foreach fileSpec in Env.OutputFiles
 			Log(fileSpec,false,false)
 	end
-		
-	.ifdef D_GUI
-	if (Env.Dbr)
-	begin
-		data TmpBuf, a1
-		display(Env.Tt,13,10,"Press a key: ")
-		accept(Env.Tt,TmpBuf)
-	end
-	.endc
-		
-	.ifdef OS_VMS
-	;;Remove the custom mappings file so it doesn't persist to the next command
-	if (UndefineMappings)
-	begin
-		data tmpstatus, i4
-		xcall setlog("CODEGEN_DATAMAPPING_FILE",,tmpstatus)
-	end
-	.endc
 		
 	close Env.Tt
 		

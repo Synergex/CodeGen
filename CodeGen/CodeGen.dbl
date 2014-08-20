@@ -41,10 +41,8 @@
 ;;*****************************************************************************
 
 import CodeGen.Engine
-.ifdef DBLNET
 import Microsoft.Win32
 import System.IO
-.endc
 
 main CodeGen
 
@@ -53,11 +51,9 @@ main CodeGen
 		ErrStatus       ,int														;;Problem?
 		TxtLen          ,int														;;Length of a string
 		UnsetTemplate   ,boolean													;;Need to unset CODEGEN_TPLDIR
-		.ifdef D_GUI
 		UnsetExe        ,boolean													;;Need to unset CODEGEN_EXE
 		UnsetAuthor     ,boolean													;;Need to unset CODEGEN_AUTHOR
 		UnsetCompany    ,boolean													;;Need to unset CODEGEN_COMPANY
-		.endc
 		TempString      ,a256
 	endrecord
 
@@ -66,10 +62,6 @@ proc
     open(Tt=0,i,"tt:")
     flags(7004020,1)
 
-;;------------------------------------------------------------------------------
-.ifdef DBLNET
-;;------------------------------------------------------------------------------
-	
 	;;Explicitly set CODEGEN_EXE to the location of the running executable
 	TempString = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
 	xcall setlog("CODEGEN_EXE",atrim(TempString),TxtLen)
@@ -160,60 +152,15 @@ proc
 	
 	xcall CodeGenLauncher
 	
-;;------------------------------------------------------------------------------
-.else  ;End of Synergy .NET, start of Traditional Synergy code
-;;------------------------------------------------------------------------------
-	
-	if (!ErrStatus)
-	begin
-		;;Is CODEGEN_EXE already set in the environment?
-		xcall getlog("CODEGEN_EXE",TempString,TxtLen)
-		if (!TxtLen)
-		begin
-			writes(Tt,"ERROR: CodeGen is not correctly installed (can't determine CODEGEN_EXE)")
-			ErrStatus=1
-		end
-	end
-	
-	if (!ErrStatus)
-	begin
-		;;Is CODEGEN_TPLDIR already set in the environment?
-		xcall getlog("CODEGEN_TPLDIR",TempString,TxtLen)
-		if (!TxtLen)
-		begin
-			;;No, default to current directory
-			.ifdef OS_VMS
-			xcall setlog("CODEGEN_TPLDIR","SYS$DISK:",TxtLen)
-			.else
-			xcall setlog("CODEGEN_TPLDIR",".",TxtLen)
-			.endc
-			UnsetTemplate=true
-		end
-	end
-	
-	;;Off we go
-	if (!ErrStatus)
-	begin
-		close Tt
-		clear Tt
-		xcall CodeGenLauncher
-	end
-	
-;;------------------------------------------------------------------------------
-.endc ;End of traditional Synergy processing
-;;------------------------------------------------------------------------------
-	
 	;;Unset any environment variables that we set
 	if (UnsetTemplate)
 		xcall setlog("CODEGEN_TPLDIR",,TxtLen)
-	.ifdef D_GUI
 	if (UnsetExe)
 		xcall setlog("CODEGEN_EXE",,TxtLen)
 	if (UnsetAuthor)
 		xcall setlog("CODEGEN_AUTHOR",,TxtLen)
 	if (UnsetCompany)
 		xcall setlog("CODEGEN_COMPANY",,TxtLen)
-	.endc
 	
     stop
 
