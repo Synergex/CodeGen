@@ -1,0 +1,234 @@
+;;*****************************************************************************
+;;
+;; Title:       ProfilesDialog.dbl
+;;
+;; Type:        Class (Windows Form)
+;;
+;; Description: Dialog used to manage profiles.
+;;
+;; Date:        21st August 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.ComponentModel
+import System.Data
+import System.Drawing
+import System.IO
+import System.Text
+import System.Windows.Forms
+
+import RpsBrowser.Profiles
+
+.Array 0
+namespace RpsBrowser.Profiles
+    
+    public partial class ProfilesDialog extends Form
+        
+        private mProfileManager		,@ProfileManager
+        private mDefaultProfile     ,String,  ""
+        private creatingProfile		,Boolean, False
+        private creatingLogical		,Boolean, False
+        
+        public method ProfilesDialog
+            required in aProfileManager, @ProfileManager
+            endparams
+        proc
+            this.InitializeComponent()
+            mProfileManager = aProfileManager
+        endmethod
+        
+        public method ProfilesDialog
+            required in aProfileManager, @ProfileManager
+            required in aProfileName, String
+            endparams
+        proc
+            this.InitializeComponent()
+            mProfileManager = aProfileManager
+            mDefaultProfile = aProfileName
+        endmethod
+
+        private method ProfilesDialog_Load, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            gridLogicals.AutoGenerateColumns = false
+            ;;Load existing profiles into the list
+            profileManagerBindingSource.DataSource = mProfileManager.Profiles
+            btnDeleteProfile.Enabled = (profileManagerBindingSource.Count > 0)
+
+            ;;If we have a default profile name then select it in the list
+            if (!string.IsNullOrWhiteSpace(mDefaultProfile))
+            begin
+                data ix, int
+                for ix from 0 thru mProfileManager.Profiles.Count-1
+                begin
+                    if (((Profile)mProfileManager.Profiles[ix]).Name.Equals(mDefaultProfile))
+                    begin
+                        profileManagerBindingSource.Position = ix
+                        exitloop
+                    end
+                end
+            end
+
+            profileManagerBindingSource.ResetCurrentItem()
+
+        endmethod
+        
+        private method profileManagerBindingSource_CurrentChanged, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            if (profileManagerBindingSource.Current!=^null) then
+                profileBindingSource.DataSource = profileManagerBindingSource.Current
+            else
+            profileBindingSource.Clear()
+        endmethod
+        
+        private method btnNewProfile_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            data dlg, @NewProfileDialog, new NewProfileDialog()
+            if (dlg.ShowDialog(this)==DialogResult.OK)
+            begin
+                data p, @Profile, (Profile)profileManagerBindingSource.AddNew()
+                p.Name = dlg.ProfileName
+                profileManagerBindingSource.ResetCurrentItem()
+                profileBindingSource.ResetCurrentItem()
+            end
+        endmethod
+        
+        private method btnDeleteProfile_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            data p, @Profile, (Profile)profileManagerBindingSource.Current
+            data msg, String, string.Format("Delete profile {0}?",p.Name)
+            if (MessageBox.Show(this,msg,"Confirm Delete",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)==DialogResult.Yes)
+            begin
+                mProfileManager.DeleteProfile(p)
+                profileManagerBindingSource.ResetBindings(false)
+                btnDeleteProfile.Enabled = (profileManagerBindingSource.Count > 0)
+            end
+        endmethod
+        
+        private method btnDrillMainFile_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            data dlg, @OpenFileDialog, new OpenFileDialog()
+            dlg.Filter = "RPS Main File|rpsmain.ism|ISAM Files (*.ism)|*.ism|All Files (*.*)|*.*"
+            data p, @Profile, (Profile)profileBindingSource.Current
+            if ((!String.IsNullOrWhiteSpace(p.RpsMainFile)) && (File.Exists(p.RpsMainFile)))
+            begin
+                dlg.InitialDirectory = Path.GetDirectoryName(p.RpsMainFile)
+                dlg.FileName = Path.GetFileName(p.RpsMainFile)
+            end
+            if (dlg.ShowDialog(this)==DialogResult.OK)
+            begin
+                p.RpsMainFile = dlg.FileName
+
+                ;;Lets see if we can detect the text file to go along with the main file
+                data mfile, String, dlg.FileName
+                data pos, int, mfile.ToLower().LastIndexOf("main")
+                if (pos!=-1)
+                begin
+                    data sb, @StringBuilder, new StringBuilder(mfile)
+                    sb.Remove(pos, 4); 
+                    sb.Insert(pos, "text"); 
+                    data tfile = sb.ToString()
+                    if (File.Exists(tfile))
+                        p.RpsTextFile = tfile
+                end
+
+                profileBindingSource.ResetCurrentItem()
+            end
+        endmethod
+        
+        private method btnDrillTextFile_Click, void
+            byval sender, @System.Object
+            byval e, @System.EventArgs
+            endparams
+        proc
+            data dlg, @OpenFileDialog, new OpenFileDialog()
+            dlg.Filter = "RPS Text File|rpstext.ism|ISAM Files (*.ism)|*.ism|All Files (*.*)|*.*"
+            data p, @Profile, (Profile)profileBindingSource.Current
+            if ((!String.IsNullOrWhiteSpace(p.RpsTextFile)) && (File.Exists(p.RpsTextFile)))
+            begin
+                dlg.InitialDirectory = Path.GetDirectoryName(p.RpsTextFile)
+                dlg.FileName = Path.GetFileName(p.RpsTextFile)
+            end
+            if (dlg.ShowDialog(this)==DialogResult.OK)
+            begin
+                p.RpsTextFile = dlg.FileName
+                profileBindingSource.ResetCurrentItem()
+            end
+        endmethod
+        
+        private method ProfilesDialog_FormClosing, void
+            sender, @object 
+            e, @System.Windows.Forms.FormClosingEventArgs 
+            endparams
+        proc
+            ;;Validate profiles
+            data messages, @List<String>
+            if (!mProfileManager.ValidateProfiles(messages))
+            begin
+                data errmsg, String, "One or more profiles failed to validate. Press OK to save the profiles anyway, or press Cancel to fix the problems. The errors were:"
+                data msg, String
+                foreach msg in messages
+                    errmsg = String.Format("{0}{1}{2}",errmsg,%char(13)+%char(10),msg)
+                if (MessageBox.Show(this,errmsg,"Error Validating Profiles",MessageBoxButtons.OKCancel,MessageBoxIcon.Exclamation,MessageBoxDefaultButton.Button2)==DialogResult.Cancel)
+                    e.Cancel = true
+            end
+
+            ;;Save profiles
+            if (!e.Cancel)
+            begin
+                if (!mProfileManager.SaveAllProfiles())
+                    MessageBox.Show(this,"Failed to save one or more profiles!","Error Saving Profiles",MessageBoxButtons.OK,MessageBoxIcon.Exclamation)
+            end
+
+        endmethod
+        
+    endclass
+    
+endnamespace
+

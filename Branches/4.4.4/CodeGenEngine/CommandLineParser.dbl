@@ -1,0 +1,166 @@
+;;*****************************************************************************
+;;
+;; Title:       CommandLineParser.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Parses and returns information about the command line that
+;;              started the program
+;;
+;; Date:        14th August 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections
+
+namespace CodeGen.Engine
+	
+	class CommandLineParser
+		
+		public static method Parse, boolean
+			required in  a_opt          ,String			;;Option string to search for
+			endparams
+
+			stack record
+				optvals					,@ArrayList		;Returned option values
+			endrecord
+
+		proc
+			mreturn parse(a_opt,optvals=new ArrayList())
+		endmethod
+		
+		public static method Parse, boolean
+			required in  a_opt          ,String			;;Option string to search for
+			required out a_optvals      ,@ArrayList		;;Returned option values
+			endparams
+			
+			.define MAXARGS 256
+			
+			stack record localData
+				fstatus         ,boolean				;;Function return status
+				command         ,a8192					;;Whole command line
+				num_args        ,i4						;;Number of arguments in whole command line
+				arg_pos         ,[MAXARGS] i4			;;Positions of arguments in whole command line
+				arg_len         ,[MAXARGS] i4			;;Lengths of arguments in whole command line
+				current_arg     ,i4						;;Index of current argument being processed
+				opt_char        ,a1						;;Character that precedes options (- or /)
+				option_value    ,String
+			endrecord
+			
+			.undefine MAXARGS
+			
+		proc
+			
+			init localData
+			fstatus = false
+			a_optvals = new ArrayList()
+			
+			if (%option(34)) then
+				opt_char = '/'
+			else
+				opt_char = '-'
+			
+			xcall cmdln(command, num_args, arg_pos, arg_len)
+			
+			for current_arg from 1 thru num_args
+			begin
+				if (arg_pos[current_arg]&&arg_len[current_arg]) then
+					option_value = command(arg_pos[current_arg]:arg_len[current_arg])
+				else
+					option_value = ""
+				
+				;;Is this the requested option?
+				.ifdef OS_VMS
+				;;On OpenVMS prior to V7.2, command lines were parsed as upper case.
+				;;After 7.2 they can be optionally parsed case-preserved.  This is
+				;;based on a process setting $SET PROCESS/PARSE_STYLE=TRADITIONAL|EXTENDED.
+				;;CodeGen required TRADITIONAL command-line parsing to be used.
+				if (option_value.eqs.(opt_char+(a_opt.ToUpper())))
+				.else
+				if (option_value.eqs.(opt_char+a_opt))
+				.endc
+					call process_argument
+			end
+			
+			mreturn fstatus
+			
+		process_argument,
+			
+			;;Found requested option
+			fstatus = true
+			
+			;;Process next argument
+			current_arg += 1
+			
+			if (arg_pos[current_arg]&&arg_len[current_arg]) then
+				option_value = command(arg_pos[current_arg]:arg_len[current_arg])
+			else
+				option_value = opt_char
+			
+			;;DO NOT CHANGE THE .ne. OPERATOR to != ... THEY ARE NOT THE SAME THING WITH STRING!
+			while(option_value.ne.opt_char)
+			begin
+				;;Strip leading and trailing quote characters
+				using option_value select
+				("'", '"'),
+				begin
+					if ((option_value.Length>1)&&(option_value(option_value.Length:1)==option_value(1:1)))
+					begin
+						if (option_value.Length>2) then
+							option_value = option_value(2,option_value.Length-1)
+						else
+							option_value = ""
+					end
+				end
+				endusing
+				a_optvals.Add(option_value)
+				
+				;;Process next argument
+				current_arg+=1
+				
+				if (arg_pos[current_arg]&&arg_len[current_arg]) then
+					option_value = command(arg_pos[current_arg]:arg_len[current_arg])
+				else
+					option_value = opt_char
+			end
+			
+			;;Adjust counter to stay in correct position in loop
+			current_arg -= 1
+			return
+			
+		endmethod
+		
+	endclass
+	
+endnamespace
+

@@ -1,0 +1,189 @@
+;;*****************************************************************************
+;;
+;; Title:       ProcessSelectionExpression.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Processes field selection loop expressions
+;;
+;; Date:        5th November 2009
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.Engine
+
+    function ProcessSelectionExpression         ,boolean
+
+        required in    Fld                      ,@RpsField
+        required in    SelNbr                   ,int
+        required in    TokenStart               ,int
+        required in    TokenEnd                 ,int
+        required in	   Loop1OutputOff           ,boolean
+        required inout Loop2ConditionMode       ,@ArrayList
+        required inout Loop2ConditionApplies    ,@ArrayList
+        required inout Loop2OutputOff           ,boolean
+        required inout buffer                   ,a
+        required inout ErrStatus                ,int
+        endparams
+
+		stack record
+			result								,boolean
+		endrecord
+
+    proc
+
+        Loop2ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
+        Loop2ConditionApplies.Add((@boolean)false)
+
+		result = false
+
+        using ((a)Loop2ConditionMode[Loop2ConditionMode.Count-1]) select
+
+        ("FIRST "),
+            if (SelNbr == 0)
+                result = true
+		
+		("INFOLINE "),
+            if (Fld.InfoLineText)
+                result = true
+		
+		("LAST "),
+            if (SelNbr == Fld.SelectionList.Count-1)
+                result = true
+		
+		("MORE "),
+            if (SelNbr < Fld.SelectionList.Count-1)
+                result = true
+		
+		("NOMORE "),
+            if (SelNbr == Fld.SelectionList.Count-1)
+                result = true
+
+		("COUNTER_","NOT_COUNTER_"),
+			result = ProcessCounterExpression(Loop2ConditionMode)
+		
+		;;Presence of a user token
+		("USERTOKEN_"),
+		begin
+			data utName, string, buffer(TokenStart+4,TokenEnd-1) - "USERTOKEN_"
+			data ut, @UserToken
+			
+			if (Env.UserTokens==^null)
+				exit
+				
+.ifdef DBLNET
+			foreach ut in Env.UserTokens
+.else
+			foreach ut in Env.UserTokens.GetEnumerator()
+.endc
+			begin
+				if (ut.Name=="<"+utName+">")
+				begin
+					result = true
+					exitloop
+				end
+			end
+		end
+		
+		;;Absence of a user token
+		("NOT_USERTOKEN_"),
+		begin
+			data utName, string, buffer(TokenStart+4,TokenEnd-1) - "NOT_USERTOKEN_"
+			data ut, @UserToken
+			data found, boolean, false
+			
+			if (Env.UserTokens==^null) then
+			begin
+				result = true
+			end
+			else
+			begin
+.ifdef DBLNET
+				foreach ut in Env.UserTokens
+.else
+				foreach ut in Env.UserTokens.GetEnumerator()
+.endc
+				begin
+					if (ut.Name=="<"+utName+">")
+					begin
+						found=true
+						exitloop
+					end
+				end
+				result = (!found)
+			end
+		end
+		
+		(),
+        begin
+			;;If we haven't evaluated an expression by the time we get here then the only
+			;;remaining possibility is that there may be a custom expression extension
+			data customExpressionProcessed, Boolean, false
+			
+			if (Env.CustomSelectionExpressions.Count>0)
+			begin
+				data customExpression, @CustomSelectionExpression
+				foreach customExpression in Env.CustomSelectionExpressions
+				begin
+					if (customExpression.Expression.eqs.(a)Loop2ConditionMode[Loop2ConditionMode.Count-1])
+					begin
+						result = customExpression.Evaluate(Fld,SelNbr)
+						customExpressionProcessed = true
+						exitloop
+					end
+				end
+			end
+			
+			if (customExpressionProcessed)
+				exit
+			
+			ErrorLog("Invalid selection loop expression " + buffer(TokenStart,TokenEnd))
+			ErrStatus = 1
+        end
+		
+		endusing
+
+		Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)result
+
+		if (ErrStatus) then
+			freturn false
+		else
+			freturn ProcessExpression(TokenStart,TokenEnd,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff,Loop1OutputOff,buffer)
+
+    endfunction
+
+endnamespace

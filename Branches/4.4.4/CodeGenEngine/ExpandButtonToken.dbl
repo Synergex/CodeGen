@@ -1,0 +1,237 @@
+;;*****************************************************************************
+;;
+;; Title:       ExpandButtonToken.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Expands button loop tokens
+;;
+;; Date:        5th November 2009
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    function ExpandButtonToken          ,boolean
+		required in    BtnNbr           ,int            ;;Current button number
+		required in    TokenStart       ,int            ;;Start position of token in buffer
+		required in    TokenEnd         ,int            ;;End position of token in buffer
+		required in    OutputOff		,boolean		;;Is output currently suppressed?
+        required inout buffer           ,a              ;;Buffer containing token to be replaced
+        required in    Str              ,@RpsStructure  ;;Current repository structure (could be ^null)
+        endparams
+
+        stack record
+            ReplacedToken   ,boolean
+        endrecord
+
+    proc
+
+        ReplacedToken = false
+
+        using buffer(TokenStart,TokenEnd) select
+
+        ("<,>"),
+        begin
+           if (Env.Buttons.IsLastButton(BtnNbr)) then
+               ReplacedToken = ReplaceToken(buffer,"<,>"," ")
+           else
+               ReplacedToken = ReplaceToken(buffer,"<,>",",")
+        end
+
+        ("<+>"),
+        begin
+            if (Env.Buttons.IsLastButton(BtnNbr)) then
+                ReplacedToken = ReplaceToken(buffer,"<+>"," ")
+            else
+                ReplacedToken = ReplaceToken(buffer,"<+>","+")
+        end
+
+        ("<:>"),
+        begin
+            if (Env.Buttons.IsLastButton(BtnNbr)) then
+                ReplacedToken = ReplaceToken(buffer,"<:>"," ")
+            else
+                ReplacedToken = ReplaceToken(buffer,"<:>",":")
+        end
+
+        ("<&&>"),
+        begin
+            if (Env.Buttons.IsLastButton(BtnNbr)) then
+                ReplacedToken = ReplaceToken(buffer,"<&&>"," ")
+            else
+                ReplacedToken = ReplaceToken(buffer,"<&&>","&&")
+        end
+
+        ("<.AND.>"),
+        begin
+            if (Env.Buttons.IsLastButton(BtnNbr)) then
+                ReplacedToken = ReplaceToken(buffer,"<.AND.>"," ")
+            else
+                ReplacedToken = ReplaceToken(buffer,"<.AND.>",".AND.")
+        end
+
+        ("<AND>"),
+        begin
+            if (Env.Buttons.IsLastButton(BtnNbr)) then
+                ReplacedToken = ReplaceToken(buffer,"<AND>"," ")
+            else
+                ReplacedToken = ReplaceToken(buffer,"<AND>","AND")
+        end
+
+        ("<||>"),
+        begin
+            if (Env.Buttons.IsLastButton(BtnNbr)) then
+                ReplacedToken = ReplaceToken(buffer,"<||>"," ")
+            else
+                ReplacedToken = ReplaceToken(buffer,"<||>","||")
+        end
+
+        ("<.OR.>"),
+        begin
+            if (Env.Buttons.IsLastButton(BtnNbr)) then
+                ReplacedToken = ReplaceToken(buffer,"<.OR.>"," ")
+            else
+                ReplacedToken = ReplaceToken(buffer,"<.OR.>",".OR.")
+        end
+
+        ("<OR>"),
+        begin
+            if (Env.Buttons.IsLastButton(BtnNbr)) then
+                ReplacedToken = ReplaceToken(buffer,"<OR>"," ")
+            else
+                ReplacedToken = ReplaceToken(buffer,"<OR>","OR")
+        end
+
+        ("<BUTTON_CAPTION>"),
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_CAPTION>",Env.Buttons[BtnNbr].Caption)
+
+        ("<BUTTON_ELB>"),
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_ELB>",Env.Buttons[BtnNbr].ElbName)
+
+        ("<BUTTON_IMAGE>"),
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_IMAGE>",Env.Buttons[BtnNbr].ImageName)
+
+        ("<BUTTON_METHOD>"),
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_METHOD>",Env.Buttons[BtnNbr].MethodName)
+
+        ("<BUTTON_NAME>"),
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_NAME>",Env.Buttons[BtnNbr].Name)
+
+        ("<BUTTON_NUMBER>"),
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_NUMBER>",string(BtnNbr))
+
+        ("<BUTTON_QUICKSELECT>"),
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_QUICKSELECT>",Env.Buttons[BtnNbr].QuickSelect)
+
+        ("<BUTTON_ROWPX>"),
+        begin
+            ;;Calculate the pixel height of the window, excluding the button row space, using the
+            ;;same calculations that <WINDOW_HEIGHTPX> use
+            data WindowHeight, int
+            if (Env.WindowHeight) then
+                WindowHeight=Env.WindowHeight*Env.CharacterHeight
+            else
+            begin
+                data fld        ,@RpsField
+                data fldCount   ,int, 0
+                foreach fld in Str.Fields.GetEnumerator()
+                    fldCount+=fld.ArrayDimension[1]
+                WindowHeight=fldCount*Env.CharacterHeight
+            end
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_ROWPX>",string(WindowHeight+15))
+        end
+
+        ("<BUTTON_COLPX>"),
+        begin
+            data BtnIdx, int
+            data BtnWidth, int
+            data BtnPos, int, 0
+            for BtnIdx from 1 thru BtnNbr
+            begin
+                BtnWidth = Env.Buttons[BtnNbr].Caption.Length*Env.CharacterWidth
+                if (BtnWidth<75)
+                    BtnWidth=75
+                BtnPos+=(BtnWidth+15)
+            end
+            BtnWidth=Env.Buttons[0].Caption.Length*Env.CharacterWidth
+            if (BtnWidth<75)
+                BtnWidth=75
+            BtnPos-=BtnWidth
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_COLPX>",string(BtnPos))
+        end
+
+        ("<BUTTON_WIDTHPX>"),
+        begin
+            data BtnWidth, int
+            BtnWidth = Env.Buttons[BtnNbr].Caption.Length*Env.CharacterWidth
+            if (BtnWidth<75)
+                BtnWidth=75
+            ReplacedToken = ReplaceToken(buffer,"<BUTTON_WIDTHPX>",string(BtnWidth))
+        end
+		
+		("<COUNTER_"),
+			ReplacedToken = ProcessCounters(buffer(TokenStart,TokenEnd),buffer,OutputOff)
+		
+		(),
+		begin
+			;;If we didn't match anything so far then lets see if we have any custom button loop token processors
+			if (Env.CustomButtonTokens.Count>0)
+			begin
+				;;We do have custom processors, look for a match
+				data customToken, @CustomButtonToken
+				foreach customToken in Env.CustomButtonTokens
+				begin
+					if (customToken.Token==buffer(TokenStart,TokenEnd))
+					begin
+						;;Found a match, expand the custom token
+						ReplacedToken = customToken.Replace(BtnNbr,TokenStart,TokenEnd,buffer,Str)
+						exitloop
+					end
+				end
+			end
+		end
+		
+        endusing
+
+		if (ReplacedToken&&!buffer)
+			buffer="~~~ REMOVE THIS RECORD ~~~"
+		
+		freturn ReplacedToken
+
+    endfunction
+
+endnamespace

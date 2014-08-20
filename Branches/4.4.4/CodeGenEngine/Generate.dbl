@@ -1,0 +1,3295 @@
+;;*****************************************************************************
+;;
+;; Title:       Generate.dbl
+;;
+;; Type:        Function
+;;requires multiple structures
+;; Description: Main code generation routine
+;;
+;; Date:        16th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.Engine
+
+    function Generate, boolean
+        endparams
+
+        .include "CODEGEN_SRC:codegen.def"
+
+        stack record
+			NoErrors				,boolean				;;Did all templates complete with no errors reported?
+			Templates               ,@ArrayList             ;;Templates to process
+            Str                     ,@RpsStructure          ;;Structure being processed
+            Fld                     ,@RpsField              ;;Current field
+            Key                     ,@RpsKey                ;;Current key
+            Segment                 ,@RpsKeySegment         ;;Current key segment
+            Enums                   ,@RpsEnumCollection     ;;Repository enums
+            Template                ,@ArrayList             ;;Template file records
+            Output                  ,@ArrayList             ;;Output file records
+            NoFileOk                ,Boolean                ;;OK to skip include files if missing
+
+            ;;First-level loops
+            Loop1TemplateCode       ,@ArrayList
+            Loop1TemplateMaster     ,@ArrayList
+            Loop1ConditionApplies   ,@ArrayList
+            Loop1ConditionMode      ,@ArrayList
+            Loop1Output             ,@ArrayList
+            Loop1OutputOff          ,boolean
+
+            ;;Second level loops
+            Loop2TemplateCode       ,@ArrayList
+            Loop2ConditionApplies   ,@ArrayList
+            Loop2ConditionMode      ,@ArrayList
+            Loop2OutputOff          ,boolean
+            Loop2NoOutput           ,boolean
+
+
+        endrecord
+
+        static record
+            TemplatesDone           ,@ArrayList     ;;Templates already processed
+        endrecord
+
+        stack record local_data
+
+            ErrStatus               ,int            ;;Error status
+            OutCh                   ,int            ;;Output file channel
+            InCh                    ,int            ;;Input file channel
+            PassCount               ,int            ;;Token replacement pass number
+
+            TokenReplaced           ,boolean        ;;Was a token replaced?
+
+            ;;First-level loops
+            Loop1Rec                ,int            ;;Current first level loop record
+            TokenStart              ,int            ;;Start of a token
+            TokenEnd                ,int            ;;Position in string
+            Token2Start             ,int            ;;Start of a token
+            Token2End               ,int            ;;Position in string
+            Loop1IsInline           ,boolean        ;;Processing an in-line loop?
+            Loop1TokenReplaced      ,boolean        ;;Was a token replaced?
+
+            ;;Second level loops
+            Loop2Rec                ,int            ;;Current second level loop record
+            Loop2CloseTokenStart    ,int            ;;Start pos of segment loop closing token
+            Loop2CloseTokenEnd      ,int            ;;Position in string
+            Loop2IsInline           ,boolean        ;;Processing an in-line loop
+            Loop2TokenReplaced      ,boolean        ;;Was a token replaced?
+
+            ;;Field loop data
+            FldNbr                  ,int            ;;Current field number
+            LogicalFieldNumber      ,int            ;;Logical field number
+
+            ;;Field selection loop data
+            SelNbr                  ,int            ;;Current field selection number
+
+            ;;Key loop data
+			KeyNbr                  ,int            ;;Current key number
+			FromKey					,int			;;First key to process
+			ToKey					,int			;;Last key to process
+            PrimaryKeyOnly          ,boolean        ;;Only process primary key
+            AlternateKeysOnly       ,boolean        ;;Only process alternate keys
+
+            ;;Key segment loop data
+            SegNbr                  ,int            ;;Current key segment number
+			FirstSegment			,int			;;First segment number to process
+			LastSegment             ,int            ;;Last segment number to process
+            SkipLastSegment         ,boolean        ;;Skip the last segment in a segment loop
+			FirstSegmentOnly        ,boolean        ;;Only process the first segment in a segment loop
+			SecondSegmentOnly       ,boolean        ;;Only process the second segment in a segment loop
+			
+            ;;Relation loop data
+            RelNbr                  ,int            ;;Current relation number
+
+            ;;Enum loop data
+            EnumNbr                 ,int            ;;Current ENUM number
+            StructureEnumsOnly      ,boolean        ;;Only process enums referenced by a structure
+
+            ;;Enum member loop data
+            EnumMemberNbr           ,int            ;;Current ENUM member number
+
+            ;;Button loop data
+            BtnNbr                  ,int            ;;Current button number
+
+			;;File loop data
+			FileNbr                 ,int            ;;Current file number
+
+			;;Tag loop data
+			TagNbr					,int			;;Current tag number
+			
+			;;Miscellaneous
+            TemplateCodeIndex       ,int            ;;Current index in template code
+            DoAnotherPass           ,boolean        ;;Another pass is needed
+            DoingLastRecord         ,boolean        ;;Are we processing the last record
+            RepeatItem              ,boolean        ;;Repeat an item in a level 1 loop after processing a level 2 loop
+            ItemWasRepeated         ,boolean        ;;We were repeating an item
+            backFromStructureLoop   ,boolean        ;;Just returned from processing a structure loop
+            outfile                 ,a80            ;;Output file name
+
+        endrecord
+
+        stack record
+            buffer                  ,a CODEGEN_BUFSZ;;Output buffer
+            Loop1TrailingData       ,a CODEGEN_BUFSZ;;Data AFTER in-line level 1 loop
+            Loop2LeadingData        ,a CODEGEN_BUFSZ;;Data BEFORE in-line level 2 loop
+            Loop2TrailingData       ,a CODEGEN_BUFSZ;;Data AFTER in-line level 2 loop
+        endrecord
+
+        .ifdef OS_UNIX
+        .define CRLF                char(10)
+        .else
+        .define CRLF                char(13)+char(10)
+        .endc
+		
+		.ifdef OS_VMS
+		external function
+			LowerCase, a
+		endexternal
+		.endc
+		
+    proc
+
+		NoErrors = true
+
+        ;;Add the template to the collection of templates to be processed
+        ;;during this pass. It's a collection in case the first template
+        ;;lists other templates to be processed at the same time.
+        Templates = new ArrayList()
+        Templates.Add(Env.CurrentTemplate)
+
+        ;;TemplatesDone is a STATIC collection, it records the structure/template
+        ;;combinations that have already been processed during this execution of
+        ;;CodeGen, to avoid doing the same work multiple times.
+        if (TemplatesDone == ^null)
+            TemplatesDone = new ArrayList()
+
+        ;;Get the structure to be used
+        if (Env.RpsInUse)
+            Str = Env.CurrentStructure
+
+        ;;Process each template against the structure
+        do
+        begin
+            Env.CurrentTemplate = (String)Templates[0]
+            call process_template
+            ;;Record what we just did
+            if (Env.RpsInUse) then
+				TemplatesDone.Add((String)(StringTools.LowerCase(Str.Name+"|"+Env.CurrentTemplate)))
+            else
+                TemplatesDone.Add((String)("|"+Env.CurrentTemplate))
+			Templates.RemoveAt(0)
+			;;Change the overall status if needed
+			if (ErrStatus)
+				NoErrors = false
+        end
+        until (!Templates.Count)
+
+        clear Templates
+
+        freturn NoErrors
+
+    ;;=============================================================================
+    ;; Process a template file to create an output file
+    ;;
+    process_template,
+
+        init local_data, buffer, ErrStatus
+
+        ;;Open the template file
+        try
+        begin
+            open(InCh=0,i:s,Env.TemplateDir+Env.CurrentTemplate+".tpl")
+            if (Env.RpsInUse) then
+                DebugLog("Code generation for structure "+Str.Name + ", template "+Env.CurrentTemplate+".tpl",true,true)
+            else
+                DebugLog("Code generation for template "+Env.CurrentTemplate+".tpl",true,true)
+        end
+        catch (ex)
+        begin
+            ErrorLog("Template "+Env.CurrentTemplate+".tpl not found!")
+            ErrStatus=1
+        end
+        endtry
+
+        ;;Load template code into memory
+        if (!ErrStatus)
+        begin
+            DebugLog(" - Loading template code",false,false)
+
+            Template = new ArrayList()
+            TemplateCodeIndex = -1
+
+            repeat
+            begin
+                try
+                begin
+                    reads(InCh,buffer)
+                end
+                catch (e, @EndOfFileException)
+                begin
+                    if (%rsize) then
+                        DoingLastRecord=true
+                    else
+                        exitloop
+                end
+                endtry
+
+                TemplateCodeIndex+=1
+
+                ;;If it's the first record, determine the output file name
+                if (!outfile && TemplateCodeIndex==0)
+                begin
+                    if (TokenStart=instr(1,buffer,"<CODEGEN_FILENAME>")) then
+                    begin
+                        DebugLog(" - Template defines a custom output file name",false,false)
+
+                        ;;Find the end tag and extract the file spec
+                        TokenEnd = instr((TokenStart+=18),buffer,"</CODEGEN_FILENAME>")
+
+                        ;;Not there?
+                        if (!TokenEnd)
+                        begin
+                            ErrorLog("Token </CODEGEN_FILENAME> not found in template "+Env.CurrentTemplate)
+                            ErrStatus = 1
+                            exitloop
+                        end
+
+                        buffer = buffer(TokenStart,TokenEnd-1)
+
+                        ;;Replace any tokens in the file spec
+                        do
+                        begin
+                            call process_line
+                            if (ErrStatus)
+                                exitloop
+                        end
+                        until (!TokenReplaced)
+
+                        ;;Save the file spec for use later
+                        outfile = atrim(buffer)
+
+                        DebugLog(" - Template defined output file name is " + atrim(outfile),false,false)
+
+                        ;;Exclude the record from further processing
+                        nextloop
+                    end
+                    else
+                    begin
+                        if (Env.RpsInUse) then
+                            outfile=Str.Alias.ToLower()+"_"+Env.CurrentTemplate.ToLower()+".dbl"
+                        else
+                            outfile=Env.CurrentTemplate.ToLower()+".dbl"
+                        DebugLog(" - Output file name is " + atrim(outfile),false,false)
+                    end
+                end
+
+                ;;Exclude template file comment's
+                if (TokenStart=instr(1,buffer,";//"))
+                begin
+                    if ((TokenStart==1)||(!buffer(1,TokenStart-1))) then     ;;Exclude entire line
+                    begin
+                        if (DoingLastRecord) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+                    else                        ;;Clear ;// to end of line
+                        clear buffer(TokenStart,trimz(buffer))
+                end
+
+                ;;See if it's a <REQUIRES_OPTION> token
+                if (instr(1,buffer,"<REQUIRES_OPTION>"))
+                begin
+                    if (CheckOption(buffer)) then
+                    begin
+                        if (DoingLastRecord) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+                    else
+                    begin
+                        ErrStatus=1
+                        exitloop
+                    end
+                end
+
+                ;;See if it's a <REQUIRES_USERTOKEN> token
+                if (instr(1,buffer,"<REQUIRES_USERTOKEN>"))
+                begin
+                    if (CheckUserToken(buffer,false)) then
+                    begin
+                        if (DoingLastRecord) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+                    else
+                    begin
+                        ErrStatus=1
+                        exitloop
+                    end
+                end
+                
+				;;See if it's an <OPTIONAL_USERTOKEN> token
+				if (instr(1,buffer,"<OPTIONAL_USERTOKEN>"))
+				begin
+					if (CheckUserToken(buffer,true)) then
+					begin
+						if (DoingLastRecord) then
+							exitloop
+						else
+							nextloop
+					end
+					else
+					begin
+						ErrStatus=1
+						exitloop
+					end
+				end
+				
+				;;See if it's a <REQUIRES_CUSTOM_*> token
+                if (instr(1,buffer,"<REQUIRES_CUSTOM_"))
+                begin
+                    if (CheckCustomToken(buffer)) then
+                    begin
+                        if (DoingLastRecord) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+                    else
+                    begin
+                        ErrStatus=1
+                        exitloop
+                    end
+                end
+                
+                ;;See if it's a <PROVIDE_FILE> token
+                if (instr(1,buffer,"<PROVIDE_FILE>"))
+                begin
+                    ProvideFile(buffer)
+                    if (DoingLastRecord) then
+                        exitloop
+                    else
+                        nextloop
+                end
+
+                ;;See if it's a <PROCESS_TEMPLATE> token
+                if (TokenStart=instr(1,buffer,"<PROCESS_TEMPLATE>"))
+                begin
+
+                    data tmpTemplate, String
+                    data tplfound, boolean, false
+
+                    ;;Find the end tag and extract the file spec
+                    TokenEnd = instr((TokenStart+=18),buffer,"</PROCESS_TEMPLATE>")
+                    buffer = buffer(TokenStart,TokenEnd-1)
+
+                    ;;If the template has a .tpl then remove it
+					if (TokenStart=instr(1,StringTools.LowerCase(buffer),".tpl"))
+                        clear buffer(TokenStart:4)
+
+                    ;;Is this template already in the to do list?
+                    foreach tmpTemplate in Templates
+                    begin
+						if ((a)tmpTemplate.eqs.StringTools.LowerCase(buffer))
+                        begin
+                            tplfound = true
+                            exitloop
+                        end
+                    end
+
+                    ;;Is this template already in the done list?
+                    if (!tplfound)
+                    begin
+                        data doneTemplate, String
+                        foreach doneTemplate in TemplatesDone
+                        begin
+                            if (Env.RpsInUse) then
+                            begin
+								if (doneTemplate.eqs.StringTools.LowerCase(Str.Name+"|"+buffer))
+                                begin
+                                    tplfound = true
+                                    exitloop
+                                end
+                            end
+                            else
+                            begin
+								if (doneTemplate.eqs.StringTools.LowerCase("|"+buffer))
+                                begin
+                                    tplfound = true
+                                    exitloop
+                                end
+                            end
+                        end
+                    end
+
+                    ;;If not in the to do or done lists, add it to the to do list
+                    if (!tplfound)
+                    begin
+                        Templates.Add((String)atrim(buffer))
+                        DebugLog(" - This template defines that an additional template (" + atrim(buffer) + ") is processed",false,false)
+                    end
+
+                    if (DoingLastRecord) then
+                        exitloop
+                    else
+                        nextloop
+
+                end
+				
+				;;If we have a <TAG_LOOP> but no tags then remove the tag loop code from
+				;;the template and report what we did.
+				if (TokenStart=instr(1,buffer,"<TAG_LOOP>"))
+				begin
+					;;If the structure has tags then there is nothing to do
+					if (Str.Tags.Count>0)
+						exit
+					
+					;;No tags, remove and ignore the tag loop code
+					DebugLog(" - Ignoring tag loop in template because the structure has no tags",false,false)
+					
+					;;Is it an in-line tag loop?
+					if (TokenEnd = instr(TokenStart,buffer,"</TAG_LOOP>")) then
+					begin
+						;;Remove in-line tag loop
+						buffer = buffer - buffer(TokenStart,TokenEnd+10)
+						;;If there is nothing left then discard the whole line
+						if (!buffer)
+						begin
+							if (DoingLastRecord) then
+								exitloop
+							else
+								nextloop
+						end
+					end
+					else
+					begin
+						;;Remove multi-line tag loop
+						data continue, boolean, false
+						repeat
+						begin
+							try
+							begin
+								reads(InCh,buffer)
+								if (instr(1,buffer,"</TAG_LOOP>"))
+								begin
+									;;Found it
+									TemplateCodeIndex-=1
+									continue = true
+									exitloop
+								end
+							end
+							catch (e, @EndOfFileException)
+							begin
+								;;Ge got s problem! We found the end of the file before
+								;;the end of the tag loop!
+								ErrorLog("Missing </TAG_LOOP> token in template "+Env.CurrentTemplate)
+								ErrStatus = 1
+								exitloop
+							end
+							endtry
+						end
+						if (continue)
+							nextloop
+					end
+				end
+				
+                Template.Add((@a)(atrim(buffer)))
+
+                if (DoingLastRecord)
+                    exitloop
+            end
+
+            ;;Finished loading the template into memory
+            if (!ErrStatus)
+                DebugLog(" - Template initially contains " + string(Template.Count) + " records",false,false)
+        end
+
+        ;;Create the output file
+        if (!ErrStatus)
+            if (!CreateOutputFile(outfile,Outch))
+                ErrStatus = 1
+
+        ;;Process the template
+        if (!ErrStatus)
+		begin
+
+			Env.Counter1 = 0
+			Env.Counter2 = 0
+
+            do
+            begin
+                DoAnotherPass = false
+                PassCount += 1
+                Output = new ArrayList()
+                TemplateCodeIndex = -1
+
+                DebugLog(" - Starting token replacement pass " + string(PassCount) + " with " + string(Template.Count) + " records",true,false)
+
+                if (Env.DeveloperDebug)
+                begin
+                    data tmpChn, int, 0
+                    data tmpFile, String, "TEMP:"+%datetime()+"-"+Env.CurrentTemplate+"-Before-Pass-"+string(PassCount)+".tpl"
+                    data tplRec, @a
+                    DebugLog("DEVDBG: Saving template data to "+tmpFile,false,false)
+                    open(tmpChn,O:S,tmpFile)
+                    foreach tplRec in Template
+                        writes(tmpChn,(a)tplRec)
+                    close tmpChn
+                end
+
+                do
+                begin
+                    data tmpPos, int
+
+                    ;;Get the next record to process
+                    buffer = (a)Template[TemplateCodeIndex+=1]
+
+                    if (Env.DeveloperDebug)
+                        DebugLog("DEVDBG: Template code: "+atrim(buffer),false,false)
+
+                    ;;Do we have an instruction to switch strcuture context (<STRUCTURE#n>)?
+                    if (tmpPos = instr(1,buffer,"<STRUCTURE#"))
+                    begin
+                        data tmpEndPos, int
+                        data tmpStrNum, int
+                        ;;Make sure the token is formatted correctly
+                        if ((!(tmpEndPos = %instr(tmpPos+11,buffer,">")))||((tmpEndPos-tmpPos)<12))
+                        begin
+                            ErrorLog("Invalid <STRUCTURE#n> token encountered")
+                            ErrStatus = 1
+                            exitloop
+                        end
+                        ;;Make sure "n" is a valid integer value
+                        try
+                        begin
+                            tmpStrNum = integer(buffer(tmpPos+11,tmpEndPos-1))
+                            if (tmpStrNum<1)
+                                throw new BadDigitException()
+                        end
+                        catch (e, @BadDigitException)
+                        begin
+                            ErrorLog("Invalid <STRUCTURE#n> token encountered")
+                            ErrStatus = 1
+                            exitloop
+                        end
+                        endtry
+                        ;;Make sure we have multiple structures
+                        if (Env.CurrentStructures==^null)
+                        begin
+                            ErrorLog("Token "+buffer(tmpPos,tmpEndPos)+" in template " + Env.CurrentTemplate + " requires multiple structures")
+                            ErrStatus = 1
+                            exitloop
+                        end
+                        ;;Make sure we have enough structures
+                        if (Env.CurrentStructures.Count<tmpStrNum)
+                        begin
+                            ErrorLog("Token "+buffer(tmpPos,tmpEndPos)+" in template " + Env.CurrentTemplate + " requires " + string(tmpStrNum) + " structures")
+                            ErrStatus = 1
+                            exitloop
+                        end
+                        ;;We're good to go, switch the current structure
+                        Env.CurrentStructure = Env.CurrentStructures[tmpStrNum-1]
+                        Env.FileIndex = Env.FileIndexes[tmpStrNum]
+                        Str = Env.CurrentStructure
+
+                        ;;Leave the <STRUCTURE#n> token in the output file, they'll all get stripped out before the file is written
+                        Output.Add((@a)(atrim(buffer)))
+                        
+                        DebugLog(" - Switched context to structure " + string(tmpStrNum) + " (" + Env.CurrentStructure.Name + ")",true,true)
+                        nextloop
+                    end
+
+                    ;;Do token replacement
+                    do call process_line
+                    until (!TokenReplaced||ErrStatus)
+					
+                    ;;Add the record to the output file buffer
+					if (!ErrStatus&&!backFromStructureLoop&&(buffer!="~~~ REMOVE THIS RECORD ~~~")&&!(TemplateCodeIndex==Template.Count-1&&!buffer))
+                    begin
+                        Output.Add((@a)(atrim(buffer)))
+                        if (Env.DeveloperDebug)
+                            DebugLog("DEVDBG: Output code:   "+atrim(buffer),false,false)
+                    end
+
+                    if (backFromStructureLoop)
+                        backFromStructureLoop = false
+                end
+                until ((TemplateCodeIndex==Template.Count-1)||ErrStatus)
+
+                if (!ErrStatus)
+                    DebugLog(" - Ending token replacement pass " + string(PassCount) + " with " + string(Output.Count) + " records",false,false)
+
+                if (!ErrStatus&&DoAnotherPass)
+                begin
+                    ;;We're going to process the data again, so switch the output
+                    ;;buffer to the input buffer
+                    Template = Output
+                    clear Output
+                end
+            end
+            until (!DoAnotherPass)
+        end
+
+        ;;Write the output file
+        if (!ErrStatus) then
+        begin
+            data sourceLine, @a
+            foreach sourceLine in Output
+            begin
+                if (!instr(1,(a)sourceLine,"<STRUCTURE#"))
+                    writes(OutCh,atrim((a)sourceLine))
+            end
+            Env.FilesCreated = Env.FilesCreated + 1
+            Env.OutputFiles.Add((string)atrim(outfile))
+        end
+        else
+            Env.FilesFailed = Env.FilesFailed + 1
+
+        ;;Close channels
+        if (InCh&&chopen(InCh))
+            close InCh
+
+        ;;Close the output file, delete it if generation errors occurred
+        if (OutCh&&chopen(OutCh))
+        begin
+            if (ErrStatus) then
+                purge OutCh
+            else
+                close OutCh
+        end
+
+        ;;Release memory
+        clear Template
+        clear Output
+
+        return
+
+    ;;=============================================================================
+    ;;
+    process_line,
+
+        TokenReplaced = false
+
+        ;;Do we have any tokens in the line
+        if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+            return
+
+        ;;Do we have the start of a structure loop?
+        if (instr(1,buffer,"<STRUCTURE_LOOP>"))
+        begin
+            ;;The plan is to extract the template code for the structure loop and
+            ;;then repeat it for the number of structures being processed, inserting
+            ;;<STRUCTURE#n> tokens between each section of repeated code.
+            data structureLoopCode, @ArrayList
+            data structureLoopStartIndex, int
+            data structureLoopEndIndex, int
+            data currentStructureBeforeLoop, int
+            data tmpBuffer, a CODEGEN_BUFSZ
+            data ix, int
+            data iy, int
+
+            structureLoopCode = new ArrayList()
+            structureLoopStartIndex = TemplateCodeIndex
+            structureLoopEndIndex = TemplateCodeIndex
+
+            ;;Make sure we have multiple structures to work with
+            if (Env.CurrentStructures==^null)
+            begin
+                ErrorLog("Token <STRUCTURE_LOOP> requires multiple structures to be processed")
+                ErrStatus = 1
+                return
+            end
+            
+            DebugLog(" - Processing structure loop with " + string(Env.CurrentStructures.Count) + " structures",true,false)
+            
+            ;;Save away the current structure index in place before the loop
+            begin
+                for ix from 0 thru Env.CurrentStructures.Count-1
+                begin
+                    if (Env.CurrentStructures[ix].Name.eqs.Env.CurrentStructure.Name)
+                    begin
+                        currentStructureBeforeLoop = ix+1
+                        exitloop
+                    end
+                end
+            end
+
+            ;;Wind forward through the template code, saving the structure loop template code and looking for the end of the loop
+            repeat
+            begin
+                if ((structureLoopEndIndex+1)>(Template.Count-1))
+                begin
+                    ErrorLog("Can't find the end of a structure loop. Are you missing a </STRUCTURE_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+
+                tmpBuffer = (a)Template[structureLoopEndIndex+=1]
+                if (%instr(1,tmpBuffer,"</STRUCTURE_LOOP>")) then
+                    exitloop
+                else
+                begin
+                    ;;Haven't found the end of the structure loop yet
+
+                    ;;Make sure we don't have any nested structure loops
+                    if (instr(1,tmpBuffer,"<STRUCTURE_LOOP>"))
+                    begin
+                        ErrorLog("Structure loops may not be nested")
+                        ErrStatus = 1
+                        return
+                    end
+
+                    ;;Save this line of template code
+                    structureLoopCode.Add((@a)atrim(tmpBuffer))
+                end
+            end
+
+            ;;We now have the template code for each structure in structureLoopCode
+            ;;and we know where the structure loop starts and ends in the main
+            ;;template code
+
+            if (Env.DeveloperDebug)
+            begin
+                data tmpChn, int, 0
+                data tmpFile, String, "TEMP:"+%datetime()+"-"+Env.CurrentTemplate+"-Before-Structure-Loop-Expansion.tpl"
+                data tplRec, @a
+                DebugLog("DEVDBG: Saving template data to "+tmpFile,false,false)
+                open(tmpChn,O:S,tmpFile)
+                foreach tplRec in Template
+                    writes(tmpChn,(a)tplRec)
+                close tmpChn
+            end
+
+            ;;Remove the original structure loop from the main template code
+            for ix from 1 thru (structureLoopEndIndex-structureLoopStartIndex+1)
+                Template.RemoveAt(structureLoopStartIndex)
+
+            ;;Add back an instance of the structure loop code for each structure
+            ;;being processed, adding a <STRUCTURE#n> token before each
+            for ix from 1 thru Env.CurrentStructures.Count
+            begin
+                data structureLoopLine, @a
+                Template.Insert(structureLoopStartIndex,(@a)"")
+                structureLoopStartIndex+=1
+                Template.Insert(structureLoopStartIndex,(@a)("<STRUCTURE#"+string(ix)+">"))
+                structureLoopStartIndex+=1
+                foreach structureLoopLine in structureLoopCode
+                begin
+                    Template.Insert(structureLoopStartIndex,structureLoopLine)
+                    structureLoopStartIndex+=1
+                end
+            end
+
+            ;;Reset the current structure to the one that was in place before the structure loop
+            Template.Insert(structureLoopStartIndex,(@a)"")
+            structureLoopStartIndex+=1
+            Template.Insert(structureLoopStartIndex,(@a)("<STRUCTURE#"+string(currentStructureBeforeLoop)+">"))
+            structureLoopStartIndex+=1
+
+            if (Env.DeveloperDebug)
+            begin
+                data tmpChn, int, 0
+                data tmpFile, String, "TEMP:"+%datetime()+"-"+Env.CurrentTemplate+"-After-Structure-Loop-Expansion.tpl"
+                data tplRec, @a
+                DebugLog("DEVDBG: Saving template data to "+tmpFile,false,false)
+                open(tmpChn,O:S,tmpFile)
+                foreach tplRec in Template
+                    writes(tmpChn,(a)tplRec)
+                close tmpChn
+            end
+
+            ;;We're done, now we need to return and reprocess the same template code line.
+            TemplateCodeIndex-=1
+            backFromStructureLoop = true
+            
+            return
+        end
+
+        ;;First process any user defined tokens
+        if (Env.UserTokens!=^null)
+        begin
+            data ut, @UserToken
+			DebugLog(" - Processing user defined tokens",false,false)
+.ifdef DBLNET
+			foreach ut in Env.UserTokens
+.else
+			foreach ut in Env.UserTokens.GetEnumerator()
+.endc
+			begin
+				;;Process user token replacement in a loop incase the same token is used multiple times in a source line.
+				repeat
+				begin
+					if (instr(1,buffer,ut.Name)) then
+						TokenReplaced = ReplaceToken(buffer,ut.Name,ut.Value)
+					else
+						exitloop
+				end
+            end
+        end
+
+        ;;Replace <ENVIFEXIST:xxxxx>
+        ;;This code turns the token into an <ENV: token and sets NoFileOK to
+        ;;indicate that it's OK if the environment variable doesn't exist
+        NoFileOk = false
+        begin
+            data TmpPos, int
+            if (TmpPos = instr(1,buffer,"<ENVIFEXIST:"))
+            begin
+                NoFileOk = true
+                buffer = buffer(1,TmpPos+3) + buffer(TmpPos+11,trim(buffer))
+            end
+        end
+
+        ;;Replace <ENV:xxxxx>
+        if (TokenStart = instr(1,buffer,"<ENV:"))
+        begin
+            begin
+                data TokenStart2, int
+                data TokenEnd2, int
+                data TmpErrStatus, int
+                if (TokenStart2 = instr(TokenStart+1,buffer,"<"))
+                begin
+                    TokenEnd2 = instr(TokenStart2,buffer,">")
+                    if %ExpandToken(Str,TokenStart2,TokenEnd2,Buffer,TmpErrStatus)
+                        nop
+                end
+            end
+
+            if ((TokenEnd=instr(TokenStart,buffer,">")) && ((TokenEnd-TokenStart)>5))
+            begin
+                data thisToken  ,a128
+                data envVar     ,a30
+                data envLen     ,int
+                data envData    ,a CODEGEN_BUFSZ
+                ;;Extract the token
+                ThisToken = buffer(TokenStart,TokenEnd)
+                ;;Get environment variable contents
+                envVar = buffer(TokenStart+5,TokenEnd-1)
+                getlog(envVar,envData,envLen)
+                if (envLen) then
+                    TokenReplaced = ReplaceToken(buffer,ThisToken,envData(1:envLen))
+                else
+                begin
+                    if (!NoFileOk) then
+                    begin
+                        ErrorLog("Token <ENV:"+atrim(envVar)+"> in template "+Env.CurrentTemplate+" requires an environment variable!")
+                        Log("       Define the environment variable "+atrim(envVar)+" and try again.",false,false)
+                        ErrStatus=1
+                    end
+                    else
+                        TokenReplaced = ReplaceToken(buffer,ThisToken,"")
+                end
+            end
+        end
+
+        ;;Replace <FILEIFEXIST:name.ext>
+        ;;This code turns the token into a <FILE: token and sets NoFileOK to
+        ;;indicate that it's OK if the file doesn't exist
+        NoFileOk = false
+        begin
+            data TmpPos, int
+            if (TmpPos = instr(1,buffer,"<FILEIFEXIST:"))
+            begin
+                NoFileOk = true
+                buffer = buffer(1,TmpPos+4) + buffer(TmpPos+12,trim(buffer))
+            end
+        end
+
+        ;;Replace <FILE:name.ext>
+        if instr(1,buffer,"<FILE:")
+            call process_include_file
+
+        TokenStart = 1
+        repeat
+        begin
+
+            ;;Do we still have at least one token
+            if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+                exitloop
+
+            TokenReplaced = false
+
+            ;;Process the token
+            using buffer(TokenStart,TokenEnd) select
+
+            ("<FIELD_LOOP>"),
+            begin
+                if (Env.RpsInUse) then
+                begin
+                    if (Str.Fields.Count) then
+                        call process_field_loop
+                    else
+                    begin
+                        RpsComponentRequired(RpsComponent.FieldDefinition,"<FIELD_LOOP>")
+                        ErrStatus=1
+                    end
+                end
+                else
+                begin
+                    RpsComponentRequired(RpsComponent.General,"<FIELD_LOOP>")
+                    ErrStatus=1
+                end
+            end
+
+            ("<KEY_LOOP>"),
+            begin
+                if (Env.RpsInUse) then
+                begin
+                    if (Str.Keys.Count) then
+                    begin
+                        DebugLog("   - Processing key loop (all keys)",true,false)
+                        call process_key_loop
+                    end
+                    else
+                    begin
+                        RpsComponentRequired(RpsComponent.KeyDefinition,"<KEY_LOOP>")
+                        ErrStatus=1
+                    end
+                end
+                else
+                begin
+                    RpsComponentRequired(RpsComponent.General,"<KEY_LOOP>")
+                    ErrStatus=1
+                end
+            end
+
+            ("<ALTERNATE_KEY_LOOP>"),
+            begin
+                if (Env.RpsInUse) then
+                begin
+                    if (Str.Keys.Count) then
+                    begin
+                        DebugLog("   - Processing key loop (alternate keys only)",true,false)
+                        AlternateKeysOnly = true
+                        call process_key_loop
+                        AlternateKeysOnly = false
+                    end
+                    else
+                    begin
+                        RpsComponentRequired(RpsComponent.KeyDefinition,"<ALTERNATE_KEY_LOOP>")
+                        ErrStatus=1
+                    end
+                end
+                else
+                begin
+                    RpsComponentRequired(RpsComponent.General,"<ALTERNATE_KEY_LOOP>")
+                    ErrStatus=1
+                end
+            end
+
+            ("<PRIMARY_KEY>"),
+            begin
+                if (Env.RpsInUse) then
+                begin
+                    if (Str.Keys.Count) then
+                    begin
+                        DebugLog("   - Processing key loop (primary key only)",true,false)
+                        PrimaryKeyOnly = true
+                        call process_key_loop
+                        PrimaryKeyOnly = false
+                    end
+                    else
+                    begin
+                        RpsComponentRequired(RpsComponent.KeyDefinition,"<PRIMARY_KEY>")
+                        ErrStatus=1
+                    end
+                end
+                else
+                begin
+                    RpsComponentRequired(RpsComponent.General,"<PRIMARY_KEY>")
+                    ErrStatus=1
+                end
+            end
+
+            ("<RELATION_LOOP>"),
+            begin
+                if (Env.RpsInUse) then
+                begin
+                    if (Str.Relations.Count) then
+                        call process_relation_loop
+                    else
+                    begin
+                        RpsComponentRequired(RpsComponent.RelationDefinition,"<RELATION_LOOP>")
+                        ErrStatus=1
+                    end
+                end
+                else
+                begin
+                    RpsComponentRequired(RpsComponent.General,"<RELATION_LOOP>")
+                    ErrStatus=1
+                end
+            end
+
+            ("<BUTTON_LOOP>"),
+                call process_button_loop
+
+            ("<ENUM_LOOP>"),
+            begin
+                Enums = new RpsEnumCollection()
+                if (Enums.Count) then
+                    call process_enum_loop
+                else
+                begin
+                    RpsComponentRequired(RpsComponent.Enumeration,"<ENUM_LOOP>")
+                    ErrStatus=1
+                end
+            end
+
+            ("<ENUM_LOOP_STRUCTURE>"),
+            begin
+                if (Env.RpsInUse) then
+                begin
+                    Enums = new RpsEnumCollection(Str.Name)
+                    if (Enums.Count) then
+                    begin
+                        StructureEnumsOnly = true
+                        call process_enum_loop
+                        StructureEnumsOnly = false
+                    end
+                    else
+                    begin
+                        RpsComponentRequired(RpsComponent.Enumeration,"<ENUM_LOOP_STRUCTURE>")
+                        ErrStatus=1
+                    end
+                end
+                else
+                begin
+                    RpsComponentRequired(RpsComponent.General,"<ENUM_LOOP_STRUCTURE>")
+                    ErrStatus=1
+                end
+            end
+
+			("<FILE_LOOP>"),
+			begin
+				if (Env.RpsInUse) then
+				begin
+					if (Str.Files.Count) then
+						call process_file_loop
+					else
+					begin
+						RpsComponentRequired(RpsComponent.FileDefinition,"<FILE_LOOP>")
+						ErrStatus=1
+					end
+				end
+				else
+				begin
+					RpsComponentRequired(RpsComponent.General,"<FILE_LOOP>")
+					ErrStatus=1
+				end
+			end
+
+			("<TAG_LOOP>"),
+			begin
+				if (Env.RpsInUse) then
+				begin
+					if (Str.Tags.Count) then
+						call process_tag_loop
+					else
+					begin
+						;Now what - we have a tag loop but no tags.
+						;Should we error out, or just remove the tag loop from the template code and continue?
+
+
+
+
+
+
+					end
+				end
+				else
+				begin
+					RpsComponentRequired(RpsComponent.General,"<TAG_LOOP>")
+					ErrStatus=1
+				end
+			end
+			
+            ;;The token wasn't a loop token, so it must be a generic or structure token
+            (),
+                TokenReplaced = ExpandToken(Str,TokenStart,TokenEnd,buffer,ErrStatus)
+
+            endusing
+
+            if (TokenReplaced) then
+                exitloop
+            else
+                TokenStart+=1
+
+        end
+
+        return
+
+    ;;=============================================================================
+    ;;
+    process_include_file,
+
+        TokenStart = instr(1,buffer,"<FILE:")
+
+
+        ;;<FILE:name.ext>
+        ;;<FILE:xxx<struct>xxx.ext>
+
+        begin
+            data TokenStart2, int
+            data TokenEnd2, int
+            data TmpErrStatus, int
+            if (TokenStart2 = instr(TokenStart+1,buffer,"<"))
+            begin
+                TokenEnd2 = instr(TokenStart2,buffer,">")
+                if %ExpandToken(Str,TokenStart2,TokenEnd2,Buffer,TmpErrStatus)
+                    nop
+            end
+        end
+
+        if ((TokenEnd=instr(TokenStart,buffer,">")) && ((TokenEnd-TokenStart)>6))
+        begin
+            data includeFileName, a32
+            data includeFileRec, a CODEGEN_BUFSZ
+            data replacementText, a CODEGEN_BUFSZ
+            data tmpCh, int
+            data ix, int, 0
+            data doReturn, boolean, false
+
+            ;;Open the inclde file
+            includeFileName = buffer(TokenStart+6,TokenEnd-1)
+            try
+                open(tmpCh=0,i:s,atrim(includeFileName))
+            catch (ex)
+            begin
+                if (!NoFileOk) then
+                begin
+                    ErrorLog("File "+atrim(includeFileName)+" not found!")
+                    Log("       Referenced in template "+Env.CurrentTemplate+" by <FILE:"+atrim(includeFileName)+">",false,false)
+                    ErrStatus=1
+                end
+                else
+                    clear buffer
+                doReturn = true
+            end
+            endtry
+
+            if (doReturn)
+                return
+
+            if (TokenStart>1)
+                replacementText = buffer(1:TokenStart-1)
+            repeat
+            begin
+                reads(tmpCh,includeFileRec) [ERR=eotf]
+                if ((ix+=1) > 1)
+                    replacementText = atrim(replacementText)+CRLF
+                if (ix==1) then
+                    replacementText(TokenStart,%len(replacementText)) = atrim(includeFileRec)
+                else
+                    replacementText = atrim(replacementText)+includeFileRec
+            end
+
+    eotf,   if (%rsize())
+            begin
+                if ((ix+=1) > 1)
+                    replacementText = atrim(replacementText)+CRLF
+                if (ix==1) then
+                    replacementText(TokenStart,%len(replacementText)) = atrim(includeFileRec)
+                else
+                    replacementText = atrim(replacementText)+includeFileRec
+            end
+            if (TokenEnd < trim(buffer))
+                replacementText = atrim(replacementText)+buffer(TokenEnd+1,trim(buffer))
+
+            close tmpCh
+
+            buffer = replacementText
+            TokenReplaced = true
+
+        end
+
+        return
+
+    ;;=============================================================================
+    ;;
+    process_field_loop,
+
+        DebugLog("   - Processing field loop",true,false)
+
+        Loop1TemplateCode = new ArrayList()
+        clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline, ItemWasRepeated
+
+        ;;Look for an end tag in the same line
+        if (Token2Start=instr(1,buffer,"</FIELD_LOOP>")) then
+            Token2End=Token2Start+12
+        else
+        begin
+            ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+            ;;Make sure there is nothing else on the line after the opening token
+            if (buffer(TokenEnd+1,^size(buffer)))
+            begin
+                ErrorLog("No code allowed on line after <FIELD_LOOP> token. Did you mis-type a </FIELD_LOOP> token?")
+                ErrStatus = 1
+                return
+            end
+        end
+
+        ;;Do we have an in-line loop?
+        if (Token2Start&&Token2End) then
+        begin
+            Loop1IsInline=true
+            ;;Add anything before the open tag to the output buffer
+            if (TokenStart>1) then
+                AlUtil.Add(Output,buffer(1:TokenStart-1))
+            else
+                AlUtil.Add(Output,"")
+            ;;Store anything after the closing tag
+            if (Token2End<trimz(buffer))
+                Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
+            ;;Remove the closing tag and any trailing data
+            clear buffer(Token2Start,^size(buffer))
+            ;;Remove any leading data and the opening tag
+            buffer=buffer(TokenEnd+1,^size(buffer))
+            ;;What remains is our template code for the in-line loop
+            AlUtil.Add(Loop1TemplateCode,buffer)
+        end
+        else
+        begin
+            ;;It's a multi-line loop, extract the loop template code
+            repeat
+            begin
+                if ((TemplateCodeIndex+1)>(Template.Count-1))
+                begin
+                    ErrorLog("Can't find the end of a field loop. Are you missing a </FIELD_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+
+                buffer = (a)Template[TemplateCodeIndex+=1]
+                if (instr(1,buffer,"</FIELD_LOOP>"))
+                    exitloop
+                AlUtil.Add(Loop1TemplateCode,buffer)
+            end
+        end
+
+        ;;Take a copy of the loop template code so that we can modify and restore it
+        ;;for each field in the collection. This supports the ability to use level 1
+        ;;loop tokens in a level 2 loop.
+        AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
+
+        ;;Now process the loop template for each field, and for array fields, for
+        ;;each array element (arrays are treated as a collection of multiple fields
+        ;;of the same type).
+
+        clear LogicalFieldNumber
+
+        fldNbr = -1
+        while ((FldNbr+=1) < Str.Fields.Count)
+        begin
+            ;;Get a handle on the current field
+            fld = Str.Fields[FldNbr]
+
+            DebugLog("     - Processing field " + fld.Name,true,false)
+
+            LogicalFieldNumber+=1
+
+            Loop1ConditionApplies = new ArrayList()
+            Loop1ConditionMode = new ArrayList()
+            Loop1OutputOff = false
+
+            Loop1Output = new ArrayList()
+            if (Loop1IsInline)
+                AlUtil.Add(Loop1Output,"")
+
+            ;;Process the template code
+            for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
+            begin
+                buffer = (a)Loop1TemplateCode[Loop1Rec]
+
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop1ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
+						nextloop
+				end
+
+                ;;If no tokens just add the line to the output stream
+                if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+                begin
+                    if (!Loop1OutputOff)
+                    begin
+                        if (Loop1IsInline) then
+                            AlUtil.AppendToLastItem(Loop1Output,buffer)
+                        else
+                            AlUtil.Add(Loop1Output,buffer)
+                    end
+                    nextloop
+                end
+
+                ;;Replace any tokens in the buffer
+                RepeatItem = false
+                do
+                begin
+                    Loop1TokenReplaced = false
+
+                    ;;Any more tokens?
+                    if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+                        exitloop
+
+                    ;;Expression?
+                    if (buffer(TokenStart:4)=="<IF ")
+                    begin
+                        Loop1TokenReplaced = ProcessFieldExpression(Str,Fld,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
+                        if (ErrStatus) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+
+                    ;;Replace field loop tokens
+                    using buffer(TokenStart,TokenEnd) select
+                    ("<SELECTION_LOOP>"),
+                    begin
+                        call process_selection_loop
+                        RepeatItem = true
+                        exitloop
+                    end
+                    (),
+                        Loop1TokenReplaced = ExpandFieldToken(Str,Fld,TokenStart,TokenEnd,Loop1OutputOff,buffer,ErrStatus)
+                    endusing
+
+                    ;;If nothing replaced just move on
+                    if (!Loop1TokenReplaced)
+                    begin
+                        TokenStart += 1
+                        Loop1TokenReplaced = true
+                    end
+                end
+                until (!Loop1TokenReplaced)
+
+                if (ErrStatus)
+                    exitloop
+
+                ;;Add the line to the output buffer
+                if (!Loop1OutputOff && !instr(1,buffer,"<IF ") && !RepeatItem )
+                begin
+                    if (Loop1IsInline) then
+                        AlUtil.AppendToLastItem(Loop1Output,buffer)
+                    else
+                        AlUtil.Add(Loop1Output,buffer)
+                end
+            end
+
+            if (ErrStatus)
+                exitloop
+
+            if (RepeatItem) then
+            begin
+                ;;We just processed a level 2 loop, and that could have left
+                ;;behind level 1 loop tokens, so use the output for this item
+                ;;as template code and go around again
+                AlUtil.Clone(Loop1Output,Loop1TemplateCode)
+                FldNbr-=1
+                LogicalFieldNumber-=1
+                clear RepeatItem
+                ItemWasRepeated = true
+            end
+            else
+            begin
+                ;;We're done with this item, commit the output
+                if (Loop1IsInline) then
+                    AlUtil.AppendToLastItem(Output,Loop1Output[0])
+                else
+                    AlUtil.AppendItems(Output,Loop1Output)
+                clear Loop1Output
+                if (ItemWasRepeated)
+                begin
+                    AlUtil.Clone(Loop1TemplateMaster,Loop1TemplateCode)
+                    clear ItemWasRepeated
+                end
+            end
+
+            if (ErrStatus)
+                exitloop
+
+        end
+
+        ;;For in-line loops, add back any trailing code
+        if (Loop1IsInline&&Loop1TrailingData)
+            AlUtil.AppendToLastItem(Output,Loop1TrailingData)
+
+        clear Fld, Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
+        DoAnotherPass = true
+
+        ;;Advance to the next template record (after the end of the loop token)
+        if (TemplateCodeIndex<Template.Count-1) then
+			buffer = (a)Template[TemplateCodeIndex+=1]
+		else
+			clear buffer
+
+        if (!ErrStatus)
+            DebugLog("   - End of field loop",false,false)
+
+        return
+
+    ;;=============================================================================
+    ;
+    process_selection_loop,
+
+        DebugLog("     - Processing field selections loop",false,false)
+
+        Loop2TemplateCode = new ArrayList()
+        clear Loop2CloseTokenStart, Loop2CloseTokenEnd, Loop2TrailingData, Loop2LeadingData, Loop2NoOutput
+
+        ;;We need to process the logic for this loop, even though the loop may not
+        ;;apply in this case (e.g. a field selection loop for a field with no
+        ;;selections. If we find this to be the case we'll suppress all output
+        Loop2NoOutput = (!Fld.SelectionList.Count)
+
+        ;;If the parent loop's output if off then so is ours
+        Loop2OutputOff = Loop1OutputOff
+
+        ;;If the parent loop is in-line then so are we
+        Loop2IsInline = Loop1IsInline
+
+        ;;Look for closing tag in same line
+        if (Loop2CloseTokenStart=instr(1,buffer,"</SELECTION_LOOP>")) then
+            Loop2CloseTokenEnd=Loop2CloseTokenStart+16
+        else
+        begin
+            ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+            ;;Make sure there is nothing else on the line after the opening token
+            if (buffer(TokenEnd+1,^size(buffer)))
+            begin
+                ErrorLog("No code allowed on line after <SELECTION_LOOP> token. Did you mis-type a </SELECTION_LOOP> token?")
+                ErrStatus = 1
+                return
+            end
+        end
+
+        ;;In-line loop?
+        if (Loop2CloseTokenStart&&Loop2CloseTokenEnd) then
+        begin
+            Loop2IsInline = true
+
+            ;;Store any leading code
+            if ((TokenStart>1)&&buffer(1:TokenStart-1))
+                Loop2LeadingData = buffer(1:TokenStart-1)
+
+            ;;Store any trailing code
+            if (Loop2CloseTokenEnd<trimz(buffer))
+            begin
+                Loop2TrailingData=buffer(Loop2CloseTokenEnd+1,trimz(buffer))
+                ;;If the trailing code is just whitespace (tabs?) then lose it
+				if (StringTools.IsWhitespace(Loop2TrailingData))
+                    clear Loop2TrailingData
+            end
+
+            ;;Extract and save the loop2 template data
+            buffer = buffer(TokenEnd+1,Loop2CloseTokenStart-1)
+            AlUtil.Add(Loop2TemplateCode,buffer)
+
+            ;;Add the leading data, if necessary
+            if (Loop2LeadingData && !Loop2NoOutput && !Loop2OutputOff) || (Loop2TrailingData) then
+            begin
+                if (Loop1IsInline) then
+                    AlUtil.AppendToLastItem(Loop1Output,Loop2LeadingData)
+                else
+                    AlUtil.Add(Loop1Output,Loop2LeadingData)
+            end
+            else if (Loop2LeadingData && Loop1IsInline) then
+                AlUtil.AppendToLastItem(Loop1Output,Loop2LeadingData)
+            else if (!Loop1IsInline && !Loop2NoOutput && !Loop2OutputOff )
+                AlUtil.Add(Loop1Output,"")
+        end
+        else
+        begin
+            ;;It's a multi-line loop, extract the loop template code
+            repeat
+            begin
+                if ((Loop1Rec+1)>(Loop1TemplateCode.Count-1))
+                begin
+                    ErrorLog("Can't find the end of a field selection loop. Are you missing a </SELECTION_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+                
+                buffer = (a)Loop1TemplateCode[Loop1Rec+=1]
+                if (instr(1,buffer,"</SELECTION_LOOP>"))
+                    exitloop
+                AlUtil.Add(Loop2TemplateCode,buffer)
+            end
+        end
+
+        ;;For each item
+        for SelNbr from 0 thru Fld.SelectionList.Count-1
+        begin
+
+            Loop2ConditionApplies = new ArrayList()
+            Loop2ConditionMode = new ArrayList()
+            Loop2OutputOff = Loop1OutputOff
+
+            ;;Iterate through the loop template and emit code for the current item
+
+            Loop2Rec=-1
+            while ((Loop2Rec+=1)<=Loop2TemplateCode.Count-1)
+            begin
+                buffer = (a)Loop2TemplateCode[Loop2Rec]
+
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop2ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff))
+						nextloop
+				end
+
+                ;;If no tokens just add the line to the output stream
+                if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+                begin
+                    if (!Loop2OutputOff && !Loop2NoOutput)
+                        AlUtil.Add(Loop1Output,buffer)
+                    nextloop
+                end
+
+                ;;Replace tokens in the line
+                do
+                begin
+                    Loop2TokenReplaced = false
+
+                    ;;Any more tokens?
+                    if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+                        exitloop
+
+                    ;;Expression?
+                    if (buffer(TokenStart:4)=="<IF ")
+                    begin
+                        Loop2TokenReplaced = %ProcessSelectionExpression(Fld,SelNbr,TokenStart,TokenEnd,Loop1OutputOff,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff,buffer,ErrStatus)
+                        if (ErrStatus) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+
+                    ;;Process the token
+                    Loop2TokenReplaced = ExpandFieldSelectionToken(Fld,SelNbr,TokenStart,TokenEnd,Loop2OutputOff,buffer)
+
+                    ;;If not replaced, could it be a field loop token?
+                    if (!Loop2TokenReplaced)
+                        Loop2TokenReplaced = ExpandFieldToken(Str,Fld,TokenStart,TokenEnd,Loop1OutputOff,buffer,ErrStatus)
+
+                    ;;If nothing replaced just move on
+                    if (!Loop2TokenReplaced)
+                    begin
+                        DebugLog("     - Skipping unsupported token " + buffer(TokenStart,TokenEnd),false,false)
+                        TokenStart += 1
+                        Loop2TokenReplaced = true
+                    end
+                end
+                until (!Loop2TokenReplaced)
+
+                ;;Add the code to the output buffer
+                if (!Loop2OutputOff & !Loop2NoOutput && !instr(1,buffer,"<IF "))
+                begin
+                    if (Loop2IsInline) then
+                        AlUtil.AppendToLastItem(Loop1Output,buffer)
+                    else
+                        AlUtil.Add(Loop1Output,buffer)
+                end
+            end
+        end
+
+        ;;For in-line loops with trailing data, add back the trailing data
+        if (!Loop2OutputOff&&Loop2IsInline&&Loop2TrailingData)
+            AlUtil.AppendToLastItem(Loop1Output,Loop2TrailingData)
+
+        clear Loop2TemplateCode, Loop2OutputOff, Loop2ConditionApplies, Loop2ConditionMode, Loop2NoOutput
+        DoAnotherPass = true
+
+        if (!ErrStatus)
+            DebugLog("     - End of field selections loop",false,false)
+
+        return
+
+    ;;=============================================================================
+    ;;
+    process_key_loop,
+
+        Loop1TemplateCode = new ArrayList()
+        clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline, ItemWasRepeated
+
+        ;;Look for an end tag in the same line
+        if (AlternateKeysOnly) then
+        begin
+            if (Token2Start=instr(TokenEnd,buffer,"</ALTERNATE_KEY_LOOP>")) then
+                Token2End=Token2Start+20
+            else
+            begin
+                ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+                ;;Make sure there is nothing else on the line after the opening token
+                if (buffer(TokenEnd+1,^size(buffer)))
+                begin
+                    ErrorLog("No code allowed on line after <ALTERNATE_KEY_LOOP> token. Did you mis-type an </ALTERNATE_KEY_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+			end
+			FromKey = 1
+			ToKey = Str.Keys.Count-1
+        end
+        else if (PrimaryKeyOnly) then
+        begin
+            if (Token2Start=instr(TokenEnd,buffer,"</PRIMARY_KEY>")) then
+                Token2End=Token2Start+13
+            else
+            begin
+                ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+                ;;Make sure there is nothing else on the line after the opening token
+                if (buffer(TokenEnd+1,^size(buffer)))
+                begin
+                    ErrorLog("No code allowed on line after <PRIMARY_KEY> token. Did you mis-type a </PRIMAEY_KEY> token?")
+                    ErrStatus = 1
+                    return
+                end
+            end
+			FromKey = Env.OverridePrimaryKeyNum
+			ToKey = Env.OverridePrimaryKeyNum
+		end
+        else
+        begin
+            if (Token2Start=instr(1,buffer,"</KEY_LOOP>")) then
+                Token2End=Token2Start+10
+            else
+            begin
+                ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+                ;;Make sure there is nothing else on the line after the opening token
+                if (buffer(TokenEnd+1,^size(buffer)))
+                begin
+                    ErrorLog("No code allowed on line after <KEY_LOOP> token. Did you mis-type a </KEY_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+			end
+			FromKey = 0
+			ToKey = Str.Keys.Count-1
+        end
+
+        ;;Do we have an in-line loop?
+        if (Token2Start&&Token2End) then
+        begin
+            Loop1IsInline=true
+            ;;Add anything before the open tag to the output buffer
+            if (TokenStart>1) then
+                AlUtil.Add(Output,buffer(1:TokenStart-1))
+            else
+                AlUtil.Add(Output,"")
+            ;;Store anything after the closing tag
+            if (Token2End<trimz(buffer))
+                Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
+            ;;Remove the closing tag and any trailing data
+            clear buffer(Token2Start,^size(buffer))
+            ;;Remove any leading data and the opening tag
+            buffer=buffer(TokenEnd+1,^size(buffer))
+            ;;What remains is our template code for the in-line loop
+            AlUtil.Add(Loop1TemplateCode,buffer)
+        end
+        else
+        begin
+            ;;It's a multi-line loop, extract the loop template code
+            repeat
+            begin
+                if ((TemplateCodeIndex+1)>(Template.Count-1))
+                begin
+                    if (AlternateKeysOnly) then
+                        ErrorLog("Can't find the end of an alternate key loop. Are you missing a </ALTERNATE_KEY_LOOP> token?")
+                    else if (PrimaryKeyOnly) then
+                        ErrorLog("Can't find the end of a primary key loop. Are you missing a </PRIMARY_KEY> token?")
+                    else
+                        ErrorLog("Can't find the end of a key loop. Are you missing a </KEY_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+                
+                buffer = (a)Template[TemplateCodeIndex+=1]
+                if (AlternateKeysOnly) then
+                    if (instr(1,buffer,"</ALTERNATE_KEY_LOOP>"))
+                        exitloop
+                else if (PrimaryKeyOnly) then
+                    if (instr(1,buffer,"</PRIMARY_KEY>"))
+                        exitloop
+                else if (instr(1,buffer,"</KEY_LOOP>"))
+                        exitloop
+                AlUtil.Add(Loop1TemplateCode,buffer)
+            end
+        end
+
+        ;;Take a copy of the loop template code so that we can modify and restore it
+        ;;for each key in the collection. This supports the ability to use level 1
+        ;;loop tokens in a level 2 loop.
+        AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
+
+        ;;Process each key
+		for KeyNbr from FromKey thru ToKey
+        begin
+
+			Key = Str.Keys[KeyNbr]
+			
+			;;Skip any foreign keys
+			if (Key.KeyType == RpsKeyType.Foreign)
+			begin
+				DebugLog("     - Skipping foreign key " + Key.Name,true,false)
+				nextloop
+			end
+			
+			Loop1ConditionApplies = new ArrayList()
+            Loop1ConditionMode = new ArrayList()
+            Loop1OutputOff = false
+
+            Loop1Output = new ArrayList()
+            if (Loop1IsInline)
+                AlUtil.Add(Loop1Output,"")
+
+            DebugLog("     - Processing key " + Key.Name,true,false)
+
+            ;;Process the template code
+            for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
+            begin
+                buffer = (a)Loop1TemplateCode[Loop1Rec]
+
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop1ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
+						nextloop
+				end
+
+                ;;If no tokens just add the line to the output stream
+                if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+                begin
+                    if (!Loop1OutputOff)
+                    begin
+                        if (Loop1IsInline) then
+                            AlUtil.AppendToLastItem(Loop1Output,buffer)
+                        else
+                            AlUtil.Add(Loop1Output,buffer)
+                    end
+                    nextloop
+                end
+
+                ;;Replace key tokens in the buffer
+                RepeatItem = false
+                do
+                begin
+                    Loop1TokenReplaced = false
+
+                    ;;Any more tokens?
+                    if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+                        exitloop
+
+                    ;;Expression?
+                    if (buffer(TokenStart:4)=="<IF ")
+                    begin
+                        Loop1TokenReplaced = ProcessKeyExpression(Str,Key,KeyNbr,TokenStart,TokenEnd,PrimaryKeyOnly,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
+                        if (ErrStatus) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+
+                    ;;Replace the token
+                    using buffer(TokenStart,TokenEnd) select
+                    ("<SEGMENT_LOOP>"),
+					begin
+						FirstSegment = 0
+                        LastSegment = Key.Segments.Count-1
+                        call process_segment_loop
+                        RepeatItem = true
+                        exitloop
+                    end
+                    ("<SEGMENT_LOOP_FILTER>"),
+                    begin
+						FirstSegment = 0
+						SkipLastSegment = true
+                        LastSegment = Key.Segments.Count-2
+                        call process_segment_loop
+                        RepeatItem = true
+                        exitloop
+                    end
+                    ("<FIRST_SEGMENT>"),
+                    begin
+						FirstSegment = 0
+                        LastSegment = 0
+						FirstSegmentOnly = true
+						call process_segment_loop
+                        RepeatItem = true
+                        exitloop
+                    end
+					("<SECOND_SEGMENT>"),
+					begin
+						FirstSegment = 1
+						LastSegment = 1
+						SecondSegmentOnly = true
+						call process_segment_loop
+						RepeatItem = true
+						exitloop
+					end
+					(),
+                        Loop1TokenReplaced = ExpandKeyToken(Str,Key,KeyNbr,TokenStart,TokenEnd,PrimaryKeyOnly,Loop1OutputOff,buffer)
+                    endusing
+
+                    ;;If nothing replaced just move on
+                    if (!Loop1TokenReplaced)
+                    begin
+                        TokenStart += 1
+                        Loop1TokenReplaced = true
+                    end
+                end
+                until (!Loop1TokenReplaced)
+
+                if (ErrStatus)
+                    exitloop
+
+                ;;Add the line to the output buffer
+                if (!Loop1OutputOff && !instr(1,buffer,"<IF ") && !RepeatItem )
+                begin
+                    if (Loop1IsInline) then
+                        AlUtil.AppendToLastItem(Loop1Output,buffer)
+                    else
+                        AlUtil.Add(Loop1Output,buffer)
+                end
+            end
+
+            if (RepeatItem) then
+            begin
+                ;;We just processed a level 2 loop, and that could have left
+                ;;behind level 1 loop tokens, so use the output for this item
+                ;;as template code and go around again
+                AlUtil.Clone(Loop1Output,Loop1TemplateCode)
+                KeyNbr-=1
+                clear RepeatItem
+                ItemWasRepeated = true
+            end
+            else
+            begin
+                ;;We're done with this item, commit the output
+                if (Loop1IsInline) then
+                    AlUtil.AppendToLastItem(Output,Loop1Output[0])
+                else
+                    AlUtil.AppendItems(Output,Loop1Output)
+                clear Loop1Output
+                if (ItemWasRepeated)
+                begin
+                    AlUtil.Clone(Loop1TemplateMaster,Loop1TemplateCode)
+                    clear ItemWasRepeated
+                end
+            end
+        end
+
+        ;;For in-line loops, add back any trailing code
+        if (Loop1IsInline&&Loop1TrailingData)
+            AlUtil.AppendToLastItem(Output,Loop1TrailingData)
+
+        clear Key, Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
+        DoAnotherPass = true
+
+        ;;Advance to the next template record (after the end of the loop token)
+        if (TemplateCodeIndex<Template.Count-1) then
+            buffer = (a)Template[TemplateCodeIndex+=1]
+		else
+			clear buffer
+			
+        if (!ErrStatus)
+            DebugLog("   - End of key loop",false,false)
+
+        return
+
+    ;;=============================================================================
+    ;;
+    process_segment_loop,
+
+        DebugLog("     - Processing key segment loop",true,false)
+
+        Loop2TemplateCode = new ArrayList()
+        clear Loop2CloseTokenStart, Loop2CloseTokenEnd, Loop2TrailingData, Loop2LeadingData, Loop2NoOutput
+
+        ;;We need to process the logic for this loop, even though the loop may not
+        ;;apply in this case (e.g. a field selection loop for a field with no
+        ;;selections. If we find this to be the case we'll suppress all output
+        Loop2NoOutput = (!Key.Segments.Count)
+
+        ;;If the parent loop's output if off then so is ours
+        Loop2OutputOff = Loop1OutputOff
+
+        ;;If the parent loop is in-line then so are we
+        Loop2IsInline = Loop1IsInline
+
+        ;;Look for a closing tag in the same line
+        if (SkipLastSegment) then
+        begin
+            if (Loop2CloseTokenStart=instr(TokenEnd,buffer,"</SEGMENT_LOOP_FILTER>")) then
+                Loop2CloseTokenEnd=Loop2CloseTokenStart+21
+            else
+            begin
+                ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+                ;;Make sure there is nothing else on the line after the opening token
+                if (buffer(TokenEnd+1,^size(buffer)))
+                begin
+                    ErrorLog("No code allowed on line after <SEGMENT_LOOP_FILTER> token. Did you mis-type a </SEGMENT_LOOP_FILTER> token?")
+                    ErrStatus = 1
+                    return
+                end
+            end
+        end
+        else if (FirstSegmentOnly) then
+        begin
+            if (Loop2CloseTokenStart=instr(TokenEnd,buffer,"</FIRST_SEGMENT>")) then
+                Loop2CloseTokenEnd=Loop2CloseTokenStart+15
+            else
+            begin
+                ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+                ;;Make sure there is nothing else on the line after the opening token
+                if (buffer(TokenEnd+1,^size(buffer)))
+                begin
+                    ErrorLog("No code allowed on line after <FIRST_SEGMENT> token. Did you mis-type a </FIRST_SEGMENT> token?")
+                    ErrStatus = 1
+                    return
+                end
+            end
+        end
+		else if (SecondSegmentOnly) then
+		begin
+			if (Loop2CloseTokenStart=instr(TokenEnd,buffer,"</SECOND_SEGMENT>")) then
+				Loop2CloseTokenEnd=Loop2CloseTokenStart+16
+			else
+			begin
+				;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+				;;Make sure there is nothing else on the line after the opening token
+				if (buffer(TokenEnd+1,^size(buffer)))
+				begin
+					ErrorLog("No code allowed on line after <SECOND_SEGMENT> token. Did you mis-type a </SECOND_SEGMENT> token?")
+					ErrStatus = 1
+					return
+				end
+			end
+		end
+		else
+        begin
+            if (Loop2CloseTokenStart=instr(1,buffer,"</SEGMENT_LOOP>")) then
+                Loop2CloseTokenEnd=Loop2CloseTokenStart+14
+            else
+            begin
+                ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+                ;;Make sure there is nothing else on the line after the opening token
+                if (buffer(TokenEnd+1,^size(buffer)))
+                begin
+                    ErrorLog("No code allowed on line after <SEGMENT_LOOP> token. Did you mis-type a </SEGMENT_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+            end
+        end
+
+        ;;In-line loop?
+        if (Loop2CloseTokenStart&&Loop2CloseTokenEnd) then
+        begin
+            Loop2IsInline = true
+
+            ;;Store any leading code
+            if ((TokenStart>1)&&buffer(1:TokenStart-1))
+                Loop2LeadingData = buffer(1:TokenStart-1)
+
+            ;;Store any trailing code
+            if (Loop2CloseTokenEnd<trimz(buffer))
+            begin
+                Loop2TrailingData=buffer(Loop2CloseTokenEnd+1,trimz(buffer))
+                ;;If the trailing code is just whitespace (tabs?) then lose it
+				if (StringTools.IsWhitespace(Loop2TrailingData))
+                    clear Loop2TrailingData
+            end
+
+            ;;Extract and save the loop2 template data
+            buffer = buffer(TokenEnd+1,Loop2CloseTokenStart-1)
+            AlUtil.Add(Loop2TemplateCode,buffer)
+
+            ;;Add the leading data, if necessary
+            if (Loop2LeadingData && !Loop2NoOutput && !Loop2OutputOff) || (Loop2TrailingData) then
+            begin
+                if (Loop1IsInline) then
+                    AlUtil.AppendToLastItem(Loop1Output,Loop2LeadingData)
+                else
+                    AlUtil.Add(Loop1Output,Loop2LeadingData)
+            end
+            else if (Loop2LeadingData && Loop1IsInline) then
+                AlUtil.AppendToLastItem(Loop1Output,Loop2LeadingData)
+            else if (!Loop1IsInline && !Loop2NoOutput && !Loop2OutputOff )
+                AlUtil.Add(Loop1Output,"")
+        end
+        else
+        begin
+            ;;It's a multi-line loop, extract the loop template code
+            repeat
+            begin
+                if ((Loop1Rec+1)>(Loop1TemplateCode.Count-1))
+                begin
+                    if (SkipLastSegment) then
+                        ErrorLog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP_FILTER> token?")
+					else if (FirstSegmentOnly) then
+						ErrorLog("Can't find the end of a key segment loop. Are you missing a </FIRST_SEGMENT> token?")
+					else if (SecondSegmentOnly) then
+						ErrorLog("Can't find the end of a key segment loop. Are you missing a </SECOND_SEGMENT> token?")
+					else
+                        ErrorLog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+                
+                buffer = (a)Loop1TemplateCode[Loop1Rec+=1]
+                if ((SkipLastSegment)&&(instr(1,buffer,"</SEGMENT_LOOP_FILTER>"))) then
+                    exitloop
+				else if ((FirstSegmentOnly)&&(instr(1,buffer,"</FIRST_SEGMENT>"))) then
+					exitloop
+				else if ((SecondSegmentOnly)&&(instr(1,buffer,"</SECOND_SEGMENT>"))) then
+					exitloop
+				else if (instr(1,buffer,"</SEGMENT_LOOP>"))
+                    exitloop
+                AlUtil.Add(Loop2TemplateCode,buffer)
+            end
+        end
+
+        ;;For each key segment
+        for SegNbr from FirstSegment thru LastSegment
+        begin
+
+            Loop2ConditionApplies = new ArrayList()
+            Loop2ConditionMode = new ArrayList()
+            Loop2OutputOff = Loop1OutputOff
+
+            ;;Get the current key segment
+            Segment = Key.Segments[SegNbr]
+
+            ;;Get the field associated with the current segment
+            begin
+                data idx, int
+                data segFound, Boolean, false
+                ;;Find the field relating to the current segment
+                for idx from 0 thru Str.Fields.Count-1
+                begin
+                    if (Str.Fields[idx].Name.eqs.Segment.Field)
+                    begin
+                        Fld = Str.Fields[idx]
+                        segFound = true
+                        exitloop
+                    end
+                end
+                ;;Make sure we found the segment. If we didn't find it then a
+                ;;likely reason is that the segment refers to an overlay field
+                ;;which has been removed from the fields collection in CodeGen
+                if (!segFound)
+                    throw new CodeGenException("Structure "+Str.Name+" key "+Key.Name+" segment "+Segment.Field+" not found. Is it an excluded overlay?")
+            end
+
+            ;;Iterate through the loop template and emit code for the current segment
+
+            Loop2Rec=-1
+            while ((Loop2Rec+=1)<=Loop2TemplateCode.Count-1)
+            begin
+                buffer = (a)Loop2TemplateCode[Loop2Rec]
+
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop2ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff))
+						nextloop
+				end
+
+                ;;If no tokens just add the line to the output stream
+                if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+                begin
+                    if (!Loop2OutputOff && !Loop2NoOutput)
+                        AlUtil.Add(Loop1Output,buffer)
+                    nextloop
+                end
+
+                ;;Replace tokens in the line
+                do
+                begin
+                    Loop2TokenReplaced = false
+
+                    ;;Any more tokens?
+                    if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+                        exitloop
+
+                    ;;Expression?
+                    if (buffer(TokenStart:4)=="<IF ")
+                    begin
+                        Loop2TokenReplaced = ProcessSegmentExpression(Segment,Fld,TokenStart,TokenEnd,Loop1OutputOff,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff,buffer,ErrStatus)
+                        if (ErrStatus) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+
+                    ;;Process the token
+                    Loop2TokenReplaced = ExpandSegmentToken(Segment,SegNbr,Fld,TokenStart,TokenEnd,LastSegment,Loop2OutputOff,buffer)
+
+                    ;;If not replaced, could it be a key loop token?
+                    if (!Loop2TokenReplaced)
+                        Loop2TokenReplaced = ExpandKeyToken(Str,Key,KeyNbr,TokenStart,TokenEnd,PrimaryKeyOnly,Loop1OutputOff,buffer)
+
+                    ;;If nothing replaced just move on
+                    if (!Loop2TokenReplaced)
+                    begin
+                        TokenStart += 1
+                        Loop2TokenReplaced = true
+                    end
+
+                end
+                until (!Loop2TokenReplaced)
+
+                ;;Add the code to the output buffer
+                if (!Loop2OutputOff && !Loop2NoOutput && !instr(1,buffer,"<IF "))
+                begin
+                    if (Loop2IsInline) then
+                        AlUtil.AppendToLastItem(Loop1Output,buffer)
+                    else
+                        AlUtil.Add(Loop1Output,buffer)
+                end
+            end
+        end
+
+        ;;For in-line loops with trailing data, add back the trailing data
+        if (!Loop2OutputOff&&Loop2IsInline&&Loop2TrailingData)
+            AlUtil.AppendToLastItem(Loop1Output,Loop2TrailingData)
+
+        clear Loop2TemplateCode, Loop2OutputOff, Loop2ConditionApplies, Loop2ConditionMode, Loop2NoOutput, Fld
+        clear FirstSegmentOnly, SecondSegmentOnly, SkipLastSegment
+        
+        DoAnotherPass = true
+
+        if (!ErrStatus)
+            DebugLog("     - End of key segment loop",false,false)
+
+        return
+
+    ;;=============================================================================
+    ;;
+    process_relation_loop,
+
+        DebugLog("   - Processing relation loop",true,false)
+
+        Loop1TemplateCode = new ArrayList()
+        clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
+
+        ;;Look for an end tag in the same line
+        if (Token2Start=instr(1,buffer,"</RELATION_LOOP>")) then
+            Token2End=Token2Start+15
+        else
+        begin
+            ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+            ;;Make sure there is nothing else on the line after the opening token
+            if (buffer(TokenEnd+1,^size(buffer)))
+            begin
+                ErrorLog("No code allowed on line after <RELATION_LOOP> token. Did you mis-type a </RELATION_LOOP> token?")
+                ErrStatus = 1
+                return
+            end
+        end
+
+        ;;Do we have an in-line loop?
+        if (Token2Start&&Token2End) then
+        begin
+            Loop1IsInline=true
+            ;;Add anything before the open tag to the output buffer
+            if (TokenStart>1) then
+                AlUtil.Add(Output,buffer(1:TokenStart-1))
+            else
+                AlUtil.Add(Output,"")
+            ;;Store anything after the closing tag
+            if (Token2End<trimz(buffer))
+                Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
+            ;;Remove the closing tag and any trailing data
+            clear buffer(Token2Start,^size(buffer))
+            ;;Remove any leading data and the opening tag
+            buffer=buffer(TokenEnd+1,^size(buffer))
+            ;;What remains is our template code for the in-line loop
+            AlUtil.Add(Loop1TemplateCode,buffer)
+        end
+        else
+        begin
+            ;;It's a multi-line loop, extract the loop template code
+            repeat
+            begin
+                if ((TemplateCodeIndex+1)>(Template.Count-1))
+                begin
+                    ErrorLog("Can't find the end of a relation loop. Are you missing a </RELATION_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+                
+                buffer = (a)Template[TemplateCodeIndex+=1]
+                if (instr(1,buffer,"</RELATION_LOOP>"))
+                        exitloop
+                AlUtil.Add(Loop1TemplateCode,buffer)
+            end
+        end
+
+        ;;For each relation
+        for RelNbr from 0 thru Str.Relations.Count-1
+        begin
+
+            data Relation, @RpsRelation, Str.Relations[RelNbr]
+
+            DebugLog("     - Processing relation " + Relation.Name ,true,false)
+
+            for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
+            begin
+                buffer = (a)Loop1TemplateCode[Loop1Rec]
+
+                ;;If no tokens just add the line to the output stream
+                if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+                begin
+                    if (!Loop1OutputOff)
+                    begin
+                        if (Loop1IsInline) then
+                            AlUtil.AppendToLastItem(Loop1Output,buffer)
+                        else
+                            AlUtil.Add(Loop1Output,buffer)
+                    end
+                    nextloop
+                end
+
+                ;;Replace relation tokens in the buffer
+                do
+                begin
+                    Loop1TokenReplaced = false
+
+                    ;;Any more tokens?
+                    if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+                        exitloop
+
+                    ;;Replace the token
+                    Loop1TokenReplaced = ExpandRelationToken(Str,Relation,RelNbr,TokenStart,TokenEnd,Loop1OutputOff,buffer)
+
+                    ;;If nothing replaced just move on
+                    if (!Loop1TokenReplaced)
+                    begin
+                        TokenStart += 1
+                        Loop1TokenReplaced = true
+                    end
+                end
+                until (!Loop1TokenReplaced)
+
+                ;;Add the line to the current output buffer
+                if (Loop1IsInline) then
+                    AlUtil.AppendToLastItem(Output,buffer)
+                else
+                    AlUtil.Add(Output,buffer)
+            end
+        end
+
+        ;;For in-line loops, add back any trailing code
+        if (Loop1IsInline&&Loop1TrailingData)
+            AlUtil.AppendToLastItem(Output,Loop1TrailingData)
+
+        clear Loop1TemplateCode
+
+        DoAnotherPass = true
+
+        ;;Advance to the next template record (after the end of the loop token)
+        if (TemplateCodeIndex<Template.Count-1) then
+            buffer = (a)Template[TemplateCodeIndex+=1]
+		else
+			clear buffer
+			
+        if (!ErrStatus)
+            DebugLog("   - End of relation loop",false,false)
+
+        return
+
+    ;;=============================================================================
+    ;;
+    process_button_loop,
+
+        DebugLog("   - Processing button loop",true,false)
+
+        Loop1TemplateCode = new ArrayList()
+        clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
+
+        ;;Look for a closing tag in the same line
+        if (Token2Start=instr(1,buffer,"</BUTTON_LOOP>")) then
+            Token2End=Token2Start+13
+        else
+        begin
+            ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+            ;;Make sure there is nothing else on the line after the opening token
+            if (buffer(TokenEnd+1,^size(buffer)))
+            begin
+                ErrorLog("No code allowed on line after <BUTTON_LOOP> token. Did you mis-type a </BUTTON_LOOP> token?")
+                ErrStatus = 1
+                return
+            end
+        end
+
+        ;;Do we have an in-line loop?
+        if (Token2Start&&Token2End) then
+        begin
+            Loop1IsInline=true
+            ;;Add anything before the open tag to the output buffer
+            if (TokenStart>1) then
+                AlUtil.Add(Output,buffer(1:TokenStart-1))
+            else
+                AlUtil.Add(Output,"")
+            ;;Store anything after the closing tag
+            if (Token2End<trimz(buffer))
+                Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
+            ;;Remove the closing tag and any trailing data
+            clear buffer(Token2Start,^size(buffer))
+            ;;Remove any leading data and the opening tag
+            buffer=buffer(TokenEnd+1,^size(buffer))
+            ;;What remains is our template code for the in-line loop
+            AlUtil.Add(Loop1TemplateCode,buffer)
+        end
+        else
+        begin
+            ;;It's a multi-line loop, extract the loop template code
+            repeat
+            begin
+                if ((TemplateCodeIndex+1)>(Template.Count-1))
+                begin
+                    ErrorLog("Can't find the end of a button loop. Are you missing a </BUTTON_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+                
+                buffer = (a)Template[TemplateCodeIndex+=1]
+                if (instr(1,buffer,"</BUTTON_LOOP>"))
+                    exitloop
+                AlUtil.Add(Loop1TemplateCode,buffer)
+            end
+        end
+
+        ;;Process each button
+        for BtnNbr from 0 thru Env.Buttons.Count-1
+        begin
+
+            Loop1ConditionApplies = new ArrayList()
+            Loop1ConditionMode = new ArrayList()
+            Loop1OutputOff = false
+
+            DebugLog("     - Processing button " + Env.Buttons[BtnNbr].Name ,true,false)
+
+            ;;Process the template code
+            for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
+            begin
+                buffer = (a)Loop1TemplateCode[Loop1Rec]
+
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop1ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
+						nextloop
+				end
+
+                ;;If no tokens just add the line to the output stream
+                if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+                begin
+                    if (!Loop1OutputOff)
+                    begin
+                        if (Loop1IsInline) then
+                            AlUtil.AppendToLastItem(Loop1Output,buffer)
+                        else
+                            AlUtil.Add(Loop1Output,buffer)
+                    end
+                    nextloop
+                end
+
+                ;;Replace button tokens in the buffer
+                do
+                begin
+                    Loop1TokenReplaced = false
+
+                    ;;Any more tokens?
+                    if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+                        exitloop
+
+                    ;;Expression?
+                    if (buffer(TokenStart:4)=="<IF ")
+                    begin
+                        Loop1TokenReplaced = ProcessButtonExpression(BtnNbr,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
+                        if (ErrStatus) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+
+                    ;;Replace the token
+                    Loop1TokenReplaced = ExpandButtonToken(BtnNbr,TokenStart,TokenEnd,Loop1OutputOff,buffer,Str)
+
+                    ;;If nothing replaced just move on
+                    if (!Loop1TokenReplaced)
+                    begin
+                        TokenStart += 1
+                        Loop1TokenReplaced = true
+                    end
+                end
+                until (!Loop1TokenReplaced)
+
+                ;;Add the line to the output buffer
+                if ((!Loop1ConditionApplies.Count) || ((!Loop1OutputOff)&&(!instr(1,buffer,"<IF "))))
+                    if (Loop1IsInline) then
+                        AlUtil.AppendToLastItem(Output,buffer)
+                    else
+                        AlUtil.Add(Output,buffer)
+            end
+        end
+
+        ;;For in-line loops, add back any trailing code
+        if (Loop1IsInline&&Loop1TrailingData)
+            AlUtil.AppendToLastItem(Output,Loop1TrailingData)
+
+        clear Loop1TemplateCode
+        DoAnotherPass = true
+
+        ;;Advance to the next template record (after the end of the loop token)
+        if (TemplateCodeIndex<Template.Count-1) then
+            buffer = (a)Template[TemplateCodeIndex+=1]
+		else
+			clear buffer
+			
+        if (!ErrStatus)
+            DebugLog("   - End of button loop",false,false)
+
+        return
+
+    ;;=============================================================================
+    ;;
+    process_enum_loop,
+
+        DebugLog("   - Processing ENUM loop",true,false)
+
+        Loop1TemplateCode = new ArrayList()
+        clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline, ItemWasRepeated
+
+        ;;Look for an end tag in the same line
+        if (StructureEnumsOnly) then
+        begin
+            if (Token2Start=instr(TokenEnd,buffer,"</ENUM_LOOP_STRUCTURE>")) then
+                Token2End=Token2Start+21
+            else
+            begin
+                ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+                ;;Make sure there is nothing else on the line after the opening token
+                if (buffer(TokenEnd+1,^size(buffer)))
+                begin
+                    ErrorLog("No code allowed on line after <ENUM_LOOP_STRUCTURE> token. Did you mis-type an </ENUM_LOOP_STRUCTURE> token?")
+                    ErrStatus = 1
+                    return
+                end
+            end
+        end
+        else
+        begin
+            if (Token2Start=instr(1,buffer,"</ENUM_LOOP>")) then
+                Token2End=Token2Start+11
+            else
+            begin
+                ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+                ;;Make sure there is nothing else on the line after the opening token
+                if (buffer(TokenEnd+1,^size(buffer)))
+                begin
+                    ErrorLog("No code allowed on line after <ENUM_LOOP> token. Did you mis-type an </ENUM_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+            end
+        end
+
+        ;;Do we have an in-line loop?
+        if (Token2Start&&Token2End) then
+        begin
+            Loop1IsInline=true
+            ;;Add anything before the open tag to the output buffer
+            if (TokenStart>1) then
+                AlUtil.Add(Output,buffer(1:TokenStart-1))
+            else
+                AlUtil.Add(Output,"")
+            ;;Store anything after the closing tag
+            if (Token2End<trimz(buffer))
+                Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
+            ;;Remove the closing tag and any trailing data
+            clear buffer(Token2Start,^size(buffer))
+            ;;Remove any leading data and the opening tag
+            buffer=buffer(TokenEnd+1,^size(buffer))
+            ;;What remains is our template code for the in-line loop
+            AlUtil.Add(Loop1TemplateCode,buffer)
+        end
+        else
+        begin
+            ;;It's a multi-line loop, extract the loop template code
+            repeat
+            begin
+                if ((TemplateCodeIndex+1)>(Template.Count-1))
+                begin
+                    if (StructureEnumsOnly) then
+                        ErrorLog("Can't find the end of an enum loop. Are you missing an </ENUM_LOOP_STRUCTURE> token?")
+                    else
+                        ErrorLog("Can't find the end of an enum loop. Are you missing an </ENUM_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+                
+                buffer = (a)Template[TemplateCodeIndex+=1]
+                if (StructureEnumsOnly) then
+                    if (instr(1,buffer,"</ENUM_LOOP_STRUCTURE>"))
+                        exitloop
+                else if (instr(1,buffer,"</ENUM_LOOP>"))
+                    exitloop
+                AlUtil.Add(Loop1TemplateCode,buffer)
+            end
+        end
+
+        ;;Take a copy of the loop template code so that we can modify and restore it
+        ;;for each field in the collection. This supports the ability to use level 1
+        ;;loop tokens in a level 2 loop.
+        AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
+
+        ;Process each enumeration
+        EnumNbr = -1
+        while((EnumNbr+=1) <= Enums.Count-1)
+        begin
+
+            Loop1ConditionApplies = new ArrayList()
+            Loop1ConditionMode = new ArrayList()
+            Loop1OutputOff = false
+
+            Loop1Output = new ArrayList()
+            if (Loop1IsInline)
+                AlUtil.Add(Loop1Output,"")
+
+            DebugLog("     - Processing enum " + Enums[EnumNbr].Name,true,false)
+
+            Loop1Rec=-1
+            while ((Loop1Rec+=1)<=Loop1TemplateCode.Count-1)
+            begin
+                buffer = (a)Loop1TemplateCode[Loop1Rec]
+
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop1ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
+						nextloop
+				end
+
+                ;;If no tokens just add the line to the output stream
+                if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+                begin
+                    if (!Loop1OutputOff)
+                    begin
+                        if (Loop1IsInline) then
+                            AlUtil.AppendToLastItem(Loop1Output,buffer)
+                        else
+                            AlUtil.Add(Loop1Output,buffer)
+                    end
+                    nextloop
+                end
+
+                ;;Replace enum tokens in the line
+                RepeatItem = false
+                do
+                begin
+                    Loop1TokenReplaced = false
+
+                    ;;Any more tokens?
+                    if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+                        exitloop
+
+                    ;;Expression?
+                    if (buffer(TokenStart:4)=="<IF ")
+                    begin
+                        Loop1TokenReplaced = %ProcessEnumExpression(Enums,EnumNbr,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
+                        if (ErrStatus) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+
+                    ;;Replace the token
+                    using buffer(TokenStart,TokenEnd) select
+                    ("<ENUM_MEMBER_LOOP>"),
+                    begin
+                        call process_enum_member_loop
+                        RepeatItem = true
+                        exitloop
+                    end
+                    (),
+                        Loop1TokenReplaced = ExpandEnumToken(Enums,EnumNbr,TokenStart,TokenEnd,Loop1OutputOff,buffer)
+                    endusing
+
+                    ;;If nothing replaced just move on
+                    if (!Loop1TokenReplaced)
+                    begin
+                        TokenStart += 1
+                        Loop1TokenReplaced = true
+                    end
+                end
+                until (!Loop1TokenReplaced)
+
+                if (ErrStatus)
+                    exitloop
+
+                ;;Add the line to the output buffer
+                if (!Loop1OutputOff && !instr(1,buffer,"<IF ") && !RepeatItem )
+                begin
+                    if (Loop1IsInline) then
+                        AlUtil.AppendToLastItem(Loop1Output,buffer)
+                    else
+                        AlUtil.Add(Loop1Output,buffer)
+                end
+            end
+
+            if (RepeatItem) then
+            begin
+                ;;We just processed a level 2 loop, and that could have left
+                ;;behind level 1 loop tokens, so use the output for this item
+                ;;as template code and go around again
+                AlUtil.Clone(Loop1Output,Loop1TemplateCode)
+                EnumNbr-=1
+                clear RepeatItem
+                ItemWasRepeated = true
+            end
+            else
+            begin
+                ;;We're done with this item, commit the output
+                if (Loop1IsInline) then
+                    AlUtil.AppendToLastItem(Output,Loop1Output[0])
+                else
+                    AlUtil.AppendItems(Output,Loop1Output)
+                clear Loop1Output
+                if (ItemWasRepeated)
+                begin
+                    AlUtil.Clone(Loop1TemplateMaster,Loop1TemplateCode)
+                    clear ItemWasRepeated
+                end
+            end
+        end
+
+        ;;For in-line loops, add back any trailing code
+        if (Loop1IsInline&&Loop1TrailingData)
+            AlUtil.AppendToLastItem(Output,Loop1TrailingData)
+
+        clear Key, Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
+        DoAnotherPass = true
+
+        ;;Advance to the next template record (after the end of the loop token)
+        if (TemplateCodeIndex<Template.Count-1) then
+            buffer = (a)Template[TemplateCodeIndex+=1]
+		else
+			clear buffer
+			
+        if (!ErrStatus)
+            DebugLog("   - End of ENUM loop",false,false)
+
+        return
+
+    ;;=============================================================================
+    ;;
+    process_enum_member_loop,
+
+        DebugLog("   - Processing ENUM member loop",true,false)
+
+        Loop2TemplateCode = new ArrayList()
+        clear Loop2CloseTokenStart, Loop2CloseTokenEnd, Loop2TrailingData, Loop2LeadingData, Loop2NoOutput
+
+        ;;We need to process the logic for this loop, even though the loop may not
+        ;;apply in this case (e.g. a field selection loop for a field with no
+        ;;selections. If we find this to be the case we'll suppress all output
+        Loop2NoOutput = (!Enums[EnumNbr].Members.Count)
+
+        ;;If the parent loop's output if off then so is ours
+        Loop2OutputOff = Loop1OutputOff
+
+        ;;If the parent loop is in-line then so are we
+        Loop2IsInline = Loop1IsInline
+
+        ;;Look for a closing tag in the same line
+        if (Loop2CloseTokenStart=instr(1,buffer,"</ENUM_MEMBER_LOOP>")) then
+            Loop2CloseTokenEnd=Loop2CloseTokenStart+18
+        else
+        begin
+            ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+            ;;Make sure there is nothing else on the line after the opening token
+            if (buffer(TokenEnd+1,^size(buffer)))
+            begin
+                ErrorLog("No code allowed on line after <ENUM_MEMBER_LOOP> token. Did you mis-type an </ENUM_MEMBER_LOOP> token?")
+                ErrStatus = 1
+                return
+            end
+        end
+
+        ;;In-line loop?
+        if (Loop2CloseTokenStart&&Loop2CloseTokenEnd) then
+        begin
+            Loop2IsInline = true
+
+            ;;Store any leading code
+            if ((TokenStart>1)&&buffer(1:TokenStart-1))
+                Loop2LeadingData = buffer(1:TokenStart-1)
+
+            ;;Store any trailing code
+            if (Loop2CloseTokenEnd<trimz(buffer))
+            begin
+                Loop2TrailingData=buffer(Loop2CloseTokenEnd+1,trimz(buffer))
+                ;;If the trailing code is just whitespace (tabs?) then lose it
+				if (StringTools.IsWhitespace(Loop2TrailingData))
+                    clear Loop2TrailingData
+            end
+
+            ;;Extract and save the loop2 template data
+            buffer = buffer(TokenEnd+1,Loop2CloseTokenStart-1)
+            AlUtil.Add(Loop2TemplateCode,buffer)
+
+            ;;Add the leading data, if necessary
+            if (Loop2LeadingData && !Loop2NoOutput && !Loop2OutputOff) || (Loop2TrailingData) then
+            begin
+                if (Loop1IsInline) then
+                    AlUtil.AppendToLastItem(Loop1Output,Loop2LeadingData)
+                else
+                    AlUtil.Add(Loop1Output,Loop2LeadingData)
+            end
+            else if (Loop2LeadingData && Loop1IsInline) then
+                AlUtil.AppendToLastItem(Loop1Output,Loop2LeadingData)
+            else if (!Loop1IsInline && !Loop2NoOutput && !Loop2OutputOff )
+                AlUtil.Add(Loop1Output,"")
+        end
+        else
+        begin
+            ;;It's a multi-line loop, extract the loop template code
+            repeat
+            begin
+                if ((Loop1Rec+1)>(Loop1TemplateCode.Count-1))
+                begin
+                    ErrorLog("Can't find the end of an enum member loop. Are you missing an </ENUM_MEMBER_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+                
+                buffer = (a)Loop1TemplateCode[Loop1Rec+=1]
+                if (instr(1,buffer,"</ENUM_MEMBER_LOOP>"))
+                    exitloop
+                AlUtil.Add(Loop2TemplateCode,buffer)
+            end
+        end
+
+        ;;For each enum member
+        for EnumMemberNbr from 0 thru Enums[EnumNbr].Members.Count-1
+        begin
+            Loop2ConditionApplies = new ArrayList()
+            Loop2ConditionMode = new ArrayList()
+            Loop2OutputOff = Loop1OutputOff
+
+            ;;Iterate through the loop template and emit code for the current segment
+
+            Loop2Rec=-1
+            while ((Loop2Rec+=1)<=Loop2TemplateCode.Count-1)
+            begin
+                buffer = (a)Loop2TemplateCode[Loop2Rec]
+
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop2ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff))
+						nextloop
+				end
+
+                ;;If no tokens just add the line to the output stream
+                if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+                begin
+                    if (!Loop2OutputOff && !Loop2NoOutput)
+                        AlUtil.Add(Loop1Output,buffer)
+                    nextloop
+                end
+
+                ;;Replace tokens in the line
+                do
+                begin
+                    Loop2TokenReplaced = false
+
+                    ;;Any more tokens?
+                    if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+                        exitloop
+
+                    ;;Expression?
+                    if (buffer(TokenStart:4)=="<IF ")
+                    begin
+                        Loop2TokenReplaced = ProcessEnumMemberExpression(Enums,EnumNbr,EnumMemberNbr,TokenStart,TokenEnd,Loop1OutputOff,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff,buffer,ErrStatus)
+                        if (ErrStatus) then
+                            exitloop
+                        else
+                            nextloop
+                    end
+
+                    ;;Process the token
+                    Loop2TokenReplaced = ExpandEnumMemberToken(Enums,EnumNbr,EnumMemberNbr,TokenStart,TokenEnd,Loop2OutputOff,buffer)
+
+                    ;;If not replaced, could it be an enum loop token?
+                    if (!Loop2TokenReplaced)
+                        Loop2TokenReplaced = ExpandEnumToken(Enums,EnumNbr,TokenStart,TokenEnd,Loop1OutputOff,buffer)
+
+                    ;;If nothing replaced just move on
+                    if (!Loop2TokenReplaced)
+                    begin
+                        TokenStart += 1
+                        Loop2TokenReplaced = true
+                    end
+
+                end
+                until (!Loop2TokenReplaced)
+
+                ;;Add the code to the output buffer
+                if (!Loop2OutputOff & !Loop2NoOutput && !instr(1,buffer,"<IF "))
+                begin
+                    if (Loop2IsInline) then
+                        AlUtil.AppendToLastItem(Loop1Output,buffer)
+                    else
+                        AlUtil.Add(Loop1Output,buffer)
+                end
+            end
+        end
+
+        ;;For in-line loops with trailing data, add back the trailing data
+        if (!Loop2OutputOff&&Loop2IsInline&&Loop2TrailingData)
+            AlUtil.AppendToLastItem(Loop1Output,Loop2TrailingData)
+
+        clear Loop2TemplateCode, Loop2OutputOff, Loop2ConditionApplies, Loop2ConditionMode, Loop2NoOutput
+        DoAnotherPass = true
+
+        if (!ErrStatus)
+            DebugLog("   - End of ENUM member loop",false,false)
+
+        return
+
+	;;=============================================================================
+	;;
+	process_file_loop,
+		
+		DebugLog("   - Processing file loop",true,false)
+		
+		Loop1TemplateCode = new ArrayList()
+		clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
+		
+		;;Look for an end tag in the same line
+		if (Token2Start=instr(1,buffer,"</FILE_LOOP>")) then
+            Token2End=Token2Start+11
+        else
+        begin
+            ;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+            ;;Make sure there is nothing else on the line after the opening token
+            if (buffer(TokenEnd+1,^size(buffer)))
+            begin
+                ErrorLog("No code allowed on line after <FILE_LOOP> token. Did you mis-type a </FILE_LOOP> token?")
+                ErrStatus = 1
+                return
+            end
+        end
+			
+		;;Do we have an in-line loop?
+		if (Token2Start&&Token2End) then
+		begin
+			Loop1IsInline=true
+			;;Add anything before the open tag to the output buffer
+			if (TokenStart>1) then
+				AlUtil.Add(Output,buffer(1:TokenStart-1))
+			else
+				AlUtil.Add(Output,"")
+			;;Store anything after the closing tag
+			if (Token2End<trimz(buffer))
+				Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
+			;;Remove the closing tag and any trailing data
+			clear buffer(Token2Start,^size(buffer))
+			;;Remove any leading data and the opening tag
+			buffer=buffer(TokenEnd+1,^size(buffer))
+			;;What remains is our template code for the in-line loop
+			AlUtil.Add(Loop1TemplateCode,buffer)
+		end
+		else
+		begin
+			;;It's a multi-line loop, extract the loop template code
+			repeat
+			begin
+                if ((TemplateCodeIndex+1)>(Template.Count-1))
+                begin
+                    ErrorLog("Can't find the end of a file loop. Are you missing a </FILE_LOOP> token?")
+                    ErrStatus = 1
+                    return
+                end
+                
+                buffer = (a)Template[TemplateCodeIndex+=1]
+				if (instr(1,buffer,"</FILE_LOOP>"))
+					exitloop
+				AlUtil.Add(Loop1TemplateCode,buffer)
+			end
+		end
+		
+		;;Take a copy of the loop template code so that we can modify and restore it
+		;;for each field in the collection. This supports the ability to use level 1
+		;;loop tokens in a level 2 loop.
+		AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
+		
+		;;Now process the loop template for each file
+		
+		clear LogicalFieldNumber
+		
+		FileNbr = -1
+		while ((FileNbr+=1) < Str.Files.Count)
+		begin
+			data File, @RpsFile, Str.Files[FileNbr]
+			
+			DebugLog("     - Processing file " + File.Name,true,false)
+			
+			Loop1ConditionApplies = new ArrayList()
+			Loop1ConditionMode = new ArrayList()
+			Loop1OutputOff = false
+			
+			Loop1Output = new ArrayList()
+			if (Loop1IsInline)
+				AlUtil.Add(Loop1Output,"")
+				
+			;;Process the template code
+			for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
+			begin
+				buffer = (a)Loop1TemplateCode[Loop1Rec]
+				
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop1ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
+						nextloop
+				end
+						
+				;;If no tokens just add the line to the output stream
+				if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+				begin
+					if (!Loop1OutputOff)
+					begin
+						if (Loop1IsInline) then
+							AlUtil.AppendToLastItem(Loop1Output,buffer)
+						else
+							AlUtil.Add(Loop1Output,buffer)
+					end
+					nextloop
+				end
+				
+				;;Replace any tokens in the buffer
+				do
+				begin
+					Loop1TokenReplaced = false
+					
+					;;Any more tokens?
+					if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+						exitloop
+						
+					;;Expression?
+					if (buffer(TokenStart:4)=="<IF ")
+					begin
+						Loop1TokenReplaced = ProcessFileExpression(Str,File,FileNbr,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
+						if (ErrStatus) then
+							exitloop
+						else
+							nextloop
+					end
+					
+					;;Replace file loop tokens
+					Loop1TokenReplaced = ExpandFileToken(Str,File,FileNbr,TokenStart,TokenEnd,Loop1OutputOff,buffer,ErrStatus)
+					
+					;If nothing replaced just move on
+					if (!Loop1TokenReplaced)
+					begin
+						TokenStart += 1
+						Loop1TokenReplaced = true
+					end
+				end
+				until (!Loop1TokenReplaced)
+				
+				if (ErrStatus)
+					exitloop
+					
+				;;Add the line to the output buffer
+				if (!Loop1OutputOff && !instr(1,buffer,"<IF "))
+				begin
+					if (Loop1IsInline) then
+						AlUtil.AppendToLastItem(Loop1Output,buffer)
+					else
+						AlUtil.Add(Loop1Output,buffer)
+				end
+			end
+			
+			if (ErrStatus)
+				exitloop
+				
+			;;We're done with this item, commit the output
+			if (Loop1IsInline) then
+				AlUtil.AppendToLastItem(Output,Loop1Output[0])
+			else
+				AlUtil.AppendItems(Output,Loop1Output)
+			clear Loop1Output
+			
+			if (ErrStatus)
+				exitloop
+				
+		end
+		
+		;;For in-line loops, add back any trailing code
+		if (Loop1IsInline&&Loop1TrailingData)
+			AlUtil.AppendToLastItem(Output,Loop1TrailingData)
+			
+		clear Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
+		DoAnotherPass = true
+		
+		;;Advance to the next template record (after the end of the loop token)
+		if (TemplateCodeIndex<Template.Count-1) then
+			buffer = (a)Template[TemplateCodeIndex+=1]
+		else
+			clear buffer
+		
+		if (!ErrStatus)
+			DebugLog("   - End of file loop",false,false)
+			
+		return
+	
+	;;=============================================================================
+	;;
+	process_tag_loop,
+		
+		DebugLog("   - Processing tag loop",true,false)
+		
+		Loop1TemplateCode = new ArrayList()
+		clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
+		
+		;;Look for an end tag in the same line
+		if (Token2Start=instr(1,buffer,"</TAG_LOOP>")) then
+			Token2End=Token2Start+10
+		else
+		begin
+			;;Looks like we have a multi-line loop, unless they mis-typed the close loop token!
+			;;Make sure there is nothing else on the line after the opening token
+			if (buffer(TokenEnd+1,^size(buffer)))
+			begin
+				ErrorLog("No code allowed on line after <TAG_LOOP> token. Did you mis-type a </TAG_LOOP> token?")
+				ErrStatus = 1
+				return
+			end
+		end
+		
+		;;Do we have an in-line loop?
+		if (Token2Start&&Token2End) then
+		begin
+			Loop1IsInline=true
+			;;Add anything before the open tag to the output buffer
+			if (TokenStart>1) then
+				AlUtil.Add(Output,buffer(1:TokenStart-1))
+			else
+				AlUtil.Add(Output,"")
+			;;Store anything after the closing tag
+			if (Token2End<trimz(buffer))
+				Loop1TrailingData=buffer(Token2End+1,trimz(buffer))
+			;;Remove the closing tag and any trailing data
+			clear buffer(Token2Start,^size(buffer))
+			;;Remove any leading data and the opening tag
+			buffer=buffer(TokenEnd+1,^size(buffer))
+			;;What remains is our template code for the in-line loop
+			AlUtil.Add(Loop1TemplateCode,buffer)
+		end
+		else
+		begin
+			;;It's a multi-line loop, extract the loop template code
+			repeat
+			begin
+				if ((TemplateCodeIndex+1)>(Template.Count-1))
+				begin
+					ErrorLog("Can't find the end of a tag loop. Are you missing a </TAG_LOOP> token?")
+					ErrStatus = 1
+					return
+				end
+				
+				buffer = (a)Template[TemplateCodeIndex+=1]
+				if (instr(1,buffer,"</TAG_LOOP>"))
+					exitloop
+				AlUtil.Add(Loop1TemplateCode,buffer)
+			end
+		end
+		
+		;;Take a copy of the loop template code so that we can modify and restore it
+		;;for each tag in the collection. This supports the ability to use level 1
+		;;loop tokens in a level 2 loop.
+		AlUtil.Clone(Loop1TemplateCode,Loop1TemplateMaster)
+		
+		;;Now process the loop template for each tag
+		
+		TagNbr = -1
+		while ((TagNbr+=1) < Str.Tags.Count)
+		begin
+			data Tag, @RpsTag, Str.Tags[TagNbr]
+			
+			DebugLog("     - Processing tag " + Tag.Name,true,false)
+			
+			Loop1ConditionApplies = new ArrayList()
+			Loop1ConditionMode = new ArrayList()
+			Loop1OutputOff = false
+			
+			Loop1Output = new ArrayList()
+			if (Loop1IsInline)
+				AlUtil.Add(Loop1Output,"")
+			
+			;;Process the template code
+			for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
+			begin
+				buffer = (a)Loop1TemplateCode[Loop1Rec]
+				
+				;;Are we in a multi-line expression, looking for an <ELSE> or an </IF>?
+				if (Loop1ConditionApplies.Count)
+				begin
+					if (CheckExpressionElse(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff)) then
+						nextloop
+					else if (CheckExpressionEnd(buffer,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff))
+						nextloop
+				end
+				
+				;;If no tokens just add the line to the output stream
+				if (!TokenInBuffer(buffer,TokenStart=1,TokenEnd))
+				begin
+					if (!Loop1OutputOff)
+					begin
+						if (Loop1IsInline) then
+							AlUtil.AppendToLastItem(Loop1Output," "+buffer)
+						else
+							AlUtil.Add(Loop1Output,buffer)
+					end
+					nextloop
+				end
+				
+				;;Replace any tokens in the buffer
+				do
+				begin
+					Loop1TokenReplaced = false
+					
+					;;Any more tokens?
+					if (!TokenInBuffer(buffer,TokenStart,TokenEnd))
+						exitloop
+					
+					;;Expression?
+					if (buffer(TokenStart:4)=="<IF ")
+					begin
+						Loop1TokenReplaced = ProcessTagExpression(Str,Tag,TagNbr,TokenStart,TokenEnd,Loop1ConditionMode,Loop1ConditionApplies,Loop1OutputOff,buffer,ErrStatus)
+						if (ErrStatus) then
+							exitloop
+						else
+							nextloop
+					end
+					
+					;;Replace tag loop tokens
+					Loop1TokenReplaced = ExpandTagToken(Str,Tag,TagNbr,TokenStart,TokenEnd,Loop1OutputOff,buffer,ErrStatus)
+					
+					;If nothing replaced just move on
+					if (!Loop1TokenReplaced)
+					begin
+						TokenStart += 1
+						Loop1TokenReplaced = true
+					end
+				end
+				until (!Loop1TokenReplaced)
+				
+				if (ErrStatus)
+					exitloop
+				
+				;;Add the line to the output buffer
+				if (!Loop1OutputOff && !instr(1,buffer,"<IF "))
+				begin
+					if (Loop1IsInline) then
+						AlUtil.AppendToLastItem(Loop1Output," "+buffer)
+					else
+						AlUtil.Add(Loop1Output,buffer)
+				end
+			end
+			
+			if (ErrStatus)
+				exitloop
+			
+			;;We're done with this item, commit the output
+			if (Loop1IsInline) then
+				AlUtil.AppendToLastItem(Output,Loop1Output[0])
+			else
+				AlUtil.AppendItems(Output,Loop1Output)
+			clear Loop1Output
+			
+			if (ErrStatus)
+				exitloop
+			
+		end
+		
+		;;For in-line loops, add back any trailing code
+		if (Loop1IsInline&&Loop1TrailingData)
+			AlUtil.AppendToLastItem(Output,Loop1TrailingData)
+		
+		clear Loop1TemplateCode, Loop1TemplateMaster, Loop1ConditionApplies, Loop1ConditionMode
+		DoAnotherPass = true
+		
+		;;Advance to the next template record (after the end of the loop token)
+		if (TemplateCodeIndex<Template.Count-1) then
+			buffer = (a)Template[TemplateCodeIndex+=1]
+		else
+			clear buffer
+		
+		if (!ErrStatus)
+			DebugLog("   - End of tag loop",false,false)
+		
+		return
+
+	endfunction
+
+endnamespace

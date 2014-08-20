@@ -1,0 +1,874 @@
+;;*****************************************************************************
+;;
+;; Title:       ProcessSegmentExpression.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Processes key segment loop expressions
+;;
+;; Date:        5th November 2009
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.Collections
+
+namespace CodeGen.Engine
+
+    function ProcessSegmentExpression           ,boolean
+
+        required in    Segment                  ,@RpsKeySegment
+        required in    Fld                      ,@RpsField
+        required in    TokenStart               ,int
+        required in    TokenEnd                 ,int
+        required in    Loop1OutputOff           ,boolean
+        required inout Loop2ConditionMode       ,@ArrayList
+        required inout Loop2ConditionApplies    ,@ArrayList
+        required inout Loop2OutputOff           ,boolean
+        required inout buffer                   ,a
+        required inout ErrStatus                ,int
+		endparams
+
+		stack record
+			result								,boolean
+		endrecord
+
+    proc
+
+        Loop2ConditionMode.Add((@a)buffer(TokenStart+4,TokenEnd-1))
+        Loop2ConditionApplies.Add((@boolean)false)
+
+		result = false
+
+        using ((a)Loop2ConditionMode[Loop2ConditionMode.Count-1]) select
+
+		;;Segment properties
+
+		("SEG_ALPHA"),
+			result = (Segment.DataType == RpsKeySegmentDataType.Alpha)
+			
+		("SEG_ASCENDING"),
+			result = (Segment.Order == RpsKeySegmentOrder.Ascending)
+
+		.ifdef DBLV10
+		("SEG_AUTO_SEQUENCE"),
+			result = (Segment.DataType == RpsKeySegmentDataType.AutoSequence)
+		.endc
+
+		.ifdef DBLV10			
+		("SEG_AUTO_TIMESTAMP"),
+			result = (Segment.DataType == RpsKeySegmentDataType.AutoTimestamp)
+		.endc
+			
+		("SEG_DECIMAL"),
+			result = (Segment.DataType == RpsKeySegmentDataType.Decimal)
+			
+		("SEG_DESCENDING"),
+			result = (Segment.Order == RpsKeySegmentOrder.Descending)
+
+		("SEG_NOCASE"),
+			result = (Segment.DataType == RpsKeySegmentDataType.NoCaseAlpha)
+			
+		("SEG_SIGNED"),
+			result = (Segment.DataType == RpsKeySegmentDataType.SignedInteger)
+			
+		("SEG_TYPE_EXTERNAL"),
+			result = (Segment.SegmentType == RpsKeySegmentType.External)
+
+		("SEG_TYPE_FIELD"),
+			result = (Segment.SegmentType == RpsKeySegmentType.Field)
+
+		("SEG_TYPE_LITERAL"),
+			result = (Segment.SegmentType == RpsKeySegmentType.Literal)
+
+		("SEG_TYPE_RECNUM"),
+			result = (Segment.SegmentType == RpsKeySegmentType.RecordNumber)
+
+		("SEG_UNSIGNED"),
+			result = (Segment.DataType == RpsKeySegmentDataType.UnsignedInteger)
+
+		;;These two are implemented via @AUTOINCREMENT in the field user text or long description
+		
+		("INCREMENT "),
+            if (Fld.AutoIncrement)
+                result = true
+		
+		("NOINCREMENT "),
+            if (!Fld.AutoIncrement)
+                result = true
+
+		;;These are the same as field loop expressions
+
+		("ALLOW_LIST "),
+			if (Fld.AllowList.Count>0)
+				result = true
+		
+		("ALPHA "),
+            if (Fld.DataType==RpsFieldDataType.Alpha)
+                result = true
+		
+		("ALTERNATE_NAME "),
+			if (Fld.AlternateName.nes.Fld.Name)
+				result = true
+		
+		("ARRAY "),
+            if (Fld.ArrayDimension[1]>1)
+                result = true
+		
+		("ARRIVE "),
+            if (Fld.ArriveMethod)
+                result = true
+		
+		("BINARY "),
+			if (Fld.DataType==RpsFieldDataType.Binary)
+				result = true
+		
+		("BOLD "),
+            if (Fld.RenditionHighlight)
+                result = true
+		
+		("BOOLEAN "),
+            if (Fld.DataType==RpsFieldDataType.Boolean)
+                result = true
+		
+		("BREAK "),
+			if (Fld.BreakMode!=RpsFieldBreak.None)
+				result = true
+		
+		("BREAK_ALWAYS "),
+			if (Fld.BreakMode==RpsFieldBreak.Always)
+				result = true
+		
+		("BREAK_CHANGE "),
+			if (Fld.BreakMode==RpsFieldBreak.Change)
+				result = true
+		
+		("BREAK_RETURN "),
+			if (Fld.BreakMode==RpsFieldBreak.OnReturn)
+				result = true
+		
+		("BZERO "),
+			if (Fld.BlankIfZero)
+				result = true
+		
+		("CHANGE "),
+            if (Fld.ChangeMethod)
+                result = true
+		
+		("CHECKBOX "),
+            if (Fld.ViewAs==RpsFieldViewAs.Checkbox)
+                result = true
+		
+		("COERCEBOOLEAN"),
+			if (Fld.CoercedType==RpsFieldCoercedType.CtBoolean)
+                result = true
+		
+		("COMBOBOX "),
+            if ((Fld.ViewAs==RpsFieldViewAs.Field)&&(Fld.SelectionList.Count))
+                result = true
+		
+		("DATE "),
+			if ((Fld.TypeName=="DATE") || (Fld.TypeName=="NULLABLEDATETIME"))
+				result = true
+		
+		("DATE_JULIAN "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass==RpsFieldSubclass.DateYYJJJ)
+			&	||(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYJJJ)))
+				result = true
+		
+		("DATE_NOT_JULIAN "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYJJJ)
+			&	&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYJJJ)))
+				result = true
+
+		("DATE_NOT_NULLABLE "),
+			if (Fld.TypeName=="DATE")
+				result = true
+		
+		("DATE_NOT_PERIOD "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYPP)
+			&	&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYPP)))
+				result = true
+		
+		("DATE_NOT_YMD "),
+			if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYMMDD)
+			&	&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYMMDD))
+				result = true
+		
+		("DATE_NOT_YYYYMMDD "),
+			if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass!=RpsFieldSubclass.DateYYYYMMDD))
+				result = true
+		
+		("DATE_NULLABLE "),
+			if (Fld.TypeName=="NULLABLEDATETIME")
+				result = true
+		
+		("DATE_PERIOD "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass==RpsFieldSubclass.DateYYPP)
+			&	||(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYPP)))
+				result = true
+		
+		("DATE_YMD "),
+			if ((Fld.TypeName=="DATE")&&((Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYMMDD)
+			&	||(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYMMDD)))
+				result = true
+		
+		("DATE_YYJJJ "),
+			if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYJJJ))
+				result = true
+		
+		("DATE_YYMMDD "),
+			if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYMMDD))
+				result = true
+		
+		("DATE_YYPP "),
+			if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYPP))
+				result = true
+		
+		("DATE_YYYYJJJ "),
+			if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYJJJ))
+				result = true
+		
+		("DATE_YYYYMMDD "),
+			if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYMMDD))
+				result = true
+		
+		("DATE_YYYYPP "),
+			if ((Fld.TypeName=="DATE")&&(Fld.DataTypeSubclass==RpsFieldSubclass.DateYYYYPP))
+				result = true
+		
+		("DATEORTIME "),
+			if ((Fld.TypeName=="DATE") || (Fld.TypeName=="NULLABLEDATETIME") || (Fld.TypeName=="TIME"))
+				result = true
+		
+		("DATETODAY "),
+            if (Fld.DateDefaultToday)
+                result = true
+		
+		("DECIMAL "),
+			if ((Fld.DataType==RpsFieldDataType.Decimal)
+			&	&& (Fld.TypeName!="DATE") && (Fld.TypeName!="TIME"))
+                result = true
+		
+		("DEFAULT "),
+            if (Fld.DefaultValue)
+                result = true
+		
+		("DESCRIPTION "),
+			if (Fld.Description)
+				result = true
+		
+		("DISABLED "),
+            if (Fld.Disabled)
+                result = true
+		
+		("DISPLAY "),
+			if (Fld.DisplayMethod)
+				result = true
+		
+		("DISPLAY_LENGTH "),
+			if (Fld.DisplayLength)
+				result = true
+		
+		("DRILL "),
+            if (Fld.DrillMethod)
+                result = true
+		
+		("ECHO "),
+            if (!Fld.NoEcho)
+                result = true
+		
+		("EDITFORMAT "),
+			if (Fld.EditFormatMethod)
+				result = true
+		
+		("ENABLED "),
+            if (!Fld.Disabled)
+                result = true
+		
+		("ENUM "),
+			if (Fld.DataType==RpsFieldDataType.Enum)
+				result = true
+		
+		("ENUMERATED "),
+			if (Fld.Enumerated)
+				result = true
+		
+		("FIELD_POSITION "),
+			if (Fld.FieldPositionMode!=RpsPositionMode.None&&Fld.FieldRow&&Fld.FieldColumn)
+				result = true
+		
+		("FORMAT "),
+            if (Fld.FormatName)
+                result = true
+		
+		("HEADING "),
+			if (Fld.ReportHeading)
+				result = true
+		
+		("HELPID "),
+            if (Fld.HelpIdentifier)
+                result = true
+		
+		("HYPERLINK "),
+            if (Fld.HyperlinkMethod)
+                result = true
+		
+		("I1 "),
+            if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==1))
+                result = true
+		
+		("I124 "),
+			if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size<=4))
+				result = true
+		
+		("I2 "),
+            if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==2))
+                result = true
+		
+		("I4 "),
+            if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==4))
+                result = true
+		
+		("I8 "),
+            if ((Fld.DataType==RpsFieldDataType.Integer)&&(Fld.Size==8))
+                result = true
+		
+		("INFOLINE "),
+            if (Fld.InfoLineText)
+                result = true
+		
+		("INPUT_CENTER "),
+			if (!Fld.InputJustification==RpsJustification.Center)
+				result = true
+		
+		("INPUT_LEFT "),
+			if (!Fld.InputJustification==RpsJustification.Left)
+				result = true
+		
+		("INPUT_RIGHT "),
+			if (!Fld.InputJustification==RpsJustification.Right)
+				result = true
+		
+		("INTEGER "),
+            if (Fld.DataType==RpsFieldDataType.Integer)
+                result = true
+		
+		("LANGUAGE "),
+			if (!Fld.ExcludedByLanguage)
+				result = true
+		
+		("LEAVE "),
+            if (Fld.LeaveMethod)
+                result = true
+		
+		("LONGDESC "),
+			if (Fld.LongDescription)
+				result = true
+		
+		("MAPPED "),
+            if (Fld.MappedField)
+                result = true
+		
+		("NEGATIVE_ALLOWED "),
+			if (Fld.NegativeAllowed!=RpsFieldNegatives.None)
+				result = true
+		
+		("NEGATIVE_ORZERO "),
+			if (Fld.NegativeAllowed==RpsFieldNegatives.OrZero)
+				result = true
+		
+		("NEGATIVE_REQUIRED "),
+			if (Fld.NegativeAllowed==RpsFieldNegatives.Only)
+				result = true
+		
+		("NOALLOW_LIST "),
+			if (Fld.AllowList.Count==0)
+				result = true
+		
+		("NOALTERNATE_NAME "),
+			if (Fld.AlternateName.eqs.Fld.Name)
+				result = true
+		
+		("NOARRIVE "),
+			if (!Fld.ArriveMethod)
+				result = true
+		
+		("NOBREAK "),
+			if (Fld.BreakMode==RpsFieldBreak.None)
+				result = true
+		
+		("NOCHANGE "),
+			if (!Fld.ChangeMethod)
+				result = true
+		
+		("NOCHECKBOX "),
+			if (Fld.ViewAs!=RpsFieldViewAs.Checkbox)
+				result = true
+		
+		("NOCOERCEBOOLEAN"),
+			if (Fld.CoercedType!=RpsFieldCoercedType.CtBoolean)
+                result = true
+		
+		("NODEFAULT "),
+			if (!Fld.DefaultValue)
+				result = true
+		
+		("NODESCRIPTION "),
+			if (!Fld.Description)
+				result = true
+		
+		("NODISPLAY "),
+			if (!Fld.DisplayMethod)
+				result = true
+		
+		("NODISPLAY_LENGTH "),
+			if (!Fld.DisplayLength)
+				result = true
+		
+		("NODRILL "),
+			if (!Fld.DrillMethod)
+				result = true
+		
+		("NOECHO "),
+            if (Fld.NoEcho)
+                result = true
+		
+		("NOEDITFORMAT "),
+			if (!Fld.EditFormatMethod)
+				result = true
+		
+		("NOFORMAT "),
+			if (!Fld.FormatName)
+				result = true
+		
+		("NOHELPID "),
+			if (!Fld.HelpIdentifier)
+				result = true
+		
+		("NOHYPERLINK "),
+			if (!Fld.HyperlinkMethod)
+				result = true
+		
+		("NOINFOLINE "),
+			if (!Fld.InfoLineText)
+				result = true
+		
+		("NOLANGUAGE "),
+            if (Fld.ExcludedByLanguage)
+                result = true
+		
+		("NOLEAVE "),
+			if (!Fld.LeaveMethod)
+				result = true
+		
+		("NOLONGDESC "),
+			if (!Fld.LongDescription)
+				result = true
+
+		("NONEGATIVE "),
+			if (Fld.NegativeAllowed==RpsFieldNegatives.None)
+				result = true
+
+		("NOPAINTCHAR "),
+			if (!Fld.PaintCharacterSpecified)
+				result = true
+		
+		("NOPRECISION "),
+            if (!Fld.Precision)
+                result = true
+		
+		("NOPROMPT "),
+			if (!Fld.Prompt)
+				result = true
+		
+		("NORANGE "),
+			if (!Fld.NumericRangeExists)
+				result = true
+		
+		("NOREPORT "),
+            if (Fld.ExcludedByReportWriter)
+                result = true
+		
+		("NOSELECTIONS"),
+            if (!Fld.SelectionList.Count)
+                result = true
+		
+		("NOSELWND"),
+			if (!Fld.SelectionWindowName)
+				result = true
+		
+		("NOTALPHA "),
+            if (Fld.DataType!=RpsFieldDataType.Alpha)
+                result = true
+		
+		("NOTBINARY "),
+			if (Fld.DataType!=RpsFieldDataType.Binary)
+				result = true
+		
+		("NOTBOOLEAN "),
+			if (Fld.DataType!=RpsFieldDataType.Boolean)
+				result = true
+		
+		("NOTBZERO "),
+			if (!Fld.BlankIfZero)
+				result = true
+		
+		("NOTDATE "),
+            if (!(Fld.TypeName=="DATE"))
+                result = true
+		
+		("NOTDATEORTIME "),
+            if ((!(Fld.TypeName=="DATE")) && (!(Fld.TypeName=="TIME")))
+                result = true
+		
+		("NOTDATETODAY "),
+			if (!Fld.DateDefaultToday)
+				result = true
+		
+		("NOTDECIMAL "),
+            if (Fld.DataType!=RpsFieldDataType.Decimal)
+            &   || ((Fld.DataType==RpsFieldDataType.Decimal)
+            &       && ((Fld.TypeName=="DATE") || (Fld.TypeName!="TIME")))
+                result = true
+		
+		("NOTENUM "),
+			if (Fld.DataType!=RpsFieldDataType.Enum)
+				result = true
+		
+		("NOTENUMERATED "),
+			if (!Fld.Enumerated)
+				result = true
+		
+		("NOTIMEOUT "),
+			if (Fld.InputTimeoutMode==RpsFieldTimeout.None)
+				result = true
+		
+		("NOTINTEGER "),
+            if (Fld.DataType!=RpsFieldDataType.Integer)
+                result = true
+		
+		("NOTNUMERIC "),
+            if ((Fld.DataType!=RpsFieldDataType.Decimal)
+            &   &&(Fld.DataType!=RpsFieldDataType.Integer))
+				result = true
+		
+		("NOTOOLKIT "),
+			if (Fld.ExcludedByToolkit)
+				result = true
+		
+		("NOTOVERLAY "),
+			if ((!Fld.IsGroup&&!Fld.OverlaysField)
+			&	||(Fld.IsGroup&&(Fld.GroupType!=RpsFieldGroup.Overlay)))
+				result = true
+		
+		("NOTRADIOBUTTONS "),
+			if (Fld.ViewAs!=RpsFieldViewAs.RadioButtons)
+				result = true
+		
+		("NOTSTRUCTFIELD "),
+			if (Fld.DataType!=RpsFieldDataType.StructField)
+				result = true
+		
+		("NOTTIME "),
+            if ((Fld.TypeName!="TIME"))
+                result = true
+		
+		("NOTUPPERCASE "),
+			if (!Fld.Uppercase)
+				result = true
+		
+		("NOTUSER "),
+			if (Fld.DataType!=RpsFieldDataType.User)
+				result = true
+		
+		("NOTUSERTIMESTAMP"),
+			if !((Fld.DataType==RpsFieldDataType.User)
+			&	&&(Fld.DataTypeSubclass==RpsFieldSubclass.UserDate)
+			&	&&(Fld.UserFieldType.eqs."^CLASS^=YYYYMMDDHHMISSUUUUUU"))
+				result = true
+				
+		("NOUSERTEXT "),
+			if (!Fld.UserText)
+				result = true
+		
+		("NOVIEW_LENGTH "),
+			if (!Fld.ViewLength)
+				result = true
+
+		("NOWEB "),
+            if (Fld.ExcludedByWeb)
+                result = true
+		
+		("NUMERIC "),
+            if ((Fld.DataType==RpsFieldDataType.Decimal)
+            &   ||(Fld.DataType==RpsFieldDataType.Integer))
+                result = true
+		
+		("OCNATIVE"),
+            if (!Fld.OcObject)
+                result = true
+		
+		("OCOBJECT"),
+            if (Fld.OcObject)
+                result = true
+		
+		("OPTIONAL "),
+            if (!Fld.Required)
+                result = true
+		
+		("OVERLAY "),
+			if ((Fld.OverlaysField)||(Fld.IsGroup&&Fld.GroupType==RpsFieldGroup.Overlay))
+				result = true
+		
+		("PAINTCHAR "),
+			if (Fld.PaintCharacterSpecified)
+				result = true
+		
+		("PRECISION "),
+            if (Fld.Precision)
+                result = true
+		
+		("PROMPT "),
+            if (Fld.Prompt)
+                result = true
+		
+		("PROMPT_POSITION "),
+			if (Fld.PromptPositionMode!=RpsPositionMode.None&&Fld.PromptRow&&Fld.PromptColumn)
+				result = true
+		
+		("RADIOBUTTONS "),
+            if (Fld.ViewAs==RpsFieldViewAs.RadioButtons)
+                result = true
+		
+		("RANGE "),
+            if (Fld.NumericRangeExists)
+                result = true
+		
+		("READONLY "),
+            if (Fld.ReadOnly)
+                result = true
+		
+		("READWRITE "),
+            if (!Fld.ReadOnly)
+                result = true
+		
+		("REPORT "),
+			if (!Fld.ExcludedByReportWriter)
+				result = true
+		
+		("REPORT_CENTER "),
+			if (!Fld.ReportJustification==RpsJustification.Center)
+				result = true
+		
+		("REPORT_LEFT "),
+			if (!Fld.ReportJustification==RpsJustification.Left)
+				result = true
+		
+		("REPORT_RIGHT "),
+			if (!Fld.ReportJustification==RpsJustification.Right)
+				result = true
+		
+		("REQUIRED "),
+            if (Fld.Required)
+                result = true
+		
+		("REVERSE "),
+            if (Fld.RenditionReverse)
+                result = true
+		
+		("SELECTIONS"),
+            if (Fld.SelectionList.Count)
+                result = true
+		
+		("SELWND"),
+			if (Fld.SelectionWindowName)
+				result = true
+		
+		("STRUCTFIELD "),
+			if (Fld.DataType==RpsFieldDataType.StructField)
+				result = true
+		
+		("TEXTBOX "),
+			if ((Fld.ViewAs==RpsFieldViewAs.Field)&&(!Fld.SelectionList.Count))
+				result = true
+		
+		("TIME "),
+			if (Fld.TypeName=="TIME")
+				result = true
+		
+		("TIME_HHMM "),
+			if ((Fld.TypeName=="TIME")&&(Fld.DataTypeSubclass==RpsFieldSubclass.TimeHHMM))
+				result = true
+		
+		("TIME_HHMMSS "),
+			if ((Fld.TypeName=="TIME")&&(Fld.DataTypeSubclass==RpsFieldSubclass.TimeHHMMSS))
+				result = true
+		
+		("TIMENOW "),
+            if (Fld.TimeDefaultNow)
+                result = true
+		
+		("TIMEOUT "),
+			if (Fld.InputTimeoutMode!=RpsFieldTimeout.None)
+				result = true
+		
+		("TOOLKIT "),
+			if (!Fld.ExcludedByToolkit)
+				result = true
+		
+		("UNDERLINE "),
+            if (Fld.RenditionUnderline)
+                result = true
+		
+		("UPPERCASE "),
+            if (Fld.Uppercase)
+                result = true
+		
+		("USER "),
+			if (Fld.DataType==RpsFieldDataType.User)
+				result = true
+		
+		("USERTEXT "),
+			if (Fld.UserText)
+				result = true
+
+		("USERTIMESTAMP"),
+			if ((Fld.DataType==RpsFieldDataType.User)
+			& &&(Fld.DataTypeSubclass==RpsFieldSubclass.UserDate)
+			& &&(Fld.UserFieldType.eqs."^CLASS^=YYYYMMDDHHMISSUUUUUU"))
+				result = true
+
+		("VIEW_LENGTH "),
+			if (Fld.ViewLength)
+				result = true
+
+		("WEB "),
+			if (!Fld.ExcludedByWeb)
+				result = true
+		
+		("COUNTER_","NOT_COUNTER_"),
+			result = ProcessCounterExpression(Loop2ConditionMode)
+		
+		;;Presence of a user token
+		("USERTOKEN_"),
+		begin
+			data utName, string, buffer(TokenStart+4,TokenEnd-1) - "USERTOKEN_"
+			data ut, @UserToken
+			
+			if (Env.UserTokens==^null)
+				exit
+			
+.ifdef DBLNET
+			foreach ut in Env.UserTokens
+.else
+			foreach ut in Env.UserTokens.GetEnumerator()
+.endc
+			begin
+				if (ut.Name=="<"+utName+">")
+				begin
+					result = true
+					exitloop
+				end
+			end
+		end
+		
+		;;Absence of a user token
+		("NOT_USERTOKEN_"),
+		begin
+			data utName, string, buffer(TokenStart+4,TokenEnd-1) - "NOT_USERTOKEN_"
+			data ut, @UserToken
+			data found, boolean, false
+			
+			if (Env.UserTokens==^null) then
+			begin
+				result = true
+			end
+			else
+			begin
+.ifdef DBLNET
+				foreach ut in Env.UserTokens
+.else
+				foreach ut in Env.UserTokens.GetEnumerator()
+.endc
+				begin
+					if (ut.Name=="<"+utName+">")
+					begin
+						found=true
+						exitloop
+					end
+				end
+				result = (!found)
+			end
+		end
+		
+		(),
+        begin
+			;;If we haven't evaluated an expression by the time we get here then the only
+			;;remaining possibility is that there may be a custom expression extension
+			data customExpressionProcessed, Boolean, false
+			
+			if (Env.CustomSegmentExpressions.Count>0)
+			begin
+				data customExpression, @CustomSegmentExpression
+				foreach customExpression in Env.CustomSegmentExpressions
+				begin
+					if (customExpression.Expression.eqs.(a)Loop2ConditionMode[Loop2ConditionMode.Count-1])
+					begin
+						result = customExpression.Evaluate(Segment,Fld)
+						customExpressionProcessed = true
+						exitloop
+					end
+				end
+			end
+			
+			if (customExpressionProcessed)
+				exit
+			
+			ErrorLog("Invalid key segment loop expression " + buffer(TokenStart,TokenEnd))
+			ErrStatus = 1
+        end
+		
+		endusing
+
+		Loop2ConditionApplies[Loop2ConditionApplies.Count-1] = (@boolean)result
+
+		if (ErrStatus) then
+			freturn false
+		else
+			freturn ProcessExpression(TokenStart,TokenEnd,Loop2ConditionMode,Loop2ConditionApplies,Loop2OutputOff,Loop1OutputOff,buffer)
+		
+    endfunction
+
+endnamespace

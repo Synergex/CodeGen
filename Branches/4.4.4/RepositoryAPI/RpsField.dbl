@@ -1,0 +1,4585 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsField.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a single Repository field definition
+;;
+;; Date:        19th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.define DDINFO_DEFINES_ONLY
+.include "RPSLIB:ddinfo.def"
+.undefine DDINFO_DEFINES_ONLY
+
+import CodeGen.RepositoryAPI
+import System.Collections
+.ifdef DBLNET
+import System.ComponentModel
+.endc
+
+namespace CodeGen.RepositoryAPI
+
+    ;;; <summary>
+    ;;; Represents a Repository field
+    ;;; </summary>
+    public partial class RpsField
+
+        ;;Field attribute data
+        ;;
+        ;;IMPARTANT: If more properties are added, remember to update the cloneField method
+        ;;
+        protected mStructureName        ,String
+        protected mf_info               ,f_info
+        protected mName                 ,String
+        protected mOriginalName         ,String
+        protected mBaseName             ,String
+        protected mDescription          ,String
+        protected mLongDescription      ,String
+        protected mUserFieldType        ,String
+        protected mReportHeading        ,String
+        protected mPrompt               ,String
+        protected mHelpIdentifier       ,String
+        protected mInfoLineText         ,String
+        protected mUserText             ,String
+        protected mAlternateName        ,String
+        protected mFieldFont            ,String
+        protected mPromptFont           ,String
+        protected mDefaultValue         ,String
+        protected mArriveMethod         ,String
+        protected mLeaveMethod          ,String
+        protected mDrillMethod          ,String
+        protected mHyperlinkMethod      ,String
+        protected mChangeMethod         ,String
+        protected mDisplayMethod        ,String
+        protected mEditFormatMethod     ,String
+        protected mStructFieldStructure ,String
+        protected mArrayDimension       ,[#]int
+        protected mfti_range            ,fti_range
+        protected mfti_enum             ,fti_enum
+        protected mAllowList            ,@ArrayList
+        protected mSelectionList        ,@ArrayList
+        protected mCoercedType          ,RpsFieldCoercedType
+        protected mEnumName             ,String
+        protected mGroupFields          ,@RpsFieldCollection
+        protected mGroupStructure       ,String
+        protected mGroupMemberPrefix    ,String
+
+        ;;; <summary>
+        ;;; Constructs a new field based on the name of a structure and a field.
+        ;;; </summary>
+        ;;; <param name="StructureName">Name of the structure containing the field.</param>
+        ;;; <param name="FieldName">Name of the field.</param>
+        public method RpsField
+            required in StructureName, String
+            required in FieldName, String
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsField(StructureName,FieldName) constructor")
+            Repository.CheckIsOpen()
+            LoadField(StructureName,FieldName)
+        endmethod
+
+        ;;; <summary>
+        ;;; Constructs a new field based on the name field in the current structure.
+        ;;; </summary>
+        ;;; <param name="FieldName">Name of the field.</param>
+        public method RpsField
+            required in FieldName, String
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsField(FieldName) constructor")
+            LoadCurrentStructureField(FieldName)
+        endmethod
+
+        ;;; <summary>
+        ;;; Constructs a new field by cloning an existing field.
+        ;;; </summary>
+        ;;; <param name="SourceField">Repository field to clone.</param>
+        public method RpsField
+            required in SourceField, @RpsField
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsField(SourceField) constructor")
+            cloneField(SourceField)
+        endmethod
+
+        ;; Destructor
+        method ~RpsField
+        proc
+            clear mAllowList, mSelectionList, mGroupFields
+        endmethod
+
+        ;;; <summary>
+        ;;; Sets the current repository structure and loads information
+        ;;; for a named field.
+        ;;; </summary>
+        ;;; <param name="StructureName">Repository structure name</param>
+        ;;; <param name="FieldName">Name of field to load</param>
+        private method LoadField, void
+            required in StructureName, String
+            required in FieldName, String
+            endparams
+            record
+                ms_info ,s_info
+            endrecord
+        proc
+            ;Set the current structure
+            dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
+            if (Repository.RpsControl.error)
+                throw new RpsFieldException("Failed to get information for repository structure "+StructureName)
+            LoadCurrentStructureField(FieldName)
+        endmethod
+
+        ;;; <summary>
+        ;;; Loads data for a named field in the current structure.
+        ;;; </summary>
+        ;;; <param name="FieldName">Name of field to load</param>
+        private method LoadCurrentStructureField, void
+            required in FieldName, String
+            endparams
+        proc
+            ;;Save the structure and field names
+            mStructureName = RpsUtils.UpperCase(Repository.RpsControl.sname)
+            mName = atrim(FieldName.ToUpper())
+            mOriginalName = mName
+            mBaseName = mName
+
+            ;;Load the field information structure
+            dd_field(Repository.RpsControl,DDF_INFO,FieldName,^a(mf_info))
+            if (Repository.RpsControl.error)
+                throw new RpsFieldException("Failed to get repository information for " + mStructureName +  "." + atrim(FieldName))
+
+            ;;Load extended data
+
+            mArrayDimension = new int[4]
+            mArrayDimension[1] = mf_info.fi_dim[1]
+            mArrayDimension[2] = mf_info.fi_dim[2]
+            mArrayDimension[3] = mf_info.fi_dim[3]
+            mArrayDimension[4] = mf_info.fi_dim[4]
+
+            ;;Load description
+            if (mf_info.fi_desc) then
+            begin
+                data tmpDescription, a40
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_desc,tmpDescription)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get description for repository field "+FieldName)
+                else
+                    mDescription = atrim(tmpDescription)
+            end
+            else
+                mDescription = ""
+
+            ;;Load long description
+            if (mf_info.fi_ldesc) then
+            begin
+                data tmpLongDescription, a1800
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_ldesc,tmpLongDescription)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get long description for repository field "+FieldName)
+                else
+                    mLongDescription = atrim(tmpLongDescription)
+            end
+            else
+                mLongDescription = ""
+
+            ;;Load user defined field type
+            if (mf_info.fi_usrtyp) then
+            begin
+                data tmpUserFieldType, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_usrtyp,tmpUserFieldType)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get user defined type for repository field "+FieldName)
+                else
+                    mUserFieldType = atrim(tmpUserFieldType)
+            end
+            else
+                mUserFieldType = ""
+
+            ;;Load report heading
+            if (mf_info.fi_heading) then
+            begin
+                data tmpReportHeading, a40
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_heading,tmpReportHeading)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get report heading for repository field "+FieldName)
+                else
+                    mReportHeading = atrim(tmpReportHeading)
+            end
+            else
+                mReportHeading = ""
+
+            ;;Load prompt
+            if (mf_info.fi_prompt) then
+            begin
+                data tmpPrompt, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prompt,tmpPrompt)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get prompt for repository field "+FieldName)
+                else
+                    mPrompt = atrim(tmpPrompt)
+            end
+            else
+                mPrompt = ""
+
+            ;;Load help identifier
+            if (mf_info.fi_help) then
+            begin
+                data tmpHelpIdentifier, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_help,tmpHelpIdentifier)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get help identifier for repository field "+FieldName)
+                else
+                    mHelpIdentifier = atrim(tmpHelpIdentifier)
+            end
+            else
+                mHelpIdentifier = ""
+
+            ;;Load information line text
+            if (mf_info.fi_infoln) then
+            begin
+                data tmpInfoLineText, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_infoln,tmpInfoLineText)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get information line text for repository field "+FieldName)
+                else
+                    mInfoLineText = tmpInfoLineText
+            end
+            else
+                mInfoLineText = ""
+
+            ;;Load user text string
+            if (mf_info.fi_utext) then
+            begin
+                data tmpUserText, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_utext,tmpUserText)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get user text for repository field "+FieldName)
+                else
+                    mUserText = atrim(tmpUserText)
+            end
+            else
+                mUserText = ""
+
+            ;;Load alternate name
+            if (mf_info.fi_altnm) then
+            begin
+                data tmpalternateName, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_altnm,tmpAlternateName)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get alternate name for repository field "+FieldName)
+                else
+                    mAlternateName = atrim(tmpalternateName)
+            end
+            else
+                mAlternateName = mName
+
+
+            ;;Load field font
+            if (mf_info.fi_font) then
+            begin
+                data tmpFieldFont, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_font,tmpFieldFont)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get field font for repository field "+FieldName)
+                else
+                    mFieldFont = atrim(tmpFieldFont)
+            end
+            else
+                mFieldFont = ""
+
+            ;;Load prompt font
+            if (mf_info.fi_prmptfont) then
+            begin
+                data tmpPromptFont, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prmptfont,tmpPromptFont)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get prompt font for repository field "+FieldName)
+                else
+                    mPromptFont = atrim(tmpPromptFont)
+            end
+            else
+                mPromptFont = ""
+
+            ;;Load default value
+            if (mf_info.fi_def) then
+            begin
+                data tmpDefaultValue, a80
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_def,tmpDefaultValue)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get default value for repository field "+FieldName)
+                else
+                    mDefaultValue = atrim(tmpDefaultValue)
+            end
+            else
+                mDefaultValue = ""
+
+            ;;Load arrive method
+            if (mf_info.fi_arrivemeth) then
+            begin
+                data tmpArriveMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_arrivemeth,tmpArriveMethod)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get arrive method for repository field "+FieldName)
+                else
+                    mArriveMethod = atrim(tmpArriveMethod)
+            end
+            else
+                mArriveMethod = ""
+
+            ;;Load leave method
+            if (mf_info.fi_leavemeth) then
+            begin
+                data tmpLeaveMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_leavemeth,tmpLeaveMethod)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get leave method for repository field "+FieldName)
+                else
+                    mLeaveMethod = atrim(tmpLeaveMethod)
+            end
+            else
+                mLeaveMethod = ""
+
+            ;;Load drill method
+            if (mf_info.fi_drillmeth) then
+            begin
+                data tmpDrillMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_drillmeth,tmpDrillMethod)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get drill method for repository field "+FieldName)
+                else
+                    mDrillMethod = atrim(tmpDrillMethod)
+            end
+            else
+                mDrillMethod = ""
+
+            ;;Load hyperlink method
+            if (mf_info.fi_hypermeth) then
+            begin
+                data tmpHyperlinkMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_hypermeth,tmpHyperlinkMethod)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get hyperlink method for repository field "+FieldName)
+                else
+                    mHyperlinkMethod = atrim(tmpHyperlinkMethod)
+            end
+            else
+                mHyperlinkMethod = ""
+
+            ;;Load change method
+            if (mf_info.fi_changemeth) then
+            begin
+                data tmpChangeMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_changemeth,tmpChangeMethod)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get change method for repository field "+FieldName)
+                else
+                    mChangeMethod = atrim(tmpChangeMethod)
+            end
+            else
+                mChangeMethod = ""
+
+            ;;Load display format method
+            if (mf_info.fi_dispmeth) then
+            begin
+                data tmpDisplayMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_dispmeth,tmpDisplayMethod)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get display method for repository field "+FieldName)
+                else
+                    mDisplayMethod = atrim(tmpDisplayMethod)
+            end
+            else
+                mDisplayMethod = ""
+
+            ;;Load edit format method
+            if (mf_info.fi_editfmtmeth) then
+            begin
+                data tmpEditFormatMethod, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_editfmtmeth,tmpEditFormatMethod)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get edit format method for repository field "+FieldName)
+                else
+                    mEditFormatMethod = atrim(tmpEditFormatMethod)
+            end
+            else
+                mEditFormatMethod = ""
+
+            ;;Load allowed value list (@ArrayList)
+            mAllowList = new ArrayList()
+            if (mf_info.fi_alwlst&&mf_info.fi_alwct)
+            begin
+                data ListData, fti_entlst
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_alwlst,^a(ListData))
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get allow list entries for repository field "+FieldName)
+                else
+                begin
+                    data idx, int
+                    for idx from 1 thru mf_info.fi_alwct
+                        mAllowList.Add((@a)ListData.fti_entlstary[idx])
+                end
+            end
+
+            ;;Load valid selections (@ArrayList)
+            mSelectionList = new ArrayList()
+            if (mf_info.fi_sellist&&mf_info.fi_selct)
+            begin
+                data ListData, fti_entlst
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_sellist,^a(ListData))
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get allow list entries for repository field "+FieldName)
+                else
+                begin
+                    data idx, int
+                    for idx from 1 thru mf_info.fi_selct
+                        mSelectionList.Add((@a)ListData.fti_entlstary[idx])
+                end
+            end
+
+            ;;Load numeric range values (fti_range)
+            if (mf_info.fi_range)
+            begin
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_range,^a(mfti_range))
+                if (Repository.RpsControl.error)
+                    throw new RpsFieldException("Failed to get ranges for repository field "+FieldName)
+            end
+
+            ;;Load Toolkit enumeration data (fti_enum)
+            if (mf_info.fi_enum)
+            begin
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enum,^a(mfti_enum))
+                if (Repository.RpsControl.error)
+                    throw new RpsFieldException("Failed to get emumeration data for repository field "+FieldName)
+            end
+
+            ;;Load enumerated field name
+            if ((mf_info.fi_type==T_INT)&&(mf_info.fi_class==C_ENUM)&&(mf_info.fi_enmfld)) then
+            begin
+                data tmpEnumName, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enmfld,tmpEnumName)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get emumeration name for repository field "+FieldName)
+                else
+                    mEnumName = atrim(tmpEnumName)
+            end
+            else
+                mEnumName = ""
+
+            ;; Things below here are unique to fields (not included in templates)
+
+            ;;Load a struct fields structure name
+            if ((mf_info.fi_type=="A")&&(mf_info.fi_class==C_STRFLD)) then
+            begin
+                data tmpStructFieldStructure, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_strfld,tmpStructFieldStructure)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get structure for repository struct field "+FieldName)
+                else
+                    mStructFieldStructure = atrim(tmpStructFieldStructure)
+            end
+            else
+                mStructFieldStructure = ""
+
+            ;;Load group structure name
+            mGroupStructure = ""
+            if (mf_info.fi_struct) then
+            begin
+                data tmpGroupStructure, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,tmpGroupStructure)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get group structure for repository field "+FieldName)
+                else
+                    mGroupStructure = atrim(tmpGroupStructure)
+            end
+            else
+                mGroupStructure = ""
+
+            ;;Load group member prefix
+            if (mf_info.fi_prefix)  then
+            begin
+                data tmpGroupMemberPrefix, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prefix,tmpGroupMemberPrefix)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFieldException("Failed to get group prefix for repository field "+FieldName)
+                else
+                    mGroupMemberPrefix = atrim(tmpGroupMemberPrefix)
+            end
+            else
+                mGroupMemberPrefix = ""
+
+            ;;Is this field a group?
+            if (mf_info.fi_group) then
+            begin
+                ;;Yes, it it an implicit or explicit group?
+                if (mf_info.fi_struct) then
+                begin
+                    ;;It's an implicit group, get the implicit group structure name
+                    data implicitGroupStructure, a30
+                    dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,implicitGroupStructure)
+                    mGroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Structure,implicitGroupStructure)
+                end
+                else
+                begin
+                    ;;It's an explicit group
+                    mGroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Group,FieldName)
+                end
+            end
+            else
+                mGroupFields = new RpsFieldCollection()
+
+            ;;Load the fields coerced type
+            using mf_info.fi_type select
+            (T_DEC),
+            begin
+                using mf_info.fi_class select
+                (C_YYMMDD,C_YYYYMMDD,C_YYJJJ,C_YYYYJJJ,C_YYPP,C_YYYYPP,C_HHMMSS,C_HHMM),
+                begin
+                    using mf_info.fi_coertype select
+                    (CT_DATETIME),
+                        mCoercedType = RpsFieldCoercedType.CtNone
+                    (CT_NULLDATETIME),
+                        mCoercedType = RpsFieldCoercedType.CtNullDateTime
+                    endusing
+                end
+                (),
+                begin
+                    if (mf_info.fi_prec) then
+                    begin
+                        using mf_info.fi_coertype select
+                        (CT_DECIMAL),
+                            mCoercedType = RpsFieldCoercedType.CtNone
+                        (CT_DOUBLE),
+                            mCoercedType = RpsFieldCoercedType.CtDouble
+                        (CT_FLOAT),
+                            mCoercedType = RpsFieldCoercedType.CtFloat
+                        endusing
+                    end
+                    else
+                    begin
+                        using mf_info.fi_coertype select
+                        (CT_DEFAULT),
+                            mCoercedType = RpsFieldCoercedType.CtNone
+                        (CT_BYTE),
+                            mCoercedType = RpsFieldCoercedType.CtByte
+                        (CT_SHORT),
+                            mCoercedType = RpsFieldCoercedType.CtShort
+                        (CT_INT),
+                            mCoercedType = RpsFieldCoercedType.CtInt
+                        (CT_LONG),
+                            mCoercedType = RpsFieldCoercedType.CtLong
+                        (CT_SBYTE),
+                            mCoercedType = RpsFieldCoercedType.CtSbyte
+                        (CT_USHORT),
+                            mCoercedType = RpsFieldCoercedType.CtUshort
+                        (CT_UINT),
+                            mCoercedType = RpsFieldCoercedType.CtUint
+                        (CT_ULONG),
+                            mCoercedType = RpsFieldCoercedType.CtUlong
+                        (CT_BOOLEAN),
+                            mCoercedType = RpsFieldCoercedType.CtBoolean
+                        endusing
+                    end
+                end
+                endusing
+            end
+            (T_INT),
+            begin
+                using mf_info.fi_coertype select
+                (CT_DEFAULT),
+                    mCoercedType = RpsFieldCoercedType.CtNone
+                (CT_BYTE),
+                    mCoercedType = RpsFieldCoercedType.CtByte
+                (CT_SHORT),
+                    mCoercedType = RpsFieldCoercedType.CtShort
+                (CT_INT),
+                    mCoercedType = RpsFieldCoercedType.CtInt
+                (CT_LONG),
+                    mCoercedType = RpsFieldCoercedType.CtLong
+                (CT_SBYTE),
+                    mCoercedType = RpsFieldCoercedType.CtSbyte
+                (CT_USHORT),
+                    mCoercedType = RpsFieldCoercedType.CtUshort
+                (CT_UINT),
+                    mCoercedType = RpsFieldCoercedType.CtUint
+                (CT_ULONG),
+                    mCoercedType = RpsFieldCoercedType.CtUlong
+                (CT_BOOLEAN),
+                    mCoercedType = RpsFieldCoercedType.CtBoolean
+                endusing
+            end
+            (),
+                mCoercedType = RpsFieldCoercedType.CtNone
+            endusing
+
+            ;;Load additional CodeGen specific data
+            loadCodeGenData()
+
+        endmethod
+
+        private method cloneField, void
+            required in SourceField, @RpsField
+            endparams
+        proc
+            mStructureName          = SourceField.StructureName
+            mf_info                 = SourceField.FieldData
+            mName                   = SourceField.Name
+            mOriginalName           = SourceField.OriginalName
+            mBaseName               = SourceField.BaseName
+            mDescription            = SourceField.Description
+            mLongDescription        = SourceField.LongDescription
+            mUserFieldType          = SourceField.UserFieldType
+            mReportHeading          = SourceField.ReportHeading
+            mPrompt                 = SourceField.Prompt
+            mHelpIdentifier         = SourceField.HelpIdentifier
+            mInfoLineText           = SourceField.InfoLineText
+            mUserText               = SourceField.UserText
+            mAlternateName          = SourceField.AlternateName
+            mFieldFont              = SourceField.FieldFont
+            mPromptFont             = SourceField.PromptFont
+            mDefaultValue           = SourceField.DefaultValue
+            mArriveMethod           = SourceField.ArriveMethod
+            mLeaveMethod            = SourceField.LeaveMethod
+            mDrillMethod            = SourceField.DrillMethod
+            mHyperlinkMethod        = SourceField.HyperlinkMethod
+            mChangeMethod           = SourceField.ChangeMethod
+            mDisplayMethod          = SourceField.DisplayMethod
+            mEditFormatMethod       = SourceField.EditFormatMethod
+            mfti_range.fti_rgmin    = SourceField.NumericRangeMinimum
+            mfti_range.fti_rgmax    = SourceField.NumericRangeMaximum
+            mfti_enum.fti_enmlen    = SourceField.EnumeratedDisplayLength
+            mfti_enum.fti_enmbase   = SourceField.EnumeratedBaseValue
+            mfti_enum.fti_enmstep   = SourceField.EnumeratedStepValue
+            mCoercedType            = SourceField.CoercedType
+            mEnumName               = SourceField.EnumName
+            mGroupStructure         = SourceField.GroupStructure
+            mGroupMemberPrefix      = SourceField.GroupMemberPrefix
+
+            ;;Clone the array dimensions
+            mArrayDimension = new int[4]
+            mArrayDimension[1] = SourceField.ArrayDimension[1]
+            mArrayDimension[2] = SourceField.ArrayDimension[2]
+            mArrayDimension[3] = SourceField.ArrayDimension[3]
+            mArrayDimension[4] = SourceField.ArrayDimension[4]
+
+            ;;Clone the AllowList collection
+            begin
+                data item, @a
+                mAllowList = new ArrayList()
+                foreach item in SourceField.AllowList
+                    mAllowList.Add(item)
+            end
+
+            ;;Clone the SelectionList collection
+            begin
+                data item, @a
+                mSelectionList = new ArrayList()
+                foreach item in SourceField.SelectionList
+                    mSelectionList.Add(item)
+            end
+
+            ;;Clone the GroupFields collection
+            begin
+                data fld, @RpsField
+                mGroupFields = new RpsFieldCollection()
+                foreach fld in SourceField.GroupFields.GetEnumerator()
+                    mGroupFields.Add(new RpsField(fld))
+            end
+
+            ;;Clone the CodeGen specific properties
+            cloneCodeGenData(SourceField)
+
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;Public properties to expose field attributes
+
+        ;; Structure name
+        .ifdef DBLNET
+        {Browsable(false)}
+        {ReadOnly(true)}
+        .endc
+        public property StructureName, String
+            method get
+            proc
+                mreturn mStructureName
+            endmethod
+            method set
+            proc
+                mStructureName = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;; Field name
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The unique name of the repository field.")}
+        {ReadOnly(true)}
+        .endc
+        public property Name, String
+            method get
+            proc
+                mreturn mName
+            endmethod
+            method set
+            proc
+                mName = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;; Description
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The description of the field.")}
+        {ReadOnly(true)}
+        .endc
+        public property Description, String
+            method get
+            proc
+                mreturn mDescription
+            endmethod
+            method set
+            proc
+                mDescription = atrim(value)
+            endmethod
+        endproperty
+        
+        ;; Data type (enum RpsFieldDataType)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The data type of the field.")}
+        {ReadOnly(true)}
+        .endc
+        public property DataType, RpsFieldDataType
+            method get
+                record
+                    retval, RpsFieldDataType
+                endrecord
+            proc
+                using mf_info.fi_type select
+                ("A"),
+                    using mf_info.fi_class select
+                    (C_BINARY),
+                        retval = RpsFieldDataType.Binary
+                    (C_STRFLD),
+                        retval = RpsFieldDataType.StructField
+                    (),
+                        retval = RpsFieldDataType.Alpha
+                    endusing
+                ("D"),
+                    retval = RpsFieldDataType.Decimal
+                ("I"),
+                begin
+                    using mf_info.fi_class select
+                    (C_BOOLEAN),
+                        retval = RpsFieldDataType.Boolean
+                    (C_ENUM),
+                        retval = RpsFieldDataType.Enum
+                    (),
+                        retval = RpsFieldDataType.Integer
+                    endusing
+                end
+                ("U"),
+                    retval = RpsFieldDataType.User
+                endusing
+                mreturn retval
+            endmethod
+            method set
+            proc
+                using value select
+                (RpsFieldDataType.Alpha),
+                    mf_info.fi_type = "A"
+                (RpsFieldDataType.Decimal),
+                    mf_info.fi_type = "D"
+                (RpsFieldDataType.Integer),
+                    mf_info.fi_type = "I"
+                (RpsFieldDataType.User),
+                    mf_info.fi_type = "U"
+                (RpsFieldDataType.Boolean),
+                begin
+                    mf_info.fi_type = "I"
+                    mf_info.fi_class = C_BOOLEAN
+                    mf_info.fi_size = 1
+                end
+                (RpsFieldDataType.Enum),
+                begin
+                    mf_info.fi_type = "I"
+                    mf_info.fi_class = C_ENUM
+                    mf_info.fi_size = 4
+                end
+                (RpsFieldDataType.Binary),
+                begin
+                    mf_info.fi_type = "A"
+                    mf_info.fi_class = C_BINARY
+                end
+                (RpsFieldDataType.StructField),
+                begin
+                    mf_info.fi_type = "A"
+                    mf_info.fi_class = C_STRFLD
+                end
+                endusing
+            endmethod
+        endproperty
+        
+        ;; Data type code (a1)
+        ;;   "A", "D", "I" or "U"
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The data type code of the field, e.g. A, D, I or U.")}
+        {ReadOnly(true)}
+        .endc
+        public property DataTypeCode, a1
+            method get
+            proc
+                mreturn mf_info.fi_type
+            endmethod
+            method set
+            proc
+                using value select
+                ("A","D","I","U"),
+                    mf_info.fi_type = value
+                endusing
+            endmethod
+        endproperty
+
+        ;; Field size (d5)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The size of the field in bytes.")}
+        {ReadOnly(true)}
+        .endc
+        public property Size, int
+            method get
+            proc
+                ;TODO: BUG workaround, tracker 33563
+                ;Implicit D to I conversion failing in CodeGen.RepositoryAPI.DataMapping.SetFieldAttributes()
+                ;on traditional 32-bit Synergy
+                .ifndef DBLNET
+                mreturn %integer(mf_info.fi_size)
+                .else
+                mreturn mf_info.fi_size
+                .endc
+            endmethod
+            method set
+            proc
+                mf_info.fi_size = value
+            endmethod
+        endproperty
+        
+        ;; Digits to right of decimal point (d2)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The precision of an impled decimal field.")}
+        {ReadOnly(true)}
+        .endc
+        public property Precision, int
+            method get
+            proc
+                ;TODO: BUG workaround, tracker 33563
+                ;Implicit D to I conversion failing in CodeGen.RepositoryAPI.DataMapping.SetFieldAttributes()
+                ;on traditional 32-bit Synergy
+                .ifndef DBLNET
+                mreturn %integer(mf_info.fi_prec)
+                .else
+                mreturn mf_info.fi_prec
+                .endc
+            endmethod
+            method set
+            proc
+                mf_info.fi_prec = value
+            endmethod
+        endproperty
+        
+        ;; Array dimensions ([4]d3)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The array dimensions of an array field.")}
+        {ReadOnly(true)}
+        .endc
+        public property ArrayDimension, [#]int
+            method get
+            proc
+                mreturn mArrayDimension
+            endmethod
+            method set
+            proc
+                mArrayDimension = value
+            endmethod
+        endproperty
+
+        ;; Template referenced by this field (a30)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The repository template that this field inherits attributes from.")}
+        {ReadOnly(true)}
+        .endc
+        public property Template, a
+            method get
+            proc
+                mreturn %atrim(mf_info.fi_template)
+            endmethod
+            method set
+            proc
+                mf_info.fi_template = value
+            endmethod
+        endproperty
+        
+        
+        ;; Sequence number (d3)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The one-based sequence number of this field in the record.")}
+        {ReadOnly(true)}
+        .endc
+        public property SequenceNumber, int
+            method get
+            proc
+                mreturn mf_info.fi_seqnm
+            endmethod
+            method set
+            proc
+                mf_info.fi_seqnm = value
+            endmethod
+        endproperty
+
+        ;; Starting position within the record or group (d5)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The one-based starting position of this field within the record.")}
+        {ReadOnly(true)}
+        .endc
+        public property StartPosition, int
+            method get
+            proc
+                mreturn mf_info.fi_pos
+            endmethod
+            method set
+            proc
+                mf_info.fi_pos = value
+            endmethod
+        endproperty
+
+        ;; Name of the field being overlaid (a30)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The name of the field which this field overlays.")}
+        {ReadOnly(true)}
+        .endc
+        public property OverlaysField, a
+            method get
+            proc
+                mreturn %atrim(mf_info.fi_ovrfld)
+            endmethod
+            method set
+            proc
+                mf_info.fi_ovrfld = value
+            endmethod
+        endproperty
+
+        ;; Overlay offset within the above field (d5)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The offset from the beginning of the field being overlayed.")}
+        {ReadOnly(true)}
+        .endc
+        public property OverlayOffset, int
+            method get
+            proc
+                mreturn mf_info.fi_ovroff
+            endmethod
+            method set
+            proc
+                mf_info.fi_ovroff = value
+            endmethod
+        endproperty
+
+        ;; DBL type subclass
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The data subclass of the field.")}
+        {ReadOnly(true)}
+        .endc
+        public property DataTypeSubclass, RpsFieldSubclass
+            method get
+                record
+                    retval, RpsFieldSubclass
+                endrecord
+            proc
+                retval = RpsFieldSubclass.None
+                using mf_info.fi_type select
+                (T_ALP),
+                    using mf_info.fi_class select
+                    (C_BINARY),
+                        retval = RpsFieldSubclass.None
+                    endusing
+                (T_DEC),
+                begin
+                    using mf_info.fi_class select
+                    (C_YYMMDD),
+                        retval = RpsFieldSubclass.DateYYMMDD
+                    (C_YYYYMMDD),
+                        retval = RpsFieldSubclass.DateYYYYMMDD
+                    (C_YYJJJ),
+                        retval = RpsFieldSubclass.DateYYJJJ
+                    (C_YYYYJJJ),
+                        retval = RpsFieldSubclass.DateYYYYJJJ
+                    (C_YYPP),
+                        retval = RpsFieldSubclass.DateYYPP
+                    (C_YYYYPP),
+                        retval = RpsFieldSubclass.DateYYYYPP
+                    (C_HHMMSS),
+                        retval = RpsFieldSubclass.TimeHHMMSS
+                    (C_HHMM),
+                        retval = RpsFieldSubclass.TimeHHMM
+                    endusing
+                end
+                (T_USR),
+                begin
+                    using mf_info.fi_class select
+                    (C_ALPHA),
+                        retval = RpsFieldSubclass.UserAlpha
+                    (C_NUMERIC),
+                        retval = RpsFieldSubclass.UserNumeric
+                    (C_DATE),
+                        retval = RpsFieldSubclass.UserDate
+                    endusing
+                end
+                endusing
+                mreturn retval
+            endmethod
+            method set
+            proc
+                using value select
+                (RpsFieldSubclass.DateYYMMDD),
+                begin
+                    mf_info.fi_type = T_DEC
+                    mf_info.fi_class = C_YYMMDD
+                end
+                (RpsFieldSubclass.DateYYYYMMDD),
+                begin
+                    mf_info.fi_type = T_DEC
+                    mf_info.fi_class = C_YYYYMMDD
+                end
+                (RpsFieldSubclass.DateYYJJJ),
+                begin
+                    mf_info.fi_type = T_DEC
+                    mf_info.fi_class = C_YYJJJ
+                end
+                (RpsFieldSubclass.DateYYYYJJJ),
+                begin
+                    mf_info.fi_type = T_DEC
+                    mf_info.fi_class = C_YYYYJJJ
+                end
+                (RpsFieldSubclass.DateYYPP),
+                begin
+                    mf_info.fi_type = T_DEC
+                    mf_info.fi_class = C_YYPP
+                end
+                (RpsFieldSubclass.DateYYYYPP),
+                begin
+                    mf_info.fi_type = T_DEC
+                    mf_info.fi_class = C_YYYYPP
+                end
+                (RpsFieldSubclass.TimeHHMMSS),
+                begin
+                    mf_info.fi_type = T_DEC
+                    mf_info.fi_class = C_HHMMSS
+                end
+                (RpsFieldSubclass.TimeHHMM),
+                begin
+                    mf_info.fi_type = T_DEC
+                    mf_info.fi_class = C_HHMM
+                end
+                (RpsFieldSubclass.Binary),
+                begin
+                    mf_info.fi_type = T_ALP
+                    mf_info.fi_class = C_BINARY
+                end
+                (RpsFieldSubclass.UserAlpha),
+                begin
+                    mf_info.fi_type = T_USR
+                    mf_info.fi_class = C_ALPHA
+                end
+                (RpsFieldSubclass.UserNumeric),
+                begin
+                    mf_info.fi_type = T_USR
+                    mf_info.fi_class = C_NUMERIC
+                end
+                (RpsFieldSubclass.UserDate),
+                begin
+                    mf_info.fi_type = T_USR
+                    mf_info.fi_class = C_DATE
+                end
+                endusing
+            endmethod
+        endproperty
+
+        ;; User defined field type
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The user defined type of a user defined field.")}
+        {ReadOnly(true)}
+        .endc
+        public property UserFieldType, String
+            method get
+            proc
+                mreturn mUserFieldType
+            endmethod
+            method set
+            proc
+                mUserFieldType = atrim(value)
+            endmethod
+        endproperty
+
+        ;; Native data size (d5)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The native size of the field.")}
+        {ReadOnly(true)}
+        .endc
+        public property NativeSize, int
+            method get
+            proc
+                mreturn mf_info.fi_ndsize
+            endmethod
+            method set
+            proc
+                mf_info.fi_ndsize = value
+            endmethod
+        endproperty
+
+        ;Enum name (real language enum name)
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The name of the repository enumeration referenced by an enum field. This refers to a Synergy language enumeration, not a UI Toolkit enumeration.")}
+        {ReadOnly(true)}
+        .endc
+        public property EnumName, String
+            method get
+            proc
+                mreturn mEnumName
+            endmethod
+            method set
+            proc
+                mEnumName = atrim(value.ToUpper())
+            endmethod
+        endproperty
+        
+        ;; Coerced type
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The coreced data type of the field.")}
+        {ReadOnly(true)}
+        .endc
+        public property CoercedType, RpsFieldCoercedType
+            method get
+            proc
+                mreturn mCoercedType
+            endmethod
+            method set
+            proc
+                mCoercedType = value
+            endmethod
+        endproperty
+        
+        ;; Struct field structure name
+        .ifdef DBLNET
+        {Category("Basic Details")}
+        {Description("The name of the structure that defines the type of this struct field.")}
+        {ReadOnly(true)}
+        .endc
+        public property StructFieldStructure, String
+            method get
+            proc
+                mreturn mStructFieldStructure
+            endmethod
+            method set
+            proc
+                mStructFieldStructure = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; Indicates whether or not the field is a group. See the
+        ;;; GroupType property to determine the type of group.
+        ;;; </summary>
+        ;;; <returns>True indicates that the field is a group</returns>
+        .ifdef DBLNET
+        {Category("Basic Details - Group")}
+        {Description("Indicates whether the current field is a group field.")}
+        {ReadOnly(true)}
+        .endc
+        public property IsGroup, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_group!=0)
+            endmethod
+        endproperty
+        
+        ;; Group flag
+        .ifdef DBLNET
+        {Category("Basic Details - Group")}
+        {Description("Indicates the type of group referred to by the field (implicit or explicit).")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupType, RpsFieldGroup
+            method get
+            proc
+                mreturn (RpsFieldGroup)integer(mf_info.fi_group)
+            endmethod
+            method set
+            proc
+                mf_info.fi_group = (int)value
+            endmethod
+        endproperty
+        
+        ;GroupFields collection (@RpsGroupFieldsCollection)
+        ;If this field is not a group then this collection will be empty
+        .ifdef DBLNET
+        {Category("Basic Details - Group")}
+        {Description("The collection of fields within this group field.")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupFields, @RpsFieldCollection
+            method get
+            proc
+                mreturn mGroupFields
+            endmethod
+            method set
+            proc
+                mGroupFields = value
+            endmethod
+        endproperty
+        
+        ;Group structure name
+        ;Only used for implicit groups, i.e. groups based on a different repository structure.
+        .ifdef DBLNET
+        {Category("Basic Details - Group")}
+        {Description("The structure that defines the fields for an implicit group field.")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupStructure, string
+            method get
+            proc
+                mreturn mGroupStructure
+            endmethod
+            method set
+            proc
+                mGroupStructure = value
+            endmethod
+        endproperty
+        
+        ;Group member prefix
+        .ifdef DBLNET
+        {Category("Basic Details - Group")}
+        {Description("The prefix to be applied to members of the group field.")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupMemberPrefix, String
+            method get
+            proc
+                mreturn mGroupMemberPrefix
+            endmethod
+            method set
+            proc
+                mGroupMemberPrefix = atrim(value)
+            endmethod
+        endproperty
+        
+        ;; TRUE if group size = size of all members (boolean)
+        .ifdef DBLNET
+        {Category("Basic Details - Group")}
+        {Description("Is the size of the group field equal to the sum of the sizes of all members of the group?")}
+        {ReadOnly(true)}
+        .endc
+        public property GroupSizeEqualsMembers, boolean
+            method get
+            proc
+                mreturn mf_info.fi_nosize
+            endmethod
+            method set
+            proc
+                mf_info.fi_nosize = value
+            endmethod
+        endproperty
+        
+        ;; Group member prefix used by compiler (boolean)
+        .ifdef DBLNET
+        {Category("Basic Details - Group")}
+        {Description("Does the compiler use the group member prefix?")}
+        {ReadOnly(true)}
+        .endc
+        public property CompilerUsesGroupMemberPrefix, boolean
+            method get
+            proc
+                mreturn mf_info.fi_cmppref
+            endmethod
+            method set
+            proc
+                mf_info.fi_cmppref = value
+            endmethod
+        endproperty
+        
+        ;; Excluded by language (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Is the current field excluded by the compiler?")}
+        {ReadOnly(true)}
+        .endc
+        public property ExcludedByLanguage, boolean
+            method get
+            proc
+                mreturn mf_info.fi_dblvw
+            endmethod
+            method set
+            proc
+                mf_info.fi_dblvw = value
+            endmethod
+        endproperty
+
+        ;; Excluded by ReportWriter (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Is the current field invisible to the ReportWriter product?")}
+        {ReadOnly(true)}
+        .endc
+        public property ExcludedByReportWriter, boolean
+            method get
+            proc
+                mreturn mf_info.fi_rptvw
+            endmethod
+            method set
+            proc
+                mf_info.fi_rptvw = value
+            endmethod
+        endproperty
+
+        ;; Excluded by Toolkit (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Is the current field invisible to the UI Toolkit product?")}
+        {ReadOnly(true)}
+        .endc
+        public property ExcludedByToolkit, boolean
+            method get
+            proc
+                mreturn mf_info.fi_scrptvw
+            endmethod
+            method set
+            proc
+                mf_info.fi_scrptvw = value
+            endmethod
+        endproperty
+
+        ;; Excluded by Web? (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Is the current field invisible to the Web products?")}
+        {ReadOnly(true)}
+        .endc
+        public property ExcludedByWeb, boolean
+            method get
+            proc
+                mreturn mf_info.fi_webvw
+            endmethod
+            method set
+            proc
+                mf_info.fi_webvw = value
+            endmethod
+        endproperty
+
+        ;; Field name is the name link (boolean)
+        .ifdef DBLNET
+        {Category("Special Field Processing")}
+        {Description("Shoult the current field be excluded from 'link by name' processing?")}
+        {ReadOnly(true)}
+        .endc
+        public property NoNameLink, boolean
+            method get
+            proc
+                mreturn mf_info.fi_nolnk
+            endmethod
+            method set
+            proc
+                mf_info.fi_nolnk = value
+            endmethod
+        endproperty
+
+        ;; Field original name
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("The original name of the field, before any renaming by CodeGen.")}
+        {ReadOnly(true)}
+        .endc
+        public property OriginalName, String
+            method get
+            proc
+                mreturn mOriginalName
+            endmethod
+            method set
+            proc
+                mOriginalName = atrim(value.ToUpper())
+            endmethod
+        endproperty
+        
+        ;; Field base name
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property BaseName, String
+            method get
+            proc
+                mreturn mBaseName
+            endmethod
+            method set
+            proc
+                mBaseName = atrim(value.ToUpper())
+            endmethod
+        endproperty
+        
+        ;; Display format name (a30)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property FormatName, a
+            method get
+            proc
+                mreturn %atrim(mf_info.fi_fmt)
+            endmethod
+            method set
+            proc
+                mf_info.fi_fmt = value
+            endmethod
+        endproperty
+
+        ;; Input field justification
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property InputJustification, RpsJustification
+            method get
+            proc
+                mreturn (RpsJustification)integer(mf_info.fi_inpjust)
+            endmethod
+            method set
+            proc
+                mf_info.fi_inpjust = (int)value
+            endmethod
+        endproperty
+
+        ;; Input field position mode
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property FieldPositionMode, RpsPositionMode
+            method get
+            proc
+                mreturn (RpsPositionMode)integer(mf_info.fi_fpostyp)
+            endmethod
+            method set
+            proc
+                mf_info.fi_fpostyp = (int)value
+            endmethod
+        endproperty
+
+        ;; Input field row (d3)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property FieldRow, int
+            method get
+            proc
+                mreturn mf_info.fi_finprow
+            endmethod
+            method set
+            proc
+                mf_info.fi_finprow = value
+            endmethod
+        endproperty
+
+        ;; Input field column (d3)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property FieldColumn, int
+            method get
+            proc
+                mreturn mf_info.fi_finpcol
+            endmethod
+            method set
+            proc
+                mf_info.fi_finpcol = value
+            endmethod
+        endproperty
+
+        ;; Blank if zero? (boolean)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property BlankIfZero, boolean
+            method get
+            proc
+                mreturn mf_info.fi_bzro
+            endmethod
+            method set
+            proc
+                mf_info.fi_bzro = value
+            endmethod
+        endproperty
+
+        ;; Custom paint character specified (boolean)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PaintCharacterSpecified, boolean
+            method get
+            proc
+                mreturn mf_info.fi_paint
+            endmethod
+            method set
+            proc
+                mf_info.fi_paint = value
+            endmethod
+        endproperty
+
+        ;; Custom paint character (a1)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PaintCharacter, a
+            method get
+            proc
+                mreturn mf_info.fi_pntchr
+            endmethod
+            method set
+            proc
+                mf_info.fi_pntchr = value
+            endmethod
+        endproperty
+
+        ;; View field as
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ViewAs, RpsFieldViewAs
+            method get
+            proc
+                mreturn (RpsFieldViewAs)integer(mf_info.fi_view)
+            endmethod
+            method set
+            proc
+                mf_info.fi_view = (int)value
+            endmethod
+        endproperty
+
+        ;; Read-only (boolean)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ReadOnly, boolean
+            method get
+            proc
+                mreturn mf_info.fi_readonly
+            endmethod
+            method set
+            proc
+                mf_info.fi_readonly = value
+            endmethod
+        endproperty
+
+        ;; Disabled (boolean)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property Disabled, boolean
+            method get
+            proc
+                mreturn mf_info.fi_disabled
+            endmethod
+            method set
+            proc
+                mf_info.fi_disabled = value
+            endmethod
+        endproperty
+
+        ;; Display length (d5)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property DisplayLength, int
+            method get
+            proc
+                mreturn mf_info.fi_displen
+            endmethod
+            method set
+            proc
+                mf_info.fi_displen = value
+            endmethod
+        endproperty
+
+        ;; View length (d5)
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ViewLength, int
+            method get
+            proc
+                mreturn mf_info.fi_viewlen
+            endmethod
+            method set
+            proc
+                mf_info.fi_viewlen = value
+            endmethod
+        endproperty
+
+        ;; Help identifier
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property HelpIdentifier, String
+            method get
+            proc
+                mreturn mHelpIdentifier
+            endmethod
+            method set
+            proc
+                mHelpIdentifier = atrim(value)
+            endmethod
+        endproperty
+        
+        ;; Information line text
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property InfoLineText, String
+            method get
+            proc
+                mreturn mInfoLineText
+            endmethod
+            method set
+            proc
+                mInfoLineText = atrim(value)
+            endmethod
+        endproperty
+        
+        ;User text string
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property UserText, String
+            method get
+            proc
+                mreturn mUserText
+            endmethod
+            method set
+            proc
+                mUserText = atrim(value)
+            endmethod
+        endproperty
+        
+        ;; Long description
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property LongDescription, String
+            method get
+            proc
+                mreturn mLongDescription
+            endmethod
+            method set
+            proc
+                mLongDescription = atrim(value)
+            endmethod
+        endproperty
+        
+        ;; Alternate name
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property AlternateName, String
+            method get
+            proc
+                mreturn mAlternateName
+            endmethod
+            method set
+            proc
+                mAlternateName = atrim(value.ToUpper())
+            endmethod
+        endproperty
+        
+        ;; Field font palette name
+        .ifdef DBLNET
+        {Category("Display - Field")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property FieldFont, String
+            method get
+            proc
+                mreturn mFieldFont
+            endmethod
+            method set
+            proc
+                mFieldFont = atrim(value)
+            endmethod
+        endproperty
+        
+        ;; Field prompt
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property Prompt, String
+            method get
+            proc
+                mreturn mPrompt
+            endmethod
+            method set
+            proc
+                mPrompt = atrim(value)
+            endmethod
+        endproperty
+        
+        ;; Prompt position mode
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PromptPositionMode, RpsPositionMode
+            method get
+            proc
+                mreturn (RpsPositionMode)integer(mf_info.fi_postyp)
+            endmethod
+            method set
+            proc
+                mf_info.fi_postyp = (int)value
+            endmethod
+        endproperty
+        
+        ;; Prompt row (d3)
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PromptRow, int
+            method get
+            proc
+                mreturn mf_info.fi_inprow
+            endmethod
+            method set
+            proc
+                mf_info.fi_inprow = value
+            endmethod
+        endproperty
+        
+        ;; Prompt column (d3)
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PromptColumn, int
+            method get
+            proc
+                mreturn mf_info.fi_inpcol
+            endmethod
+            method set
+            proc
+                mf_info.fi_inpcol = value
+            endmethod
+        endproperty
+        
+        ;; Prompt font palette name
+        .ifdef DBLNET
+        {Category("Display - Prompt")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property PromptFont, String
+            method get
+            proc
+                mreturn mPromptFont
+            endmethod
+            method set
+            proc
+                mPromptFont = atrim(value)
+            endmethod
+        endproperty
+        
+        ;Report heading
+        .ifdef DBLNET
+        {Category("Display - Report")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ReportHeading, String
+            method get
+            proc
+                mreturn mReportHeading
+            endmethod
+            method set
+            proc
+                mReportHeading = atrim(value)
+            endmethod
+        endproperty
+        
+        ;; Report field justification
+        .ifdef DBLNET
+        {Category("Display - Report")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ReportJustification, RpsJustification
+            method get
+            proc
+                mreturn (RpsJustification)integer(mf_info.fi_rptjust)
+            endmethod
+            method set
+            proc
+                mf_info.fi_rptjust = (int)value
+            endmethod
+        endproperty
+        
+        ;; Color palette
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ColorPalette, RpsColorPalette
+            method get
+            proc
+                mreturn (RpsColorPalette)integer(mf_info.fi_color)
+            endmethod
+            method set
+            proc
+                mf_info.fi_color = (int)value
+            endmethod
+        endproperty
+        
+        ;; Override the highlight attribute (boolean)
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property RenditionHighlight, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_attrib&&mf_info.fi_highlight)
+            endmethod
+            method set
+            proc
+                mf_info.fi_highlight = value
+            endmethod
+        endproperty
+        
+        ;; Override the reverse attribute (boolean)
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property RenditionReverse, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_attrib&&mf_info.fi_reverse)
+            endmethod
+            method set
+            proc
+                mf_info.fi_reverse = value
+            endmethod
+        endproperty
+        
+        ;; Override the blink attribute (boolea)
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property RenditionBlink, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_attrib&&mf_info.fi_blink)
+            endmethod
+            method set
+            proc
+                mf_info.fi_blink = value
+            endmethod
+        endproperty
+        
+        ;; Override the underline attribute (boolean)
+        .ifdef DBLNET
+        {Category("Display - Renditions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property RenditionUnderline, boolean
+            method get
+            proc
+                mreturn (mf_info.fi_attrib&&mf_info.fi_underline)
+            endmethod
+            method set
+            proc
+                mf_info.fi_underline = value
+            endmethod
+        endproperty
+        
+        ;; Don't echo characters typed (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property NoEcho, boolean
+            method get
+            proc
+                mreturn mf_info.fi_noecho
+            endmethod
+            method set
+            proc
+                mf_info.fi_noecho = value
+            endmethod
+        endproperty
+
+        ;; Echo character for characters typed (a1)
+        ;; (Only used if NoEcho = true)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property NoEchoCharacter, a
+            method get
+            proc
+                mreturn mf_info.fi_echochr
+            endmethod
+            method set
+            proc
+                mf_info.fi_echochr = value
+            endmethod
+        endproperty
+
+        ;; Default action (enum RpsFieldDefaultAction)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property DefaultAction, RpsFieldDefaultAction
+            method get
+            proc
+                mreturn (RpsFieldDefaultAction)integer(mf_info.fi_defact)
+            endmethod
+            method set
+            proc
+                mf_info.fi_defact = (int)value
+            endmethod
+        endproperty
+
+        ;; Automatic default action? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property DefaultAuotmatic, boolean
+            method get
+            proc
+                mreturn mf_info.fi_auto
+            endmethod
+            method set
+            proc
+                mf_info.fi_auto = value
+            endmethod
+        endproperty
+
+        ;; Default date to current date? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property DateDefaultToday, boolean
+            method get
+            proc
+                mreturn mf_info.fi_today
+            endmethod
+            method set
+            proc
+                mf_info.fi_today = value
+            endmethod
+        endproperty
+
+        ;; Allow short date? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property AllowShortDate, boolean
+            method get
+            proc
+                mreturn mf_info.fi_short
+            endmethod
+            method set
+            proc
+                mf_info.fi_short = value
+            endmethod
+        endproperty
+
+        ;; Default time to current time? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property TimeDefaultNow, boolean
+            method get
+            proc
+                mreturn mf_info.fi_now
+            endmethod
+            method set
+            proc
+                mf_info.fi_now = value
+            endmethod
+        endproperty
+
+        ;; Display meridian indicator? (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property TimeAmPm, boolean
+            method get
+            proc
+                mreturn mf_info.fi_ampm
+            endmethod
+            method set
+            proc
+                mf_info.fi_ampm = value
+            endmethod
+        endproperty
+
+        ;; Input timeout mode (enum RpsFieldTimeout)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property InputTimeoutMode, RpsFieldTimeout
+            method get
+            proc
+                mreturn (RpsFieldTimeout)integer(mf_info.fi_wait)
+            endmethod
+            method set
+            proc
+                mf_info.fi_wait = (int)value
+            endmethod
+        endproperty
+
+        ;; Input timeout delay (d5)
+        ;; (Only used if InputTimeoutMode = RpsFieldTimeout.Time)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property InputTimeout, int
+            method get
+            proc
+                mreturn mf_info.fi_waittime
+            endmethod
+            method set
+            proc
+                mf_info.fi_waittime = value
+            endmethod
+        endproperty
+
+        ;; Convert input to uppercase (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property Uppercase, boolean
+            method get
+            proc
+                mreturn mf_info.fi_uc
+            endmethod
+            method set
+            proc
+                mf_info.fi_uc = value
+            endmethod
+        endproperty
+
+        ;; No decimal needs to be entered (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property NoDecimalRequired, boolean
+            method get
+            proc
+                mreturn mf_info.fi_nodec
+            endmethod
+            method set
+            proc
+                mf_info.fi_nodec = value
+            endmethod
+        endproperty
+
+        ;; Field terminates automatically when filled (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property NoTerminatorRequired, boolean
+            method get
+            proc
+                mreturn mf_info.fi_noterm
+            endmethod
+            method set
+            proc
+                mf_info.fi_noterm = value
+            endmethod
+        endproperty
+
+        ;; Cursor position is retained (boolean)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property RetainPosition, boolean
+            method get
+            proc
+                mreturn mf_info.fi_retpos
+            endmethod
+            method set
+            proc
+                mf_info.fi_retpos = value
+            endmethod
+        endproperty
+
+        ;; Input length (d5)
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property InputLength, int
+            method get
+            proc
+                mreturn mf_info.fi_inplen
+            endmethod
+            method set
+            proc
+                mf_info.fi_inplen = value
+            endmethod
+        endproperty
+
+        ;; Required field (boolean)
+        .ifdef DBLNET
+        {Category("Validation")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property Required, boolean
+            method get
+            proc
+                mreturn mf_info.fi_req
+            endmethod
+            method set
+            proc
+                mf_info.fi_req = value
+            endmethod
+        endproperty
+
+        ;; Break field (enum RpsFieldBreak)
+        .ifdef DBLNET
+        {Category("Validation")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property BreakMode, RpsFieldBreak
+            method get
+            proc
+                mreturn (RpsFieldBreak)integer(mf_info.fi_break)
+            endmethod
+            method set
+            proc
+                mf_info.fi_break = (int)value
+            endmethod
+        endproperty
+
+        ;; Negatives allowed (enum RpsFieldNegatives)
+        ;; (Only used for numeric fields)
+        .ifdef DBLNET
+        {Category("Validation")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property NegativeAllowed, RpsFieldNegatives
+            method get
+            proc
+                mreturn (RpsFieldNegatives)integer(mf_info.fi_negalw)
+            endmethod
+            method set
+            proc
+                mf_info.fi_negalw = (int)value
+            endmethod
+        endproperty
+
+        ;; Allowed values list (@ArrayList)
+        .ifdef DBLNET
+        {Category("Validation - Allowed Values")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property AllowList, @ArrayList
+            method get
+            proc
+                mreturn mAllowList
+            endmethod
+            method set
+            proc
+                mAllowList = value
+            endmethod
+        endproperty
+
+        ;; Length of longest allow list entry (d3)
+        .ifdef DBLNET
+        {Category("Validation - Allowed Values")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property AllowListMaxLength, int
+            method get
+            proc
+                mreturn mf_info.fi_alwlen
+            endmethod
+            method set
+            proc
+                mf_info.fi_alwlen = value
+            endmethod
+        endproperty
+
+        ;; Case sensitive matches for allow list values (boolean)
+        .ifdef DBLNET
+        {Category("Validation - Allowed Values")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property AllowListMatchCase, boolean
+            method get
+            proc
+                mreturn mf_info.fi_matchcs
+            endmethod
+            method set
+            proc
+                mf_info.fi_matchcs = value
+            endmethod
+        endproperty
+
+        ;; Exact matches for allow list values (boolean)
+        .ifdef DBLNET
+        {Category("Validation - Allowed Values")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property AllowListMatchExact, boolean
+            method get
+            proc
+                mreturn mf_info.fi_matchex
+            endmethod
+            method set
+            proc
+                mf_info.fi_matchex = value
+            endmethod
+        endproperty
+
+        ;; Selection List (@ArrayList)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SelectionList, @ArrayList
+            method get
+            proc
+                mreturn mSelectionList
+            endmethod
+            method set
+            proc
+                mSelectionList = value
+            endmethod
+        endproperty
+
+        ;; Length of longest selection list entry (d3)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SelectionListMaxLength, int
+            method get
+            proc
+                mreturn mf_info.fi_sellen
+            endmethod
+            method set
+            proc
+                mf_info.fi_sellen = value
+            endmethod
+        endproperty
+
+        ;; Selection list type
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SelectionListType, RpsFieldSelectionType
+            method get
+            proc
+                mreturn (RpsFieldSelectionType)integer(mf_info.fi_seltyp)
+            endmethod
+            method set
+            proc
+                mf_info.fi_seltyp = (int)value
+            endmethod
+        endproperty
+
+        ;; Selection window row (d2)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SelectionWindowRow, int
+            method get
+            proc
+                mreturn mf_info.fi_selrow
+            endmethod
+            method set
+            proc
+                mf_info.fi_selrow = value
+            endmethod
+        endproperty
+
+        ;; Selection window column (d2)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SelectionWindowColumn, int
+            method get
+            proc
+                mreturn mf_info.fi_selcol
+            endmethod
+            method set
+            proc
+                mf_info.fi_selcol = value
+            endmethod
+        endproperty
+
+        ;; Selection window name (a15)
+        ;; (Only used if SelectionListType = RpsFieldSelectionType.Window)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SelectionWindowName, a
+            method get
+            proc
+                mreturn %atrim(mf_info.fi_selwin)
+            endmethod
+            method set
+            proc
+                mf_info.fi_selwin = value
+            endmethod
+        endproperty
+
+        ;; Selection window height (d2)
+        ;; (Only used if SelectionListType = RpsFieldSelectionType.List)
+        .ifdef DBLNET
+        {Category("Validation - Selections")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SelectionWindowHeight, int
+            method get
+            proc
+                mreturn mf_info.fi_selht
+            endmethod
+            method set
+            proc
+                mf_info.fi_selht = value
+            endmethod
+        endproperty
+
+        ;; Default value
+        .ifdef DBLNET
+        {Category("Input")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property DefaultValue, String
+            method get
+            proc
+                mreturn mDefaultValue
+            endmethod
+            method set
+            proc
+                mDefaultValue = atrim(value)
+            endmethod
+        endproperty
+
+        ;; Arrive method name
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ArriveMethod, String
+            method get
+            proc
+                mreturn mArriveMethod
+            endmethod
+            method set
+            proc
+                mArriveMethod = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;; Leave method name
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property LeaveMethod, String
+            method get
+            proc
+                mreturn mLeaveMethod
+            endmethod
+            method set
+            proc
+                mLeaveMethod = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;; Drill method name
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property DrillMethod, String
+            method get
+            proc
+                mreturn mDrillMethod
+            endmethod
+            method set
+            proc
+                mDrillMethod = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;; Hyperlink method name
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property HyperlinkMethod, String
+            method get
+            proc
+                mreturn mHyperlinkMethod
+            endmethod
+            method set
+            proc
+                mHyperlinkMethod = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;; Change method name
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property ChangeMethod, String
+            method get
+            proc
+                mreturn mChangeMethod
+            endmethod
+            method set
+            proc
+                mChangeMethod = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;; Display method name
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property DisplayMethod, String
+            method get
+            proc
+                mreturn mDisplayMethod
+            endmethod
+            method set
+            proc
+                mDisplayMethod = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;; Edit format method name
+        .ifdef DBLNET
+        {Category("Input - Methods")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property EditFormatMethod, String
+            method get
+            proc
+                mreturn mEditFormatMethod
+            endmethod
+            method set
+            proc
+                mEditFormatMethod = atrim(value.ToUpper())
+            endmethod
+        endproperty
+
+        ;Numeric range exists (d2)
+        .ifdef DBLNET
+        {Category("Validation - Numeric Range")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property NumericRangeExists, i
+            method get
+            proc
+                mreturn mf_info.fi_range
+            endmethod
+            method set
+            proc
+                mf_info.fi_range = value
+            endmethod
+        endproperty
+
+        ;Numeric field range minimum (decimal)
+        .ifdef DBLNET
+        {Category("Validation - Numeric Range")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property NumericRangeMinimum, decimal
+            method get
+            proc
+                mreturn mfti_range.fti_rgmin
+            endmethod
+            method set
+            proc
+                mfti_range.fti_rgmin = value
+            endmethod
+        endproperty
+
+        ;Numeric field range maximum (decimal)
+        .ifdef DBLNET
+        {Category("Validation - Numeric Range")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property NumericRangeMaximum, decimal
+            method get
+            proc
+                mreturn mfti_range.fti_rgmax
+            endmethod
+            method set
+            proc
+                mfti_range.fti_rgmax = value
+            endmethod
+        endproperty
+
+        ;Enumerated (Toolkit) (d2)
+        .ifdef DBLNET
+        {Category("Validation - Enumeration")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property Enumerated, int
+            method get
+            proc
+                mreturn mf_info.fi_enum
+            endmethod
+            method set
+            proc
+                mf_info.fi_enum = value
+            endmethod
+        endproperty
+
+        ;Enumerated field display length (Toolkit) (d2)
+        .ifdef DBLNET
+        {Category("Validation - Enumeration")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property EnumeratedDisplayLength, int
+            method get
+            proc
+                mreturn mfti_enum.fti_enmlen
+            endmethod
+            method set
+            proc
+                mfti_enum.fti_enmlen = value
+            endmethod
+        endproperty
+
+        ;Enumerated field base value (Toolkit) (d2)
+        .ifdef DBLNET
+        {Category("Validation - Enumeration")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property EnumeratedBaseValue, int
+            method get
+            proc
+                mreturn mfti_enum.fti_enmbase
+            endmethod
+            method set
+            proc
+                mfti_enum.fti_enmbase = value
+            endmethod
+        endproperty
+
+        ;Enumerated field step value (Toolkit) (d2)
+        .ifdef DBLNET
+        {Category("Validation - Enumeration")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property EnumeratedStepValue, int
+            method get
+            proc
+                mreturn mfti_enum.fti_enmstep
+            endmethod
+            method set
+            proc
+                mfti_enum.fti_enmstep = value
+            endmethod
+        endproperty
+
+    endclass
+
+	public partial class RpsField
+		
+		;;CodeGen uses the following "name" properties
+		;;
+		;;Name          Starts off as the actual name of the field per repository
+		;;              Could change to include paths and array dimensions after CheckStructure
+		;;
+		;;AlternateName Starts off as the alternate name of the field per repository
+		;;              Set to the same as Name if no alternate name is defined
+		;;              Could change to include paths and array dimensions after CheckStructure
+		;;
+		;;BaseName      Starts off as the alternate name of the field per repository
+		;;              Could change to include paths and array dimensions after CheckStructure
+		;;              For arrays, BaseName does NOT include any final array element number
+		;;
+		;;OriginalName  The original name of the field (per repository definition)
+		;;
+		;;SqlName       The SQL name has array element brackets and path periods removed.
+		;;
+		;;OdbcName      The ODBC name is like the SQL name, but has an _ before array element numbers.
+		;;
+		
+		
+		;;CodeGen specific Field attribute data
+		;;
+		;;IMPARTANT: If more properties are added, remember to update the cloneField method
+		;;
+		protected mTypeCode             ,String     ;Data type code
+		protected mTypeName             ,String     ;Synergy type name
+		protected mCsType               ,String     ;C# data type
+		protected mCsDefault            ,String     ;C# default value
+		protected mCsNumericConvert     ,String     ;C# numeric conversion function
+		protected mOcType               ,String     ;Objective-C data type
+		protected mOcDefault            ,String     ;Objective-C default value
+		protected mOcObject             ,boolean    ;Objective-C data type is an object
+		protected mVbType               ,String     ;VB.NET data type
+		protected mVbDefault            ,String     ;VB default value
+		protected mSqlType              ,String     ;SQL data type
+		protected mSnType				,String		;Synergy .NET type
+		protected mSnDefault			,String		;Synergy .NET default value
+		protected mMappedField          ,String     ;Mapped field name
+		protected mMappingFunction      ,String     ;Mapping conversion function
+		protected mUnmappingFunction    ,String     ;Mapping unconversion function
+		protected mAutoIncrement        ,boolean    ;Auto incrementing numeric field
+		protected mWasArrayElement      ,boolean    ;Field was from an expanded array
+		protected mOriginalElement      ,[#]int     ;Original element #'s for expanded array fields
+		protected mSqlName              ,String     ;SQL compatible name
+		protected mOdbcName             ,String     ;ODBC compatible name
+		protected mFieldNumber			,int		;Field number (for <FIELD#>)
+		protected mLogicalFieldNumber	,int		;Field number (for <FIELD#LOGICAL>)
+		
+		protected static mMappings, @DataMappings
+		
+		private enum MappedType
+			CSharp
+			VB
+			SQL
+			ObjectiveC
+			Java
+			SynergyDotNet
+		endenum
+		
+		private method loadCodeGenData, void
+			endparams
+		proc
+			
+			;;First time in, create a mappings object
+			if (mMappings==^null)
+				mMappings = new DataMappings()
+
+			;;Describe the current field to the DataMapping objects
+			mMappings.SetFieldAttributes(this.Size,this.Precision)
+
+			;;Load the CodeGen specific attributes
+
+			mCsType  = getDataType(MappedType.CSharp)
+			mVbType  = getDataType(MappedType.VB)
+			mSqlType = getDataType(MappedType.SQL)
+			mOcType  = getDataType(MappedType.ObjectiveC)
+			mSnType  = getDataType(MappedType.SynergyDotNet)
+			
+			using DataType select
+			(RpsFieldDataType.Alpha),
+			begin
+				mTypeCode = "A"
+				using DataTypeSubclass select
+				(RpsFieldSubclass.Binary),
+				begin
+					mTypeName = "BINARY"
+					mCsNumericConvert = ""
+					mCsDefault = '""'
+					mVbDefault = '""'
+					mOcDefault = '@""'
+					mOcObject = true
+					mSnDefault = '""'
+				end
+				(),
+				begin
+					mTypeName = "ALPHA"
+					mCsNumericConvert = ""
+					mCsDefault = '""'
+					mVbDefault = '""'
+					mOcDefault = '@""'
+					mOcObject = true
+					mSnDefault = '""'
+				end
+				endusing
+			end
+			(RpsFieldDataType.User),
+			begin
+				mTypeCode = "A"
+				using DataTypeSubclass select
+				(RpsFieldSubclass.UserAlpha),
+				begin
+					mTypeName = "USER ALPHA"
+					mCsNumericConvert = ""
+					mCsDefault = '""'
+					mVbDefault = '""'
+					mOcDefault = '@""'
+					mOcObject = true
+					mSnDefault = '""'
+				end
+				(RpsFieldSubclass.UserNumeric),
+				begin
+					mTypeName = "USER NUMERIC"
+					mCsNumericConvert = ""
+					mCsDefault = '""'
+					mVbDefault = '""'
+					mOcDefault = '@""'
+					mOcObject = true
+					mSnDefault = '""'
+				end
+				(RpsFieldSubclass.UserDate),
+				begin
+					mTypeName = "USER DATE"
+					mCsNumericConvert = ""
+					mCsDefault = '""'
+					mVbDefault = '""'
+					mOcDefault = '@""'
+					mOcObject = true
+					mSnDefault = '""'
+				end
+				endusing
+			end
+			(RpsFieldDataType.Decimal),
+			begin
+				mTypeCode = "D"
+				using DataTypeSubclass select
+				(RpsFieldSubclass.DateYYYYMMDD),
+				begin
+					mTypeName = "DATE"
+					mCsNumericConvert = ""
+					mCsDefault = "new DateTime()"
+					mVbDefault = "New DateTime()"
+					mOcDefault = "[NSDate new]"
+					mOcObject = true
+					mSnDefault = "new DateTime()"
+				end
+				(RpsFieldSubclass.DateYYMMDD),
+				begin
+					mTypeName = "DATE"
+					mCsNumericConvert = ""
+					mCsDefault = "new DateTime()"
+					mVbDefault = "New DateTime()"
+					mOcDefault = "[NSDate new]"
+					mOcObject = true
+					mSnDefault = "new DateTime()"
+				end
+				(RpsFieldSubclass.DateYYYYJJJ),
+				begin
+					mTypeName = "DATE"
+					mCsNumericConvert = ""
+					mCsDefault = "new DateTime()"
+					mVbDefault = "New DateTime()"
+					mOcDefault = "[NSDate new]"
+					mOcObject = true
+					mSnDefault = "new DateTime()"
+				end
+				(RpsFieldSubclass.DateYYJJJ),
+				begin
+					mTypeName = "DATE"
+					mCsNumericConvert = ""
+					mCsDefault = "new DateTime()"
+					mVbDefault = "New DateTime()"
+					mOcDefault = "[NSDate new]"
+					mOcObject = true
+					mSnDefault = "new DateTime()"
+				end
+				(RpsFieldSubclass.DateYYYYPP),
+				begin
+					mTypeName = "JULIAN"
+					mCsNumericConvert = ""
+					mCsDefault = '""'
+					mVbDefault = '""'
+					mOcDefault = '@""'
+					mOcObject = true
+					mSnDefault = "new DateTime()"
+				end
+				(RpsFieldSubclass.DateYYPP),
+				begin
+					mTypeName = "JULIAN"
+					mCsNumericConvert = ""
+					mCsDefault = '""'
+					mVbDefault = '""'
+					mOcDefault = '@""'
+					mOcObject = true
+					mSnDefault = "new DateTime()"
+				end
+				(RpsFieldSubclass.TimeHHMMSS),
+				begin
+					mTypeName = "TIME"
+					mCsNumericConvert = ""
+					mCsDefault = "new DateTime()"
+					mVbDefault = "New DateTime()"
+					mOcDefault = "[NSDate new]"
+					mOcObject = true
+					mSnDefault = "new DateTime()"
+				end
+				(RpsFieldSubclass.TimeHHMM),
+				begin
+					mTypeName = "TIME"
+					mCsNumericConvert = ""
+					mCsDefault = "new DateTime()"
+					mVbDefault = "New DateTime()"
+					mOcDefault = "[NSDate new]"
+					mOcObject = true
+					mSnDefault = "new DateTime()"
+				end
+				(),
+				begin
+					if (Precision) then
+					begin
+						mTypeName = "IMPLIED"
+						mCsNumericConvert = "decimal.TryParse"
+						mCsDefault = "0"
+						mVbDefault = "0"
+						mOcDefault = "0.0"
+						mOcObject = false
+						mSnDefault = "0.0"
+					end
+					else
+					begin
+						if (Size<=9) then
+						begin
+							mTypeName = "DECIMAL"
+							mCsNumericConvert = "int.TryParse"
+							mCsDefault = "0"
+							mVbDefault = "0"
+							mOcDefault = "0"
+							mOcObject = false
+							mSnDefault = "0"
+						end
+						else
+						begin
+							mTypeName = "DECIMAL"
+							mCsNumericConvert = "long.TryParse"
+							mCsDefault = "0"
+							mVbDefault = "0"
+							mOcDefault = "0"
+							mOcObject = false
+							mSnDefault = "0"
+						end
+					end
+				end
+				endusing
+			end
+			(RpsFieldDataType.Integer),
+			begin
+				mTypeCode = "I"
+				using Size select
+				(1,2),
+				begin
+					mTypeName = "INTEGER"
+					mCsNumericConvert = "int.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(4),
+				begin
+					mTypeName = "INTEGER"
+					mCsNumericConvert = "int.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(8),
+				begin
+					mTypeName = "INTEGER"
+					mCsNumericConvert = "long.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				endusing
+			end
+			(RpsFieldDatatype.Boolean),
+			begin
+				mTypeName = "BOOLEAN"
+				mCsNumericConvert = "bool.TryParse"
+				mCsDefault = "false"
+				mVbDefault = "False"
+				mOcDefault = "NO"
+				mOcObject = false
+				mSnDefault = "false"
+			end
+			(RpsFieldDataType.Enum),    ;;Can't currently happen because of %CheckStructure
+			begin
+				mTypeName = ""
+				mCsNumericConvert = ""
+				mCsDefault = ""
+				mVbDefault = ""
+				mOcDefault = ""
+				mOcObject = false
+				mSnDefault = ""
+			end
+			(RpsFieldDataType.Binary),  ;;Can't currently happen because of %CheckStructure
+			begin
+				mTypeName = ""
+				mCsNumericConvert = ""
+				mCsDefault = ""
+				mVbDefault = ""
+				mOcDefault = ""
+				mOcObject = false
+				mSnDefault = ""
+			end
+			(RpsFieldDataType.Structfield), ;;Can't currently happen because of %CheckStructure
+			begin
+				mTypeName = ""
+				mCsNumericConvert = ""
+				mCsDefault = ""
+				mVbDefault = ""
+				mOcDefault = ""
+				mOcObject = false
+				mSnDefault = ""
+			end
+			endusing
+			
+			;;If the field has an explicit coercion then use it
+			if (CoercedType!=RpsFieldCoercedType.CtNone)
+			begin
+				using CoercedType select
+				(RpsFieldCoercedType.CtByte),
+				begin
+					mTypeName = "BYTE"
+					mCsNumericConvert = "byte.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(RpsFieldCoercedType.CtShort),
+				begin
+					mTypeName = "SHORT"
+					mCsNumericConvert = "short.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(RpsFieldCoercedType.CtInt),
+				begin
+					mTypeName = "INTEGER"
+					mCsNumericConvert = "int.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(RpsFieldCoercedType.CtLong),
+				begin
+					mTypeName = "LONG"
+					mCsNumericConvert = "long.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(RpsFieldCoercedType.CtSbyte),
+				begin
+					mTypeName = "SBYTE"
+					mCsNumericConvert = "sbyte.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(RpsFieldCoercedType.CtUshort),
+				begin
+					mTypeName = "USHORT"
+					mCsNumericConvert = "ushort.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(RpsFieldCoercedType.CtUint),
+				begin
+					mTypeName = "UINTEGER"
+					mCsNumericConvert = "uint.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(RpsFieldCoercedType.CtUlong),
+				begin
+					mTypeName = "ULONG"
+					mCsNumericConvert = "ulong.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0"
+					mOcObject = false
+					mSnDefault = "0"
+				end
+				(RpsFieldCoercedType.CtBoolean),
+				begin
+					mTypeName = "BOOLEAN"
+					mCsNumericConvert = "bool.TryParse"
+					mCsDefault = "false"
+					mVbDefault = "False"
+					mOcDefault = "NO"
+					mOcObject = false
+					mSnDefault = "false"
+				end
+				(RpsFieldCoercedType.CtDouble),
+				begin
+					mTypeName = "DOUBLE"
+					mCsNumericConvert = "double.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0.0"
+					mOcObject = false
+					mSnDefault = "0.0"
+				end
+				(RpsFieldCoercedType.CtFloat),
+				begin
+					mTypeName = "FLOAT"
+					mCsNumericConvert = "float.TryParse"
+					mCsDefault = "0"
+					mVbDefault = "0"
+					mOcDefault = "0.0"
+					mOcObject = false
+					mSnDefault = "0.0"
+				end
+				(RpsFieldCoercedType.CtNullDateTime),
+				begin
+					mTypeName = "NULLABLEDATETIME"
+					mCsNumericConvert = ""
+					mCsDefault = "null"
+					mVbDefault = "Nothing"
+					mOcDefault = "[NSDate new]"
+					mOcObject = true
+					mSnDefault = "^null"
+				end
+				endusing
+			end
+			
+			;;Mapped field
+			mMappedField = RpsUtils.GetMappedField(mStructureName,mName,mUserText,mLongDescription)
+
+			;;Mapping conversion function
+			mMappingFunction = RpsUtils.GetMappingFunction(mStructureName,mName,mUserText,mLongDescription)
+			
+			;;Mapping unconversion function
+			mUnmappingFunction = RpsUtils.GetUnMappingFunction(mStructureName,mName,mUserText,mLongDescription)
+			
+			;;Auto incrmenting field
+			mAutoIncrement = false
+			begin
+				data pos1, int
+				if (pos1=instr(1,mUserText.ToUpper(),"@AUTOINCREMENT;")) then
+				    mAutoIncrement = true
+			    else if (pos1=instr(1,mLongDescription.ToUpper(),"@AUTOINCREMENT;"))
+				    mAutoIncrement = true
+			end
+			
+			mWasArrayElement = false
+			mOriginalElement = new int[4]
+			mOriginalElement[1] = mArrayDimension[1]
+			mOriginalElement[2] = mArrayDimension[2]
+			mOriginalElement[3] = mArrayDimension[3]
+			mOriginalElement[4] = mArrayDimension[4]
+			
+			mSqlName = mName
+			mOdbcName = mName
+			
+			;;These two are ONLY used WITHIN CodeGen. The values are populated
+			;;by CodeGenEngine.CheckStructure()
+			mFieldNumber = 0
+			mLogicalFieldNumber = 0
+
+		endmethod
+		
+		private method cloneCodeGenData, void
+			required in SourceField, @RpsField
+			endparams
+		proc
+			;;Clone the CodeGen specific properties
+			mTypeCode               = SourceField.TypeCode
+			mTypeName               = SourceField.TypeName
+			mCsType                 = SourceField.CsType
+			mCsDefault              = SourceField.CsDefault
+			mCsNumericConvert       = SourceField.CsNumericConvert
+			mOcType                 = SourceField.OcType
+			mOcDefault              = SourceField.OcDefault
+			mOcObject               = SourceField.OcObject
+			mVbType                 = SourceField.VbType
+			mVbDefault              = SourceField.VbDefault
+			mSqlType                = SourceField.SqlType
+			mSnType                 = SourceField.SnType
+			mSnDefault              = SourceField.SnDefault
+			mMappedField            = SourceField.MappedField
+			mMappingFunction        = SourceField.MappingFunction
+			mUnmappingFunction      = SourceField.UnmappingFunction
+			mAutoIncrement          = SourceField.AutoIncrement
+			mWasArrayElement        = SourceField.WasArrayElement
+			mSqlName                = SourceField.SqlName
+			mOdbcName               = SourceField.OdbcName
+			
+			mOriginalElement = new int[4]
+			mOriginalElement[1]     = SourceField.OriginalElement[1]
+			mOriginalElement[2]     = SourceField.OriginalElement[2]
+			mOriginalElement[3]     = SourceField.OriginalElement[3]
+			mOriginalElement[4]     = SourceField.OriginalElement[4]
+			
+			mFieldNumber			= SourceField.FieldNumber
+			mLogicalFieldNumber		= SourceField.LogicalFieldNumber
+
+		endmethod
+		
+		private method getDataType, string
+			required in ToType  ,MappedType
+			endparams
+		proc
+			
+			using DataType select
+			(RpsFieldDataType.Alpha),
+			begin
+				using DataTypeSubclass select
+				(RpsFieldSubclass.Binary),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetBinaryAlphaType()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetBinaryAlphaType()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetBinaryAlphaType()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetBinaryAlphaType()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetBinaryAlphaType()
+					endusing
+				end
+				(),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetAlphaType()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetAlphaType()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetAlphaType()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetAlphaType()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetAlphaType()
+					endusing
+				end
+				endusing
+			end
+			(RpsFieldDataType.User),
+			begin
+				using DataTypeSubclass select
+				(RpsFieldSubclass.UserAlpha),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetUserAlphaType()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetUserAlphaType()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetUserAlphaType()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetUserAlphaType()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetUserAlphaType()
+					endusing
+				end
+				(RpsFieldSubclass.UserNumeric),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetUserNumericType()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetUserNumericType()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetUserNumericType()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetUserNumericType()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetUserNumericType()
+					endusing
+				end
+				(RpsFieldSubclass.UserDate),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetUserDateType()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetUserDateType()
+					(MappedType.SQL),
+					begin
+						using UserFieldType select
+						("^CLASS^=YYYYMMDDHHMISSUUUUUU"),
+							mreturn mMappings.CsMappings.GetUserTimeStampType()
+						(),
+							mreturn mMappings.SqlMappings.GetUserDateType()
+						endusing
+					end
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetUserDateType()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetUserDateType()
+					endusing
+				end
+				endusing
+			end
+			(RpsFieldDataType.Decimal),
+			begin
+				using DataTypeSubclass select
+				(RpsFieldSubclass.DateYYYYMMDD),
+				begin
+					if (CoercedType == RpsFieldCoercedType.CtNullDateTime) then
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetNullableDateYYYYMMDDType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetNullableDateYYYYMMDDType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetNullableDateYYYYMMDDType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetNullableDateYYYYMMDDType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetNullableDateYYYYMMDDType()
+						endusing
+					end
+					else
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetDateYYYYMMDDType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetDateYYYYMMDDType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetDateYYYYMMDDType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetDateYYYYMMDDType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetDateYYYYMMDDType()
+						endusing
+					end
+				end
+				(RpsFieldSubclass.DateYYMMDD),
+				begin
+					if (CoercedType == RpsFieldCoercedType.CtNullDateTime) then
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetNullableDateYYMMDDType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetNullableDateYYMMDDType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetNullableDateYYMMDDType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetNullableDateYYMMDDType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetNullableDateYYMMDDType()
+						endusing
+					end
+					else
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetDateYYMMDDType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetDateYYMMDDType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetDateYYMMDDType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetDateYYMMDDType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetDateYYMMDDType()
+						endusing
+					end
+				end
+				(RpsFieldSubclass.DateYYYYJJJ),
+				begin
+					if (CoercedType == RpsFieldCoercedType.CtNullDateTime) then
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetNullableDateYYYYJJJType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetNullableDateYYYYJJJType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetNullableDateYYYYJJJType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetNullableDateYYYYJJJType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetNullableDateYYYYJJJType()
+						endusing
+					end
+					else
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetDateYYYYJJJType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetDateYYYYJJJType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetDateYYYYJJJType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetDateYYYYJJJType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetDateYYYYJJJType()
+						endusing
+					end
+				end
+				(RpsFieldSubclass.DateYYJJJ),
+				begin
+					if (CoercedType == RpsFieldCoercedType.CtNullDateTime) then
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetNullableDateYYJJJType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetNullableDateYYJJJType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetNullableDateYYJJJType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetNullableDateYYJJJType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetNullableDateYYJJJType()
+						endusing
+					end
+					else
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetDateYYJJJType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetDateYYJJJType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetDateYYJJJType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetDateYYJJJType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetDateYYJJJType()
+						endusing
+					end
+				end
+				(RpsFieldSubclass.DateYYYYPP),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetDateYYYYPPType()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetDateYYYYPPType()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetDateYYYYPPType()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetDateYYYYPPType()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetDateYYYYPPType()
+					endusing
+				end
+				(RpsFieldSubclass.DateYYPP),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetDateYYPPType()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetDateYYPPType()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetDateYYPPType()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetDateYYPPType()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetDateYYPPType()
+					endusing
+				end
+				(RpsFieldSubclass.TimeHHMMSS),
+				begin
+					if (CoercedType == RpsFieldCoercedType.CtNullDateTime) then
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetNullableTimeHHMMSSType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetNullableTimeHHMMSSType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetNullableTimeHHMMSSType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetNullableTimeHHMMSSType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetNullableTimeHHMMSSType()
+						endusing
+					end
+					else
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetTimeHHMMSSType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetTimeHHMMSSType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetTimeHHMMSSType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetTimeHHMMSSType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetTimeHHMMSSType()
+						endusing
+					end
+				end
+				(RpsFieldSubclass.TimeHHMM),
+				begin
+					if (CoercedType == RpsFieldCoercedType.CtNullDateTime) then
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetNullableTimeHHMMType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetNullableTimeHHMMType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetNullableTimeHHMMType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetNullableTimeHHMMType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetNullableTimeHHMMType()
+						endusing
+					end
+					else
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetTimeHHMMType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetTimeHHMMType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetTimeHHMMType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetTimeHHMMType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetTimeHHMMType()
+						endusing
+					end
+				end
+				(),
+				begin
+					if (Precision) then
+					begin
+						using ToType select
+						(MappedType.CSharp),
+							mreturn mMappings.CsMappings.GetImpliedDecimalType()
+						(MappedType.VB),
+							mreturn mMappings.VbMappings.GetImpliedDecimalType()
+						(MappedType.SQL),
+							mreturn mMappings.SqlMappings.GetImpliedDecimalType()
+						(MappedType.ObjectiveC),
+							mreturn mMappings.OcMappings.GetImpliedDecimalType()
+						(MappedType.Java),
+							mreturn ""
+						(MappedType.SynergyDotNet),
+							mreturn mMappings.SnMappings.GetImpliedDecimalType()
+						endusing
+					end
+					else
+					begin
+						if (Size<=9) then
+						begin
+							using ToType select
+							(MappedType.CSharp),
+								mreturn mMappings.CsMappings.GetSmallDecimalType()
+							(MappedType.VB),
+								mreturn mMappings.VbMappings.GetSmallDecimalType()
+							(MappedType.SQL),
+								mreturn mMappings.SqlMappings.GetSmallDecimalType()
+							(MappedType.ObjectiveC),
+								mreturn mMappings.OcMappings.GetSmallDecimalType()
+							(MappedType.Java),
+								mreturn ""
+							(MappedType.SynergyDotNet),
+								mreturn mMappings.SnMappings.GetSmallDecimalType()
+							endusing
+						end
+						else
+						begin
+							using ToType select
+							(MappedType.CSharp),
+								mreturn mMappings.CsMappings.GetLargeDecimalType()
+							(MappedType.VB),
+								mreturn mMappings.VbMappings.GetLargeDecimalType()
+							(MappedType.SQL),
+								mreturn mMappings.SqlMappings.GetLargeDecimalType()
+							(MappedType.ObjectiveC),
+								mreturn mMappings.OcMappings.GetLargeDecimalType()
+							(MappedType.Java),
+								mreturn ""
+							(MappedType.SynergyDotNet),
+								mreturn mMappings.SnMappings.GetLargeDecimalType()
+							endusing
+						end
+					end
+				end
+				endusing
+			end
+			(RpsFieldDataType.Integer),
+			begin
+				using Size select
+				(1),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetInteger1Type()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetInteger1Type()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetInteger1Type()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetInteger1Type()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetInteger1Type()
+					endusing
+				end
+				(2),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetInteger2Type()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetInteger2Type()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetInteger2Type()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetInteger2Type()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetInteger2Type()
+					endusing
+				end
+				(4),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetInteger4Type()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetInteger4Type()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetInteger4Type()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetInteger4Type()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetInteger4Type()
+					endusing
+				end
+				(8),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn mMappings.CsMappings.GetInteger8Type()
+					(MappedType.VB),
+						mreturn mMappings.VbMappings.GetInteger8Type()
+					(MappedType.SQL),
+						mreturn mMappings.SqlMappings.GetInteger8Type()
+					(MappedType.ObjectiveC),
+						mreturn mMappings.OcMappings.GetInteger8Type()
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn mMappings.SnMappings.GetInteger8Type()
+					endusing
+				end
+				endusing
+			end
+			(RpsFieldDatatype.Boolean),
+			begin
+				using ToType select
+				(MappedType.CSharp),
+					mreturn mMappings.CsMappings.GetBooleanType()
+				(MappedType.VB),
+					mreturn mMappings.VbMappings.GetBooleanType()
+				(MappedType.SQL),
+					mreturn mMappings.SqlMappings.GetBooleanType()
+				(MappedType.ObjectiveC),
+					mreturn mMappings.OcMappings.GetBooleanType()
+				(MappedType.Java),
+					mreturn ""
+				(MappedType.SynergyDotNet),
+					mreturn mMappings.SnMappings.GetBooleanType()
+				endusing
+			end
+			(RpsFieldDataType.Enum),    ;Can't currently happen because of %CheckStructure
+			begin
+				using ToType select
+				(MappedType.CSharp),
+					mreturn mMappings.CsMappings.GetEnumType()
+				(MappedType.VB),
+					mreturn mMappings.VbMappings.GetEnumType()
+				(MappedType.SQL),
+					mreturn mMappings.SqlMappings.GetEnumType()
+				(MappedType.ObjectiveC),
+					mreturn mMappings.OcMappings.GetEnumType()
+				(MappedType.Java),
+					mreturn ""
+				(MappedType.SynergyDotNet),
+					mreturn mMappings.SnMappings.GetEnumType()
+				endusing
+			end
+			(RpsFieldDataType.Binary),  ;Can't currently happen because of %CheckStructure
+			begin
+				using ToType select
+				(MappedType.CSharp),
+					mreturn mMappings.CsMappings.GetBinaryType()
+				(MappedType.VB),
+					mreturn mMappings.VbMappings.GetBinaryType()
+				(MappedType.SQL),
+					mreturn mMappings.SqlMappings.GetBinaryType()
+				(MappedType.ObjectiveC),
+					mreturn mMappings.OcMappings.GetBinaryType()
+				(MappedType.Java),
+					mreturn ""
+				(MappedType.SynergyDotNet),
+					mreturn mMappings.SnMappings.GetBinaryType()
+				endusing
+			end
+			(RpsFieldDataType.Structfield), ;Can't currently happen because of %CheckStructure
+			begin
+				using ToType select
+				(MappedType.CSharp),
+					mreturn mMappings.CsMappings.GetStructFieldType()
+				(MappedType.VB),
+					mreturn mMappings.VbMappings.GetStructFieldType()
+				(MappedType.SQL),
+					mreturn mMappings.SqlMappings.GetStructFieldType()
+				(MappedType.ObjectiveC),
+					mreturn mMappings.OcMappings.GetStructFieldType()
+				(MappedType.Java),
+					mreturn ""
+				(MappedType.SynergyDotNet),
+					mreturn mMappings.SnMappings.GetStructFieldType()
+				endusing
+			end
+			endusing
+			
+			;If the field has an explicit coercion then use it
+			if (CoercedType!=RpsFieldCoercedType.CtNone)
+			begin
+				using CoercedType select
+				(RpsFieldCoercedType.CtByte),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "byte"
+					(MappedType.VB),
+						mreturn "Byte"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "short int"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "byte"
+					endusing
+				end
+				(RpsFieldCoercedType.CtShort),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "short"
+					(MappedType.VB),
+						mreturn "Short"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "short int"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "short"
+					endusing
+				end
+				(RpsFieldCoercedType.CtInt),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "int"
+					(MappedType.VB),
+						mreturn "Integer"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "int"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "int"
+					endusing
+				end
+				(RpsFieldCoercedType.CtLong),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "long"
+					(MappedType.VB),
+						mreturn "Long"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "long int"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "long"
+					endusing
+				end
+				(RpsFieldCoercedType.CtSbyte),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "sbyte"
+					(MappedType.VB),
+						mreturn "System.SByte"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "unsigned short int"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "System.SByte"
+					endusing
+				end
+				(RpsFieldCoercedType.CtUshort),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "ushort"
+					(MappedType.VB),
+						mreturn "System.UInt16"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "unsigned short int"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "System.UInt16"
+					endusing
+				end
+				(RpsFieldCoercedType.CtUint),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "uint"
+					(MappedType.VB),
+						mreturn "System.UInt32"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "unsigned int"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "System.UInt32"
+					endusing
+				end
+				(RpsFieldCoercedType.CtUlong),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "ulong"
+					(MappedType.VB),
+						mreturn "System.UInt64"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "unsigned long int"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "System.UInt64"
+					endusing
+				end
+				(RpsFieldCoercedType.CtBoolean),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "bool"
+					(MappedType.VB),
+						mreturn "Boolean"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "BOOL"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "boolean"
+					endusing
+				end
+				(RpsFieldCoercedType.CtDouble),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "double"
+					(MappedType.VB),
+						mreturn "System.Double"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "double"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "double"
+					endusing
+				end
+				(RpsFieldCoercedType.CtFloat),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "float"
+					(MappedType.VB),
+						mreturn "System.Single"
+					(MappedType.SQL),
+						nop
+					(MappedType.ObjectiveC),
+						mreturn "float"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "float"
+					endusing
+				end
+				(RpsFieldCoercedType.CtNullDateTime),
+				begin
+					using ToType select
+					(MappedType.CSharp),
+						mreturn "Nullable<System.DateTime>"
+					(MappedType.VB),
+						mreturn "Nullable(Of System.DateTime)"
+					(MappedType.SQL),
+						mreturn ""
+					(MappedType.ObjectiveC),
+						mreturn "NSDate"
+					(MappedType.Java),
+						mreturn ""
+					(MappedType.SynergyDotNet),
+						mreturn "Nullable<System.DateTime>"
+					endusing
+				end
+				endusing
+			end
+			
+			mreturn ""
+			
+		endmethod
+		
+		;;---------------------------------------------------------------------
+		;; These properties are present because of my specific requirements for
+		;; using this class in CodeGen. In most other scenarios these properties
+		;; should be removed.
+		
+        .ifdef DBLNET
+        {Browsable(false)}
+        .endc
+        protected property FieldData, f_info
+			method get
+			proc
+				mreturn mf_info
+			endmethod
+		endproperty
+
+		.ifdef DBLNET
+		{Browsable(false)}
+		.endc
+		public property FieldNumber, int
+			method get
+			proc
+				mreturn mFieldNumber
+			endmethod
+			method set
+			proc
+				mFieldNumber = value
+			endmethod
+		endproperty
+		
+		.ifdef DBLNET
+		{Browsable(false)}
+		.endc
+		public property LogicalFieldNumber, int
+			method get
+			proc
+				mreturn mLogicalFieldNumber
+			endmethod
+			method set
+			proc
+				mLogicalFieldNumber = value
+			endmethod
+		endproperty
+		
+		;; Synergy data type code
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property TypeCode, string
+			method get
+			proc
+				mreturn mTypeCode
+			endmethod
+			method set
+			proc
+				mTypeCode = value
+			endmethod
+		endproperty
+		
+		;; Synergy data type name
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property TypeName, string
+			method get
+			proc
+				mreturn mTypeName
+			endmethod
+			method set
+			proc
+				mTypeName = value
+			endmethod
+		endproperty
+		
+		;; C# data type
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property CsType, string
+			method get
+			proc
+				mreturn mCsType
+			endmethod
+			method set
+			proc
+				mCsType = value
+			endmethod
+		endproperty
+		
+		;; C# numeric conversion function
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property CsNumericConvert, string
+			method get
+			proc
+				mreturn mCsNumericConvert
+			endmethod
+			method set
+			proc
+				mCsNumericConvert = value
+			endmethod
+		endproperty
+		
+		;; VB data type
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property VbType, string
+			method get
+			proc
+				mreturn mVbType
+			endmethod
+			method set
+			proc
+				mVbType = value
+			endmethod
+		endproperty
+		
+		;; Synergy .NET data type
+		.ifdef DBLNET
+		{Category("CodeGen Extensions")}
+		{Description("")}
+		{ReadOnly(true)}
+		.endc
+		public property SnType, string
+			method get
+			proc
+				mreturn mSnType
+			endmethod
+			method set
+			proc
+				mSnType = value
+			endmethod
+		endproperty
+
+		;; C# default value (based on data type)
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property CsDefault, string
+			method get
+			proc
+				mreturn mCsDefault
+			endmethod
+			method set
+			proc
+				mCsDefault = value
+			endmethod
+		endproperty
+		
+		;; VB default value (based on data type)
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property VbDefault, string
+			method get
+			proc
+				mreturn mVbDefault
+			endmethod
+			method set
+			proc
+				mVbDefault = value
+			endmethod
+		endproperty
+		
+		;; Synergy .NET default value (based on data type)
+		.ifdef DBLNET
+		{Category("CodeGen Extensions")}
+		{Description("")}
+		{ReadOnly(true)}
+		.endc
+		public property SnDefault, string
+			method get
+			proc
+				mreturn mSnDefault
+			endmethod
+			method set
+			proc
+				mSnDefault = value
+			endmethod
+		endproperty
+
+		;; SQL data type (a20)
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SqlType, string
+			method get
+			proc
+				mreturn mSqlType
+			endmethod
+			method set
+			proc
+				mSqlType = value
+			endmethod
+		endproperty
+		
+		;; Mapped field name
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property MappedField, string
+			method get
+			proc
+				mreturn mMappedField
+			endmethod
+			method set
+			proc
+				mMappedField = value
+			endmethod
+		endproperty
+		
+		;; Mapping conversion function
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property MappingFunction, string
+			method get
+			proc
+				mreturn mMappingFunction
+			endmethod
+			method set
+			proc
+				mMappingFunction = value
+			endmethod
+		endproperty
+		
+		;; Mapping unconversion function
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property UnmappingFunction, string
+			method get
+			proc
+				mreturn mUnmappingFunction
+			endmethod
+			method set
+			proc
+				mUnmappingFunction = value
+			endmethod
+		endproperty
+		
+		;; Auto incrmenting numeric field
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property AutoIncrement, boolean
+			method get
+			proc
+				mreturn mAutoIncrement
+			endmethod
+			method set
+			proc
+				mAutoIncrement = value
+			endmethod
+		endproperty
+		
+		;; Objective-C data type
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OcType, string
+			method get
+			proc
+				mreturn mOcType
+			endmethod
+			method set
+			proc
+				mOcType = value
+			endmethod
+		endproperty
+		
+		;; Objective-C default value type
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OcDefault, string
+			method get
+			proc
+				mreturn mOcDefault
+			endmethod
+			method set
+			proc
+				mOcDefault = value
+			endmethod
+		endproperty
+		
+		;; Objective-C data type is an object
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OcObject, boolean
+			method get
+			proc
+				mreturn mOcObject
+			endmethod
+			method set
+			proc
+				mOcObject = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; (CodeGen Specific)
+		;;; Indicates that the field was created when an array field
+		;;; was expanded into multiple individual fields
+		;;; </summary>
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property WasArrayElement, boolean
+			method get
+			proc
+				mreturn mWasArrayElement
+			endmethod
+			method set
+			proc
+				mWasArrayElement = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; (CodeGen Specific)
+		;;; For array fields which have been expanded out to multiple
+		;;; individual fields, this property exposes the fields original
+		;;; array element number. A value of 0 indicates that the field
+		;;; is not an expanded array field.
+		;;; </summary>
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OriginalElement, [#]int
+			method get
+			proc
+				mreturn mOriginalElement
+			endmethod
+			method set
+			proc
+				mOriginalElement = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; (CodeGen Specific)
+		;;; A name for the field which is compatible with SQL databases,
+		;;; and other environments where path names and array dimensions
+		;;; are not allowed.
+		;;; </summary>
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property SqlName, string
+			method get
+			proc
+				mreturn mSqlName
+			endmethod
+			method set
+			proc
+				mSqlName = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; (CodeGen Specific)
+		;;; A name for the field which is compatible with xfODBC column names.
+		;;; </summary>
+        .ifdef DBLNET
+        {Category("CodeGen Extensions")}
+        {Description("")}
+        {ReadOnly(true)}
+        .endc
+        public property OdbcName, string
+			method get
+			proc
+				mreturn mOdbcName
+			endmethod
+			method set
+			proc
+				mOdbcName = value
+			endmethod
+		endproperty
+		
+		; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[1] = 1 !!!
+		; Tracker 33206 2/24/12
+		; Used by CodeGenEngine.CheckStructure
+		public method SetArrayDim1, void
+			required in newVal, int
+			endparams
+		proc
+			mArrayDimension[1] = newVal
+		endmethod
+		
+		; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[2] = 1 !!!
+		; Tracker 33206 2/24/12
+		; Used by CodeGenEngine.CheckStructure
+		public method SetArrayDim2, void
+			required in newVal, int
+			endparams
+		proc
+			mArrayDimension[2] = newVal
+		endmethod
+		
+		; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[3] = 1 !!!
+		; Tracker 33206 2/24/12
+		; Used by CodeGenEngine.CheckStructure
+		public method SetArrayDim3, void
+			required in newVal, int
+			endparams
+		proc
+			mArrayDimension[3] = newVal
+		endmethod
+		
+		; BUG WORKAROUND - CAN'T SET Field.ArrayDimension[4] = 1 !!!
+		; Tracker 33206 2/24/12
+		; Used by CodeGenEngine.CheckStructure
+		public method SetArrayDim4, void
+			required in newVal, int
+			endparams
+		proc
+			mArrayDimension[4] = newVal
+		endmethod
+		
+		; BUG WORKAROUND - CAN'T SET Field.OriginalElement[1] = 1 !!!
+		; Tracker 33206 2/24/12
+		; Used by CodeGenEngine.CheckStructure
+		public method SetOriginalElement1, void
+			required in newVal, int
+			endparams
+		proc
+			mOriginalElement[1] = newVal
+		endmethod
+		
+		; BUG WORKAROUND - CAN'T SET Field.OriginalElement[2] = 1 !!!
+		; Tracker 33206 2/24/12
+		; Used by CodeGenEngine.CheckStructure
+		public method SetOriginalElement2, void
+			required in newVal, int
+			endparams
+		proc
+			mOriginalElement[2] = newVal
+		endmethod
+		
+		; BUG WORKAROUND - CAN'T SET Field.OriginalElement[3] = 1 !!!
+		; Tracker 33206 2/24/12
+		; Used by CodeGenEngine.CheckStructure
+		public method SetOriginalElement3, void
+			required in newVal, int
+			endparams
+		proc
+			mOriginalElement[3] = newVal
+		endmethod
+		
+		; BUG WORKAROUND - CAN'T SET Field.OriginalElement[4] = 1 !!!
+		; Tracker 33206 2/24/12
+		; Used by CodeGenEngine.CheckStructure
+		public method SetOriginalElement4, void
+			required in newVal, int
+			endparams
+		proc
+			mOriginalElement[4] = newVal
+		endmethod
+		
+	endclass
+
+endnamespace

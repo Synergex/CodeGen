@@ -1,0 +1,144 @@
+;;*****************************************************************************
+;;
+;; Title:       CheckOption.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Checks if a required command line option has been specified.
+;;
+;; Date:        3rd January 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    function CheckOption, boolean
+
+        required in  buffer, a
+        endparams
+
+        stack record
+            ok          ,boolean
+            pos1        ,int
+            pos2        ,int
+            optstring   ,string
+        endrecord
+
+    proc
+
+        ok = true
+
+        pos1 = instr(1,buffer,"<REQUIRES_OPTION>") + 17
+        pos2 = instr(pos1,buffer,"</REQUIRES_OPTION>") -1
+
+        if (!pos2||(pos2<pos1))
+        begin
+            ErrorLog("Invalid <REQUIRES_OPTION> token syntax")
+            ok = false
+        end
+
+        if (ok)
+        begin
+            optstring = buffer(pos1,pos2)
+            optstring = optstring.ToUpper()
+            DebugLog(" - Checking command line option " + optstring,false,false)
+
+            using optstring select
+            ("FL"),
+            begin
+                if (Env.ExcludeLanguage)
+                begin
+                    ErrorLog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f l")
+                    ok = false
+                end
+            end
+            ("FO"),
+            begin
+                if (!Env.IncludeOverlays)
+                begin
+                    ErrorLog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f o")
+                    ok = false
+                end
+            end
+            ("FR"),
+            begin
+                if (!Env.ExcludeReport)
+                begin
+                    ErrorLog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f r")
+                    ok = false
+                end
+            end
+            ("FT"),
+            begin
+                if (!Env.ExcludeToolkit)
+                begin
+                    ErrorLog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f t")
+                    ok = false
+                end
+            end
+            ("FW"),
+            begin
+                if (!Env.ExcludeWeb)
+                begin
+                    ErrorLog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f w")
+                    ok = false
+                end
+            end
+            ("PREFIX"),
+            begin
+                if (!Env.ClDoFieldPrefix)
+                begin
+                    ErrorLog("Template " + Env.CurrentTemplate + " requires the use of command-line option -prefix")
+                    ok = false
+                end
+            end
+            ("SUBSET"),
+            begin
+                if (!Env.SubSetName)
+                begin
+                    ErrorLog("Template " + Env.CurrentTemplate + " requires the use of command-line option -subset")
+                    ok = false
+                end
+            end
+            endusing
+        end
+
+        freturn ok
+
+    endfunction
+
+endnamespace
+

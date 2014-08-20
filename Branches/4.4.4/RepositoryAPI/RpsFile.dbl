@@ -1,0 +1,338 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsFile.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a single Repository file definition
+;;
+;; Date:        19th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.define DDINFO_DEFINES_ONLY
+.include "RPSLIB:ddinfo.def"
+.undefine DDINFO_DEFINES_ONLY
+
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.RepositoryAPI
+
+    public class RpsFile
+
+        ;;File attribute data
+        protected mfl_info          ,fl_info
+        protected mFileName         ,String     ;; Repository file name
+        protected mDescription      ,String     ;; Description
+        protected mLongDescription  ,String     ;; Long description
+        protected mUserText         ,String     ;; User text
+        protected mPortableInts     ,String     ;; Portable integer specs
+        protected mKeys             ,@RpsKeyCollection
+        protected mStructures       ,@RpsStructureCollection
+
+        ;; Constructor
+        public method RpsFile
+            required in FileName, String
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsFile(FileName) constructor")
+            Repository.CheckIsOpen()
+            LoadFile(FileName)
+        endmethod
+
+        ;; LoadFile method
+        private method LoadFile, void
+            required in FileName, String
+            endparams
+        proc
+            ;;Save the file name
+            mFileName = atrim(FileName.ToUpper())
+
+            ;;Load file information
+            dd_file(Repository.RpsControl,DDL_INFO,mFileName,^a(mfl_info))
+            if (Repository.RpsControl.error)
+                throw new RpsFileException("Failed to get information for repository file "+mFileName)
+
+            ;;Load description
+            if (mfl_info.fli_desc) then
+            begin
+                data tmpDescription, a40
+                xcall dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_desc,tmpDescription)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFileException("Failed to get description for repository file "+mFileName)
+                else
+                    mDescription = atrim(tmpDescription)
+            end
+            else
+                mDescription = ""
+
+            ;;Load long description
+            if (mfl_info.fli_ldesc) then
+            begin
+                data tmpLongDescription, a1800
+                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_ldesc,tmpLongDescription)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFileException("Failed to get long description for repository file "+mFileName)
+                else
+                    mLongDescription = tmpLongDescription
+            end
+            else
+                mLongDescription = ""
+
+            ;;Load user text
+            if (mfl_info.fli_utext) then
+            begin
+                data tmpUserText, a60
+                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_utext,tmpUserText)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFileException("Failed to get user text for repository file "+mFileName)
+                else
+                    mUserText = atrim(tmpUserText)
+            end
+            else
+                mUserText = ""
+
+            ;;Load portable integer specs
+            if (mfl_info.fli_portable) then
+            begin
+                data tmpPortableInts, a120
+                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_portable,tmpPortableInts)
+                if (Repository.RpsControl.error) then
+                    throw new RpsFileException("Failed to get portable integer specifications for repository file "+mFileName)
+                else
+                    mPortableInts = atrim(tmpPortableInts)
+            end
+            else
+                mPortableInts = ""
+
+            ;;Defualt the file's key density to 50% if not specified
+            if (!mfl_info.fli_density)
+                mfl_info.fli_density = 50
+
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;Public properties to expose the files attributes to the outside world
+
+        ;; Repository file name
+        public property Name, String
+            method get
+            proc
+                mreturn mFileName
+            endmethod
+        endproperty
+
+        ;; Desctiption
+        public property Description, String
+            method get
+            proc
+                mreturn mDescription
+            endmethod
+        endproperty
+
+        ;; Long description
+        public property LongDescription, String
+            method get
+            proc
+                mreturn mLongDescription
+            endmethod
+        endproperty
+
+        ;; User text string
+        public property UserText, String
+            method get
+            proc
+                mreturn mUserText
+            endmethod
+        endproperty
+
+        ;; Portable integer specifications
+        public property PortableIntSpecs, String
+            method get
+            proc
+                mreturn mPortableInts
+            endmethod
+        endproperty
+
+        ;; Timestamp of last modification
+        public property LastModified, String
+            method get
+            proc
+                mreturn atrim(mfl_info.fli_tstamp)
+            endmethod
+        endproperty
+
+        ;; File type (a15, e.g., "DBL ISAM", "ASCII")
+        public property FileType, String
+            method get
+            proc
+                mreturn atrim(mfl_info.fli_filtyp)
+            endmethod
+        endproperty
+
+        ;; Actual filename
+        public property FileSpec, String
+            method get
+            proc
+                mreturn atrim(mfl_info.fli_fname)
+            endmethod
+        endproperty
+
+        ;; Is file definition "temporary"?
+        public property TempFile, boolean
+            method get
+            proc
+                mreturn mfl_info.fli_temp
+            endmethod
+        endproperty
+
+        ;; Number of structures assigned to the file
+        public property StructureCount, int
+            method get
+            proc
+                mreturn mfl_info.fli_nmstructs
+            endmethod
+        endproperty
+
+        ;; First (or only) assigned structure
+        public property FirstStructure, String
+            method get
+            proc
+                mreturn atrim(mfl_info.fli_struct)
+            endmethod
+        endproperty
+
+        ;; Record type (enum RpsRecordType)
+        ;; FixedLength, 0
+        ;; VariableLength, 1
+        ;; MultipleFixedLength, 2
+        public property RecordType, RpsRecordType
+            method get
+            proc
+                mreturn (RpsRecordType)integer(mfl_info.fli_rectyp)
+            endmethod
+        endproperty
+
+        ;;Page (index block) size (enum RpsFilePageSize)
+        ;;  PageSize512, 1
+        ;;  PageSize1024, 0
+        ;;  PageSize2048, 2
+        ;;  PageSize4096, 3
+        ;;  PageSize8192, 4
+		;;  PageSize16384, 5
+		;;  PageSize32768, 6
+        public property PageSize, RpsFilePageSize
+            method get
+            proc
+                mreturn (RpsFilePageSize)integer(mfl_info.fli_pagesize)
+            endmethod
+        endproperty
+
+        ;; File density
+        public property Density, int
+            method get
+            proc
+                mreturn mfl_info.fli_density
+            endmethod
+        endproperty
+
+        ;; File addressing
+        ;;   Addressing32Bit, 0
+        ;;   Addressing40Bit, 1
+        public property Addressing, RpsFileAddressing
+            method get
+            proc
+                mreturn (RpsFileAddressing)integer(mfl_info.fli_addressing)
+            endmethod
+        endproperty
+
+        ;; Compress record data?
+        public property RecordCompression, boolean
+            method get
+            proc
+                mreturn mfl_info.fli_compress
+            endmethod
+        endproperty
+
+        ;; Static RFA's?
+        public property StaticRFA, boolean
+            method get
+            proc
+                mreturn mfl_info.fli_staticrfa
+            endmethod
+        endproperty
+
+		.ifdef DBLV10
+		;;Change tracking?
+		public property ChangeTracking, boolean
+			method get
+			proc
+				mreturn mfl_info.fli_track
+			endmethod
+		endproperty
+		.endc
+
+		.ifdef DBLV10
+		;;Stored GRFAs?
+		public property StoredGRFA, boolean
+			method get
+			proc
+				mreturn mfl_info.fli_sgrfa
+			endmethod
+		endproperty
+		.endc
+
+        ;;Keys collection - if there is a structure assigned
+        public property Keys, @RpsKeyCollection
+            method get
+            proc
+                if ((mKeys==^null)&&(mfl_info.fli_struct))
+                    mkeys = new RpsKeyCollection(mfl_info.fli_struct)
+                mreturn mKeys
+            endmethod
+        endproperty
+
+        ;;Collection of structures assigned to the file
+        public property Structures, @RpsStructureCollection
+            method get
+            proc
+                if (mStructures==^null)
+                    mStructures = new RpsStructureCollection(mFileName)
+                mreturn mStructures
+            endmethod
+        endproperty
+
+    endclass
+
+endnamespace
+

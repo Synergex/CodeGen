@@ -1,0 +1,454 @@
+;;*****************************************************************************
+;;
+;; Title:       CheckCustomToken.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Checks if a required custom token has been provided.
+;;
+;; Date:        26th July 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+    
+    enum CustomTokenType
+        Generic
+        Field
+        Selection
+        Key
+        Segment
+        Relation
+        Enumeration
+        EnumerationMember
+        File
+        Button
+    endenum
+
+    function CheckCustomToken, boolean
+        required in  buffer     ,a
+        endparams
+        
+        stack record
+            ok              ,boolean
+            tokenType       ,CustomTokenType
+            pos1            ,int
+            pos2            ,int
+            tokenName       ,String
+            customTokenName ,String
+            tokenFound      ,Boolean
+            errorText       ,String
+        endrecord
+        
+    proc
+        
+        ok = true
+        tokenFound = false
+
+        if (instr(1,buffer,"<REQUIRES_CUSTOM_TOKEN>")) then
+            tokenType = CustomTokenType.Generic
+        else if (instr(1,buffer,"<REQUIRES_CUSTOM_FIELD_TOKEN>")) then
+            tokenType = CustomTokenType.Field
+        else if (instr(1,buffer,"<REQUIRES_CUSTOM_SELECTION_TOKEN>")) then
+            tokenType = CustomTokenType.Selection
+        else if (instr(1,buffer,"<REQUIRES_CUSTOM_KEY_TOKEN>")) then
+            tokenType = CustomTokenType.Key
+        else if (instr(1,buffer,"<REQUIRES_CUSTOM_SEGMENT_TOKEN>")) then
+            tokenType = CustomTokenType.Segment
+        else if (instr(1,buffer,"<REQUIRES_CUSTOM_RELATION_TOKEN>")) then
+            tokenType = CustomTokenType.Relation
+        else if (instr(1,buffer,"<REQUIRES_CUSTOM_ENUM_TOKEN>")) then
+            tokenType = CustomTokenType.Enumeration
+        else if (instr(1,buffer,"<REQUIRES_CUSTOM_ENUM_MEMBER_TOKEN>")) then
+            tokenType = CustomTokenType.EnumerationMember
+        else if (instr(1,buffer,"<REQUIRES_CUSTOM_FILE_TOKEN>")) then
+            tokenType = CustomTokenType.File
+        else if (instr(1,buffer,"<REQUIRES_CUSTOM_BUTTON_TOKEN>")) then
+            tokenType = CustomTokenType.Button
+        else
+        begin
+            errorText = "An invalid <REQUIRES_CUSTOM_ token was detected in template " + Env.CurrentTemplate
+            ok = false
+        end
+
+        if (ok)
+        begin
+            using tokenType select
+            (CustomTokenType.Generic),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+                pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_TOKEN>") -1
+            end
+            (CustomTokenType.Field),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_FIELD_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+                pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_FIELD_TOKEN>") -1
+            end
+            (CustomTokenType.Selection),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_SELECTION_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+                pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_SELECTION_TOKEN>") -1
+            end
+            (CustomTokenType.Key),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_KEY_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+                pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_KEY_TOKEN>") -1
+            end
+            (CustomTokenType.Segment),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_SEGMENT_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+                pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_SEGMENT_TOKEN>") -1
+            end
+            (CustomTokenType.Relation),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_RELATION_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+				pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_RELATION_TOKEN>") -1
+            end
+            (CustomTokenType.Enumeration),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_ENUM_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+                pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_ENUM_TOKEN>") -1
+            end
+            (CustomTokenType.EnumerationMember),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_ENUM_MEMBER_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+                pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_ENUM_MEMBER_TOKEN>") -1
+            end
+            (CustomTokenType.File),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_FILE_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+                pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_FILE_TOKEN>") -1
+            end
+            (CustomTokenType.Button),
+            begin
+                tokenName = "<REQUIRES_CUSTOM_BUTTON_TOKEN>"
+                pos1 = instr(1,buffer,tokenName) + tokenName.Length
+                pos2 = instr(pos1,buffer,"</REQUIRES_CUSTOM_BUTTON_TOKEN>") -1
+            end
+            endusing
+            
+            if (!pos2||(pos2<pos1)) then
+            begin
+                errorText = "Invalid " + tokenName + " token syntax"
+                ok = false
+            end
+            else
+                customTokenName = "<" + atrim(buffer(pos1,pos2)) + ">"
+        end
+
+        if (ok)
+        begin
+            using tokenType select
+            (CustomTokenType.Generic),
+            begin
+                data token, @CustomToken
+                DebugLog(" - Checking for custom token " + customTokenName,false,false)
+                if (Env.CustomTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomTokens
+                    begin
+                        if (((@CustomToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            (CustomTokenType.Field),
+            begin
+                data token, @CustomFieldToken
+                DebugLog(" - Checking for custom field loop token " + customTokenName,false,false)
+                if (Env.CustomFieldTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom field loop token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomFieldTokens
+                    begin
+                        if (((@CustomFieldToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom field loop token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            (CustomTokenType.Selection),
+            begin
+                data token, @CustomSelectionToken
+                DebugLog(" - Checking for custom selection loop token " + customTokenName,false,false)
+                if (Env.CustomSelectionTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom selection loop token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomSelectionTokens
+                    begin
+                        if (((@CustomSelectionToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom selection loop token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            (CustomTokenType.Key),
+            begin
+                data token, @CustomKeyToken
+                DebugLog(" - Checking for custom key loop token " + customTokenName,false,false)
+                if (Env.CustomKeyTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom key loop token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomKeyTokens
+                    begin
+                        if (((@CustomKeyToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom selection key loop token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            (CustomTokenType.Segment),
+            begin
+                data token, @CustomSegmentToken
+                DebugLog(" - Checking for custom key segment loop token " + customTokenName,false,false)
+                if (Env.CustomSegmentTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom key segment loop token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomSegmentTokens
+                    begin
+                        if (((@CustomSegmentToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom key segment loop token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            (CustomTokenType.Relation),
+            begin
+                data token, @CustomRelationToken
+                DebugLog(" - Checking for custom relation loop token " + customTokenName,false,false)
+                if (Env.CustomRelationTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom relation loop token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomRelationTokens
+                    begin
+                        if (((@CustomRelationToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom relation loop token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            (CustomTokenType.Enumeration),
+            begin
+                data token, @CustomEnumToken
+                DebugLog(" - Checking for custom enum loop token " + customTokenName,false,false)
+                if (Env.CustomEnumTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom enum loop token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomEnumTokens
+                    begin
+                        if (((@CustomEnumToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom enum loop token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            (CustomTokenType.EnumerationMember),
+            begin
+                data token, @CustomEnumMemberToken
+                DebugLog(" - Checking for custom enum member loop token " + customTokenName,false,false)
+                if (Env.CustomEnumMemberTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom enum member loop token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomEnumMemberTokens
+                    begin
+                        if (((@CustomEnumMemberToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom enum member loop token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            (CustomTokenType.File),
+            begin
+                data token, @CustomFileToken
+                DebugLog(" - Checking for custom file loop token " + customTokenName,false,false)
+                if (Env.CustomFileTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom file loop token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomFileTokens
+                    begin
+                        if (((@CustomFileToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom file loop token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            (CustomTokenType.Button),
+            begin
+                data token, @CustomButtonToken
+                DebugLog(" - Checking for custom button loop token " + customTokenName,false,false)
+                if (Env.CustomButtonTokens==^null)
+                begin
+                    errorText = "Template " + Env.CurrentTemplate + " requires a custom button loop token " + customTokenName
+                    ok = false
+                end
+                if (ok)
+                begin
+                    foreach token in Env.CustomButtonTokens
+                    begin
+                        if (((@CustomButtonToken)token).Token==customTokenName)
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        errorText = "Template " + Env.CurrentTemplate + " requires custom button loop token " + customTokenName
+                        ok = false
+                    end
+                end
+            end
+            endusing
+        end
+
+        if (!ok)
+            ErrorLog(errorText)
+        
+        freturn tokenFound
+        
+    endfunction
+    
+endnamespace

@@ -1,0 +1,193 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsKeySegment.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a single key segment for a Repository structures key
+;;
+;; Date:        19th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.RepositoryAPI
+
+    class RpsKeySegment
+
+        ;;Key segment attribute data
+        protected mSegmentType  ,RpsKeySegmentType  ;;Segment type (see .defines above)
+        protected mPosition     ,int                ;;Segment field position
+        protected mLength       ,int                ;;Segment field/literal length
+        protected mField        ,String             ;;Segment field name
+        protected mStructure    ,String             ;;Segment structure name
+        protected mLiteralValue ,String             ;;Segment literal value (length in ki_seglen)
+        protected mDataType     ,int                ;;Optional, segment data type
+        protected mOrder        ,int                ;;Optional, segment order
+
+        ;; Constructor
+        public method RpsKeySegment
+            required in a_SegmentType   ,a
+            required in a_Position      ,d
+            required in a_Length        ,d
+            required in a_Field         ,a
+            required in a_Structure     ,a
+            required in a_LiteralValue  ,a
+            required in a_DataType      ,d
+            required in a_Order         ,d
+            endparams
+        proc
+            RpsUtils.DbgLog("RpsKeySegment(SegType,Posn,Len,Fld,Str,LitVal,Type,Order) constructor")
+
+            using a_SegmentType select
+            ("F"),  mSegmentType = RpsKeySegmentType.Field
+            ("L"),  mSegmentType = RpsKeySegmentType.Literal
+            ("E"),  mSegmentType = RpsKeySegmentType.External
+            ("R"),  mSegmentType = RpsKeySegmentType.RecordNumber
+            endusing
+
+            mPosition       = a_Position
+            mLength         = a_Length
+            mField          = atrim(a_Field)
+            mStructure      = atrim(a_Structure)
+            mLiteralValue   = atrim(a_LiteralValue)
+            mDataType       = a_DataType
+            mOrder          = a_Order
+            
+            ;;Segment orders are optional in Repository, but default to
+            ;;ascending in ISAM.  If we don't have a segment order, default to
+            ;;ascending
+            if (!mOrder)
+                mOrder = 1
+            
+            ;;Segment data types are optional in Repository, but default to
+            ;;alpha in ISAM.  If we don't have a segment data type, default to
+            ;;alpha
+            if (!mDataType)
+                mDataType = 1
+        
+        endmethod
+
+        ;; Segment type
+        public property SegmentType, RpsKeySegmentType
+            method get
+            proc
+                mreturn mSegmentType
+            endmethod
+        endproperty
+
+        ;; Segment field position
+        public property Position, int
+            method get
+            proc
+                mreturn mPosition
+            endmethod
+        endproperty
+
+        ;; Segment field/literal length
+        public property Length, int
+            method get
+            proc
+                mreturn mLength
+            endmethod
+        endproperty
+
+        ;; Segment field name
+        public property Field, String
+            method get
+            proc
+                mreturn mField
+            endmethod
+        endproperty
+
+        ;; Segment structure name
+        public property Structure, String
+            method get
+            proc
+                mreturn mStructure
+            endmethod
+        endproperty
+
+        ;; Segment literal value (length in mLength)
+        public property LiteralValue, String
+            method get
+            proc
+                mreturn mLiteralValue
+            endmethod
+        endproperty
+
+        ;; Optional, segment data type
+        public property DataType, RpsKeySegmentDataType
+            method get
+            proc
+                mreturn (RpsKeySegmentDataType)integer(mDataType)
+            endmethod
+        endproperty
+
+        public property DataTypeName, a
+            method get
+            proc
+                using integer(mDataType) select
+                (RpsKeySegmentDataType.Alpha),
+                    mreturn "ALPHA"
+                (RpsKeySegmentDataType.NoCaseAlpha),
+                    mreturn "NOCASE"
+                (RpsKeySegmentDataType.Decimal),
+                    mreturn "DECIMAL"
+                (RpsKeySegmentDataType.SignedInteger),
+                    mreturn "INTEGER"
+                (RpsKeySegmentDataType.UnsignedInteger),
+					mreturn "UNSIGNED"
+				(RpsKeySegmentDataType.AutoSequence),
+					mreturn "AUTO_SEQUENCE"
+				(RpsKeySegmentDataType.AutoTimestamp),
+					mreturn "AUTO_TIMESTAMP"
+				endusing
+            endmethod
+        endproperty
+
+        ;; Optional, segment order (enum RpsKeySegmentOrder)
+        ;;   Ascending, 1
+        ;;   Descending, 2
+        public property Order, RpsKeySegmentOrder
+            method get
+            proc
+                mreturn (RpsKeySegmentOrder)integer(mOrder)
+            endmethod
+        endproperty
+
+    endclass
+
+endnamespace
+

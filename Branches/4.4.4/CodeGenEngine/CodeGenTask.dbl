@@ -1,0 +1,842 @@
+
+import System
+.ifdef DBLNET
+import System.Collections.ObjectModel
+import System.ComponentModel
+import System.IO
+import System.Runtime.Serialization
+import System.Xml.Serialization
+.endc
+
+namespace CodeGen.Engine
+
+.ifndef DBLNET
+
+	public class CodeGenTask
+
+		public method CodeGenTask
+			endparams
+		proc
+			throw new Exception("The CodeGenTask class is only available in Synergy .NET!")
+		endmethod
+
+	endclass
+
+.else
+
+	{DataContract}
+	public class CodeGenTask implements INotifyPropertyChanged
+		
+.region "Task configuration properties"
+
+		private mDescription,					String,									"New Task"
+
+		private mRepositoryMainFile,			String,									String.Empty
+		private mRepositoryTextFile,			String,									String.Empty
+
+		private mTemplates,						@ObservableCollection<String>,			new ObservableCollection<String>()		; -t
+		private mStructures,					@ObservableCollection<String>,			new ObservableCollection<String>()		; -s
+		private mAliases,						@ObservableCollection<String>,			new ObservableCollection<String>()		; -a
+		private mFileOverrides,					@ObservableCollection<String>,			new ObservableCollection<String>()		; -fo
+		private mSubsetFields,					@ObservableCollection<String>,			new ObservableCollection<String>()		; -fields
+		
+		private mUserTokens,					@ObservableCollection<UserToken>,		new ObservableCollection<UserToken>()	; -ut
+		private mUserTokenFile,					String,									String.Empty							; -u
+		
+		private mTemplateFolder,				String,									String.Empty							; -i
+		private mOutputFolder,					String,									String.Empty							; -o
+
+		private mNamespace,						String,									String.Empty							; -n
+		private mFieldPrefix,					String,									String.Empty							; -prefix
+		private mSubset,						String,									String.Empty							; -subset
+		private mRepositoryFile,				String,									String.Empty							; -file
+		private mWindowScript,					String,									String.Empty							; -w
+		private mSelectionWindowScript,			String,									String.Empty							; -ws
+
+		private mCharacterWidth,				int,									12										; -cw
+		private mCharacterHeight,				int,									25										; -ch
+		private mPrimaryKeyNumber,				int,									0										; -opk
+
+		private mReplaceFiles,					Boolean,								false									; -r
+		private mIgnoreScriptFieldAttributes,	Boolean,								false									; -wn
+		private mAlwaysLoadDefaultButtons,		Boolean,								false									; -ba
+		private mNeverLoadDefaultButtons,		Boolean,								false									; -bd
+		private mNeverLoadAnyButtons,			Boolean,								false									; -bn
+		private mIncludeOverlayFields,			Boolean,								false									; -f o
+		private mIgnoreExcludeLanguage,			Boolean,								false									; -f l
+		private mHonorExcludeToolkit,			Boolean,								false									; -f t
+		private mHonorExcludeReportWriter,		Boolean,								false									; -f r
+		private mHonorExcludeWeb,				Boolean,								false									; -f w
+		private mGroupFieldNoGroupPrefix,		Boolean,								false									; -g f
+		private mGroupNoExpand,					Boolean,								false									; -g i
+		private mGroupFieldNoRpsPrefix,			Boolean,								false									; -g r
+		private mMultipleStructures,			Boolean,								false									; -ms
+
+		;;; <summary>
+		;;; Description of this task
+		;;; </summary>
+		{DefaultValue("New Task")}
+		{DataMember}
+		public property Description, String
+			method get
+			proc
+				mreturn mDescription
+			endmethod
+			method set
+			proc
+				mDescription = value
+			endmethod
+		endproperty
+	
+		{DefaultValue("")}
+		{DataMember}
+		public property RepositoryMainFile, String
+			method get
+			proc
+				mreturn mRepositoryMainFile
+			endmethod
+			method set
+			proc
+				mRepositoryMainFile = value
+				NotifyPropertyChanged("RepositoryMainFile")
+			endmethod
+		endproperty
+		
+		{DefaultValue("")}
+		{DataMember}
+		public property RepositoryTextFile, String
+			method get
+			proc
+				mreturn mRepositoryTextFile
+			endmethod
+			method set
+			proc
+				mRepositoryTextFile = value
+				NotifyPropertyChanged("RepositoryTextFile")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Templates to process. Setting this property is mandatory for all operations.
+		;;; Setting this property is equivalent to using the -t command line option.
+		;;; </summary>
+		{DataMember}
+		public property Templates, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mTemplates
+			endmethod
+			method set
+			proc
+				mTemplates = value
+				NotifyPropertyChanged("Templates")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Strcutures to process. To process all structures add an * as the first structure name.
+		;;; Setting this property is equivalent to using the -s command line option.
+		;;; </summary>
+		{DataMember}
+		public property Structures, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mStructures
+			endmethod
+			method set
+			proc
+				mStructures = value
+				NotifyPropertyChanged("Structures")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Structure aliases. The number of aliases should be less than or equal to the
+		;;; number of structures being processed.
+		;;; Setting this property is equivalent to using the -a command line option.
+		;;; </summary>
+		{DataMember}
+		public property Aliases, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mAliases
+			endmethod
+			method set
+			proc
+				mAliases = value
+				NotifyPropertyChanged("Aliases")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	File Overrides. This option allows you to specify which repository file definition is
+		;;; used for each structure that you are processing. This option is useful if the structure
+		;;; that you are using is assigned to multiple files, because CodeGen will by default will
+		;;; always select the first assigned file. The number of file overrides must be less than
+		;;; or equal to the number of structures being processed.
+		;;; Setting this property is equivalent to using the -fo command line option.
+		;;; </summary>
+		{DataMember}
+		public property FileOverrides, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mFileOverrides
+			endmethod
+			method set
+			proc
+				mFileOverrides = value
+				NotifyPropertyChanged("FileOverrides")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Subset fields. This option allows you to specify which repository fields from the current
+		;;; structure will be used to create a subset.
+		;;; Setting this property is equivalent to using the -fields command line option.
+		;;; </summary>
+		{DataMember}
+		public property SubsetFields, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mSubsetFields
+			endmethod
+			method set
+			proc
+				mSubsetFields = value
+				NotifyPropertyChanged("SubsetFields")
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;;	User defined tokens.
+		;;; Setting this property is equivalent to using the -ut command line option.
+		;;; </summary>
+		{DataMember}
+		public property UserTokens, @ObservableCollection<UserToken>
+			method get
+			proc
+				mreturn mUserTokens
+			endmethod
+			method set
+			proc
+				mUserTokens = value
+				NotifyPropertyChanged("UserTokens")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	User defined token file. Optionally specify the path to a file which contains user
+		;;; defined token definitions.
+		;;; Setting this property is equivalent to using the -u command line option.
+		;;; </summary>
+		{DefaultValue("")}
+		{DataMember}
+		public property UserTokenFile, String
+			method get
+			proc
+				mreturn mUserTokenFile
+			endmethod
+			method set
+			proc
+				mUserTokenFile = value
+				NotifyPropertyChanged("UserTokenFile")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Template folder. If not specified then the folder defined by the environment variable
+		;;; CODEGEN_TPLDIR is used. If that is not defined then the current folder is used.
+		;;; Setting this property is equivalent to using the -i command line option.
+		;;; </summary>
+		{DefaultValue("")}
+		{DataMember}
+		public property TemplateFolder, String
+			method get
+			proc
+				mreturn mTemplateFolder
+			endmethod
+			method set
+			proc
+				mTemplateFolder = value.Trim()
+				if (!mTemplateFolder.EndsWith(":")&&!mTemplateFolder.EndsWith("\"))
+					mTemplateFolder = mTemplateFolder + "\"
+				NotifyPropertyChanged("TemplateFolder")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Output folder. If not specified then the folder defined by the environment variable
+		;;; CODEGEN_OUTDIR is used. If that is not defined then the current folder is used.
+		;;; Setting this property is equivalent to using the -o command line option.
+		;;; </summary>
+		{DefaultValue("")}
+		{DataMember}
+		public property OutputFolder, String
+			method get
+			proc
+				mreturn mOutputFolder
+			endmethod
+			method set
+			proc
+				mOutputFolder = value.trim()
+				if (!mOutputFolder.EndsWith(":")&&!mOutputFolder.EndsWith("\"))
+					mOutputFolder = mOutputFolder + "\"
+				NotifyPropertyChanged("OutputFolder")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Namespace to be used if the <NAMESPACE> token is used. If not specified
+		;;; then the namespace defined by the environment variable SYNDEFNS is used.
+		;;; Setting this property is equivalent to using the -n command line option.
+		;;; </summary>
+		{DefaultValue("")}
+		{DataMember}
+		public property Namespace, String
+			method get
+			proc
+				mreturn mNamespace
+			endmethod
+			method set
+			proc
+				mNamespace = value
+				NotifyPropertyChanged("Namespace")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Optional prefix to apply to field names when the <FIELD_NAME> token is used.
+		;;; Setting this property is equivalent to using the -prefix command line option.
+		;;; </summary>
+		{DefaultValue("")}
+		{DataMember}
+		public property FieldPrefix, String
+			method get
+			proc
+				mreturn mFieldPrefix
+			endmethod
+			method set
+			proc
+				mFieldPrefix = value
+				NotifyPropertyChanged("FieldPrefix")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Subset of fields to use. Specify subsets in field user text strings with @SUB=name;
+		;;; syntax. This option is only valid when processing a single repository structure.
+		;;; Setting this property is equivalent to using the -subset command line option.
+		;;; </summary>
+		{DefaultValue("")}
+		{DataMember}
+		public property Subset, String
+			method get
+			proc
+				mreturn mSubset
+			endmethod
+			method set
+			proc
+				mSubset = value
+				NotifyPropertyChanged("Subset")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Repository file name to process. Setting this property makes all of the structures
+		;;; associated with the file definition to be available during code generation, as if
+		;;; you had specified those structures via the Structures property and also set the
+		;;; MultipleStructures property to true.
+		;;; Setting this property is equivalent to using the -file command line option.
+		;;; </summary>
+		{DefaultValue("")}
+		{DataMember}
+		public property RepositoryFile, String
+			method get
+			proc
+				mreturn mRepositoryFile
+			endmethod
+			method set
+			proc
+				mRepositoryFile = value
+				NotifyPropertyChanged("RepositoryFile")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Process input from a UI Toolkit Window script file.  By default the fields and
+		;;; buttons collection will be based on the first input window found in the script file,
+		;;; but this can be overridden by specifying the name of number or name of the window to
+		;;; use following a # character after the script file name.
+		;;; Setting this property is equivalent to using the -w command line option.
+		;;; </summary>
+		{DefaultValue("")}
+		{DataMember}
+		public property WindowScript, String
+			method get
+			proc
+				mreturn mWindowScript
+			endmethod
+			method set
+			proc
+				mWindowScript = value
+				NotifyPropertyChanged("WindowScript")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Window script selection list processing. When this option is used CodeGen will examine
+		;;; any fields which have selection windows specified and will attempt to populate the field
+		;;; selections property based on the selection items defined in the named selection window.
+		;;; Setting this property is equivalent to using the -ws command line option.
+		;;; </summary>
+		{DefaultValue("")}
+		{DataMember}
+		public property SelectionWindowScript, String
+			method get
+			proc
+				mreturn mSelectionWindowScript
+			endmethod
+			method set
+			proc
+				mSelectionWindowScript = value
+				NotifyPropertyChanged("SelectionWindowScript")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	The width of a character in pixels. The default width is 12 pixels.
+		;;; Setting this property is equivalent to using the -cw command line option.
+		;;; </summary>
+		{DefaultValue(12)}
+		{DataMember}
+		public property CharacterWidth, int
+			method get
+			proc
+				mreturn mCharacterWidth
+			endmethod
+			method set
+			proc
+				mCharacterWidth = value
+				NotifyPropertyChanged("CharacterWidth")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	The height of a character (or row) in pixels. The default height is 25 pixels.
+		;;; Setting this property is equivalent to using the -ch command line option.
+		;;; </summary>
+		{DefaultValue(25)}
+		{DataMember}
+		public property CharacterHeight, int
+			method get
+			proc
+				mreturn mCharacterHeight
+			endmethod
+			method set
+			proc
+				mCharacterHeight = value
+				NotifyPropertyChanged("CharacterHeight")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	The key number that should be treated as the primary key when using
+		;;; a primary key block.
+		;;; </summary>
+		{DefaultValue(0)}
+		{DataMember}
+		public property PrimaryKeyNumber, int
+			method get
+			proc
+				mreturn mPrimaryKeyNumber
+			endmethod
+			method set
+			proc
+				mPrimaryKeyNumber = value
+				NotifyPropertyChanged("PrimaryKeyNumber")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Replace existing files. Default is to not replace existing files.
+		;;; Setting this property is equivalent to using the -r command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property ReplaceFiles, Boolean
+			method get
+			proc
+				mreturn mReplaceFiles
+			endmethod
+			method set
+			proc
+				mReplaceFiles = value
+				NotifyPropertyChanged("ReplaceFiles")
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;;	When processing input from a UI Toolkit Window script file this option prevents script
+		;;; file input window field attributes from being used to override repository field attributes.
+		;;; This allows you to generate code based on only the fields listed in an input window, but
+		;;; using only the repository field definitions.
+		;;; Setting this property is equivalent to using the -wn command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property IgnoreScriptFieldAttributes, Boolean
+			method get
+			proc
+				mreturn mIgnoreScriptFieldAttributes
+			endmethod
+			method set
+			proc
+				mIgnoreScriptFieldAttributes = value
+				NotifyPropertyChanged("IgnoreScriptFieldAttributes")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Always use the default buttons defined in DefaultButtons.xml.
+		;;; Setting this property is equivalent to using the -b a command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property AlwaysLoadDefaultButtons, Boolean
+			method get
+			proc
+				mreturn mAlwaysLoadDefaultButtons
+			endmethod
+			method set
+			proc
+				mAlwaysLoadDefaultButtons = value
+				NotifyPropertyChanged("AlwaysLoadDefaultButtons")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Never use the default buttons defined in DefaultButtons.xml.
+		;;; Setting this property is equivalent to using the -b d command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property NeverLoadDefaultButtons, Boolean
+			method get
+			proc
+				mreturn mNeverLoadDefaultButtons
+			endmethod
+			method set
+			proc
+				mNeverLoadDefaultButtons = value
+				NotifyPropertyChanged("NeverLoadDefaultButtons")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Never load any buttons (DefaultButtons.xml or window script).
+		;;; Setting this property is equivalent to using the -b n command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property NeverLoadAnyButtons, Boolean
+			method get
+			proc
+				mreturn mNeverLoadAnyButtons
+			endmethod
+			method set
+			proc
+				mNeverLoadAnyButtons = value
+				NotifyPropertyChanged("NeverLoadAnyButtons")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Include overlay fields.
+		;;; Setting this property is equivalent to using the -f o command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property IncludeOverlayFields, Boolean
+			method get
+			proc
+				mreturn mIncludeOverlayFields
+			endmethod
+			method set
+			proc
+				mIncludeOverlayFields = value
+				NotifyPropertyChanged("IncludeOverlayFields")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Include fields which are 'Excluded by Language'.
+		;;; Setting this property is equivalent to using the -f l command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property IgnoreExcludeLanguage, Boolean
+			method get
+			proc
+				mreturn mIgnoreExcludeLanguage
+			endmethod
+			method set
+			proc
+				mIgnoreExcludeLanguage = value
+				NotifyPropertyChanged("IgnoreExcludeLanguage")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Exclude fields which are 'Excluded by Toolkit'.
+		;;; Setting this property is equivalent to using the -f t command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property HonorExcludeToolkit, Boolean
+			method get
+			proc
+				mreturn mHonorExcludeToolkit
+			endmethod
+			method set
+			proc
+				mHonorExcludeToolkit = value
+				NotifyPropertyChanged("HonorExcludeToolkit")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Exclude fields which are 'Excluded by ReportWriter'.
+		;;; Setting this property is equivalent to using the -f r command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property HonorExcludeReportWriter, Boolean
+			method get
+			proc
+				mreturn mHonorExcludeReportWriter
+			endmethod
+			method set
+			proc
+				mHonorExcludeReportWriter = value
+				NotifyPropertyChanged("HonorExcludeReportWriter")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Exclude fields which are 'Excluded by Web'.
+		;;; Setting this property is equivalent to using the -f w command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property HonorExcludeWeb, Boolean
+			method get
+			proc
+				mreturn mHonorExcludeWeb
+			endmethod
+			method set
+			proc
+				mHonorExcludeWeb = value
+				NotifyPropertyChanged("HonorExcludeWeb")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Don't prefix group fields with group name.
+		;;; Setting this property is equivalent to using the -g f command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property GroupFieldNoGroupPrefix, Boolean
+			method get
+			proc
+				mreturn mGroupFieldNoGroupPrefix
+			endmethod
+			method set
+			proc
+				mGroupFieldNoGroupPrefix = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Don't use repository group field prefix.
+		;;; Setting this property is equivalent to using the -g r command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property GroupFieldNoRpsPrefix, Boolean
+			method get
+			proc
+				mreturn mGroupFieldNoRpsPrefix
+			endmethod
+			method set
+			proc
+				mGroupFieldNoRpsPrefix = value
+				NotifyPropertyChanged("GroupFieldNoRpsPrefix")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Don't expand implicit groups to individual fields.
+		;;; Setting this property is equivalent to using the -g i command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property GroupNoExpand, Boolean
+			method get
+			proc
+				mreturn mGroupNoExpand
+			endmethod
+			method set
+			proc
+				mGroupNoExpand = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Multiple Structures. Specifies that the structures specified via the Structures
+		;;; property should all be available to templates being processed at the same time.
+		;;; Setting this property is equivalent to using the -ms command line option.
+		;;; </summary>
+		{DefaultValue(false)}
+		{DataMember}
+		public property MultipleStructures, Boolean
+			method get
+			proc
+				mreturn mMultipleStructures
+			endmethod
+			method set
+			proc
+				mMultipleStructures = value
+				NotifyPropertyChanged("MultipleStructures")
+			endmethod
+		endproperty
+
+.endregion
+
+.region "Task completion status properties"
+		
+		{NonSerialized}
+		private mComplete, Boolean, false
+
+		;;; <summary>
+		;;; Did the task complete without any errors
+		;;; </summary>
+		{XmlIgnore}
+		{DataMember}
+		public property Complete, Boolean
+			method get
+			proc
+				mreturn mComplete
+			endmethod
+			internal method set
+			proc
+				mComplete = value
+				NotifyPropertyChanged("Complete")
+			endmethod
+		endproperty
+		
+		{NonSerialized}
+		private mErrorMessage, String, String.Empty
+
+		;;; <summary>
+		;;; Did the task complete without errors
+		;;; </summary>
+		{XmlIgnore}
+		{DataMember}
+		public property ErrorMessage, String
+			method get
+			proc
+				mreturn mErrorMessage
+			endmethod
+			internal method set
+			proc
+				mErrorMessage = value
+				NotifyPropertyChanged("ErrorMessage")
+			endmethod
+		endproperty
+		
+		{NonSerialized}
+		private mFilesGenerated, @ObservableCollection<String>, new ObservableCollection<String>()
+
+		;;; <summary>
+		;;; List of files that were generated by this task.
+		;;; </summary>
+		{XmlIgnore}
+		{DataMember}
+		public property FilesGenerated, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mFilesGenerated
+			endmethod
+			method set
+			proc
+				mFilesGenerated = value
+				;NotifyPropertyChanged("FilesGenerated")
+			endmethod
+		endproperty
+
+		{NonSerialized}
+		private mMessages, @ObservableCollection<String>, new ObservableCollection<String>()
+		
+		{XmlIgnore}
+		{DataMember}
+		public property Messages, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mMessages
+			endmethod
+			method set
+			proc
+				mMessages = value
+			endmethod
+		endproperty		
+
+.endregion
+
+.region "Events"
+		
+		public delegate StartingTaskEventHandler, void
+			task, @CodeGenTask
+		enddelegate
+
+		public delegate TaskCompleteEventHandler, void
+			task, @CodeGenTask
+		enddelegate
+		
+		public event StartingTask, @StartingTaskEventHandler
+		public event TaskComplete, @TaskCompleteEventHandler
+		
+		internal method RaiseStartingTask, void
+		proc
+			if (StartingTask!=^null)
+				raiseevent(StartingTask,this)
+		endmethod
+
+		internal method RaiseTaskComplete, void
+		proc
+			if (TaskComplete!=^null)
+				raiseevent(TaskComplete,this)
+		endmethod
+		
+.endregion
+		
+.region "INotifyPropertyChanged"
+		
+		public event PropertyChanged, @PropertyChangedEventHandler
+		
+		private method NotifyPropertyChanged, void
+			required in propertyName, String
+			endparams
+		proc
+			if (PropertyChanged!=^null)
+				PropertyChanged(this, new PropertyChangedEventArgs(propertyName))
+		endmethod
+		
+.endregion
+
+	endclass
+	
+.endc
+
+endnamespace
+
