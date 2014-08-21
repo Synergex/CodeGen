@@ -86,7 +86,7 @@ namespace CodeGen.Engine
                 if (pos1==trim(WscFile))
                 begin
                     data mtx, String, "No window number or name following # in script file name!"
-                    ErrorLog(mtx)
+                    Logging.Errorlog(mtx)
                     ErrStatus=54
                     aErrorMessage = atrim(mtx)
                     freturn ErrStatus
@@ -111,19 +111,19 @@ namespace CodeGen.Engine
         if (!instr(1,WscFile,"."))
             WscFile=atrim(WscFile)+".wsc"
 
-		DebugLog("Parsing window script "+StringTools.UpperCase(WscFile),true,false)
+		Logging.DebugLog("Parsing window script "+StringTools.UpperCase(WscFile),true,false)
 
         if (WindowNum!=0) then
-            DebugLog(" - Searching for input window #" + string(WindowNum),false,false)
+            Logging.DebugLog(" - Searching for input window #" + string(WindowNum))
         else if (WindowName)
-            DebugLog(" - Searching for input window " + WindowName,false,false)
+            Logging.DebugLog(" - Searching for input window " + WindowName)
 
         ;;Open the file, fail if can't
         try
             open(WscChn=0,i:s,WscFile)
         catch (ex)
         begin
-            ErrorLog("Can't open window script "+WscFile)
+            Logging.Errorlog("Can't open window script "+WscFile)
             aErrorMessage = atrim("Can't open window script "+WscFile)
             ErrStatus=54
             freturn ErrStatus
@@ -182,9 +182,9 @@ namespace CodeGen.Engine
                 if (InWindow) then
                 begin
                     if (WindowNum>0) then
-                        DebugLog(" - Found end of input window #" + string(WindowCnt) + " " + InpWnd,false,false)
+                        Logging.DebugLog(" - Found end of input window #" + string(WindowCnt) + " " + InpWnd)
                     else
-                        DebugLog(" - Found end of input window " + InpWnd,false,false)
+                        Logging.DebugLog(" - Found end of input window " + InpWnd)
                     GotWindow=1
                     exitloop
                 end
@@ -223,9 +223,9 @@ namespace CodeGen.Engine
                 ;;All that is left should be the width
                 WndWidth = integer(atrim(wscrec1))
                 if (WindowNum>0) then
-					DebugLog(" - Found input window #" + string(WindowCnt) + " " + StringTools.UpperCase(InpWnd),false,false)
+					Logging.DebugLog(" - Found input window #" + string(WindowCnt) + " " + StringTools.UpperCase(InpWnd))
                 else 
-                    DebugLog(" - Found input window " + atrim(InpWnd),false,false)
+                    Logging.DebugLog(" - Found input window " + atrim(InpWnd))
 
                 nextloop
             end
@@ -247,7 +247,7 @@ namespace CodeGen.Engine
                 ;;What remains should be the structure name
 				InpWndStr = StringTools.UpperCase(wscrec1)
 
-                DebugLog(" - Found repository structure " + atrim(InpWndStr),false,false)
+                Logging.DebugLog(" - Found repository structure " + atrim(InpWndStr))
 
                 ;;Do we already have a field set for this structure?
                 foreach fieldSet in FieldSets
@@ -256,7 +256,7 @@ namespace CodeGen.Engine
                     begin
                         CurrentFieldSet = fieldSet
                         foundStr = true
-                        DebugLog(" - Adding fields to existing structure " + atrim(InpWndStr),false,false)
+                        Logging.DebugLog(" - Adding fields to existing structure " + atrim(InpWndStr))
                         exitloop
                     end
                 end
@@ -268,12 +268,12 @@ namespace CodeGen.Engine
                     if ((FieldSets.Count>1)&&(!Env.MultipleStructures))
                     begin
                         aErrorMessage = "Input window references multiple repository structures!!"
-                        ErrorLog(aErrorMessage)
+                        Logging.Errorlog(aErrorMessage)
                         ErrStatus=1
                         exitloop
                     end
                     
-                    DebugLog(" - Adding fields to new structure " + atrim(InpWndStr),false,false)
+                    Logging.DebugLog(" - Adding fields to new structure " + atrim(InpWndStr))
                     CurrentFieldSet = new WscFieldCollection(InpWndStr)
                     FieldSets.Add(CurrentFieldSet)
                 end
@@ -297,14 +297,14 @@ namespace CodeGen.Engine
                 WscField = new WscField(CurrentFieldSet.StructureName, wscrec1(1:pos1-1),CleanScriptField(wscrec1(pos1+1,trim(wscrec1))))
                 CurrentFieldSet.Add(WscField)
 
-                DebugLog(" - Found field "+WscField.Name+" params "+WscField.Attributes,false,false)
+                Logging.DebugLog(" - Found field "+WscField.Name+" params "+WscField.Attributes)
                 nextloop
             end
 
             ;;If we find local fields then switch to the local fields set
             if (InWindow&&StringTools.LowerCase(wscrec1)==".local")
             begin
-                DebugLog(" - Adding fields to LOCAL structure",false,false)
+                Logging.DebugLog(" - Adding fields to LOCAL structure")
                 CurrentFieldSet = (@WscFieldCollection)FieldSets[0]
             end
 
@@ -433,7 +433,7 @@ eowsc,  close WscChn
         if ((!errstatus)&&(!GotWindow))
         begin
             aErrorMessage = "No input windows found in window script "+atrim(WscFile)
-            ErrorLog(aErrorMessage)
+            Logging.Errorlog(aErrorMessage)
             ErrStatus=57
             clear FieldSets
         end
@@ -453,7 +453,7 @@ eowsc,  close WscChn
                 if (!CurrentFieldSet.Count)
                 begin
                     aErrorMessage = "Structure "+CurrentFieldSet.StructureName+" in window "+atrim(InpWnd)+" in script "+atrim(WscFile)+" contains no fields!"
-                    ErrorLog(aErrorMessage)
+                    Logging.Errorlog(aErrorMessage)
                     ErrStatus=58
                     exitloop
                 end
@@ -504,7 +504,7 @@ eowsc,  close WscChn
                         end
                         catch (ex)
                         begin
-                            ErrorLog(ex.ToString())
+                            Logging.Errorlog(ex.ToString())
                             ErrStatus=1
                             aErrorMessage = ex.ToString()
                             exitloop
@@ -534,7 +534,7 @@ eowsc,  close WscChn
                     catch (ex)
                     begin
                         data mtx, String, "Structure "+Env.CurrentStructure.Name+" not found!" 
-                        ErrorLog(mtx)
+                        Logging.Errorlog(mtx)
                         ErrStatus=33
                         aErrorMessage = atrim(mtx)
                         exitloop
@@ -545,7 +545,7 @@ eowsc,  close WscChn
                     begin
                         if (!ProcessSelectionWindows(Struct,aErrorMessage))
                         begin
-                            ErrorLog("Failed to resolve selection windows for structure " + Struct.Name + char(13) + char(10) + "       " + aErrorMessage)
+                            Logging.Errorlog("Failed to resolve selection windows for structure " + Struct.Name + char(13) + char(10) + "       " + aErrorMessage)
                             ErrStatus = 1
                             exitloop
                         end
@@ -569,10 +569,10 @@ eowsc,  close WscChn
             if (Env.Verbose)
             begin
                 data Struct, @RpsStructure
-				VerboseLog("Processing UI Toolkit Window Script, input window " + StringTools.UpperCase(InpWnd),true,false)
-                VerboseLog(" - Height "+string(WndHeight)+" Width "+string(WndWidth),false,false)
+				Logging.VerboseLog("Processing UI Toolkit Window Script, input window " + StringTools.UpperCase(InpWnd),true,false)
+                Logging.VerboseLog(" - Height "+string(WndHeight)+" Width "+string(WndWidth))
                 foreach Struct in Structures.GetEnumerator()
-                    VerboseLog(" - Structure "+Struct.Name+" Fields "+string(Struct.Fields.Count),false,false)
+                    Logging.VerboseLog(" - Structure "+Struct.Name+" Fields "+string(Struct.Fields.Count))
             end
         end
 
