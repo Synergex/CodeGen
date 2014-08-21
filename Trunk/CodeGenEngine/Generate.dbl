@@ -224,13 +224,13 @@ namespace CodeGen.Engine
         begin
             open(InCh=0,i:s,Env.TemplateDir+Env.CurrentTemplate+".tpl")
             if (Env.RpsInUse) then
-                DebugLog("Code generation for structure "+Str.Name + ", template "+Env.CurrentTemplate+".tpl",true,true)
+                Logging.DebugLog("Code generation for structure "+Str.Name + ", template "+Env.CurrentTemplate+".tpl",true,true)
             else
-                DebugLog("Code generation for template "+Env.CurrentTemplate+".tpl",true,true)
+                Logging.DebugLog("Code generation for template "+Env.CurrentTemplate+".tpl",true,true)
         end
         catch (ex)
         begin
-            ErrorLog("Template "+Env.CurrentTemplate+".tpl not found!")
+            Logging.Errorlog("Template "+Env.CurrentTemplate+".tpl not found!")
             ErrStatus=1
         end
         endtry
@@ -238,7 +238,7 @@ namespace CodeGen.Engine
         ;;Load template code into memory
         if (!ErrStatus)
         begin
-            DebugLog(" - Loading template code",false,false)
+            Logging.DebugLog(" - Loading template code")
 
             Template = new ArrayList()
             TemplateCodeIndex = -1
@@ -265,7 +265,7 @@ namespace CodeGen.Engine
                 begin
                     if (TokenStart=instr(1,buffer,"<CODEGEN_FILENAME>")) then
                     begin
-                        DebugLog(" - Template defines a custom output file name",false,false)
+                        Logging.DebugLog(" - Template defines a custom output file name")
 
                         ;;Find the end tag and extract the file spec
                         TokenEnd = instr((TokenStart+=18),buffer,"</CODEGEN_FILENAME>")
@@ -273,7 +273,7 @@ namespace CodeGen.Engine
                         ;;Not there?
                         if (!TokenEnd)
                         begin
-                            ErrorLog("Token </CODEGEN_FILENAME> not found in template "+Env.CurrentTemplate)
+                            Logging.Errorlog("Token </CODEGEN_FILENAME> not found in template "+Env.CurrentTemplate)
                             ErrStatus = 1
                             exitloop
                         end
@@ -292,7 +292,7 @@ namespace CodeGen.Engine
                         ;;Save the file spec for use later
                         outfile = atrim(buffer)
 
-                        DebugLog(" - Template defined output file name is " + atrim(outfile),false,false)
+                        Logging.DebugLog(" - Template defined output file name is " + atrim(outfile))
 
                         ;;Exclude the record from further processing
                         nextloop
@@ -303,7 +303,7 @@ namespace CodeGen.Engine
                             outfile=Str.Alias.ToLower()+"_"+Env.CurrentTemplate.ToLower()+".dbl"
                         else
                             outfile=Env.CurrentTemplate.ToLower()+".dbl"
-                        DebugLog(" - Output file name is " + atrim(outfile),false,false)
+                        Logging.DebugLog(" - Output file name is " + atrim(outfile))
                     end
                 end
 
@@ -453,7 +453,7 @@ namespace CodeGen.Engine
                     if (!tplfound)
                     begin
                         Templates.Add((String)atrim(buffer))
-                        DebugLog(" - This template defines that an additional template (" + atrim(buffer) + ") is processed",false,false)
+                        Logging.DebugLog(" - This template defines that an additional template (" + atrim(buffer) + ") is processed")
                     end
 
                     if (DoingLastRecord) then
@@ -472,7 +472,7 @@ namespace CodeGen.Engine
 						exit
 					
 					;;No tags, remove and ignore the tag loop code
-					DebugLog(" - Ignoring tag loop in template because the structure has no tags",false,false)
+					Logging.DebugLog(" - Ignoring tag loop in template because the structure has no tags")
 					
 					;;Is it an in-line tag loop?
 					if (TokenEnd = instr(TokenStart,buffer,"</TAG_LOOP>")) then
@@ -509,7 +509,7 @@ namespace CodeGen.Engine
 							begin
 								;;Ge got s problem! We found the end of the file before
 								;;the end of the tag loop!
-								ErrorLog("Missing </TAG_LOOP> token in template "+Env.CurrentTemplate)
+								Logging.Errorlog("Missing </TAG_LOOP> token in template "+Env.CurrentTemplate)
 								ErrStatus = 1
 								exitloop
 							end
@@ -528,7 +528,7 @@ namespace CodeGen.Engine
 
             ;;Finished loading the template into memory
             if (!ErrStatus)
-                DebugLog(" - Template initially contains " + string(Template.Count) + " records",false,false)
+                Logging.DebugLog(" - Template initially contains " + string(Template.Count) + " records")
         end
 
         ;;Create the output file
@@ -550,14 +550,14 @@ namespace CodeGen.Engine
                 Output = new ArrayList()
                 TemplateCodeIndex = -1
 
-                DebugLog(" - Starting token replacement pass " + string(PassCount) + " with " + string(Template.Count) + " records",true,false)
+                Logging.DebugLog(" - Starting token replacement pass " + string(PassCount) + " with " + string(Template.Count) + " records",true,false)
 
                 if (Env.DeveloperDebug)
                 begin
                     data tmpChn, int, 0
                     data tmpFile, String, "TEMP:"+%datetime()+"-"+Env.CurrentTemplate+"-Before-Pass-"+string(PassCount)+".tpl"
                     data tplRec, @a
-                    DebugLog("DEVDBG: Saving template data to "+tmpFile,false,false)
+                    Logging.DebugLog("DEVDBG: Saving template data to "+tmpFile)
                     open(tmpChn,O:S,tmpFile)
                     foreach tplRec in Template
                         writes(tmpChn,(a)tplRec)
@@ -572,7 +572,7 @@ namespace CodeGen.Engine
                     buffer = (a)Template[TemplateCodeIndex+=1]
 
                     if (Env.DeveloperDebug)
-                        DebugLog("DEVDBG: Template code: "+atrim(buffer),false,false)
+                        Logging.DebugLog("DEVDBG: Template code: "+atrim(buffer))
 
                     ;;Do we have an instruction to switch strcuture context (<STRUCTURE#n>)?
                     if (tmpPos = instr(1,buffer,"<STRUCTURE#"))
@@ -582,7 +582,7 @@ namespace CodeGen.Engine
                         ;;Make sure the token is formatted correctly
                         if ((!(tmpEndPos = %instr(tmpPos+11,buffer,">")))||((tmpEndPos-tmpPos)<12))
                         begin
-                            ErrorLog("Invalid <STRUCTURE#n> token encountered")
+                            Logging.Errorlog("Invalid <STRUCTURE#n> token encountered")
                             ErrStatus = 1
                             exitloop
                         end
@@ -595,7 +595,7 @@ namespace CodeGen.Engine
                         end
                         catch (e, @BadDigitException)
                         begin
-                            ErrorLog("Invalid <STRUCTURE#n> token encountered")
+                            Logging.Errorlog("Invalid <STRUCTURE#n> token encountered")
                             ErrStatus = 1
                             exitloop
                         end
@@ -603,14 +603,14 @@ namespace CodeGen.Engine
                         ;;Make sure we have multiple structures
                         if (Env.CurrentStructures==^null)
                         begin
-                            ErrorLog("Token "+buffer(tmpPos,tmpEndPos)+" in template " + Env.CurrentTemplate + " requires multiple structures")
+                            Logging.Errorlog("Token "+buffer(tmpPos,tmpEndPos)+" in template " + Env.CurrentTemplate + " requires multiple structures")
                             ErrStatus = 1
                             exitloop
                         end
                         ;;Make sure we have enough structures
                         if (Env.CurrentStructures.Count<tmpStrNum)
                         begin
-                            ErrorLog("Token "+buffer(tmpPos,tmpEndPos)+" in template " + Env.CurrentTemplate + " requires " + string(tmpStrNum) + " structures")
+                            Logging.Errorlog("Token "+buffer(tmpPos,tmpEndPos)+" in template " + Env.CurrentTemplate + " requires " + string(tmpStrNum) + " structures")
                             ErrStatus = 1
                             exitloop
                         end
@@ -622,7 +622,7 @@ namespace CodeGen.Engine
                         ;;Leave the <STRUCTURE#n> token in the output file, they'll all get stripped out before the file is written
                         Output.Add((@a)(atrim(buffer)))
                         
-                        DebugLog(" - Switched context to structure " + string(tmpStrNum) + " (" + Env.CurrentStructure.Name + ")",true,true)
+                        Logging.DebugLog(" - Switched context to structure " + string(tmpStrNum) + " (" + Env.CurrentStructure.Name + ")",true,true)
                         nextloop
                     end
 
@@ -635,7 +635,7 @@ namespace CodeGen.Engine
                     begin
                         Output.Add((@a)(atrim(buffer)))
                         if (Env.DeveloperDebug)
-                            DebugLog("DEVDBG: Output code:   "+atrim(buffer),false,false)
+                            Logging.DebugLog("DEVDBG: Output code:   "+atrim(buffer))
                     end
 
                     if (backFromStructureLoop)
@@ -644,7 +644,7 @@ namespace CodeGen.Engine
                 until ((TemplateCodeIndex==Template.Count-1)||ErrStatus)
 
                 if (!ErrStatus)
-                    DebugLog(" - Ending token replacement pass " + string(PassCount) + " with " + string(Output.Count) + " records",false,false)
+                    Logging.DebugLog(" - Ending token replacement pass " + string(PassCount) + " with " + string(Output.Count) + " records")
 
                 if (!ErrStatus&&DoAnotherPass)
                 begin
@@ -667,7 +667,7 @@ namespace CodeGen.Engine
                     writes(OutCh,atrim((a)sourceLine))
             end
             Env.FilesCreated = Env.FilesCreated + 1
-            Env.OutputFiles.Add((string)atrim(outfile))
+            Env.OutputFiles.Add((string)%atrim(outfile))
         end
         else
             Env.FilesFailed = Env.FilesFailed + 1
@@ -722,12 +722,12 @@ namespace CodeGen.Engine
             ;;Make sure we have multiple structures to work with
             if (Env.CurrentStructures==^null)
             begin
-                ErrorLog("Token <STRUCTURE_LOOP> requires multiple structures to be processed")
+                Logging.Errorlog("Token <STRUCTURE_LOOP> requires multiple structures to be processed")
                 ErrStatus = 1
                 return
             end
             
-            DebugLog(" - Processing structure loop with " + string(Env.CurrentStructures.Count) + " structures",true,false)
+            Logging.DebugLog(" - Processing structure loop with " + string(Env.CurrentStructures.Count) + " structures",true,false)
             
             ;;Save away the current structure index in place before the loop
             begin
@@ -746,7 +746,7 @@ namespace CodeGen.Engine
             begin
                 if ((structureLoopEndIndex+1)>(Template.Count-1))
                 begin
-                    ErrorLog("Can't find the end of a structure loop. Are you missing a </STRUCTURE_LOOP> token?")
+                    Logging.Errorlog("Can't find the end of a structure loop. Are you missing a </STRUCTURE_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -761,7 +761,7 @@ namespace CodeGen.Engine
                     ;;Make sure we don't have any nested structure loops
                     if (instr(1,tmpBuffer,"<STRUCTURE_LOOP>"))
                     begin
-                        ErrorLog("Structure loops may not be nested")
+                        Logging.Errorlog("Structure loops may not be nested")
                         ErrStatus = 1
                         return
                     end
@@ -780,7 +780,7 @@ namespace CodeGen.Engine
                 data tmpChn, int, 0
                 data tmpFile, String, "TEMP:"+%datetime()+"-"+Env.CurrentTemplate+"-Before-Structure-Loop-Expansion.tpl"
                 data tplRec, @a
-                DebugLog("DEVDBG: Saving template data to "+tmpFile,false,false)
+                Logging.DebugLog("DEVDBG: Saving template data to "+tmpFile)
                 open(tmpChn,O:S,tmpFile)
                 foreach tplRec in Template
                     writes(tmpChn,(a)tplRec)
@@ -818,7 +818,7 @@ namespace CodeGen.Engine
                 data tmpChn, int, 0
                 data tmpFile, String, "TEMP:"+%datetime()+"-"+Env.CurrentTemplate+"-After-Structure-Loop-Expansion.tpl"
                 data tplRec, @a
-                DebugLog("DEVDBG: Saving template data to "+tmpFile,false,false)
+                Logging.DebugLog("DEVDBG: Saving template data to "+tmpFile)
                 open(tmpChn,O:S,tmpFile)
                 foreach tplRec in Template
                     writes(tmpChn,(a)tplRec)
@@ -836,7 +836,7 @@ namespace CodeGen.Engine
         if (Env.UserTokens!=^null)
         begin
             data ut, @UserToken
-			DebugLog(" - Processing user defined tokens",false,false)
+			Logging.DebugLog(" - Processing user defined tokens")
 			foreach ut in Env.UserTokens
 			begin
 				;;Process user token replacement in a loop incase the same token is used multiple times in a source line.
@@ -895,8 +895,8 @@ namespace CodeGen.Engine
                 begin
                     if (!NoFileOk) then
                     begin
-                        ErrorLog("Token <ENV:"+atrim(envVar)+"> in template "+Env.CurrentTemplate+" requires an environment variable!")
-                        Log("       Define the environment variable "+atrim(envVar)+" and try again.",false,false)
+                        Logging.Errorlog("Token <ENV:"+atrim(envVar)+"> in template "+Env.CurrentTemplate+" requires an environment variable!")
+                        Logging.Log("       Define the environment variable "+atrim(envVar)+" and try again.")
                         ErrStatus=1
                     end
                     else
@@ -960,7 +960,7 @@ namespace CodeGen.Engine
                 begin
                     if (Str.Keys.Count) then
                     begin
-                        DebugLog("   - Processing key loop (all keys)",true,false)
+                        Logging.DebugLog("   - Processing key loop (all keys)",true,false)
                         call process_key_loop
                     end
                     else
@@ -982,7 +982,7 @@ namespace CodeGen.Engine
                 begin
                     if (Str.Keys.Count) then
                     begin
-                        DebugLog("   - Processing key loop (alternate keys only)",true,false)
+                        Logging.DebugLog("   - Processing key loop (alternate keys only)",true,false)
                         AlternateKeysOnly = true
                         call process_key_loop
                         AlternateKeysOnly = false
@@ -1006,7 +1006,7 @@ namespace CodeGen.Engine
                 begin
                     if (Str.Keys.Count) then
                     begin
-                        DebugLog("   - Processing key loop (primary key only)",true,false)
+                        Logging.DebugLog("   - Processing key loop (primary key only)",true,false)
                         PrimaryKeyOnly = true
                         call process_key_loop
                         PrimaryKeyOnly = false
@@ -1180,8 +1180,8 @@ namespace CodeGen.Engine
             begin
                 if (!NoFileOk) then
                 begin
-                    ErrorLog("File "+atrim(includeFileName)+" not found!")
-                    Log("       Referenced in template "+Env.CurrentTemplate+" by <FILE:"+atrim(includeFileName)+">",false,false)
+                    Logging.Errorlog("File "+atrim(includeFileName)+" not found!")
+                    Logging.Log("       Referenced in template "+Env.CurrentTemplate+" by <FILE:"+atrim(includeFileName)+">")
                     ErrStatus=1
                 end
                 else
@@ -1231,7 +1231,7 @@ namespace CodeGen.Engine
     ;;
     process_field_loop,
 
-        DebugLog("   - Processing field loop",true,false)
+        Logging.DebugLog("   - Processing field loop",true,false)
 
         Loop1TemplateCode = new ArrayList()
         clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline, ItemWasRepeated
@@ -1245,7 +1245,7 @@ namespace CodeGen.Engine
             ;;Make sure there is nothing else on the line after the opening token
             if (buffer(TokenEnd+1,^size(buffer)))
             begin
-                ErrorLog("No code allowed on line after <FIELD_LOOP> token. Did you mis-type a </FIELD_LOOP> token?")
+                Logging.Errorlog("No code allowed on line after <FIELD_LOOP> token. Did you mis-type a </FIELD_LOOP> token?")
                 ErrStatus = 1
                 return
             end
@@ -1277,7 +1277,7 @@ namespace CodeGen.Engine
             begin
                 if ((TemplateCodeIndex+1)>(Template.Count-1))
                 begin
-                    ErrorLog("Can't find the end of a field loop. Are you missing a </FIELD_LOOP> token?")
+                    Logging.Errorlog("Can't find the end of a field loop. Are you missing a </FIELD_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -1306,7 +1306,7 @@ namespace CodeGen.Engine
             ;;Get a handle on the current field
             fld = Str.Fields[FldNbr]
 
-            DebugLog("     - Processing field " + fld.Name,true,false)
+            Logging.DebugLog("     - Processing field " + fld.Name,true,false)
 
             LogicalFieldNumber+=1
 
@@ -1447,7 +1447,7 @@ namespace CodeGen.Engine
 			clear buffer
 
         if (!ErrStatus)
-            DebugLog("   - End of field loop",false,false)
+            Logging.DebugLog("   - End of field loop")
 
         return
 
@@ -1455,7 +1455,7 @@ namespace CodeGen.Engine
     ;
     process_selection_loop,
 
-        DebugLog("     - Processing field selections loop",false,false)
+        Logging.DebugLog("     - Processing field selections loop")
 
         Loop2TemplateCode = new ArrayList()
         clear Loop2CloseTokenStart, Loop2CloseTokenEnd, Loop2TrailingData, Loop2LeadingData, Loop2NoOutput
@@ -1480,7 +1480,7 @@ namespace CodeGen.Engine
             ;;Make sure there is nothing else on the line after the opening token
             if (buffer(TokenEnd+1,^size(buffer)))
             begin
-                ErrorLog("No code allowed on line after <SELECTION_LOOP> token. Did you mis-type a </SELECTION_LOOP> token?")
+                Logging.Errorlog("No code allowed on line after <SELECTION_LOOP> token. Did you mis-type a </SELECTION_LOOP> token?")
                 ErrStatus = 1
                 return
             end
@@ -1528,7 +1528,7 @@ namespace CodeGen.Engine
             begin
                 if ((Loop1Rec+1)>(Loop1TemplateCode.Count-1))
                 begin
-                    ErrorLog("Can't find the end of a field selection loop. Are you missing a </SELECTION_LOOP> token?")
+                    Logging.Errorlog("Can't find the end of a field selection loop. Are you missing a </SELECTION_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -1601,7 +1601,7 @@ namespace CodeGen.Engine
                     ;;If nothing replaced just move on
                     if (!Loop2TokenReplaced)
                     begin
-                        DebugLog("     - Skipping unsupported token " + buffer(TokenStart,TokenEnd),false,false)
+                        Logging.DebugLog("     - Skipping unsupported token " + buffer(TokenStart,TokenEnd))
                         TokenStart += 1
                         Loop2TokenReplaced = true
                     end
@@ -1627,7 +1627,7 @@ namespace CodeGen.Engine
         DoAnotherPass = true
 
         if (!ErrStatus)
-            DebugLog("     - End of field selections loop",false,false)
+            Logging.DebugLog("     - End of field selections loop")
 
         return
 
@@ -1649,7 +1649,7 @@ namespace CodeGen.Engine
                 ;;Make sure there is nothing else on the line after the opening token
                 if (buffer(TokenEnd+1,^size(buffer)))
                 begin
-                    ErrorLog("No code allowed on line after <ALTERNATE_KEY_LOOP> token. Did you mis-type an </ALTERNATE_KEY_LOOP> token?")
+                    Logging.Errorlog("No code allowed on line after <ALTERNATE_KEY_LOOP> token. Did you mis-type an </ALTERNATE_KEY_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -1667,7 +1667,7 @@ namespace CodeGen.Engine
                 ;;Make sure there is nothing else on the line after the opening token
                 if (buffer(TokenEnd+1,^size(buffer)))
                 begin
-                    ErrorLog("No code allowed on line after <PRIMARY_KEY> token. Did you mis-type a </PRIMAEY_KEY> token?")
+                    Logging.Errorlog("No code allowed on line after <PRIMARY_KEY> token. Did you mis-type a </PRIMAEY_KEY> token?")
                     ErrStatus = 1
                     return
                 end
@@ -1685,7 +1685,7 @@ namespace CodeGen.Engine
                 ;;Make sure there is nothing else on the line after the opening token
                 if (buffer(TokenEnd+1,^size(buffer)))
                 begin
-                    ErrorLog("No code allowed on line after <KEY_LOOP> token. Did you mis-type a </KEY_LOOP> token?")
+                    Logging.Errorlog("No code allowed on line after <KEY_LOOP> token. Did you mis-type a </KEY_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -1721,11 +1721,11 @@ namespace CodeGen.Engine
                 if ((TemplateCodeIndex+1)>(Template.Count-1))
                 begin
                     if (AlternateKeysOnly) then
-                        ErrorLog("Can't find the end of an alternate key loop. Are you missing a </ALTERNATE_KEY_LOOP> token?")
+                        Logging.Errorlog("Can't find the end of an alternate key loop. Are you missing a </ALTERNATE_KEY_LOOP> token?")
                     else if (PrimaryKeyOnly) then
-                        ErrorLog("Can't find the end of a primary key loop. Are you missing a </PRIMARY_KEY> token?")
+                        Logging.Errorlog("Can't find the end of a primary key loop. Are you missing a </PRIMARY_KEY> token?")
                     else
-                        ErrorLog("Can't find the end of a key loop. Are you missing a </KEY_LOOP> token?")
+                        Logging.Errorlog("Can't find the end of a key loop. Are you missing a </KEY_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -1757,7 +1757,7 @@ namespace CodeGen.Engine
 			;;Skip any foreign keys
 			if (Key.KeyType == RpsKeyType.Foreign)
 			begin
-				DebugLog("     - Skipping foreign key " + Key.Name,true,false)
+				Logging.DebugLog("     - Skipping foreign key " + Key.Name,true,false)
 				nextloop
 			end
 			
@@ -1769,7 +1769,7 @@ namespace CodeGen.Engine
             if (Loop1IsInline)
                 AlUtil.Add(Loop1Output,"")
 
-            DebugLog("     - Processing key " + Key.Name,true,false)
+            Logging.DebugLog("     - Processing key " + Key.Name,true,false)
 
             ;;Process the template code
             for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
@@ -1921,7 +1921,7 @@ namespace CodeGen.Engine
 			clear buffer
 			
         if (!ErrStatus)
-            DebugLog("   - End of key loop",false,false)
+            Logging.DebugLog("   - End of key loop")
 
         return
 
@@ -1929,7 +1929,7 @@ namespace CodeGen.Engine
     ;;
     process_segment_loop,
 
-        DebugLog("     - Processing key segment loop",true,false)
+        Logging.DebugLog("     - Processing key segment loop",true,false)
 
         Loop2TemplateCode = new ArrayList()
         clear Loop2CloseTokenStart, Loop2CloseTokenEnd, Loop2TrailingData, Loop2LeadingData, Loop2NoOutput
@@ -1956,7 +1956,7 @@ namespace CodeGen.Engine
                 ;;Make sure there is nothing else on the line after the opening token
                 if (buffer(TokenEnd+1,^size(buffer)))
                 begin
-                    ErrorLog("No code allowed on line after <SEGMENT_LOOP_FILTER> token. Did you mis-type a </SEGMENT_LOOP_FILTER> token?")
+                    Logging.Errorlog("No code allowed on line after <SEGMENT_LOOP_FILTER> token. Did you mis-type a </SEGMENT_LOOP_FILTER> token?")
                     ErrStatus = 1
                     return
                 end
@@ -1972,7 +1972,7 @@ namespace CodeGen.Engine
                 ;;Make sure there is nothing else on the line after the opening token
                 if (buffer(TokenEnd+1,^size(buffer)))
                 begin
-                    ErrorLog("No code allowed on line after <FIRST_SEGMENT> token. Did you mis-type a </FIRST_SEGMENT> token?")
+                    Logging.Errorlog("No code allowed on line after <FIRST_SEGMENT> token. Did you mis-type a </FIRST_SEGMENT> token?")
                     ErrStatus = 1
                     return
                 end
@@ -1988,7 +1988,7 @@ namespace CodeGen.Engine
 				;;Make sure there is nothing else on the line after the opening token
 				if (buffer(TokenEnd+1,^size(buffer)))
 				begin
-					ErrorLog("No code allowed on line after <SECOND_SEGMENT> token. Did you mis-type a </SECOND_SEGMENT> token?")
+					Logging.Errorlog("No code allowed on line after <SECOND_SEGMENT> token. Did you mis-type a </SECOND_SEGMENT> token?")
 					ErrStatus = 1
 					return
 				end
@@ -2004,7 +2004,7 @@ namespace CodeGen.Engine
                 ;;Make sure there is nothing else on the line after the opening token
                 if (buffer(TokenEnd+1,^size(buffer)))
                 begin
-                    ErrorLog("No code allowed on line after <SEGMENT_LOOP> token. Did you mis-type a </SEGMENT_LOOP> token?")
+                    Logging.Errorlog("No code allowed on line after <SEGMENT_LOOP> token. Did you mis-type a </SEGMENT_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -2054,13 +2054,13 @@ namespace CodeGen.Engine
                 if ((Loop1Rec+1)>(Loop1TemplateCode.Count-1))
                 begin
                     if (SkipLastSegment) then
-                        ErrorLog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP_FILTER> token?")
+                        Logging.Errorlog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP_FILTER> token?")
 					else if (FirstSegmentOnly) then
-						ErrorLog("Can't find the end of a key segment loop. Are you missing a </FIRST_SEGMENT> token?")
+						Logging.Errorlog("Can't find the end of a key segment loop. Are you missing a </FIRST_SEGMENT> token?")
 					else if (SecondSegmentOnly) then
-						ErrorLog("Can't find the end of a key segment loop. Are you missing a </SECOND_SEGMENT> token?")
+						Logging.Errorlog("Can't find the end of a key segment loop. Are you missing a </SECOND_SEGMENT> token?")
 					else
-                        ErrorLog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP> token?")
+                        Logging.Errorlog("Can't find the end of a key segment loop. Are you missing a </SEGMENT_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -2191,7 +2191,7 @@ namespace CodeGen.Engine
         DoAnotherPass = true
 
         if (!ErrStatus)
-            DebugLog("     - End of key segment loop",false,false)
+            Logging.DebugLog("     - End of key segment loop")
 
         return
 
@@ -2199,7 +2199,7 @@ namespace CodeGen.Engine
     ;;
     process_relation_loop,
 
-        DebugLog("   - Processing relation loop",true,false)
+        Logging.DebugLog("   - Processing relation loop",true,false)
 
         Loop1TemplateCode = new ArrayList()
         clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
@@ -2213,7 +2213,7 @@ namespace CodeGen.Engine
             ;;Make sure there is nothing else on the line after the opening token
             if (buffer(TokenEnd+1,^size(buffer)))
             begin
-                ErrorLog("No code allowed on line after <RELATION_LOOP> token. Did you mis-type a </RELATION_LOOP> token?")
+                Logging.Errorlog("No code allowed on line after <RELATION_LOOP> token. Did you mis-type a </RELATION_LOOP> token?")
                 ErrStatus = 1
                 return
             end
@@ -2245,7 +2245,7 @@ namespace CodeGen.Engine
             begin
                 if ((TemplateCodeIndex+1)>(Template.Count-1))
                 begin
-                    ErrorLog("Can't find the end of a relation loop. Are you missing a </RELATION_LOOP> token?")
+                    Logging.Errorlog("Can't find the end of a relation loop. Are you missing a </RELATION_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -2263,7 +2263,7 @@ namespace CodeGen.Engine
 
             data Relation, @RpsRelation, Str.Relations[RelNbr]
 
-            DebugLog("     - Processing relation " + Relation.Name ,true,false)
+            Logging.DebugLog("     - Processing relation " + Relation.Name ,true,false)
 
             for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
             begin
@@ -2326,7 +2326,7 @@ namespace CodeGen.Engine
 			clear buffer
 			
         if (!ErrStatus)
-            DebugLog("   - End of relation loop",false,false)
+            Logging.DebugLog("   - End of relation loop")
 
         return
 
@@ -2334,7 +2334,7 @@ namespace CodeGen.Engine
     ;;
     process_button_loop,
 
-        DebugLog("   - Processing button loop",true,false)
+        Logging.DebugLog("   - Processing button loop",true,false)
 
         Loop1TemplateCode = new ArrayList()
         clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
@@ -2348,7 +2348,7 @@ namespace CodeGen.Engine
             ;;Make sure there is nothing else on the line after the opening token
             if (buffer(TokenEnd+1,^size(buffer)))
             begin
-                ErrorLog("No code allowed on line after <BUTTON_LOOP> token. Did you mis-type a </BUTTON_LOOP> token?")
+                Logging.Errorlog("No code allowed on line after <BUTTON_LOOP> token. Did you mis-type a </BUTTON_LOOP> token?")
                 ErrStatus = 1
                 return
             end
@@ -2380,7 +2380,7 @@ namespace CodeGen.Engine
             begin
                 if ((TemplateCodeIndex+1)>(Template.Count-1))
                 begin
-                    ErrorLog("Can't find the end of a button loop. Are you missing a </BUTTON_LOOP> token?")
+                    Logging.Errorlog("Can't find the end of a button loop. Are you missing a </BUTTON_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -2400,7 +2400,7 @@ namespace CodeGen.Engine
             Loop1ConditionMode = new ArrayList()
             Loop1OutputOff = false
 
-            DebugLog("     - Processing button " + Env.Buttons[BtnNbr].Name ,true,false)
+            Logging.DebugLog("     - Processing button " + Env.Buttons[BtnNbr].Name ,true,false)
 
             ;;Process the template code
             for Loop1Rec from 0 thru Loop1TemplateCode.Count-1
@@ -2483,7 +2483,7 @@ namespace CodeGen.Engine
 			clear buffer
 			
         if (!ErrStatus)
-            DebugLog("   - End of button loop",false,false)
+            Logging.DebugLog("   - End of button loop")
 
         return
 
@@ -2491,7 +2491,7 @@ namespace CodeGen.Engine
     ;;
     process_enum_loop,
 
-        DebugLog("   - Processing ENUM loop",true,false)
+        Logging.DebugLog("   - Processing ENUM loop",true,false)
 
         Loop1TemplateCode = new ArrayList()
         clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline, ItemWasRepeated
@@ -2507,7 +2507,7 @@ namespace CodeGen.Engine
                 ;;Make sure there is nothing else on the line after the opening token
                 if (buffer(TokenEnd+1,^size(buffer)))
                 begin
-                    ErrorLog("No code allowed on line after <ENUM_LOOP_STRUCTURE> token. Did you mis-type an </ENUM_LOOP_STRUCTURE> token?")
+                    Logging.Errorlog("No code allowed on line after <ENUM_LOOP_STRUCTURE> token. Did you mis-type an </ENUM_LOOP_STRUCTURE> token?")
                     ErrStatus = 1
                     return
                 end
@@ -2523,7 +2523,7 @@ namespace CodeGen.Engine
                 ;;Make sure there is nothing else on the line after the opening token
                 if (buffer(TokenEnd+1,^size(buffer)))
                 begin
-                    ErrorLog("No code allowed on line after <ENUM_LOOP> token. Did you mis-type an </ENUM_LOOP> token?")
+                    Logging.Errorlog("No code allowed on line after <ENUM_LOOP> token. Did you mis-type an </ENUM_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -2557,9 +2557,9 @@ namespace CodeGen.Engine
                 if ((TemplateCodeIndex+1)>(Template.Count-1))
                 begin
                     if (StructureEnumsOnly) then
-                        ErrorLog("Can't find the end of an enum loop. Are you missing an </ENUM_LOOP_STRUCTURE> token?")
+                        Logging.Errorlog("Can't find the end of an enum loop. Are you missing an </ENUM_LOOP_STRUCTURE> token?")
                     else
-                        ErrorLog("Can't find the end of an enum loop. Are you missing an </ENUM_LOOP> token?")
+                        Logging.Errorlog("Can't find the end of an enum loop. Are you missing an </ENUM_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -2592,7 +2592,7 @@ namespace CodeGen.Engine
             if (Loop1IsInline)
                 AlUtil.Add(Loop1Output,"")
 
-            DebugLog("     - Processing enum " + Enums[EnumNbr].Name,true,false)
+            Logging.DebugLog("     - Processing enum " + Enums[EnumNbr].Name,true,false)
 
             Loop1Rec=-1
             while ((Loop1Rec+=1)<=Loop1TemplateCode.Count-1)
@@ -2715,7 +2715,7 @@ namespace CodeGen.Engine
 			clear buffer
 			
         if (!ErrStatus)
-            DebugLog("   - End of ENUM loop",false,false)
+            Logging.DebugLog("   - End of ENUM loop")
 
         return
 
@@ -2723,7 +2723,7 @@ namespace CodeGen.Engine
     ;;
     process_enum_member_loop,
 
-        DebugLog("   - Processing ENUM member loop",true,false)
+        Logging.DebugLog("   - Processing ENUM member loop",true,false)
 
         Loop2TemplateCode = new ArrayList()
         clear Loop2CloseTokenStart, Loop2CloseTokenEnd, Loop2TrailingData, Loop2LeadingData, Loop2NoOutput
@@ -2748,7 +2748,7 @@ namespace CodeGen.Engine
             ;;Make sure there is nothing else on the line after the opening token
             if (buffer(TokenEnd+1,^size(buffer)))
             begin
-                ErrorLog("No code allowed on line after <ENUM_MEMBER_LOOP> token. Did you mis-type an </ENUM_MEMBER_LOOP> token?")
+                Logging.Errorlog("No code allowed on line after <ENUM_MEMBER_LOOP> token. Did you mis-type an </ENUM_MEMBER_LOOP> token?")
                 ErrStatus = 1
                 return
             end
@@ -2796,7 +2796,7 @@ namespace CodeGen.Engine
             begin
                 if ((Loop1Rec+1)>(Loop1TemplateCode.Count-1))
                 begin
-                    ErrorLog("Can't find the end of an enum member loop. Are you missing an </ENUM_MEMBER_LOOP> token?")
+                    Logging.Errorlog("Can't find the end of an enum member loop. Are you missing an </ENUM_MEMBER_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -2894,7 +2894,7 @@ namespace CodeGen.Engine
         DoAnotherPass = true
 
         if (!ErrStatus)
-            DebugLog("   - End of ENUM member loop",false,false)
+            Logging.DebugLog("   - End of ENUM member loop")
 
         return
 
@@ -2902,7 +2902,7 @@ namespace CodeGen.Engine
 	;;
 	process_file_loop,
 		
-		DebugLog("   - Processing file loop",true,false)
+		Logging.DebugLog("   - Processing file loop",true,false)
 		
 		Loop1TemplateCode = new ArrayList()
 		clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
@@ -2916,7 +2916,7 @@ namespace CodeGen.Engine
             ;;Make sure there is nothing else on the line after the opening token
             if (buffer(TokenEnd+1,^size(buffer)))
             begin
-                ErrorLog("No code allowed on line after <FILE_LOOP> token. Did you mis-type a </FILE_LOOP> token?")
+                Logging.Errorlog("No code allowed on line after <FILE_LOOP> token. Did you mis-type a </FILE_LOOP> token?")
                 ErrStatus = 1
                 return
             end
@@ -2948,7 +2948,7 @@ namespace CodeGen.Engine
 			begin
                 if ((TemplateCodeIndex+1)>(Template.Count-1))
                 begin
-                    ErrorLog("Can't find the end of a file loop. Are you missing a </FILE_LOOP> token?")
+                    Logging.Errorlog("Can't find the end of a file loop. Are you missing a </FILE_LOOP> token?")
                     ErrStatus = 1
                     return
                 end
@@ -2974,7 +2974,7 @@ namespace CodeGen.Engine
 		begin
 			data File, @RpsFile, Str.Files[FileNbr]
 			
-			DebugLog("     - Processing file " + File.Name,true,false)
+			Logging.DebugLog("     - Processing file " + File.Name,true,false)
 			
 			Loop1ConditionApplies = new ArrayList()
 			Loop1ConditionMode = new ArrayList()
@@ -3084,7 +3084,7 @@ namespace CodeGen.Engine
 			clear buffer
 		
 		if (!ErrStatus)
-			DebugLog("   - End of file loop",false,false)
+			Logging.DebugLog("   - End of file loop")
 			
 		return
 	
@@ -3092,7 +3092,7 @@ namespace CodeGen.Engine
 	;;
 	process_tag_loop,
 		
-		DebugLog("   - Processing tag loop",true,false)
+		Logging.DebugLog("   - Processing tag loop",true,false)
 		
 		Loop1TemplateCode = new ArrayList()
 		clear Token2Start, Token2End, Loop1TrailingData, Loop1IsInline
@@ -3106,7 +3106,7 @@ namespace CodeGen.Engine
 			;;Make sure there is nothing else on the line after the opening token
 			if (buffer(TokenEnd+1,^size(buffer)))
 			begin
-				ErrorLog("No code allowed on line after <TAG_LOOP> token. Did you mis-type a </TAG_LOOP> token?")
+				Logging.Errorlog("No code allowed on line after <TAG_LOOP> token. Did you mis-type a </TAG_LOOP> token?")
 				ErrStatus = 1
 				return
 			end
@@ -3138,7 +3138,7 @@ namespace CodeGen.Engine
 			begin
 				if ((TemplateCodeIndex+1)>(Template.Count-1))
 				begin
-					ErrorLog("Can't find the end of a tag loop. Are you missing a </TAG_LOOP> token?")
+					Logging.Errorlog("Can't find the end of a tag loop. Are you missing a </TAG_LOOP> token?")
 					ErrStatus = 1
 					return
 				end
@@ -3162,7 +3162,7 @@ namespace CodeGen.Engine
 		begin
 			data Tag, @RpsTag, Str.Tags[TagNbr]
 			
-			DebugLog("     - Processing tag " + Tag.Name,true,false)
+			Logging.DebugLog("     - Processing tag " + Tag.Name,true,false)
 			
 			Loop1ConditionApplies = new ArrayList()
 			Loop1ConditionMode = new ArrayList()
@@ -3272,7 +3272,7 @@ namespace CodeGen.Engine
 			clear buffer
 		
 		if (!ErrStatus)
-			DebugLog("   - End of tag loop",false,false)
+			Logging.DebugLog("   - End of tag loop")
 		
 		return
 

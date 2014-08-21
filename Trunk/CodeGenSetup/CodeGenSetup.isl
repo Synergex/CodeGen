@@ -1074,6 +1074,7 @@
 		<col key="yes" def="s72">Component_</col>
 		<row><td>ALLUSERSPROFILE</td><td>ISX_DEFAULTCOMPONENT6</td></row>
 		<row><td>AppDataFolder</td><td>ISX_DEFAULTCOMPONENT2</td></row>
+		<row><td>CODEGEN1</td><td>ISX_DEFAULTCOMPONENT5</td></row>
 		<row><td>CommonFilesFolder</td><td>ISX_DEFAULTCOMPONENT8</td></row>
 		<row><td>SYNERGEX1</td><td>ISX_DEFAULTCOMPONENT4</td></row>
 	</table>
@@ -1931,9 +1932,6 @@
 		<row><td>codegen.exe</td><td>CodeGen.exe</td><td>CodeGen.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Trunk\CodeGen\Bin\Release\CodeGen.exe</td><td>1</td><td/></row>
 		<row><td>codegen_web_site.url</td><td>ISX_DEFAULTCOMPONENT1</td><td>CODEGE~1.URL|CodeGen Web Site.url</td><td>0</td><td/><td/><td/><td>1</td><td>D:\CodePlex\CodeGen\Trunk\Installer\CodeGen Web Site.url</td><td>1</td><td/></row>
 		<row><td>codegenengine.dll</td><td>CodeGenEngine.dll</td><td>CODEGE~1.DLL|CodeGenEngine.dll</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Trunk\CodeGen\Bin\Release\CodeGenEngine.dll</td><td>1</td><td/></row>
-		<row><td>codegensampletemplates.sde</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.SDE|CodeGenSampleTemplates.sde</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Trunk\CodeGenSampleTemplates.sde</td><td>5</td><td/></row>
-		<row><td>codegensampletemplates.vpj</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPJ|CodeGenSampleTemplates.vpj</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Trunk\CodeGenSampleTemplates.vpj</td><td>5</td><td/></row>
-		<row><td>codegensampletemplates.vpw</td><td>ISX_DEFAULTCOMPONENT5</td><td>CODEGE~1.VPW|CodeGenSampleTemplates.vpw</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Trunk\CodeGenSampleTemplates.vpw</td><td>5</td><td/></row>
 		<row><td>createfile.exe</td><td>CreateFile.exe</td><td>CREATE~1.EXE|CreateFile.exe</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Trunk\CreateFile\Bin\Release\CreateFile.exe</td><td>1</td><td/></row>
 		<row><td>cs_annotated_class.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ANN~1.TPL|cs_annotated_class.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Trunk\Templates\cs_annotated_class.tpl</td><td>5</td><td/></row>
 		<row><td>cs_asp_data_provider.tpl1</td><td>ISX_DEFAULTCOMPONENT3</td><td>CS_ASP~1.TPL|cs_asp_data_provider.tpl</td><td>0</td><td/><td/><td>0</td><td>1</td><td>D:\CodePlex\CodeGen\Trunk\Templates\cs_asp_data_provider.tpl</td><td>5</td><td/></row>

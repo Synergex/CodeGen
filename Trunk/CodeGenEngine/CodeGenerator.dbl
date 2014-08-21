@@ -42,6 +42,7 @@
 
 import System
 import System.Collections
+import System.Collections.Generic
 import System.Collections.ObjectModel
 import System.IO
 import Microsoft.Win32
@@ -69,27 +70,27 @@ namespace CodeGen.Engine
 			required in taskset					,@CodeGenTaskSet
 			endparams
 		proc
-
+			
 			mTaskSet = taskset
-
+			
+			Env.Verbose = false
+			Env.Debug = false
+			Env.DeveloperDebug = false
+			Env.SuppressLogging = false
+			
 			using mTaskSet.LoggingLevel select
 			(LoggingLevel.Normal),
 			begin
-				Env.Verbose = false
-				Env.Debug = false
-				Env.DeveloperDebug = false
+				nop
 			end
 			(LoggingLevel.Verbose),
 			begin
 				Env.Verbose = true
-				Env.Debug = false
-				Env.DeveloperDebug = false
 			end
 			(LoggingLevel.Debug),
 			begin
 				Env.Verbose = true
 				Env.Debug = true
-				Env.DeveloperDebug = false
 			end
 			(LoggingLevel.DeveloperDebug),
 			begin
@@ -99,11 +100,7 @@ namespace CodeGen.Engine
 			end
 			endusing
 			
-			;;Configure logging
-			Env.SuppressLogging = false
-			Env.Dbr = false
-			
-			;;Configure the environment (does what MAIN$CODEGEN usually does)
+			;;Configure the environment (does what MAIN$CODEGEN used to do)
 			configureEnvironment()
 			
 			;;Load Symphony extensions
@@ -123,27 +120,30 @@ namespace CodeGen.Engine
 				xcall setlog("RPSMFIL",mTaskSet.RepositoryMainFile,sts)
 				xcall setlog("RPSTFIL",mTaskSet.RepositoryTextFile,sts)
 			end
-
+			
 		endmethod
-
+		
 		public method GenerateCode, Boolean
 			endparams
 			.include "CODEGEN_SRC:codegen.def"
 		proc
-			;;Process each task
-			data task, @CodeGenTask
-			data taskSetComplete, Boolean, true
 
 			;;Raise the StartingTaskSet event
 			mTaskSet.RaiseStartingTaskSet()
-
+			
+			data task, @CodeGenTask
+			data taskSetComplete, Boolean, true
+			
+			;;Process each task
 			foreach task in mTaskSet.Tasks
 			begin
 				;;Raise the TaskStarting event
 				task.RaiseStartingTask()
-
+				
 				;;Reset the environment
 				Env.Reset()
+
+				;;Make sure that any messages that are logged while this task is executing are logged against the task
 				Env.TaskMessages = task.Messages
 				
 				;;If this task defines a repository then use it, otherwise reset to the task set repository if specified.
@@ -159,32 +159,39 @@ namespace CodeGen.Engine
 					xcall setlog("RPSMFIL",mTaskSet.RepositoryMainFile,sts)
 					xcall setlog("RPSTFIL",mTaskSet.RepositoryTextFile,sts)
 				end
-
+				
 				;;Generate code
 				task.Complete = doGenerate(task)
-
+				
 				;;Record status
 				if (!task.Complete)
 				begin
 					task.ErrorMessage = Env.LastErrorMessage
 					taskSetComplete = false
 				end
-
-				;;Record the files that were created by this task
-				data outFile, String
-				foreach outFile in Env.OutputFiles
+				
+				;;Record the files that were created by the task
+				if (Env.OutputFiles!=^null)
 				begin
-					data filePath, String, Path.Combine(Env.OutputDir,outFile)
-					if (!task.FilesGenerated.Contains(filePath))
-						task.FilesGenerated.Add(filePath)
+					data outFile, String
+					foreach outFile in Env.OutputFiles
+					begin
+						data filePath, String, Path.Combine(Env.OutputDir,outFile)
+						if (!task.FilesGenerated.Contains(filePath))
+							task.FilesGenerated.Add(filePath)
+					end
 				end
-
+				
+				;;Make sure that nothing else can be written to this tasks messages
+				Env.TaskMessages = ^null
+				
 				;;Raise the TaskComplete event
 				task.RaiseTaskComplete()
 			end
 			
+			;;Record if everything in the task set was completed successfully
 			mTaskSet.Complete = taskSetComplete
-
+			
 			;;Raise the TaskSetComplete event
 			mTaskSet.RaiseTaskSetComplete()
 			
@@ -232,8 +239,8 @@ namespace CodeGen.Engine
 			
 			;;-------------------------------------------------------------------------
 			;;Display heading
-
-			VerboseLog(CODEGEN_APPNAME + " " + CODEGEN_VERSION,true,true)
+			
+			Logging.VerboseLog(CODEGEN_APPNAME + " " + CODEGEN_VERSION,true,true)
 			
 			;;-------------------------------------------------------------------------
 			;;Display file names mode
@@ -253,16 +260,16 @@ namespace CodeGen.Engine
 						data tmpsts, i4
 						xcall setlog("CODEGEN_DATAMAPPING_FILE",mTaskSet.DataMappingsFile,tmpsts)
 						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Custom data mapping file set to " + mTaskSet.DataMappingsFile,false,false)
+							Logging.DebugLog("DEVDBG: Custom data mapping file set to " + mTaskSet.DataMappingsFile)
 					end
 					else
 					begin
-						ErrorLog("Failed to open custom data mappings file " + mTaskSet.DataMappingsFile)
+						Logging.Errorlog("Failed to open custom data mappings file " + mTaskSet.DataMappingsFile)
 						ErrStatus=1
 					end
 				end
 			end
-
+			
 			;;-------------------------------------------------------------------------
 			;;See if we have a template file location specified with CODEGEN_TPLDIR
 			;;If present, this location overrides the default location (current dir)
@@ -278,7 +285,7 @@ namespace CodeGen.Engine
 						tmpbuf(length+1:1) = "\"
 					Env.TemplateDir = tmpbuf
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Template location set by CODEGEN_TPLDIR to " + Env.TemplateDir,false,false)				
+						Logging.DebugLog("DEVDBG: Template location set by CODEGEN_TPLDIR to " + Env.TemplateDir)				
 				end
 			end
 			
@@ -288,17 +295,17 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				if (task.TemplateFolder!=String.Empty) then
+				if (!String.IsNullOrWhiteSpace(task.TemplateFolder)) then
 				begin
 					Env.TemplateDir = task.TemplateFolder
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Template location set by CodeGenTask.TemplateFolder property to "+Env.TemplateDir,false,false)				
+						Logging.DebugLog("DEVDBG: Template location set by CodeGenTask.TemplateFolder property to "+Env.TemplateDir)				
 				end
-				else if (mTaskSet.TemplateFolder!=String.Empty)
+				else if (!String.IsNullOrWhiteSpace(mTaskSet.TemplateFolder))
 				begin
 					Env.TemplateDir = mTaskSet.TemplateFolder
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Template location set by CodeGenTaskSet.TemplateFolder property to "+Env.TemplateDir,false,false)				
+						Logging.DebugLog("DEVDBG: Template location set by CodeGenTaskSet.TemplateFolder property to "+Env.TemplateDir)				
 				end
 			end
 			
@@ -308,9 +315,9 @@ namespace CodeGen.Engine
 			if ((!ErrStatus) && Env.Verbose)
 			begin
 				if (Env.TemplateDir) then
-					Log("Template location: " + Env.TemplateDir,false,false)
+					Logging.Log("Template location: " + Env.TemplateDir)
 				else
-					Log("Template location: Current directory",false,false)
+					Logging.Log("Template location: Current directory")
 			end
 			
 			;;-------------------------------------------------------------------------
@@ -328,7 +335,7 @@ namespace CodeGen.Engine
 						tmpbuf(length+1:1)="\"
 					Env.OutputDir = tmpbuf
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Output location set by CODEGEN_OUTDIR to " + Env.OutputDir,false,false)				
+						Logging.DebugLog("DEVDBG: Output location set by CODEGEN_OUTDIR to " + Env.OutputDir)				
 				end
 			end
 			
@@ -338,17 +345,17 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				if (task.OutputFolder!=String.Empty) then
+				if (!String.IsNullOrWhiteSpace(task.OutputFolder)) then
 				begin
 					Env.OutputDir = task.OutputFolder
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Output location set CodeGenTask.OutputFolder property to "+Env.OutputDir,false,false)				
+						Logging.DebugLog("DEVDBG: Output location set CodeGenTask.OutputFolder property to "+Env.OutputDir)				
 				end
-				else if (mTaskSet.OutputFolder!=String.Empty)
+				else if (!String.IsNullOrWhiteSpace(mTaskSet.OutputFolder))
 				begin
 					Env.OutputDir = mTaskSet.OutputFolder
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Output location set CodeGenTaskSet.OutputFolder property to "+Env.OutputDir,false,false)				
+						Logging.DebugLog("DEVDBG: Output location set CodeGenTaskSet.OutputFolder property to "+Env.OutputDir)				
 				end
 			end
 			
@@ -358,22 +365,19 @@ namespace CodeGen.Engine
 			if (!ErrStatus && Env.Verbose)
 			begin
 				if (Env.OutputDir) then
-					Log("Output location:   " + Env.OutputDir,false,false)
+					Logging.Log("Output location:   " + Env.OutputDir)
 				else
-					Log("Output location:   Current directory",false,false)
+					Logging.Log("Output location:   Current directory")
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Make sure we can create files in the output location.  The output location
 			;;variable is in global data, for use by the generator routines.
 			
-			if (!ErrStatus)
+			if (!ErrStatus&&!FileTools.CanCreateFileInFolder(Env.OutputDir))
 			begin
-				if (!FileTools.CanCreateFileInFolder(Env.OutputDir))
-				begin
-					ErrorLog("Can't create files in " + Env.OutputDir)
-					ErrStatus=1
-				end
+				Logging.Errorlog("Can't create files in " + Env.OutputDir)
+				ErrStatus=1
 			end
 			
 			;;-------------------------------------------------------------------------
@@ -383,9 +387,9 @@ namespace CodeGen.Engine
 			begin
 				Env.ReplaceFiles = task.ReplaceFiles
 				if (Env.ReplaceFiles) then
-					VerboseLog("Replace files:     YES",false,false)
+					Logging.VerboseLog("Replace files:     YES")
 				else
-					VerboseLog("Replace files:     NO",false,false)
+					Logging.VerboseLog("Replace files:     NO")
 			end
 			
 			;;-------------------------------------------------------------------------
@@ -401,7 +405,7 @@ namespace CodeGen.Engine
 				begin
 					Env.Author = tmpbuf
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Author name set by CODEGEN_AUTHOR to " + Env.Author,false,false)				
+						Logging.DebugLog("DEVDBG: Author name set by CODEGEN_AUTHOR to " + Env.Author)				
 				end
 			end
 			
@@ -418,7 +422,7 @@ namespace CodeGen.Engine
 				begin
 					Env.Company = tmpbuf
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Company name set by CODEGEN_COMPANY to " + Env.Company,false,false)				
+						Logging.DebugLog("DEVDBG: Company name set by CODEGEN_COMPANY to " + Env.Company)				
 				end
 			end
 			
@@ -434,25 +438,25 @@ namespace CodeGen.Engine
 				if (length)
 					Env.DefaultNamespace = tmpbuf
 				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Namespace set by SYNDEFNS to " + Env.DefaultNamespace,false,false)				
+					Logging.DebugLog("DEVDBG: Namespace set by SYNDEFNS to " + Env.DefaultNamespace)				
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;See if we have a default namespace command line option
 			;;If present, this location overrides the SYNDEFNS environment variable.
 			
-			if (!ErrStatus && (task.Namespace!=String.Empty))
+			if (!ErrStatus && !String.IsNullOrWhiteSpace(task.Namespace))
 			begin
 				Env.DefaultNamespace = task.Namespace
 				if (Env.DeveloperDebug)
-					DebugLog("DEVDBG: Namespace set by Namespace property to " + Env.DefaultNamespace,false,false)				
+					Logging.DebugLog("DEVDBG: Namespace set by Namespace property to " + Env.DefaultNamespace)				
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Are we being asked to use a field / group member prefix
 			if (!ErrStatus)
 			begin
-				if (task.FieldPrefix!=String.Empty) then
+				if (!String.IsNullOrWhiteSpace(task.FieldPrefix)) then
 				begin
 					Env.ClDoFieldPrefix = true
 					Env.ClFieldPrefix = task.FieldPrefix
@@ -467,39 +471,34 @@ namespace CodeGen.Engine
 			;;-------------------------------------------------------------------------
 			;;See if we have a request to override the default pixel width of a character
 			
-			if (!ErrStatus)
-				if (task.CharacterWidth>0)
-					Env.CharacterWidth = task.CharacterWidth
+			if (!ErrStatus && (task.CharacterWidth>0))
+				Env.CharacterWidth = task.CharacterWidth
 			
 			;;-------------------------------------------------------------------------
 			;;See if we have a request to override the default pixel height of a row
 			
-			if (!ErrStatus)
-				if (task.CharacterHeight>0)
-					Env.CharacterHeight = task.CharacterHeight
+			if (!ErrStatus && (task.CharacterHeight>0))
+				Env.CharacterHeight = task.CharacterHeight
 			
 			;;-------------------------------------------------------------------------
 			;;Are we being asked to override the key that is used with the <PRIMARY_KEY> construct?
 			
-			if (!ErrStatus)
+			if (!ErrStatus && (task.PrimaryKeyNumber!=0))
 			begin
-				if (task.PrimaryKeyNumber!=0)
-				begin
-					Env.OverridePrimaryKeyNum = task.PrimaryKeyNumber
-					DebugLog("<PRIMARY_KEY> blocks will use key "+string(Env.OverridePrimaryKeyNum),true,false)
-				end
+				Env.OverridePrimaryKeyNum = task.PrimaryKeyNumber
+				Logging.DebugLog("<PRIMARY_KEY> blocks will use key "+string(Env.OverridePrimaryKeyNum),true,false)
 			end
-					
+			
 			;;-------------------------------------------------------------------------
 			;;Get a list of template files in template directory
 			
 			if (!ErrStatus)
 			begin
-				VerboseLog("",false,false)
+				Logging.VerboseLog("")
 				
 				if (task.Templates.Count==0) then
 				begin
-					Log("Nothing to do! Specify template(s) via the Templates property!",false,false)
+					Logging.Log("Nothing to do! Specify template(s) via the Templates property!")
 					ErrStatus = true
 				end
 				else
@@ -508,8 +507,8 @@ namespace CodeGen.Engine
 					begin
 						if (!WinDir(Env.TemplateDir+"*.tpl",Templates,WinDirCase.NoChange))
 						begin
-							ErrorLog("No templates to process in " + Env.TemplateDir)
-							Log("       Set template directory with CODEGEN_TPLDIR or the TemplateFolder property.",false,false)
+							Logging.Errorlog("No templates to process in " + Env.TemplateDir)
+							Logging.Log("       Set template directory with CODEGEN_TPLDIR or the TemplateFolder property.")
 							ErrStatus = true
 						end
 					end
@@ -546,14 +545,14 @@ namespace CodeGen.Engine
 									end
 								end
 								else
-									Log("WARNING: No templates match " + task.Templates[ix],false,true)
+									Logging.Log("WARNING: No templates match " + task.Templates[ix],false,true)
 							end
 							else
 							begin
 								;;Make sure the template can be opened
 								if (!FileTools.FileExists(Env.TemplateDir+task.Templates[ix]))
 								begin
-									ErrorLog("Template " + task.Templates[ix] + " not found!")
+									Logging.Errorlog("Template " + task.Templates[ix] + " not found!")
 									ErrStatus = true
 									exitloop
 								end
@@ -572,126 +571,113 @@ namespace CodeGen.Engine
 					if (Env.Verbose)
 					begin
 						data tmpTemplate, String
-						Log("Template(s):",false,false)
+						Logging.Log("Template(s):")
 						foreach tmpTemplate in Templates
-							Log(" - " + tmpTemplate,false,false)
+							Logging.Log(" - " + tmpTemplate)
 					end
 					;;Remove .tpl file extensions
 					for ix from 0 thru Templates.Count-1
-						Templates[ix] = (String)(((a)Templates[ix])-".tpl")
+						Templates[ix] = ((String)Templates[ix]).Replace(".tpl","")
 				end
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Are we being asked to process a user defined token file?
 			
-			if (!ErrStatus)
+			if (!ErrStatus && (!String.IsNullOrWhiteSpace(task.UserTokenFile)))
 			begin
-				if (task.UserTokenFile != String.Empty)
+				try
 				begin
-					data tmpch, int
-					try
-					begin
-						UserTokenCollection.LoadTokensFromFile(task.UserTokenFile)
-					end
-					catch (ex)
-					begin
-						ErrorLog("Failed to open or process user token file " + task.UserTokenFile)
-						ErrStatus = true
-					end
-					endtry
+					UserTokenCollection.LoadTokensFromFile(task.UserTokenFile)
 				end
+				catch (ex)
+				begin
+					Logging.Errorlog("Failed to open or process user token file " + task.UserTokenFile)
+					ErrStatus = true
+				end
+				endtry
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Do we have user defined tokens on the command line?
 			
-			if (!ErrStatus)
+			if (!ErrStatus && (task.UserTokens.Count>0))
 			begin
-				if (task.UserTokens.Count>0)
-				begin
-					if (Env.UserTokens==^null||Env.UserTokens.Count==0) then
-						Env.UserTokens = task.UserTokens
-					else
-						UserTokenCollection.AddTokens(task.UserTokens)
-				end
+				if (Env.UserTokens==^null||Env.UserTokens.Count==0) then
+					Env.UserTokens = task.UserTokens
+				else
+					UserTokenCollection.AddTokens(task.UserTokens)
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Do we have a repository file definition specified?
 			
-			if (!ErrStatus)
+			if (!ErrStatus && (!String.IsNullOrWhiteSpace(task.RepositoryFile)))
 			begin
-				if (task.RepositoryFile!=String.Empty)
+				;;Get the file details from the repository
+				task.RepositoryFile = task.RepositoryFile.ToUpper()
+				try
 				begin
-					;;Get the file details from the repository
-					task.RepositoryFile = task.RepositoryFile.ToUpper()
-					try
+					FileDef = new RpsFile(task.RepositoryFile)
+				end
+				catch (e, @RpsFileException)
+				begin
+					Logging.Errorlog("Failed to load repository file definition " + task.RepositoryFile)
+					ErrStatus = true
+				end
+				endtry
+				
+				if (!ErrStatus)
+				begin
+					;;Make sure the file has at least one structure defined, and if so set them as the structures to process
+					if (FileDef.StructureCount>0) then
 					begin
-						FileDef = new RpsFile(task.RepositoryFile)
-					end
-					catch (e, @RpsFileException)
-					begin
-						ErrorLog("Failed to load repository file definition " + task.RepositoryFile)
-						ErrStatus = true
-					end
-					endtry
-					
-					if (!ErrStatus)
-					begin
-						;;Make sure the file has at least one structure defined, and if so set them as the structures to process
-						if (FileDef.StructureCount>0) then
+						Structures = FileDef.Structures
+						Env.RpsInUse = true
+						
+						;;Default all structures to use the file being processed
 						begin
-							Structures = FileDef.Structures
-							Env.RpsInUse = true
-							
-							;;Default all structures to use the file being processed
+							data ix, int
+							FileIndex = new int[Structures.Count]
+							for ix from 0 thru Structures.Count-1
 							begin
-								data ix, int
-								FileIndex = new int[Structures.Count]
-								for ix from 0 thru Structures.Count-1
+								data iy, int
+								FileIndex[ix+1] = 0
+								for iy from 0 thru Structures[ix].Files.Count-1
 								begin
-									data iy, int
-									FileIndex[ix+1] = 0
-									for iy from 0 thru Structures[ix].Files.Count-1
+									if (Structures[ix].Files[iy].Name==FileDef.Name)
 									begin
-										if (Structures[ix].Files[iy].Name==FileDef.Name)
-										begin
-											FileIndex[ix+1] = iy
-											exitloop
-										end
+										FileIndex[ix+1] = iy
+										exitloop
 									end
 								end
 							end
-							
 						end
-						else
-						begin
-							ErrorLog("Repository file " + task.RepositoryFile + " doesn't have any structures assigned")
-							ErrStatus = true
-						end
-					end					
-				end
+						
+					end
+					else
+					begin
+						Logging.Errorlog("Repository file " + task.RepositoryFile + " doesn't have any structures assigned")
+						ErrStatus = true
+					end
+				end					
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Do we have a UI Toolkit window script specified?
 			
-			if (!ErrStatus)
+			if (!ErrStatus && (!String.IsNullOrWhiteSpace(task.WindowScript)))
 			begin
-				if (task.WindowScript!=String.Empty)
+				if (!String.IsNullOrWhiteSpace(task.RepositoryFile)) then
 				begin
-					if (task.RepositoryFile!=String.Empty) then
-					begin
-						ErrorLog("Can't use RepositoryFile and WindowScript properties together!")
-						ErrStatus = true
-					end
-					else
-					begin
-						WscFile = task.WindowScript
-						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Window script file " + WscFile + " will br processed",false,false)
-					end
+					Logging.Errorlog("The repository file and window script file options can't be used together!")
+					ErrStatus = true
+				end
+				else
+				begin
+					WscFile = task.WindowScript
+					if (Env.DeveloperDebug)
+						Logging.DebugLog("DEVDBG: Window script file " + WscFile + " will br processed")
 				end
 			end
 			
@@ -702,175 +688,184 @@ namespace CodeGen.Engine
 				Env.NoWscAttributes = task.IgnoreScriptFieldAttributes
 			
 			;;-------------------------------------------------------------------------
+			;;Do we have a BusinessCraft Proforma file specified?
+			
+			if (!ErrStatus && (!String.IsNullOrWhiteSpace(task.ProformaFile)))
+			begin
+				if (FileDef!=^null) then
+				begin
+					Console.WriteLine("ERROR: Proforma and repository file processing can't be used together!")
+					ErrStatus = true
+				end
+				else if (!String.IsNullOrWhiteSpace(WscFile)) then
+				begin
+					Console.WriteLine("ERROR: Proforma and window script processing can't be used together!")
+					ErrStatus = true
+				end
+				else
+				begin
+					ProFormaFile = task.ProformaFile
+					if (Env.DeveloperDebug)
+						Logging.DebugLog("DEVDBG: ProForma file was specified via -proforma")					
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
 			;;Are we provided with a UI Toolkit window script to search for selection windows in?
 			
-			if (!ErrStatus)
+			if (!ErrStatus && (!String.IsNullOrWhiteSpace(task.SelectionWindowScript)))
 			begin
-				if (task.SelectionWindowScript!=String.Empty)
+				;;Open the file, fail if can't. Don't use File.Exists so that logicals are supported.
+				if (FileTools.FileExists(task.SelectionWindowScript)) then
 				begin
-					;;Open the file, fail if can't
-					if (FileTools.FileExists(task.SelectionWindowScript)) then
-					begin
-						Env.SelectionWindowScript = task.SelectionWindowScript
-						DebugLog("Selection window processing enabled from file "+Env.SelectionWindowScript,false,false)
-					end
-					else
-					begin
-						ErrorLog("Can't open selection window script " + task.SelectionWindowScript.Trim() + " Check your -ws option!")
-						ErrStatus = true
-					end
+					Env.SelectionWindowScript = task.SelectionWindowScript
+					Logging.DebugLog(String.Format("Selection window processing enabled from file {0}",Env.SelectionWindowScript))
+				end
+				else
+				begin
+					Logging.Errorlog(String.Format("Can't open selection window script {0}. Check your -ws option!",task.SelectionWindowScript))
+					ErrStatus = true
 				end
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Do we have Repository structures specified?
 			
-			if (!ErrStatus)
+			if (!ErrStatus && (task.Structures.Count>0))
 			begin
-				if (task.Structures.Count>0)
+				if (FileDef!=^null) then
 				begin
-					if (FileDef!=^null)
-					begin
-						ErrorLog("Can't use RepositoryFile and Structures properties together!")
-						ErrStatus = true
-					end
+					Logging.Errorlog("You can't specify both a repository file and repository structures at the same time!")
+					ErrStatus = true
+				end
+				else if (!String.IsNullOrWhiteSpace(task.WindowScript)) then
+				begin
+					Logging.Errorlog("You can't specify a window script and repository structures at the same time!")
+					ErrStatus = true
+				end
+				else if (!String.IsNullOrEmpty(ProFormaFile)) then
+				begin
+					Logging.Errorlog("You can't specify a proforma file and repository structures at the same time!")
+					ErrStatus = true
+				end
+				else
+				begin
+					Env.RpsInUse = true
 					
-					if (!ErrStatus)
+					;;All or specific structures?
+					if (task.Structures[0]=="*") then
 					begin
-						if (task.WindowScript!=String.Empty)
+						;;Process all structures
+						try
 						begin
-							ErrorLog("Can't use WindowScript and Structures properties together!")
-							ErrStatus = true
-						end
-					end
-					
-					if (!ErrStatus)
-					begin
-						Env.RpsInUse = true
-						
-						if (!ErrStatus)
-						begin
-							;;All or specific structures?
-							if (task.Structures[0]=="*") then
-							begin
-								;;Process all structures
-								try
-								begin
-									Structures = new RpsStructureCollection(RpsLoadMode.Load)
-									if (Structures.Count) then
-										Env.AllStructures = true
-									else
-									begin
-										ErrorLog("Repository contains no structures!")
-										ErrStatus = true
-									end
-								end
-								catch (ex, @RpsException)
-								begin
-									ErrorLog(ex.Message)
-									ErrStatus = true
-								end
-								endtry
-							end
+							Structures = new RpsStructureCollection(RpsLoadMode.Load)
+							if (Structures.Count) then
+								Env.AllStructures = true
 							else
 							begin
-								;;Process specified structures
-								data ix, int
-								Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
-								for ix from 0 thru task.Structures.Count-1 
-								begin
-									try
-									begin
-										data newStructure, @RpsStructure, new RpsStructure(task.Structures[ix])
-										data errorText, String
-										if (Env.SelectionWindowScript)
-											if (!ProcessSelectionWindows(newStructure,errorText))
-											begin
-												ErrorLog("Failed to resolve selection windows for structure " + newStructure.Name + char(13) + char(10) + "       " + errorText)
-												ErrStatus = true
-												exitloop
-											end
-										Structures.Add(newStructure)
-									end
-									catch (ex)
-									begin
-										ErrorLog(ex.Message)
-										ErrStatus = true
-									end
-									endtry
-								end
+								Logging.Errorlog("Your repository contains no structures!")
+								ErrStatus = true
 							end
-							
-							;;Default all structures to use the first file assigned
-							if (!ErrStatus)
+						end
+						catch (ex, @RpsException)
+						begin
+							Logging.Errorlog(ex.Message)
+							ErrStatus = true
+						end
+						endtry
+					end
+					else
+					begin
+						;;Process specified structures
+						data ix, int
+						Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+						for ix from 0 thru task.Structures.Count-1 
+						begin
+							try
 							begin
-								data ix, int
-								FileIndex = new int[Structures.Count]
-								for ix from 1 thru Structures.Count
-									FileIndex[ix] = 0
-							end							
+								data newStructure, @RpsStructure, new RpsStructure(task.Structures[ix])
+								data errorText, String
+								if (!String.IsNullOrWhiteSpace(Env.SelectionWindowScript))
+								begin
+									if (!ProcessSelectionWindows(newStructure,errorText))
+									begin
+										Logging.Errorlog(String.Format("Failed to resolve selection windows for structure {0}. Error was {1}.",newStructure.Name,errorText))
+										ErrStatus = true
+										exitloop
+									end
+								end
+								Structures.Add(newStructure)
+							end
+							catch (ex)
+							begin
+								Logging.Errorlog(ex.Message)
+								ErrStatus = true
+							end
+							endtry
 						end
 					end
+					
+					;;Default all structures to use the first file assigned
+					if (!ErrStatus)
+					begin
+						data ix, int
+						FileIndex = new int[Structures.Count]
+						for ix from 1 thru Structures.Count
+							FileIndex[ix] = 0
+					end							
 				end
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Are we being asked to process a subset of the fields in a structure?
 			
-			if (!ErrStatus)
+			if (!ErrStatus && (!String.IsNullOrWhiteSpace(task.Subset)))
 			begin
-				Env.SubSetName = ""
-				if (task.Subset!=String.Empty)
+				if (!Env.RpsInUse) then
 				begin
-					if (!Env.RpsInUse) then
-					begin
-						ErrorLog("Can't use SubSetName without a repository structure!")
-						ErrStatus = true
-					end
-					else if (!ErrStatus&&Structures.Count>1) then
-					begin
-						ErrorLog("SubSetName property can only be used when processing a single structure!")
-						ErrStatus = true
-					end
-					else
-					begin
-						Env.SubSetName = task.Subset
-						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Subset processing was enabled for subset " + Env.SubSetName,false,false)					
-					end
+					Logging.Errorlog("Field subsets can't be used without a repository structure!")
+					ErrStatus = true
+				end
+				else if (!ErrStatus&&Structures.Count>1) then
+				begin
+					Logging.Errorlog("Field subsets can only be used when processing a single structure!")
+					ErrStatus = true
+				end
+				else
+				begin
+					Env.SubSetName = task.Subset
+					if (Env.DeveloperDebug)
+						Logging.DebugLog("DEVDBG: Subset processing was enabled for subset " + Env.SubSetName)					
 				end
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Are we being asked to create a subset from a list of field names?
 			
-			if (!ErrStatus)
+			if (!ErrStatus && (task.SubsetFields.Count>0))
 			begin
-				if (task.SubsetFields.Count>0)
+				if (!Env.RpsInUse) then
 				begin
-					if (!Env.RpsInUse) then
-					begin
-						ErrorLog("Can't use SubsetFields without a repository structure!")
-						ErrStatus=1
-					end
-					else if (Structures.Count>1) then
-					begin
-						ErrorLog("SubSetFields can only be used when processing a single structure!")
-						ErrStatus=1
-					end
-					else if (Env.SubSetName.Length>0) then
-					begin
-						ErrorLog("SubSetFields and SubSetName cann't be used at the same time!")
-						ErrStatus=1
-					end
-					else
-					begin
-						data fieldName, String
-						foreach fieldName in task.SubsetFields
-							Env.SubSetFields.Add(fieldName.ToUpper())
-						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Subset processing was enabled via a list of supplied field names",false,false)					
-					end
+					Logging.Errorlog("Field subsets can't be used without a repository structure!")
+					ErrStatus=1
+				end
+				else if (Structures.Count>1) then
+				begin
+					Logging.Errorlog("Field subsets can only be used when processing a single structure!")
+					ErrStatus=1
+				end
+				else if (!String.IsNullOrWhiteSpace(Env.SubSetName)) then
+				begin
+					Logging.Errorlog("Field subsets from field names can't be used at the same time as a named subset!")
+					ErrStatus=1
+				end
+				else
+				begin
+					data fieldName, String
+					foreach fieldName in task.SubsetFields
+						Env.SubSetFields.Add(fieldName.ToUpper())
+					if (Env.DeveloperDebug)
+						Logging.DebugLog("DEVDBG: Subset processing was enabled via a list of supplied field names")					
 				end
 			end
 			
@@ -884,70 +879,81 @@ namespace CodeGen.Engine
 				Env.Buttons = new WscButtonCollection()
 				
 				;;Now parse the script file
-				if (WscFile.Length) then
+				if (!String.IsNullOrWhiteSpace(WscFile)) then
 				begin
 					data errTxt, string
-
+					
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Parsing window script " + WscFile,false,false)					
+						Logging.DebugLog("DEVDBG: Parsing window script " + WscFile)					
 					
 					ErrStatus = (boolean)ParseWindowScript(WscFile,Structures,errTxt)
 				end
-				else if (ProFormaFile.Length)
+				else if (!String.IsNullOrWhiteSpace(ProFormaFile))
 				begin
 					data errTxt, string
 					data address, D_ADDR
 					
-					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Parsing ProForma file " + ProFormaFile,false,false)					
-					
-					if (address = %xaddr("ParseProForma",,1))
+					;;Try to load the Proforma extensions
+					if (!%loadProformaExtensions()) then
+						ErrStatus = true
+					else
 					begin
-						data pfStructure, @RpsStructure
+						if (Env.DeveloperDebug)
+							Logging.DebugLog("DEVDBG: Parsing ProForma file " + ProFormaFile)					
 						
-						Env.ProFormaStructures = new RpsStructureCollection(RpsLoadMode.NoLoad)
-						
-						try
+						if (address = %xaddr("ParseProForma",,1)) then
 						begin
-							DebugLog("Executing ParseProForma()",false,false)
+							data pfStructure, @RpsStructure
 							
-							if (ErrStatus = (boolean)%xsubr(address,(a)ProFormaFile))
-								exit
-								
-							;;Did we get any structures loaded?
-							if (!Env.ProFormaStructures.Count)
+							Env.ProFormaStructures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+							
+							try
 							begin
-								ErrorLog("ParseProForma() did not load any structures!")
+								Logging.DebugLog("Executing ParseProForma()")
+								
+								if (ErrStatus = (boolean)%xsubr(address,(a)ProFormaFile))
+									exit
+								
+								;;Did we get any structures loaded?
+								if (!Env.ProFormaStructures.Count)
+								begin
+									Logging.Errorlog("ParseProForma() did not load any structures!")
+									ErrStatus = true
+								end
+							end
+							catch (e, @Exception)
+							begin
+								Logging.Errorlog(String.Format("Failed to execute ParseProForma(). Error was {0}",e.Message))
+								if (e.InnerException!=^null)
+									Logging.Log(String.Format("       {0}",e.InnerException.Message))
 								ErrStatus = true
 							end
-						end
-						catch (e, @Exception)
-						begin
-							ErrorLog("Failed to execute ParseProForma()")
-							Log("       " + e.Message,false,false)
-							if (e.InnerException!=^null)
-								Log("       " + e.InnerException.Message,false,false)
-							ErrStatus = true
-						end
-						endtry
-						
-						;;Load the structures from ParseProForma()
-						if (!ErrStatus)
-						begin
-							if (Structures == ^null)
-								Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+							endtry
 							
-							foreach pfStructure in Env.ProFormaStructures.GetEnumerator()
-								Structures.Add(pfStructure)
+							;;Load the structures from ParseProForma()
+							if (!ErrStatus)
+							begin
+								if (Structures == ^null)
+									Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
 								
-							Env.RpsInUse = true
+								foreach pfStructure in Env.ProFormaStructures.GetEnumerator()
+									Structures.Add(pfStructure)
+								
+								Env.RpsInUse = true
+							end
+						end
+						else
+						begin
+							Logging.Errorlog("Failed to locate the ParseProForma() routine!")
+							ErrStatus = true
 						end
 					end
 				end
-								
+				
 				if (ErrStatus)
 					exit
 				
+				;;Default the structures to using the first assigned file definition
 				if (Structures!=^null)
 				begin
 					data ix, int
@@ -960,7 +966,7 @@ namespace CodeGen.Engine
 				;;button processing (-bn), then delete the buttons
 				if (task.NeverLoadAnyButtons&&Env.Buttons.Count)
 				begin
-					DebugLog("Removing script file buttons because of the NeverLoadAnyButtons property",false,false)
+					Logging.DebugLog("Removing script file buttons because of the NeverLoadAnyButtons property")
 					Env.Buttons.Clear()
 				end
 				
@@ -972,9 +978,9 @@ namespace CodeGen.Engine
 				if (((!Env.Buttons.Count)||(task.AlwaysLoadDefaultButtons))&&(!task.NeverLoadDefaultButtons)&&(!task.NeverLoadAnyButtons))
 				begin
 					if (!Env.Buttons.Count) then
-						DebugLog("Loading default buttons because no script file buttons were found",true,false)
+						Logging.DebugLog("Loading default buttons because no script file buttons were found",true,false)
 					else if (task.AlwaysLoadDefaultButtons)
-						DebugLog("Loading default buttons because of the AlwaysLoadDefaultButtons property",true,false)
+						Logging.DebugLog("Loading default buttons because of the AlwaysLoadDefaultButtons property",true,false)
 					Env.Buttons.LoadDefaultButtons()
 				end
 				
@@ -988,13 +994,13 @@ namespace CodeGen.Engine
 				if (Env.RpsInUse) then
 				begin
 					data str, @RpsStructure
-					Log("Structure(s):",true,false)
+					Logging.Log("Structure(s):",true,false)
 					
 					foreach str in Structures.GetEnumerator()
-						Log(" - " + str.Name,false,false)
+						Logging.Log(" - " + str.Name)
 				end
 				else
-					Log("No Repository structure processing",false,false)
+					Logging.Log("No Repository structure processing")
 			end
 			
 			;;-------------------------------------------------------------------------
@@ -1012,82 +1018,77 @@ namespace CodeGen.Engine
 				;;Now apply specific aliases from the command line
 				if (task.Aliases.Count>0)
 				begin
-					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Structure aliasing requested via Aliases property",false,false)					
-						
-					if (WscFile.Length)
+					if (!String.IsNullOrWhiteSpace(WscFile)) then
 					begin
-						ErrorLog("Can't use WindowScript and Aliases properties together!")
+						Logging.Errorlog("Can't use WindowScript and Aliases properties together!")
 						ErrStatus = true
 					end
-					
-					if ((!ErrStatus) && (task.Aliases.Count > Structures.Count))
+					else if (task.Aliases.Count > Structures.Count) then
 					begin
-						ErrorLog("More aliases than repository structures!")
+						Logging.Errorlog("More aliases than repository structures!")
 						ErrStatus = true
 					end
-					
-					if (!ErrStatus)
+					else
 					begin
-						VerboseLog("Applying structure aliases",true,false)
+						Logging.VerboseLog("Applying structure aliases",true,false)
 						for AliasIndex from 0 thru task.Aliases.Count - 1
 						begin
 							Structures[AliasIndex].Alias = task.Aliases[AliasIndex].ToUpper()
-							VerboseLog(" - Structure " + Structures[AliasIndex].Name + " aliased as " + Structures[AliasIndex].Alias,false,false)
+							Logging.VerboseLog(" - Structure " + Structures[AliasIndex].Name + " aliased as " + Structures[AliasIndex].Alias)
 						end
-					end					
+					end
 				end
 			end
 			
 			;;-------------------------------------------------------------------------
 			;;Do we have alternate repository file references specified
 			
-			if (!ErrStatus&&Structures!=^null)
+			if (!ErrStatus && (task.FileOverrides.Count>0))
 			begin
-				if (task.FileOverrides.Count>0)
+				if ((Structures==^null)||(!Structures.Count)) then
 				begin
-					if (WscFile.Length)
-					begin
-						ErrorLog("Can't use file overrides FileOverrides property when processing a script file!")
-						ErrStatus = true
-					end
-					
-					if ((!ErrStatus) && (task.FileOverrides.Count > Structures.Count))
-					begin
-						ErrorLog("More file name overrides than structures!")
-						ErrStatus = true
-					end
-					
+					Logging.Errorlog("File overrides can only be used when structures are being processed!")
+					ErrStatus = true
+				end
+				else if (task.FileOverrides.Count > Structures.Count) then
+				begin
+					Logging.Errorlog("You have specified more file name overrides than structures!")
+					ErrStatus = true
+				end
+				else if (!String.IsNullOrWhiteSpace(WscFile)) then
+				begin
+					Logging.Errorlog("File overrides can't be used when processing a window script file!")
+					ErrStatus = true
+				end
+				else
+				begin
 					;;Check that the alternate file names are valid for the structures
-					if (!ErrStatus)
+					data clFileIndex, int
+					for clFileIndex from 0 thru task.FileOverrides.Count -1
 					begin
-						data clFileIndex, int
-						for clFileIndex from 0 thru task.FileOverrides.Count -1
+						data tmpStr, @RpsStructure
+						data strFileIndex, int
+						data foundFile, Boolean, false
+						task.FileOverrides[clFileIndex] = task.FileOverrides[clFileIndex].ToUpper()
+						
+						tmpStr = Structures[clFileIndex]
+						
+						for strFileIndex from 0 thru tmpStr.Files.Count-1
 						begin
-							data tmpStr, @RpsStructure
-							data strFileIndex, int
-							data foundFile, Boolean, false
-							task.FileOverrides[clFileIndex] = task.FileOverrides[clFileIndex].ToUpper()
-							
-							tmpStr = Structures[clFileIndex]
-							
-							for strFileIndex from 0 thru tmpStr.Files.Count-1
+							if (tmpStr.Files[strFileIndex].Name.eqs.task.FileOverrides[clFileIndex])
 							begin
-								if (tmpStr.Files[strFileIndex].Name.eqs.task.FileOverrides[clFileIndex])
-								begin
-									;;Found it - this is the one we need later
-									FileIndex[clFileIndex] = strFileIndex
-									foundFile = true
-									VerboseLog("Using file definition " + tmpStr.Files[strFileIndex].Name,true,false)
-									exitloop
-								end
-							end
-							if (!foundFile)
-							begin
-								ErrorLog("Structure "+tmpStr.Name+" is not assigned to file "+task.FileOverrides[clFileIndex])
-								ErrStatus = true
+								;;Found it - this is the one we need later
+								FileIndex[clFileIndex] = strFileIndex
+								foundFile = true
+								Logging.VerboseLog("Using file definition " + tmpStr.Files[strFileIndex].Name,true,false)
 								exitloop
 							end
+						end
+						if (!foundFile)
+						begin
+							Logging.Errorlog("Structure "+tmpStr.Name+" is not assigned to file "+task.FileOverrides[clFileIndex])
+							ErrStatus = true
+							exitloop
 						end
 					end
 				end
@@ -1095,53 +1096,52 @@ namespace CodeGen.Engine
 			
 			;;-------------------------------------------------------------------------
 			;;See if we have any special field processing filters specified
-
+			
 			if (!ErrStatus)
 			begin
-				;;Default to enable "excluded by language" filter
+				;;Default to enabling the "excluded by language" filter
 				Env.ExcludeLanguage = true
 				
 				if (task.IncludeOverlayFields||task.IgnoreExcludeLanguage||task.HonorExcludeToolkit||task.HonorExcludeReportWriter||task.HonorExcludeWeb)
 				begin
 					if (Env.GenFromWsc) then
 					begin
-						;;Can's use filters if we're processing a script file, the fields
-						;;to include are determined by the script file.
-						ErrorLog("Can't use field filters when processing a window script!")
+						;;Can't use filters if we're processing a script file, the fields to include are determined by the script file.
+						Logging.Errorlog("Can't use field filters when processing a window script!")
 						ErrStatus = true
 					end
 					else
 					begin
-						VerboseLog("Custom field filters in use",false,false)
+						Logging.VerboseLog("Custom field filters in use")
 						
 						if (task.IncludeOverlayFields)
 						begin
 							Env.IncludeOverlays = true
-							VerboseLog(" - Overlays will be included",false,false)
+							Logging.VerboseLog(" - Overlays will be included")
 						end
 						
 						if (task.IgnoreExcludeLanguage)
 						begin
 							Env.ExcludeLanguage = false
-							VerboseLog(" - 'Excluded by Language' will be ignored",false,false)
+							Logging.VerboseLog(" - 'Excluded by Language' will be ignored")
 						end
 						
 						if (task.HonorExcludeToolkit)
 						begin
 							Env.ExcludeToolkit = true
-							VerboseLog(" - 'Excluded by Toolkit' will be honored",false,false)
+							Logging.VerboseLog(" - 'Excluded by Toolkit' will be honored")
 						end
 						
 						if (task.HonorExcludeReportWriter)
 						begin
 							Env.ExcludeReport = true
-							VerboseLog(" - 'Excluded by ReportWriter' will be honored",false,false)
+							Logging.VerboseLog(" - 'Excluded by ReportWriter' will be honored")
 						end
 						
 						if (task.HonorExcludeWeb)
 						begin
 							Env.ExcludeWeb = true
-							VerboseLog(" - 'Excluded by Web' will be honored",false,false)
+							Logging.VerboseLog(" - 'Excluded by Web' will be honored")
 						end						
 					end
 				end
@@ -1162,29 +1162,29 @@ namespace CodeGen.Engine
 					begin
 						;;Can't specify group prefixes if we're processing a script file,
 						;;the field names are determined by the script file.
-						ErrorLog("Can't use group prefixes when processing a window script!")
+						Logging.Errorlog("Can't use group prefixes when processing a window script!")
 						ErrStatus = true
 					end
 					else
 					begin
-						VerboseLog("Custom group rules in use",false,false)
+						Logging.VerboseLog("Custom group rules in use")
 						
 						if (task.GroupFieldNoGroupPrefix)  ;;Do not prefix group fields with group name
 						begin
 							Env.GroupPrefix = false
-							VerboseLog(" - Group members not prefixed with group field name",false,false)
+							Logging.VerboseLog(" - Group members not prefixed with group field name")
 						end
 						
 						if (task.GroupNoExpand)
 						begin
 							Env.DontExpandImplicitGroups = true
-							VerboseLog(" - Implicit groups not expanded to individual fields",false,false)
+							Logging.VerboseLog(" - Implicit groups not expanded to individual fields")
 						end
 						
 						if (task.GroupFieldNoRpsPrefix)  ;;Do not use repository group field prefix
 						begin
 							Env.GroupMemberPrefix = false
-							VerboseLog(" - Repository group member prefix not used",false,false)
+							Logging.VerboseLog(" - Repository group member prefix not used")
 						end
 					end
 				end
@@ -1193,20 +1193,19 @@ namespace CodeGen.Engine
 			;;-------------------------------------------------------------------------
 			;;Are we being asked to process multiple structures at the same time (in the same template)
 			
-			if ((!ErrStatus)&&(Env.RpsInUse)&&(task.MultipleStructures||((FileDef!=^null)&&(Structures.Count>1))))
+			if (!ErrStatus && Env.RpsInUse && (task.MultipleStructures||((FileDef!=^null)&&(Structures.Count>1))))
 			begin
 				data structureToCheck, @RpsStructure
 				
 				;;Make sure that we have at least two structures
-				if (Structures.Count<2)
+				if (Structures.Count<2) then
 				begin
-					ErrorLog("MultipleStructures property requires that you specify at least two structures in the Structures property!")
+					Logging.Errorlog("MultipleStructures property requires that you specify at least two structures in the Structures property!")
 					ErrStatus = true
 				end
-				
-				;;Check all of the structures and load them into the Env.CurrentStructures collection
-				if (!ErrStatus)
+				else
 				begin
+					;;Check all of the structures and load them into the Env.CurrentStructures collection
 					foreach structureToCheck in Structures.GetEnumerator()
 					begin
 						if (!CheckStructure(structureToCheck))
@@ -1215,13 +1214,12 @@ namespace CodeGen.Engine
 							exitloop
 						end
 					end
-				end
-				
-				if (!ErrStatus)
-				begin
-					Env.CurrentStructures = Structures
-					Env.FileIndexes = FileIndex
-					VerboseLog("Processing "+string(Structures.Count)+" structures concurrently",true,false)
+					if (!ErrStatus)
+					begin
+						Env.CurrentStructures = Structures
+						Env.FileIndexes = FileIndex
+						Logging.VerboseLog("Processing "+string(Structures.Count)+" structures concurrently",true,false)
+					end
 				end
 			end
 			
@@ -1230,18 +1228,17 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				
 				if (Env.DeveloperDebug)
 				begin
-					DebugLog("------------------------------",true,false)
-					DebugLog("DEVDBG: READY TO GENERATE CODE",false,false)
-					DebugLog("------------------------------",false,false)
+					Logging.DebugLog("------------------------------",true,false)
+					Logging.DebugLog("DEVDBG: READY TO GENERATE CODE")
+					Logging.DebugLog("------------------------------")
 				end
 				
-				VerboseLog("",false,false)
+				Logging.VerboseLog("")
 				
-				Env.OutputFiles = new ArrayList()
-					
+				Env.OutputFiles = new List<String>()
+				
 				if ((!Env.RpsInUse)||(Env.CurrentStructures!=^null)) then
 					call process_templates
 				else
@@ -1276,7 +1273,7 @@ namespace CodeGen.Engine
 				if (Env.FilesCreated>1)
 					msg = msg + "s"
 				msg = msg + " created, " + string(Env.FilesFailed) + " failed"
-				Log(msg,(Env.Verbose||Env.Debug),false)
+				Logging.Log(msg,(Env.Verbose||Env.Debug),false)
 				
 			end
 			else if (Env.FilesCreated) then
@@ -1285,7 +1282,7 @@ namespace CodeGen.Engine
 				if (Env.FilesCreated>1)
 					msg = msg + "s"
 				msg = msg + " created"
-				Log(msg,(Env.Verbose||Env.Debug),false)
+				Logging.Log(msg,(Env.Verbose||Env.Debug),false)
 			end
 			else if (Env.FilesFailed)
 			begin
@@ -1293,14 +1290,14 @@ namespace CodeGen.Engine
 				if (Env.FilesFailed>1)
 					msg = msg + "s"
 				msg = msg + " failed"
-				Log(msg,(Env.Verbose||Env.Debug),false)
+				Logging.Log(msg,(Env.Verbose||Env.Debug),false)
 			end
 			
 			if (Env.ListFiles && (Env.OutputFiles.Count>0))
 			begin
 				data fileSpec, String
 				foreach fileSpec in Env.OutputFiles
-					Log(fileSpec,false,false)
+					Logging.Log(fileSpec)
 			end
 			
 			mreturn (!ErrStatus)
@@ -1311,36 +1308,34 @@ namespace CodeGen.Engine
 		process_templates,
 			
 			;;Process each template
+			data tmpTemplate, String
+			foreach tmpTemplate in Templates
 			begin
-				data tmpTemplate, String
-				foreach tmpTemplate in Templates
+				Env.CurrentTemplate = tmpTemplate
+				
+				;;If we're processing multiple structures in the same template then make
+				;;sure that context is set to the first structure for each template
+				if (Env.CurrentStructures!=^null)
 				begin
-					Env.CurrentTemplate = tmpTemplate
-					
-					;;If we're processing multiple structures in the same template then make
-					;;sure that context is set to the first structure for each template
-					if (Env.CurrentStructures!=^null)
-					begin
-						Env.CurrentStructure = Env.CurrentStructures[0]
-						Env.FileIndex = Env.FileIndexes[1]
-					end
-					
-					;;Generate the code
-					if (!Generate())
-					begin
-						;;If we had a failure in Generate then we'll mark the entire task as failed.
-						ErrStatus = true
-					end
-					
-					Env.CurrentTemplate = ""
+					Env.CurrentStructure = Env.CurrentStructures[0]
+					Env.FileIndex = Env.FileIndexes[1]
 				end
+				
+				;;Generate the code
+				if (!Generate())
+				begin
+					;;If we had a failure in Generate then we'll mark the entire task as failed.
+					ErrStatus = true
+				end
+				
+				Env.CurrentTemplate = ""
 			end
 			
 			return
 			
 		endmethod
 		
-.region "Helper methods"
+		.region "Helper methods"
 		
 		;;;<summary>
 		;;;Configures the basic environment by setting the environment variables
@@ -1365,17 +1360,31 @@ namespace CodeGen.Engine
 			begin
 				;;No, look in the registry for the value set by InstallShield
 				data templateFolder, string
+				data templateFolderFound, boolean, false
+				
 				templateFolder = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
 				if ((templateFolder!=^null)&&(templateFolder!="")) then
 				begin
 					;;Found it
 					xcall setlog("CODEGEN_TPLDIR",templateFolder,TxtLen)
+					templateFolderFound = true
 				end
-				else
+				else if (Environment.Is64BitProcess)
 				begin
-					;;Still nothing - default to current directory
-					xcall setlog("CODEGEN_TPLDIR",".",TxtLen)
+					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+					templateFolder = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","TemplatePath","")
+					if ((templateFolder!=^null)&&(templateFolder!=""))
+					begin
+						;;Found it
+						xcall setlog("CODEGEN_TPLDIR",templateFolder,TxtLen)
+						templateFolderFound = true
+					end
 				end
+				
+				;;Still nothing - default to current directory
+				if (!templateFolderFound)
+					xcall setlog("CODEGEN_TPLDIR",".",TxtLen)
+				
 				UnsetTemplate=true
 			end
 			
@@ -1387,8 +1396,15 @@ namespace CodeGen.Engine
 			begin
 				;;No, look in the registry for the value set by InstallShield
 				TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultAuthor","")
-				if (TempString)
+				if (TempString) then
 					Env.Author = atrim(TempString)
+				else if (Environment.Is64BitProcess)
+				begin
+					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+					TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultAuthor","")
+					if (TempString)
+						Env.Author = atrim(TempString)
+				end
 			end
 			
 			;;Is CODEGEN_COMPANY already set in the environment?
@@ -1399,18 +1415,25 @@ namespace CodeGen.Engine
 			begin
 				;;No, look in the registry for the value set by InstallShield
 				TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultCompany","")
-				if (TempString)
+				if (TempString) then
 					Env.Company = atrim(TempString)
+				else if (Environment.Is64BitProcess)
+				begin
+					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+					TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultCompany","")
+					if (TempString)
+						Env.Company = atrim(TempString)
+				end
 			end
 			
 		endmethod
-
+		
 		private method echoCommand, void
 			required in task, @CodeGenTask
 			endparams
 		proc
 			data command, String, "codegen "
-				
+			
 			;;Templates
 			if (task.Templates.Count>0)
 			begin
@@ -1419,7 +1442,7 @@ namespace CodeGen.Engine
 				foreach tmp in task.Templates
 					command += tmp + " "
 			end
-				
+			
 			;;Structures
 			if (task.Structures.Count>0)
 			begin
@@ -1428,11 +1451,11 @@ namespace CodeGen.Engine
 				foreach tmp in task.Structures
 					command += tmp + " "
 			end
-				
+			
 			;;Processing multiple structures
 			if (task.MultipleStructures)
 				command += "-ms "
-				
+			
 			;;Aliases
 			if (task.Aliases.Count>0)
 			begin
@@ -1441,7 +1464,7 @@ namespace CodeGen.Engine
 				foreach tmp in task.Aliases
 					command += tmp + " "
 			end
-				
+			
 			;;File overrides
 			if (task.FileOverrides.Count>0)
 			begin
@@ -1450,43 +1473,43 @@ namespace CodeGen.Engine
 				foreach tmp in task.FileOverrides
 					command += tmp + " "
 			end
-				
+			
 			;;Subset
-			if (task.Subset!=string.Empty)
+			if (!String.IsNullOrWhiteSpace(task.Subset))
 				command += "-subset " + task.Subset + " "
-				
+			
 			;;Repository file
-			if (task.RepositoryFile!=string.Empty)
+			if (!String.IsNullOrWhiteSpace(task.RepositoryFile))
 				command += "-file " + task.RepositoryFile + " "
-				
+			
 			;;Window Script
-			if (task.WindowScript!=string.Empty)
+			if (!String.IsNullOrWhiteSpace(task.WindowScript))
 				command += "-w " + task.WindowScript + " "
-				
+			
 			;;Ignore script field attributes
 			if (task.IgnoreScriptFieldAttributes)
 				command += "-wn "
-				
+			
 			;;Selection window script
-			if (task.SelectionWindowScript!=String.Empty)
+			if (!String.IsNullOrWhiteSpace(task.SelectionWindowScript))
 				command += "-ws " + task.SelectionWindowScript + " "
-				
+			
 			;;Replace files
 			if (task.ReplaceFiles)
 				command += "-r "
-				
+			
 			;;Namespace
-			if (task.Namespace!=String.Empty)
+			if (!String.IsNullOrWhiteSpace(task.Namespace))
 				command += "-n " + task.Namespace + " "
-				
+			
 			;;Field prefix
-			if (task.FieldPrefix!=String.Empty)
+			if (!String.IsNullOrWhiteSpace(task.FieldPrefix))
 				command += "-prefix " + task.FieldPrefix + " "
-				
+			
 			;;User token file
-			if (task.UserTokenFile!=String.Empty)
+			if (!String.IsNullOrWhiteSpace(task.UserTokenFile))
 				command += "-u " + task.UserTokenFile + " "
-				
+			
 			;;Command line user tokens
 			if (task.UserTokens.Count>0)
 			begin
@@ -1495,70 +1518,70 @@ namespace CodeGen.Engine
 				foreach tmp in task.UserTokens
 					command += tmp.Name + "=" + tmp.Value + " "
 			end
-				
+			
 			;;
 			if (task.IncludeOverlayFields)
 				command += "-f o "
-				
+			
 			;;
 			if (task.IgnoreExcludeLanguage)
 				command += "-f l "
-				
+			
 			;;
 			if (task.HonorExcludeToolkit)
 				command += "-f t "
-				
+			
 			;;
 			if (task.HonorExcludeReportWriter)
 				command += "-f r "
-				
+			
 			;;
 			if (task.HonorExcludeWeb)
 				command += "-f w "
-				
+			
 			;;
 			if (task.GroupFieldNoGroupPrefix)
 				command += "-g f "
-				
+			
 			;;
 			if (task.GroupFieldNoRpsPrefix)
 				command += "-g r "
-				
+			
 			;;
 			if (task.GroupNoExpand)
 				command += "-g i "
-				
+			
 			;;
 			if (task.AlwaysLoadDefaultButtons)
 				command += "-b a "
-				
+			
 			;;
 			if (task.NeverLoadDefaultButtons)
 				command += "-b d "
-				
+			
 			;;
 			if (task.NeverLoadAnyButtons)
 				command += "-b n "
-				
+			
 			;;Template folder
-			if (task.TemplateFolder!=String.Empty)
+			if (!String.IsNullOrWhiteSpace(task.TemplateFolder))
 				command += "-i " + task.TemplateFolder + " "
-				
+			
 			;;Output folder
-			if (task.OutputFolder!=String.Empty)
+			if (!String.IsNullOrWhiteSpace(task.OutputFolder))
 				command += "-o " + task.OutputFolder + " "
-				
+			
 			;;Character width
 			if (task.CharacterWidth!=12)
 				command += "-cw " + task.CharacterWidth.ToString() + " "
-				
+			
 			;;Character height
 			if (task.CharacterHeight!=25)
 				command += "-ch " + task.CharacterHeight.ToString() + " "
-				
+			
 			if (mTaskSet.EchoCommands)
 				command += "-e "
-
+			
 			using mTaskSet.LoggingLevel select
 			(LoggingLevel.Verbose),
 				command += "-v "
@@ -1567,14 +1590,14 @@ namespace CodeGen.Engine
 			(LoggingLevel.DeveloperDebug),
 				command += "-debug "
 			endusing	
-				
-			Log(command,true,false)
+			
+			Logging.Log(command,true,false)
 			
 		endmethod
 		
-.endregion
+		.endregion
 		
-.region "IDisposable"
+		.region "IDisposable"
 		
 		public method Dispose, void
 			endparams
@@ -1587,7 +1610,7 @@ namespace CodeGen.Engine
 				xcall setlog("CODEGEN_EXE",,status)
 		endmethod
 		
-.endregion
+		.endregion
 		
 	endclass
 	

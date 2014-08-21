@@ -61,12 +61,12 @@ namespace CodeGen.Engine
 
         ok = true
 
-        DebugLog("Validating structure " + Struct.Name,true,false)
+        Logging.DebugLog("Validating structure " + Struct.Name,true,false)
 
         ;; Make sure the structure has fields
         if (!Struct.Fields.Count)
         begin
-            ErrorLog("Structure " + Struct.Name + " has no fields")
+            Logging.Errorlog("Structure " + Struct.Name + " has no fields")
             ok = false
         end
 
@@ -75,7 +75,7 @@ namespace CodeGen.Engine
         begin
             ;; Make sure it's a field=value tag
             if (Struct.TagType!=RpsTagType.FieldAndValue)
-                Log("WARNING: Structure "+Struct.Name+" has an unsupported record length tag. Tag loop tokens may not work!",false,false)
+                Logging.Log("WARNING: Structure "+Struct.Name+" has an unsupported record length tag. Tag loop tokens may not work!")
 		end
 
         ;; Make sure the structure has not been excluded with @NOCODEGEN
@@ -83,7 +83,7 @@ namespace CodeGen.Engine
 		begin
 			if ((Struct.UserText.ToUpper().Contains("@NOCODEGEN"))||(Struct.LongDescription.ToUpper().Contains("@NOCODEGEN")))
             begin
-                DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN",false,false)
+                Logging.DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN")
                 ok = false
 			end
         end
@@ -109,7 +109,7 @@ namespace CodeGen.Engine
                 &   )
                 begin
 					if (Env.DeveloperDebug)
-						DebugLog("DEVDBG: Removing field  " + Field.Name + " because of field filters",false,false)
+						Logging.DebugLog("DEVDBG: Removing field  " + Field.Name + " because of field filters")
 					Struct.Fields.RemoveAt(ix)
                     ix-=1
                     nextloop
@@ -118,12 +118,12 @@ namespace CodeGen.Engine
                 ;; If there is a subset specified then remove all fields that are
                 ;; not a member of that subset
 
-                if (Env.SubSetName) then
+                if (!String.IsNullOrWhiteSpace(Env.SubSetName)) then
                 begin
 					if ((!instr(1,Field.UserText,"@SUB="+Env.SubSetName+";"))&&(!instr(1,Field.LongDescription,"@SUB="+Env.SubSetName+";")))
                     begin
 						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Removing field  " + Field.Name + ", not a subset member",false,false)
+							Logging.DebugLog("DEVDBG: Removing field  " + Field.Name + ", not a subset member")
 						Struct.Fields.RemoveAt(ix)
                         ix-=1
                         nextloop
@@ -144,24 +144,25 @@ namespace CodeGen.Engine
 					if (foundField) then
 					begin
 						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Retaining field " + Field.Name + " as a subset member",false,false)
+							Logging.DebugLog("DEVDBG: Retaining field " + Field.Name + " as a subset member")
 					end
 					else
 					begin
 						if (Env.DeveloperDebug)
-							DebugLog("DEVDBG: Removing field  " + Field.Name + ", not a subset member",false,false)
+							Logging.DebugLog("DEVDBG: Removing field  " + Field.Name + ", not a subset member")
 						Struct.Fields.RemoveAt(ix)
 						ix-=1
 						nextloop
 					end
-;					DebugLog(">>>>>>>>>>>>>>>>>>> TESTING " + Field.Name,false,false)
+;TODO: This code confuses the debugger ... remove it once addressed.
+;					Logging.DebugLog(">>>>>>>>>>>>>>>>>>> TESTING " + Field.Name)
 ;					if (Env.SubSetFields.IndexOf(Field.Name)) then
 ;					begin
-;						DebugLog(">>>>>>>>>>>>>>>>>>> KEEPING " + Field.Name,false,false)
+;						Logging.DebugLog(">>>>>>>>>>>>>>>>>>> KEEPING " + Field.Name)
 ;					end
 ;					else
 ;					begin
-;						DebugLog(">>>>>>>>>>>>>>>>>>> REMOVING " + Field.Name,false,false)
+;						Logging.DebugLog(">>>>>>>>>>>>>>>>>>> REMOVING " + Field.Name)
 ;						Struct.Fields.RemoveAt(ix)
 ;						ix-=1
 ;						nextloop
@@ -172,7 +173,7 @@ namespace CodeGen.Engine
                 ;TODO: Enums are just an i4, so we should be able to add support
                 if (Field.DataType == RpsFieldDataType.Enum)
                 begin
-                    ErrorLog("Field "+Field.Name+" is an unsupported ENUM field")
+                    Logging.Errorlog("Field "+Field.Name+" is an unsupported ENUM field")
                     ok = false
                     exitloop
                 end
@@ -181,7 +182,7 @@ namespace CodeGen.Engine
                 ;TODO: Binary is just a character array so we should be able to add support
                 if (Field.DataType == RpsFieldDataType.Binary)
                 begin
-                    ErrorLog("Field "+Field.Name+" is an unsupported BINARY field")
+                    Logging.Errorlog("Field "+Field.Name+" is an unsupported BINARY field")
                     ok = false
                     exitloop
                 end
@@ -190,7 +191,7 @@ namespace CodeGen.Engine
                 ;TODO: Could treat a struct field as a string, or a class?
                 if (Field.DataType == RpsFieldDataType.StructField)
                 begin
-                    ErrorLog("Field "+Field.Name+" is an unsupported STRUCTFIELD field")
+                    Logging.Errorlog("Field "+Field.Name+" is an unsupported STRUCTFIELD field")
                     ok = false
                     exitloop
                 end
@@ -497,7 +498,7 @@ namespace CodeGen.Engine
                     nextloop
 
                 ;; Is it an implicit group and we've been told not to expand them?
-                if ((Field.GroupStructure.Length>0)&&Env.DontExpandImplicitGroups)
+                if ((!String.IsNullOrWhiteSpace(Field.GroupStructure))&&Env.DontExpandImplicitGroups)
                 begin
                     Field.TypeCode = "@"+Field.GroupStructure
                     Field.TypeName = "CLASS"
@@ -608,7 +609,7 @@ namespace CodeGen.Engine
 			end	
 			else
 			begin
-				ErrorLog("After applying CodeGen rules structure " + Struct.Name + " has no remaining fields!")
+				Logging.Errorlog("After applying CodeGen rules structure " + Struct.Name + " has no remaining fields!")
 				ok = false
 			end		
 		end
@@ -646,7 +647,7 @@ namespace CodeGen.Engine
 			data tmpFld, @RpsField
 			data saveReplaceFiles, boolean, Env.ReplaceFiles
 
-			DebugLog("DEVDBG: Saving field log for structure "+Struct.Name,true,false)
+			Logging.DebugLog("DEVDBG: Saving field log for structure "+Struct.Name,true,false)
 			try
 			begin
 				;;Make sure we can ovwewrite files
@@ -662,7 +663,7 @@ namespace CodeGen.Engine
 			end
 			catch (e, @Exception)
 			begin
-				DebugLog("DEVDBG: Failed to write field log!"+e.Message,false,false)
+				Logging.DebugLog("DEVDBG: Failed to write field log!"+e.Message)
 			end
 			finally
 			begin
