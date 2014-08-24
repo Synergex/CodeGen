@@ -44,8 +44,7 @@
 .include "RPSLIB:ddinfo.def"
 .undefine DDINFO_DEFINES_ONLY
 
-import CodeGen.RepositoryAPI
-import System.Collections
+import System.Collections.Generic
 
 namespace CodeGen.RepositoryAPI
 
@@ -54,17 +53,12 @@ namespace CodeGen.RepositoryAPI
         Group
     endenum
 
-    public class RpsFieldCollection
-
-        private mCollection, @ArrayList
+    public class RpsFieldCollection extends List<RpsField>
 
         ;;Constructor (don't load any fields)
         public method RpsFieldCollection
             endparams
         proc
-            RpsUtils.DbgLog("Constructor    : RpsFieldCollection()")
-            mCollection = new ArrayList()
-            RpsUtils.DbgLog("Constructor    : RpsFieldCollection() done")
         endmethod
 
         ;;Constructor (load fields for a structure or group)
@@ -79,9 +73,6 @@ namespace CodeGen.RepositoryAPI
 
             str = atrim(StructureOrGroup)
 
-            RpsUtils.DbgLog("Constructor    : RpsFieldCollection("+string(LoadMode)+","+str+")")
-
-            mCollection = new ArrayList()
             Repository.CheckIsOpen()
 
             using LoadMode select
@@ -102,7 +93,6 @@ namespace CodeGen.RepositoryAPI
 				if (Repository.RpsControl.sname.nes.PreviousStructure)
 				begin
 					data ms_info, s_info
-					RpsUtils.DbgLog("               : Set current structure to "+PreviousStructure)
 					dd_struct(Repository.RpsControl,DDS_INFO,PreviousStructure,ms_info)
 					if (Repository.RpsControl.error)
 						throw new RpsStructureException("Failed to set context back to original structure  "+PreviousStructure)
@@ -112,14 +102,6 @@ namespace CodeGen.RepositoryAPI
                 LoadGroupFields(str)
             endusing
 
-            RpsUtils.DbgLog("Constructor    : RpsFieldCollection("+string(LoadMode)+","+str+") done")
-
-        endmethod
-
-        ;;Destructor
-        method ~RpsFieldCollection
-        proc
-            clear mCollection
         endmethod
 
         ;;Load structure fields
@@ -136,12 +118,11 @@ namespace CodeGen.RepositoryAPI
         proc
             init local_data
             str = %atrim(StructureName)
-            RpsUtils.DbgLog("               : RpsFieldCollection.LoadStructureFields(StructureName="+str+")")
             try
             begin
-                data ms_info, s_info
+				data ms_info, s_info
+
                 ;;Set the current structure and get structure information
-                RpsUtils.DbgLog("               : Set current structure to "+str)
                 dd_struct(Repository.RpsControl,DDS_INFO,str,ms_info)
                 if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get information for repository structure "+str)
@@ -155,7 +136,7 @@ namespace CodeGen.RepositoryAPI
                         throw new RpsFieldException("Failed to get field names for repository structure "+str)
                     ;;Add fields to the collection
                     for ix from 1 thru ms_info.si_childct
-                        mCollection.Add(new RpsField(StructureName,^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsField(StructureName,^m(strIdentifier[ix],MemHandle)))
                 end
             end
             finally
@@ -165,9 +146,6 @@ namespace CodeGen.RepositoryAPI
                     MemHandle = %mem_proc(DM_FREE,MemHandle)
             end
             endtry
-
-            RpsUtils.DbgLog("               : RpsFieldCollection.LoadStructureFields(StructureName="+str+") done")
-
         endmethod
 
         ;;Load group fields
@@ -180,7 +158,6 @@ namespace CodeGen.RepositoryAPI
             endrecord
         proc
             init local_data
-            RpsUtils.DbgLog("               : RpsFieldCollection.LoadGroupFields(GroupName="+GroupName+")")
             try
             begin
                 data mf_info, f_info
@@ -210,7 +187,7 @@ namespace CodeGen.RepositoryAPI
 
                     ;;Add fields to the collection
                     for ix from 1 thru mf_info.fi_mbrct
-                        mCollection.Add(new RpsField(^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsField(^m(strIdentifier[ix],MemHandle)))
 
                     ;;Reset field context
                     dd_field(Repository.RpsControl,DDF_ENDGROUP)
@@ -225,9 +202,6 @@ namespace CodeGen.RepositoryAPI
                     MemHandle = %mem_proc(DM_FREE,MemHandle)
             end
             endtry
-
-            RpsUtils.DbgLog("               : RpsFieldCollection.LoadGroupFields(GroupName="+GroupName+") done")
-
         endmethod
 
         ;;---------------------------------------------------------------------
@@ -235,19 +209,14 @@ namespace CodeGen.RepositoryAPI
 
         ;;Remove overlay fields from the collection
         public method RemoveOverlays, void
-            record
-                index, int
-                field, @RpsField
-            endrecord
         proc
-            index=0
+            data index, int, 0
             repeat
             begin
-                if (index<=(mCollection.Count-1)) then
+                if (index<=(this.Count-1)) then
                 begin
-                    field=(RpsField)mCollection[index]
-                    if (field.OverlaysField) then
-                        mCollection.RemoveAt(index)
+					if (this[index].OverlaysField) then
+                        this.RemoveAt(index)
                     else
                         index+=1
                 end
@@ -258,19 +227,14 @@ namespace CodeGen.RepositoryAPI
 
         ;;Remove fields marked as "Excluded by Language" from the collection
         public method RemoveExcludedByLanguage, void
-            record
-                index, int
-                field, @RpsField
-            endrecord
         proc
-            index=0
+			data index, int, 0
             repeat
             begin
-                if (index<=(mCollection.Count-1)) then
+                if (index<=(this.Count-1)) then
                 begin
-                    field=(RpsField)mCollection[index]
-                    if (field.ExcludedByLanguage) then
-                        mCollection.RemoveAt(index)
+					if (this[index].ExcludedByLanguage) then
+                        this.RemoveAt(index)
                     else
                         index+=1
                 end
@@ -281,19 +245,14 @@ namespace CodeGen.RepositoryAPI
 
         ;;Remove fields marked as "Excluded by Toolkit" from the collection
         public method RemoveExcludedByToolkit, void
-            record
-                index, int
-                field, @RpsField
-            endrecord
         proc
-            index=0
+			data index, int, 0
             repeat
             begin
-                if (index<=(mCollection.Count-1)) then
+                if (index<=(this.Count-1)) then
                 begin
-                    field=(RpsField)mCollection[index]
-                    if (field.ExcludedByToolkit) then
-                        mCollection.RemoveAt(index)
+					if (this[index].ExcludedByToolkit) then
+                        this.RemoveAt(index)
                     else
                         index+=1
                 end
@@ -304,19 +263,14 @@ namespace CodeGen.RepositoryAPI
 
         ;;Remove fields marked as "Excluded by ReportWriter" from the collection
         public method RemoveExcludedByReportWriter, void
-            record
-                index, int
-                field, @RpsField
-            endrecord
         proc
-            index=0
+            data index, int, 0
             repeat
             begin
-                if (index<=(mCollection.Count-1)) then
+                if (index<=(this.Count-1)) then
                 begin
-                    field=(RpsField)mCollection[index]
-                    if (field.ExcludedByReportWriter) then
-                        mCollection.RemoveAt(index)
+                    if (this[index].ExcludedByReportWriter) then
+                        this.RemoveAt(index)
                     else
                         index+=1
                 end
@@ -327,182 +281,20 @@ namespace CodeGen.RepositoryAPI
 
         ;;Remove fields marked as "Excluded by Web" from the collection
         public method RemoveExcludedByWeb, void
-            record
-                index, int
-                field, @RpsField
-            endrecord
         proc
-            index=0
+            data index, int, 0
             repeat
             begin
-                if (index<=(mCollection.Count-1)) then
+                if (index<=(this.Count-1)) then
                 begin
-                    field=(RpsField)mCollection[index]
-                    if (field.ExcludedByWeb) then
-                        mCollection.RemoveAt(index)
+                    if (this[index].ExcludedByWeb) then
+                        this.RemoveAt(index)
                     else
                         index+=1
                 end
                 else
                     exitloop
             end
-        endmethod
-
-        ;;; <summary>
-        ;;; Expose the internal ArrayList so consumers can use FOREACH
-        ;;; </summary>
-        ;;; <returns>Internal ArrayList used to store the collection.</returns>
-        public method GetEnumerator, @ArrayList
-            endparams
-        proc
-            mreturn mCollection
-        endmethod
-
-        public method IsLastField, boolean
-            required in fld, @RpsField
-            endparams
-        proc
-            mreturn (mCollection.LastIndexOf(fld)==mCollection.Count-1)
-        endmethod
-
-        ;;---------------------------------------------------------------------
-        ;;The follwoing members make the collection look just like an ArrayList
-
-        ;;Gets or sets the number of elements that the collection can contain.
-        public property Capacity, int
-            method get
-            proc
-                mreturn mCollection.Capacity
-            endmethod
-            method set
-            proc
-                mCollection.Capacity = value
-            endmethod
-        endproperty
-
-        ;;Gets the number of elements actually contained in the collection.
-        public property Count, int
-            method get
-            proc
-                mreturn mCollection.Count
-            endmethod
-        endproperty
-
-        ;;Gets or sets the element at the specified index.
-        public property Indexer, @RpsField
-            required in Index, int
-            method get
-            proc
-                mreturn (RpsField)mCollection[Index]
-            endmethod
-            method set
-            proc
-                mCollection[Index] = value
-            endmethod
-        endproperty
-
-        ;;Gets or sets the element at the specified index.
-        public property Indexer, @RpsField
-            required in FieldName, String
-            method get
-                record
-                    field   ,@RpsField
-                endrecord
-            proc
-                foreach field in mCollection
-                    if (field.Name.eqs.FieldName)
-                        mreturn field
-                mreturn ^null
-            endmethod
-        endproperty
-
-        ;;Adds an element to the end of the collection.
-        public method Add, int
-            required in RpsField, @RpsField
-            endparams
-        proc
-            mreturn mCollection.Add(RpsField)
-        endmethod
-
-        ;;Removes the element at the specified index of the collection.
-        public method RemoveAt, void
-            required in Index, int
-        proc
-            mCollection.RemoveAt(Index)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the entire collection.
-        public method IndexOf, int
-            required in RpsField, @RpsField
-        proc
-            mreturn mCollection.IndexOf(RpsField)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the range of elements in the collection
-        ;;that extends from the specified index to the last element.
-        public method IndexOf, int
-            required in RpsField, @RpsField
-            required in StartIndex, int
-        proc
-            mreturn mCollection.IndexOf(RpsField,StartIndex)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the range of elements in the collection
-        ;;that starts at the specified index and contains the specified number of
-        ;;elements.
-        public method IndexOf, int
-            required in RpsField, @RpsField
-            required in StartIndex, int
-            required in Count, int
-        proc
-            mreturn mCollection.IndexOf(RpsField,StartIndex,Count)
-        endmethod
-
-        ;;Removes all elements from the collection.
-        public method Clear, void
-        proc
-            mCollection.Clear()
-        endmethod
-
-        ;;Inserts an element into the collection at the specified index.
-        public method Insert, void
-            required in AtIndex, int
-            required in RpsField, @RpsField
-            endparams
-        proc
-            mCollection.Insert(AtIndex,RpsField)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the entire collection.
-        public method LastIndexOf, int
-            required in RpsField, @RpsField
-        proc
-            mreturn mCollection.LastIndexOf(RpsField)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the range of elements in the collection that
-        ;;extends from the first element to the specified index.
-        public method LastIndexOf, int
-            required in RpsField, @RpsField
-            required in StartIndex, int
-        proc
-            mreturn mCollection.LastIndexOf(RpsField,StartIndex)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the range of elements in the collection that
-        ;;contains the specified number of elements and ends at the specified index.
-        public method LastIndexOf, int
-            required in RpsField, @RpsField
-            required in StartIndex, int
-            required in Count, int
-        proc
-            mreturn mCollection.LastIndexOf(RpsField,StartIndex,Count)
         endmethod
 
     endclass
