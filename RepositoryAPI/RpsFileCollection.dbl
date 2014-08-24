@@ -46,22 +46,16 @@
 .include "RPSLIB:ddinfo.def"
 .undefine DDINFO_DEFINES_ONLY
 
-import CodeGen.RepositoryAPI
-import System.Collections
+import System.Collections.Generic
 
 namespace CodeGen.RepositoryAPI
 
-    public class RpsFileCollection
-
-        private mCollection, @ArrayList
+    public class RpsFileCollection extends List<RpsFile>
 
         ;; Constructor (no files)
         public method RpsFileCollection
             endparams
         proc
-            RpsUtils.DbgLog("RpsFileCollection() constructor")
-            mCollection = new ArrayList()
-            RpsUtils.DbgLog("RpsFileCollection() constructor done")
         endmethod
 
         ;; Constructor (all files)
@@ -69,14 +63,11 @@ namespace CodeGen.RepositoryAPI
             required in LoadMode, RpsLoadMode
             endparams
         proc
-            RpsUtils.DbgLog("RpsFileCollection(LoadMode) constructor")
-            mCollection = new ArrayList()
             if (LoadMode==RpsLoadMode.Load)
             begin
                 Repository.CheckIsOpen()
                 LoadAllFiles()
             end
-            RpsUtils.DbgLog("RpsFileCollection(LoadMode) constructor done")
         endmethod
 
         ;; Constructor (structure files)
@@ -84,17 +75,8 @@ namespace CodeGen.RepositoryAPI
             required in StructureName, String
             endparams
         proc
-            RpsUtils.DbgLog("RpsFileCollection(StructureName="+atrim(StructureName)+") constructor")
-            mCollection = new ArrayList()
             Repository.CheckIsOpen()
             LoadStructureFiles(StructureName)
-            RpsUtils.DbgLog("RpsFileCollection(StructureName="+atrim(StructureName)+") constructor")
-        endmethod
-
-        ;; Destructor
-        method ~RpsFileCollection
-        proc
-            clear mCollection
         endmethod
 
         ;; Load all Files
@@ -123,7 +105,7 @@ namespace CodeGen.RepositoryAPI
                         throw new RpsFileException("Failed to get repository file definition names")
                     ;;Add files to collection
                     for ix from 1 thru FileCount
-                        mCollection.Add(new RpsFile(^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsFile(^m(strIdentifier[ix],MemHandle)))
                 end
             end
             finally
@@ -162,7 +144,7 @@ namespace CodeGen.RepositoryAPI
                         throw new RpsFileException("Failed to get file names for repository structure "+StructureName)
                     ;;Add files to collection
                     for ix from 1 thru ms_info.si_nmfils
-                        mCollection.Add(new RpsFile(^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsFile(^m(strIdentifier[ix],MemHandle)))
                 end
             end
             finally
@@ -172,144 +154,6 @@ namespace CodeGen.RepositoryAPI
                     MemHandle = %mem_proc(DM_FREE,MemHandle)
             end
             endtry
-        endmethod
-
-        ;;---------------------------------------------------------------------
-        ;; Public methods and properties
-
-        ;;; <summary>
-        ;;; Expose the internal ArrayList so consumers can use FOREACH
-        ;;; </summary>
-        ;;; <returns>Internal ArrayList used to store the collection.</returns>
-        public method GetEnumerator, @ArrayList
-            endparams
-        proc
-            mreturn mCollection
-        endmethod
-
-        ;;---------------------------------------------------------------------
-        ;;The follwoing members make the collection look just like an ArrayList
-
-        ;;Gets or sets the number of elements that the collection can contain.
-        public property Capacity, int
-            method get
-            proc
-                mreturn mCollection.Capacity
-            endmethod
-            method set
-            proc
-                mCollection.Capacity = value
-            endmethod
-        endproperty
-
-        ;;Gets the number of elements actually contained in the collection.
-        public property Count, int
-            method get
-            proc
-                mreturn mCollection.Count
-            endmethod
-        endproperty
-
-        ;;Gets or sets the element at the specified index.
-        public property Indexer, @RpsFile
-            required in Index, int
-            method get
-            proc
-                mreturn (RpsFile)mCollection[Index]
-            endmethod
-            method set
-            proc
-                mCollection[Index] = value
-            endmethod
-        endproperty
-
-        ;;Adds an element to the end of the collection.
-        public method Add, int
-            required in RpsFile, @RpsFile
-            endparams
-        proc
-            mreturn mCollection.Add(RpsFile)
-        endmethod
-
-        ;;Removes the element at the specified index of the collection.
-        public method RemoveAt, void
-            required in Index, int
-        proc
-            mCollection.RemoveAt(Index)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the entire collection.
-        public method IndexOf, int
-            required in RpsFile, @RpsFile
-        proc
-            mreturn mCollection.IndexOf(RpsFile)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the range of elements in the collection
-        ;;that extends from the specified index to the last element.
-        public method IndexOf, int
-            required in RpsFile, @RpsFile
-            required in StartIndex, int
-        proc
-            mreturn mCollection.IndexOf(RpsFile,StartIndex)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the range of elements in the collection
-        ;;that starts at the specified index and contains the specified number of
-        ;;elements.
-        public method IndexOf, int
-            required in RpsFile, @RpsFile
-            required in StartIndex, int
-            required in Count, int
-        proc
-            mreturn mCollection.IndexOf(RpsFile,StartIndex,Count)
-        endmethod
-
-        ;;Removes all elements from the collection.
-        public method Clear, void
-        proc
-            mCollection.Clear()
-        endmethod
-
-        ;;Inserts an element into the collection at the specified index.
-        public method Insert, void
-            required in AtIndex, int
-            required in RpsFile, @RpsFile
-            endparams
-        proc
-            mCollection.Insert(AtIndex,RpsFile)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the entire collection.
-        public method LastIndexOf, int
-            required in RpsFile, @RpsFile
-        proc
-            mreturn mCollection.LastIndexOf(RpsFile)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the range of elements in the collection that
-        ;;extends from the first element to the specified index.
-        public method LastIndexOf, int
-            required in RpsFile, @RpsFile
-            required in StartIndex, int
-        proc
-            mreturn mCollection.LastIndexOf(RpsFile,StartIndex)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the range of elements in the collection that
-        ;;contains the specified number of elements and ends at the specified index.
-        public method LastIndexOf, int
-            required in RpsFile, @RpsFile
-            required in StartIndex, int
-            required in Count, int
-        proc
-            mreturn mCollection.LastIndexOf(RpsFile,StartIndex,Count)
         endmethod
 
     endclass

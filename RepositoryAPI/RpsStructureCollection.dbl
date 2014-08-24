@@ -44,28 +44,22 @@
 .include "RPSLIB:ddinfo.def"
 .undefine DDINFO_DEFINES_ONLY
 
-import CodeGen.RepositoryAPI
-import System.Collections
+import System.Collections.Generic
 
 namespace CodeGen.RepositoryAPI
 
-    public class RpsStructureCollection
-
-        private mCollection, @ArrayList
+    public class RpsStructureCollection extends List<RpsStructure>
 
         ;; Constructor
         public method RpsStructureCollection
             LoadMode, RpsLoadMode
             endparams
         proc
-            RpsUtils.DbgLog("Constructor    : RpsStructureCollection("+%string(LoadMode)+")")
-            mCollection = new ArrayList()
             if (LoadMode==RpsLoadMode.Load)
             begin
                 Repository.CheckIsOpen()
                 LoadStructures()
             end
-            RpsUtils.DbgLog("Constructor    : RpsStructureCollection("+%string(LoadMode)+") done")
         endmethod
 
         ;; Constructor
@@ -73,16 +67,7 @@ namespace CodeGen.RepositoryAPI
             required in fileDefName, String
             endparams
         proc
-            RpsUtils.DbgLog("Constructor    : RpsStructureCollection("+%atrim(FileDefName)+")")
-            mCollection = new ArrayList()
             LoadStructures(fileDefName)
-            RpsUtils.DbgLog("Constructor    : RpsStructureCollection("+%atrim(FileDefName)+") done")
-        endmethod
-
-        ;; Destructor
-        method ~RpsStructureCollection
-        proc
-            clear mCollection
         endmethod
 
         ;; Load structures
@@ -110,7 +95,7 @@ namespace CodeGen.RepositoryAPI
                     if (Repository.RpsControl.error)
                         throw new RpsStructureException("Failed to get repository structure names")
                     for ix from 1 thru StructureCount
-                        mCollection.Add(new RpsStructure(^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsStructure(^m(strIdentifier[ix],MemHandle)))
                 end
             end
             catch (ex, @Exception)
@@ -152,7 +137,7 @@ namespace CodeGen.RepositoryAPI
                     if (Repository.RpsControl.error)
                         throw new RpsFileException("Failed to get repository structure names for file " + atrim(fileDefName))
                     for ix from 1 thru file_info.fli_nmstructs
-                        mCollection.Add(new RpsStructure(^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsStructure(^m(strIdentifier[ix],MemHandle)))
                 end
             end
             catch (ex, @Exception)
@@ -166,141 +151,6 @@ namespace CodeGen.RepositoryAPI
                     MemHandle = %mem_proc(DM_FREE,MemHandle)
             end
             endtry
-        endmethod
-
-        ;;; <summary>
-        ;;; Expose the internal ArrayList so consumers can use FOREACH
-        ;;; </summary>
-        ;;; <returns>Internal ArrayList used to store structures.</returns>
-        public method GetEnumerator, @ArrayList
-            endparams
-        proc
-            mreturn mCollection
-        endmethod
-
-        ;;---------------------------------------------------------------------
-        ;;The follwoing members make the collection look just like an ArrayList
-
-        ;;Gets or sets the number of elements that the collection can contain.
-        public property Capacity, int
-            method get
-            proc
-                mreturn mCollection.Capacity
-            endmethod
-            method set
-            proc
-                mCollection.Capacity = value
-            endmethod
-        endproperty
-
-        ;;Gets the number of elements actually contained in the collection.
-        public property Count, int
-            method get
-            proc
-                mreturn mCollection.Count
-            endmethod
-        endproperty
-
-        ;;Gets or sets the element at the specified index.
-        public property Indexer, @RpsStructure
-            required in Index, int
-            method get
-            proc
-                mreturn (RpsStructure)mCollection[Index]
-            endmethod
-            method set
-            proc
-                mCollection[Index] = value
-            endmethod
-        endproperty
-
-        ;;Adds an element to the end of the collection.
-        public method Add, int
-            required in RpsStructure, @RpsStructure
-            endparams
-        proc
-            mreturn mCollection.Add(RpsStructure)
-        endmethod
-
-        ;;Removes the element at the specified index of the collection.
-        public method RemoveAt, void
-            required in Index, int
-        proc
-            mCollection.RemoveAt(Index)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the entire collection.
-        public method IndexOf, int
-            required in RpsStructure, @RpsStructure
-        proc
-            mreturn mCollection.IndexOf(RpsStructure)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the range of elements in the collection
-        ;;that extends from the specified index to the last element.
-        public method IndexOf, int
-            required in RpsStructure, @RpsStructure
-            required in StartIndex, int
-        proc
-            mreturn mCollection.IndexOf(RpsStructure,StartIndex)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the range of elements in the collection
-        ;;that starts at the specified index and contains the specified number of
-        ;;elements.
-        public method IndexOf, int
-            required in RpsStructure, @RpsStructure
-            required in StartIndex, int
-            required in Count, int
-        proc
-            mreturn mCollection.IndexOf(RpsStructure,StartIndex,Count)
-        endmethod
-
-        ;;Removes all elements from the collection.
-        public method Clear, void
-        proc
-            mCollection.Clear()
-        endmethod
-
-        ;;Inserts an element into the collection at the specified index.
-        public method Insert, void
-            required in AtIndex, int
-            required in RpsStructure, @RpsStructure
-            endparams
-        proc
-            mCollection.Insert(AtIndex,RpsStructure)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the entire collection.
-        public method LastIndexOf, int
-            required in RpsStructure, @RpsStructure
-        proc
-            mreturn mCollection.LastIndexOf(RpsStructure)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the range of elements in the collection that
-        ;;extends from the first element to the specified index.
-        public method LastIndexOf, int
-            required in RpsStructure, @RpsStructure
-            required in StartIndex, int
-        proc
-            mreturn mCollection.LastIndexOf(RpsStructure,StartIndex)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the range of elements in the collection that
-        ;;contains the specified number of elements and ends at the specified index.
-        public method LastIndexOf, int
-            required in RpsStructure, @RpsStructure
-            required in StartIndex, int
-            required in Count, int
-        proc
-            mreturn mCollection.LastIndexOf(RpsStructure,StartIndex,Count)
         endmethod
 
     endclass
