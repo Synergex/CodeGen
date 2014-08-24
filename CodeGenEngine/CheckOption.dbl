@@ -51,7 +51,7 @@ namespace CodeGen.Engine
         endparams
 
         stack record
-            ok          ,boolean
+            ErrStatus   ,boolean
             pos1        ,int
             pos2        ,int
             optstring   ,string
@@ -59,18 +59,15 @@ namespace CodeGen.Engine
 
     proc
 
-        ok = true
+		ErrStatus = false
 
         pos1 = %instr(1,buffer,"<REQUIRES_OPTION>") + 17
         pos2 = %instr(pos1,buffer,"</REQUIRES_OPTION>") -1
 
         if (!pos2||(pos2<pos1))
-        begin
-            Logging.Errorlog("Invalid <REQUIRES_OPTION> token syntax")
-            ok = false
-        end
+			ErrStatus = Logging.Errorlog("Invalid <REQUIRES_OPTION> token syntax")
 
-        if (ok)
+		if (!ErrStatus)
         begin
             optstring = buffer(pos1,pos2)
             optstring = optstring.ToUpper()
@@ -78,65 +75,30 @@ namespace CodeGen.Engine
 
             using optstring select
             ("FL"),
-            begin
                 if (Env.ExcludeLanguage)
-                begin
-                    Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f l")
-                    ok = false
-                end
-            end
+					ErrStatus = Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f l")
             ("FO"),
-            begin
                 if (!Env.IncludeOverlays)
-                begin
-                    Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f o")
-                    ok = false
-                end
-            end
+					ErrStatus = Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f o")
             ("FR"),
-            begin
                 if (!Env.ExcludeReport)
-                begin
-                    Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f r")
-                    ok = false
-                end
-            end
+					ErrStatus = Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f r")
             ("FT"),
-            begin
                 if (!Env.ExcludeToolkit)
-                begin
-                    Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f t")
-                    ok = false
-                end
-            end
+					ErrStatus = Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f t")
             ("FW"),
-            begin
                 if (!Env.ExcludeWeb)
-                begin
-                    Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f w")
-                    ok = false
-                end
-            end
+					ErrStatus = Logging.Errorlog("Template " + Env.CurrentTemplate + " requires the use of command-line option -f w")
             ("PREFIX"),
-            begin
                 if (!Env.ClDoFieldPrefix)
-                begin
-					Logging.Errorlog(String.Format("Template {0} requires the use of a field prefix",Env.CurrentTemplate))
-                    ok = false
-                end
-            end
+					ErrStatus = Logging.Errorlog(String.Format("Template {0} requires the use of a field prefix",Env.CurrentTemplate))
             ("SUBSET"),
-            begin
                 if (String.IsNullOrWhiteSpace(Env.SubSetName) && Env.SubSetFields.Count==0)
-                begin
-					Logging.Errorlog(String.Format("Template {0} requires the use of a field subset!",Env.CurrentTemplate))
-                    ok = false
-                end
-            end
+					ErrStatus = Logging.Errorlog(String.Format("Template {0} requires the use of a field subset!",Env.CurrentTemplate))
             endusing
         end
 
-        freturn ok
+		freturn !ErrStatus
 
     endfunction
 

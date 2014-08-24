@@ -42,7 +42,6 @@
 
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
-import System.Collections
 import Microsoft.Win32
 import System
 import System.IO
@@ -52,18 +51,10 @@ namespace CodeGen.Engine
 	
 	subroutine LoadExtensions
 		endparams
-		
-		stack record
-			ok					,Boolean
-			customFileSpec		,a256
-			tmpLen				,i4
-			libraries			,@ArrayList
-			loadCustomTokens	,Boolean
-			usingExtDir			,Boolean
-			extensionsFound     ,Boolean
-		endrecord
-		
 	proc
+
+		data ok, boolean, true
+		data extensionsFound, boolean, false
 		
 		if (Env.DeveloperDebug)
 		begin
@@ -71,97 +62,82 @@ namespace CodeGen.Engine
 			Logging.Log("DEVDBG: OTHER EXTENSIONS")
 		end
 		
-		ok = true
-		loadCustomTokens = false
-		usingExtDir = false
-		extensionsFound = false
-		
 		;;Do we have a CODEGEN_EXTDIR environment variable?
-		xcall getlog("CODEGEN_EXTDIR",customFileSpec,tmpLen)
-		if (tmpLen) then
-			usingExtDir = true
+
+		data envVarValue, a256
+		data len, int
+		data location, String
+
+		xcall getlog("CODEGEN_EXTDIR",envVarValue,len)
+		if (len) then
+			location = %atrim(envVarValue)
 		else
 		begin
 			;;No CODEGEN_EXTDIR so we'll look in CODEGEN_EXE
-			xcall getlog("CODEGEN_EXE",customFileSpec,tmpLen)
+			xcall getlog("CODEGEN_EXE",envVarValue,len)
+			location = %atrim(envVarValue)
 		end
-		
-		;;Setup a file spec to locate custom token processor extensions
-		if (customFileSpec(%trim(customFileSpec):1)!="\")
-			customFileSpec = %atrim(customFileSpec) + "\"
-		customFileSpec = %atrim(customFileSpec) + "custom*.dll"
 		
 		if (Env.DeveloperDebug)
-			Logging.Log("DEVDBG: Searching for extensions in " + %atrim(customFileSpec))
+			Logging.Log("DEVDBG: Searching for extensions in " + location)
 		
-		if (WinDir(customFileSpec,libraries,WinDirCase.NoChange))
+		data extensionAssembly, String
+		
+		foreach extensionAssembly in Directory.GetFiles(location,"custom*.dll")
 		begin
-			data file, String
-			foreach file in libraries
+			try
 			begin
-				data libSpec, String, "CODEGEN_EXE:"+file
-				if (usingExtDir)
-					libSpec = "CODEGEN_EXTDIR:"+file
-					
-				if (Env.DeveloperDebug)
-					Logging.Log("DEVDBG: Found "+libSpec)
+				xcall openelb(extensionAssembly)
+				extensionsFound = true
 				
-				try
+				if (Env.DeveloperDebug)
+					Logging.Log(String.Format("DEVDBG: Opened assembly {0}",extensionAssembly))
+				
+				;;Get the address of the extensions load routine
+				data address, D_ADDR, 0
+				if (address = %xaddr("LoadCustomExtensions",,1)) then
 				begin
-					data address, D_ADDR, 0
-					
-					xcall openelb(libSpec)
-					
-					extensionsFound = true
-					
 					if (Env.DeveloperDebug)
-						Logging.Log("DEVDBG: Library opened")
-					
-					;;Get the address of the extensions load routine
-					if (address = %xaddr("LoadCustomExtensions",,1)) then
+						Logging.Log("DEVDBG: LoadCustomExtensions() found")
+					try
 					begin
 						if (Env.DeveloperDebug)
-							Logging.Log("DEVDBG: LoadCustomExtensions() found")
-						try
-						begin
-							if (Env.DeveloperDebug)
-								Logging.Log("DEVDBG: Calling LoadCustomExtensions()")
-							xcall xsubr(address)
-						end
-						catch (e, @Exception)
-						begin
-							if (Env.DeveloperDebug) then
-							begin
-								Logging.Log("DEVDBG: LoadCustomExtensions() failed. Error was: "+ e.Message)
-								if (e.InnerException!=^null)
-									Logging.Log("        Inner exception: " + e.InnerException.Message)
-							end
-							else
-							begin
-								Logging.Errorlog("Failed to load extensions. LoadCustomExtensions() failed!")
-								Logging.Log("       Exception:" + e.Message)
-								if (e.InnerException!=^null)
-									Logging.Log("       Inner exception" + e.InnerException.Message)
-							end
-							ok = false
-						end
-						endtry
+							Logging.Log("DEVDBG: Calling LoadCustomExtensions()")
+						xcall xsubr(address)
 					end
-					else
+					catch (e, @Exception)
 					begin
-						if (Env.DeveloperDebug)
-							Logging.Log("DEVDBG: LoadCustomExtensions() NOT found!")
+						if (Env.DeveloperDebug) then
+						begin
+							Logging.Log("DEVDBG: LoadCustomExtensions() failed. Error was: "+ e.Message)
+							if (e.InnerException!=^null)
+								Logging.Log("        Inner exception: " + e.InnerException.Message)
+						end
+						else
+						begin
+							Logging.Errorlog("Failed to load extensions. LoadCustomExtensions() failed!")
+							Logging.Log("       Exception:" + e.Message)
+							if (e.InnerException!=^null)
+								Logging.Log("       Inner exception" + e.InnerException.Message)
+						end
+						ok = false
 					end
+					endtry
 				end
-				catch (e, @Exception)
+				else
 				begin
-					Logging.Errorlog("Failed to open library!")
-					ok = false
+					if (Env.DeveloperDebug)
+						Logging.Log("DEVDBG: LoadCustomExtensions() not found!")
 				end
-				endtry
-			end				
+			end
+			catch (e, @Exception)
+			begin
+				Logging.Errorlog(String.Format("Failed to open or process custom extensions assembly {0}!",extensionAssembly))
+				ok = false
+			end
+			endtry
 		end
-		
+
 		if (Env.DeveloperDebug)
 		begin
 			if (!extensionsFound)
