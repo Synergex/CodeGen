@@ -212,7 +212,7 @@ namespace CodeGen.Engine
 				FileIndex		,[#]int						;;Array of file indexes to use
 				WscFile			,String						;;UI Toolkit window script file
 				ProFormaFile	,String						;;BusinessCraft ProForma file name
-				Templates		,@ArrayList					;;Collection of template names
+				Templates		,@List<String>				;;Collection of template names
 				Structures		,@RpsStructureCollection	;;Collection of repository structures
 				FileDef			,@RpsFile					;;Repository file definition name
 			endrecord
@@ -255,6 +255,7 @@ namespace CodeGen.Engine
 				if (!String.IsNullOrWhiteSpace(mTaskSet.DataMappingsFile))
 				begin
 					;;Try open the data mappings file.
+					;;Don't replace this with File.Exists because we'd lose support for logical names.
 					if (FileTools.FileExists(mTaskSet.DataMappingsFile)) then
 					begin
 						data tmpsts, i4
@@ -263,52 +264,86 @@ namespace CodeGen.Engine
 							Logging.DebugLog("DEVDBG: Custom data mapping file set to " + mTaskSet.DataMappingsFile)
 					end
 					else
-					begin
-						Logging.Errorlog("Failed to open custom data mappings file " + mTaskSet.DataMappingsFile)
-						ErrStatus=1
-					end
+						ErrStatus = Logging.Errorlog("Failed to open custom data mappings file " + mTaskSet.DataMappingsFile)
 				end
 			end
 			
 			;;-------------------------------------------------------------------------
-			;;See if we have a template file location specified with CODEGEN_TPLDIR
-			;;If present, this location overrides the default location (current dir)
+			;;Do we have a template folder specified via CODEGEN_TPLDIR: ?
+			;;If so this overrides the default location of current directory.
 			
 			if (!ErrStatus)
 			begin
 				data tmpbuf, a256
 				data length, int
-				getlog("CODEGEN_TPLDIR",tmpbuf,length)
+				xcall getlog("CODEGEN_TPLDIR",tmpbuf,length)
 				if (length)
 				begin
-					if ((tmpbuf(length:1)!=":") && (tmpbuf(length:1)!="\"))
-						tmpbuf(length+1:1) = "\"
-					Env.TemplateDir = tmpbuf
-					if (Env.DeveloperDebug)
-						Logging.DebugLog("DEVDBG: Template location set by CODEGEN_TPLDIR to " + Env.TemplateDir)				
+					data tplFolder, String, tmpbuf(1:length)
+
+					;;Make sure the path ends with either a : (logical) or \
+					if (!tplFolder.EndsWith(":") && !tplFolder.EndsWith("\"))
+						tplFolder += "\"
+
+					;;Make sure the folder exists
+					if (!FileTools.FolderExists(tplFolder))
+					begin
+						;;CODEGEN_TPLDIR: is bad, but do we care?
+						if (String.IsNullOrWhiteSpace(task.TemplateFolder) && String.IsNullOrWhiteSpace(mTaskSet.TemplateFolder))
+						begin
+							;;Yes, we care!
+							ErrStatus = Logging.ErrorLog(String.Format("CODEGEN_TPLDIR points to {0} which doesn't exist!",tplFolder))
+						end
+					end
+
+					;;Looks like we're using CODEGEN_TPLDIR: for now
+					if (!ErrStatus)
+					begin
+						Env.TemplateDir = tplFolder
+						if (Env.DeveloperDebug)
+							Logging.DebugLog(String.Format("DEVDBG: CODEGEN_TPLDIR sets template folder to {0}",Env.TemplateDir))
+					end
 				end
 			end
 			
 			;;-------------------------------------------------------------------------
-			;;See if we have a template file location command line option
-			;;If present, this location overrides the default and CODEGEN_TPLDIR
+			;;Do we have a template folder specified for the task or taskset?
+			;;If so this overrides CODEGEN_TPLDIR:
 			
 			if (!ErrStatus)
 			begin
 				if (!String.IsNullOrWhiteSpace(task.TemplateFolder)) then
 				begin
-					Env.TemplateDir = task.TemplateFolder
-					if (Env.DeveloperDebug)
-						Logging.DebugLog("DEVDBG: Template location set by CodeGenTask.TemplateFolder property to "+Env.TemplateDir)				
+					;;Is the folder valid?
+					if (!FileTools.FolderExists(task.TemplateFolder)) then
+						ErrStatus = Logging.ErrorLog(String.Format("Task specifies an invalid template folder {0}!",task.TemplateFolder))
+					else
+					begin
+						Env.TemplateDir = task.TemplateFolder
+						if (Env.DeveloperDebug)
+							Logging.DebugLog(String.Format("DEVDBG: Task sets template folder to {0}",Env.TemplateDir))
+					end
 				end
 				else if (!String.IsNullOrWhiteSpace(mTaskSet.TemplateFolder))
 				begin
-					Env.TemplateDir = mTaskSet.TemplateFolder
-					if (Env.DeveloperDebug)
-						Logging.DebugLog("DEVDBG: Template location set by CodeGenTaskSet.TemplateFolder property to "+Env.TemplateDir)				
+					;;Is the folder valid?
+					if (!FileTools.FolderExists(mTaskSet.TemplateFolder)) then
+						ErrStatus = Logging.ErrorLog(String.Format("Task set specifies an invalid template folder {0}!",mTaskSet.TemplateFolder))
+					else
+					begin
+						Env.TemplateDir = mTaskSet.TemplateFolder
+						if (Env.DeveloperDebug)
+							Logging.DebugLog(String.Format("DEVDBG: Task set sets template folder to {0}",Env.TemplateDir))
+					end
 				end
 			end
+
+			;;-------------------------------------------------------------------------
+			;;Make sure there are template file(s) in the template folder
 			
+			if (!ErrStatus && !FileTools.FolderContainsFilesOfType(Env.TemplateDir,"*.tpl"))
+				ErrStatus = Logging.ErrorLog("No templates found in the template folder " + Env.TemplateDir)
+
 			;;-------------------------------------------------------------------------
 			;;Report template file location (verbose mode only)
 			
@@ -328,14 +363,33 @@ namespace CodeGen.Engine
 			begin
 				data tmpbuf, a256
 				data length, int
-				getlog("CODEGEN_OUTDIR",tmpbuf,length)
+				xcall getlog("CODEGEN_OUTDIR",tmpbuf,length)
 				if (length)
 				begin
-					if ((tmpbuf(length:1)!=":") && (tmpbuf(length:1)!="\"))
-						tmpbuf(length+1:1)="\"
-					Env.OutputDir = tmpbuf
-					if (Env.DeveloperDebug)
-						Logging.DebugLog("DEVDBG: Output location set by CODEGEN_OUTDIR to " + Env.OutputDir)				
+					data outFolder, String, tmpbuf(1:length)
+					
+					;;Make sure the path ends with either a : (logical) or \
+					if (!outFolder.EndsWith(":") && !outFolder.EndsWith("\"))
+						outFolder += "\"
+						
+					;;Make sure the folder exists
+					if (!FileTools.FolderExists(outFolder))
+					begin
+						;;CODEGEN_OUTDIR: is bad, but do we care?
+						if (String.IsNullOrWhiteSpace(task.OutputFolder) && String.IsNullOrWhiteSpace(mTaskSet.OutputFolder))
+						begin
+							;;Yes, we care!
+							ErrStatus = Logging.ErrorLog(String.Format("CODEGEN_OUTDIR points to {0} which doesn't exist!",outFolder))
+						end
+					end
+					
+					;;Looks like we're using CODEGEN_OUTDIR: for now
+					if (!ErrStatus)
+					begin
+						Env.OutputDir = outFolder
+						if (Env.DeveloperDebug)
+							Logging.DebugLog(String.Format("DEVDBG: CODEGEN_OUTDIR sets output folder to {0}",Env.OutputDir))
+					end
 				end
 			end
 			
@@ -347,17 +401,35 @@ namespace CodeGen.Engine
 			begin
 				if (!String.IsNullOrWhiteSpace(task.OutputFolder)) then
 				begin
-					Env.OutputDir = task.OutputFolder
-					if (Env.DeveloperDebug)
-						Logging.DebugLog("DEVDBG: Output location set CodeGenTask.OutputFolder property to "+Env.OutputDir)				
+					;;Is the folder valid?
+					if (!FileTools.FolderExists(task.OutputFolder)) then
+						ErrStatus = Logging.ErrorLog(String.Format("Task output folder {0} is invalid!",task.OutputFolder))
+					else
+					begin
+						Env.OutputDir = task.OutputFolder
+						if (Env.DeveloperDebug)
+							Logging.DebugLog(String.Format("DEVDBG: Task sets output folder to {0}",Env.OutputDir))
+					end
 				end
 				else if (!String.IsNullOrWhiteSpace(mTaskSet.OutputFolder))
 				begin
-					Env.OutputDir = mTaskSet.OutputFolder
-					if (Env.DeveloperDebug)
-						Logging.DebugLog("DEVDBG: Output location set CodeGenTaskSet.OutputFolder property to "+Env.OutputDir)				
+					;;Is the folder valid?
+					if (!FileTools.FolderExists(mTaskSet.OutputFolder)) then
+						ErrStatus = Logging.ErrorLog(String.Format("TaskSet output folder {0} is invalid!",mTaskSet.OutputFolder))
+					else
+					begin
+						Env.OutputDir = mTaskSet.OutputFolder
+						if (Env.DeveloperDebug)
+							Logging.DebugLog(String.Format("DEVDBG: Task set sets output folder to {0}",Env.OutputDir))
+					end
 				end
 			end
+			
+			;;-------------------------------------------------------------------------
+			;;Make sure we can create files in the output folder
+			
+			if (!ErrStatus && !FileTools.CanCreateFileInFolder(Env.OutputDir))
+				ErrStatus = Logging.ErrorLog(String.Format("Can't create files in output folder {0}!",Env.OutputDir))
 			
 			;;-------------------------------------------------------------------------
 			;;Report output location (verbose mode only)
@@ -375,10 +447,7 @@ namespace CodeGen.Engine
 			;;variable is in global data, for use by the generator routines.
 			
 			if (!ErrStatus&&!FileTools.CanCreateFileInFolder(Env.OutputDir))
-			begin
-				Logging.Errorlog("Can't create files in " + Env.OutputDir)
-				ErrStatus=1
-			end
+				ErrStatus = Logging.Errorlog("Can't create files in " + Env.OutputDir)
 			
 			;;-------------------------------------------------------------------------
 			;;Replace existing files?
@@ -505,55 +574,43 @@ namespace CodeGen.Engine
 				begin
 					if (task.Templates[0]=="*") then
 					begin
-						if (!WinDir(Env.TemplateDir+"*.tpl",Templates,WinDirCase.NoChange))
-						begin
-							Logging.Errorlog("No templates to process in " + Env.TemplateDir)
-							Logging.Log("       Set template directory with CODEGEN_TPLDIR or the TemplateFolder property.")
-							ErrStatus = true
-						end
+						Templates = FileTools.GetFileNamesInFolder(Env.TemplateDir,"*.tpl")
+						if (Templates.Count==0)
+							ErrStatus = Logging.Errorlog("No templates to process in " + Env.TemplateDir)
 					end
 					else
-					begin
-						data ix, int
-						
+					begin						
 						;;Create a new templates collection
-						Templates = new ArrayList()
+						Templates = new List<String>()
 						
-						;;Check that all specified template files exist
+						;;Check that all of the specified template files exist
+						data ix, int
 						for ix from 0 thru task.Templates.Count -1
-						begin								
-							data AlreadyThere, boolean, false
-							
+						begin
 							;;Add ".tpl" if necessary
-							if (!instr(1,StringTools.LowerCase(task.Templates[ix]),".tpl"))
-								task.Templates[ix]=atrim(task.Templates[ix])+".tpl"
+							if (!task.Templates[ix].ToLower().EndsWith(".tpl"))
+								task.Templates[ix] = task.Templates[ix] + ".tpl"
 							
 							;;Does this template spec contain a wildward?
-							if (instr(1,task.Templates[ix],"*")) then
+							if (task.Templates[ix].Contains("*")) then
 							begin
-								data TmpTemplates, @ArrayList
-								TmpTemplates = new ArrayList()
-								if (WinDir(Env.TemplateDir+task.Templates[ix],TmpTemplates,WinDirCase.NoChange)) then
+								data matchingFiles, @List<String>, FileTools.GetFileNamesInFolder(Env.TemplateDir,task.Templates[ix])
+								if (matchingFiles.Count>0) then
 								begin
-									;;Add these templates to the list to process, if not
-									;;already there
-									data tmpTemplate, String
-									foreach tmpTemplate in TmpTemplates
-									begin
-										;;Add the template to the collection
-										AlUtil.AddIfMissing(Templates,tmpTemplate)
-									end
+									;;Add these templates to the list to process, if not already in the list
+									data matchingFile, String
+									foreach matchingFile in matchingFiles
+										AlUtil.AddIfMissing(Templates,matchingFile)
 								end
 								else
-									Logging.Log("WARNING: No templates match " + task.Templates[ix],false,true)
+									Logging.Log(String.Format("WARNING: No templates match {0}",task.Templates[ix]),false,true)
 							end
 							else
 							begin
 								;;Make sure the template can be opened
 								if (!FileTools.FileExists(Env.TemplateDir+task.Templates[ix]))
 								begin
-									Logging.Errorlog("Template " + task.Templates[ix] + " not found!")
-									ErrStatus = true
+									ErrStatus = Logging.Errorlog("Template " + task.Templates[ix] + " not found!")
 									exitloop
 								end
 								
@@ -592,8 +649,7 @@ namespace CodeGen.Engine
 				end
 				catch (ex)
 				begin
-					Logging.Errorlog("Failed to open or process user token file " + task.UserTokenFile)
-					ErrStatus = true
+					ErrStatus = Logging.Errorlog("Failed to open or process user token file " + task.UserTokenFile)
 				end
 				endtry
 			end
@@ -622,8 +678,7 @@ namespace CodeGen.Engine
 				end
 				catch (e, @RpsFileException)
 				begin
-					Logging.Errorlog("Failed to load repository file definition " + task.RepositoryFile)
-					ErrStatus = true
+					ErrStatus = Logging.Errorlog("Failed to load repository file definition " + task.RepositoryFile)
 				end
 				endtry
 				
@@ -656,10 +711,7 @@ namespace CodeGen.Engine
 						
 					end
 					else
-					begin
-						Logging.Errorlog("Repository file " + task.RepositoryFile + " doesn't have any structures assigned")
-						ErrStatus = true
-					end
+						ErrStatus = Logging.Errorlog("Repository file " + task.RepositoryFile + " doesn't have any structures assigned")
 				end					
 			end
 			
@@ -669,10 +721,7 @@ namespace CodeGen.Engine
 			if (!ErrStatus && (!String.IsNullOrWhiteSpace(task.WindowScript)))
 			begin
 				if (!String.IsNullOrWhiteSpace(task.RepositoryFile)) then
-				begin
-					Logging.Errorlog("The repository file and window script file options can't be used together!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("The repository file and window script file options can't be used together!")
 				else
 				begin
 					WscFile = task.WindowScript
@@ -722,10 +771,7 @@ namespace CodeGen.Engine
 					Logging.DebugLog(String.Format("Selection window processing enabled from file {0}",Env.SelectionWindowScript))
 				end
 				else
-				begin
-					Logging.Errorlog(String.Format("Can't open selection window script {0}. Check your -ws option!",task.SelectionWindowScript))
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog(String.Format("Can't open selection window script {0}. Check your -ws option!",task.SelectionWindowScript))
 			end
 			
 			;;-------------------------------------------------------------------------
@@ -734,20 +780,11 @@ namespace CodeGen.Engine
 			if (!ErrStatus && (task.Structures.Count>0))
 			begin
 				if (FileDef!=^null) then
-				begin
-					Logging.Errorlog("You can't specify both a repository file and repository structures at the same time!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("You can't specify both a repository file and repository structures at the same time!")
 				else if (!String.IsNullOrWhiteSpace(task.WindowScript)) then
-				begin
-					Logging.Errorlog("You can't specify a window script and repository structures at the same time!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("You can't specify a window script and repository structures at the same time!")
 				else if (!String.IsNullOrEmpty(ProFormaFile)) then
-				begin
-					Logging.Errorlog("You can't specify a proforma file and repository structures at the same time!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("You can't specify a proforma file and repository structures at the same time!")
 				else
 				begin
 					Env.RpsInUse = true
@@ -762,15 +799,11 @@ namespace CodeGen.Engine
 							if (Structures.Count) then
 								Env.AllStructures = true
 							else
-							begin
-								Logging.Errorlog("Your repository contains no structures!")
-								ErrStatus = true
-							end
+								ErrStatus = Logging.Errorlog("Your repository contains no structures!")
 						end
 						catch (ex, @RpsException)
 						begin
-							Logging.Errorlog(ex.Message)
-							ErrStatus = true
+							ErrStatus = Logging.Errorlog(ex.Message)
 						end
 						endtry
 					end
@@ -789,8 +822,7 @@ namespace CodeGen.Engine
 								begin
 									if (!ProcessSelectionWindows(newStructure,errorText))
 									begin
-										Logging.Errorlog(String.Format("Failed to resolve selection windows for structure {0}. Error was {1}.",newStructure.Name,errorText))
-										ErrStatus = true
+										ErrStatus = Logging.Errorlog(String.Format("Failed to resolve selection windows for structure {0}. Error was {1}.",newStructure.Name,errorText))
 										exitloop
 									end
 								end
@@ -798,8 +830,7 @@ namespace CodeGen.Engine
 							end
 							catch (ex)
 							begin
-								Logging.Errorlog(ex.Message)
-								ErrStatus = true
+								ErrStatus = Logging.Errorlog(ex.Message)
 							end
 							endtry
 						end
@@ -822,15 +853,9 @@ namespace CodeGen.Engine
 			if (!ErrStatus && (!String.IsNullOrWhiteSpace(task.Subset)))
 			begin
 				if (!Env.RpsInUse) then
-				begin
-					Logging.Errorlog("Field subsets can't be used without a repository structure!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("Field subsets can't be used without a repository structure!")
 				else if (!ErrStatus&&Structures.Count>1) then
-				begin
-					Logging.Errorlog("Field subsets can only be used when processing a single structure!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("Field subsets can only be used when processing a single structure!")
 				else
 				begin
 					Env.SubSetName = task.Subset
@@ -845,20 +870,11 @@ namespace CodeGen.Engine
 			if (!ErrStatus && (task.SubsetFields.Count>0))
 			begin
 				if (!Env.RpsInUse) then
-				begin
-					Logging.Errorlog("Field subsets can't be used without a repository structure!")
-					ErrStatus=1
-				end
+					ErrStatus = Logging.Errorlog("Field subsets can't be used without a repository structure!")
 				else if (Structures.Count>1) then
-				begin
-					Logging.Errorlog("Field subsets can only be used when processing a single structure!")
-					ErrStatus=1
-				end
+					ErrStatus = Logging.Errorlog("Field subsets can only be used when processing a single structure!")
 				else if (!String.IsNullOrWhiteSpace(Env.SubSetName)) then
-				begin
-					Logging.Errorlog("Field subsets from field names can't be used at the same time as a named subset!")
-					ErrStatus=1
-				end
+					ErrStatus = Logging.Errorlog("Field subsets from field names can't be used at the same time as a named subset!")
 				else
 				begin
 					data fieldName, String
@@ -916,17 +932,13 @@ namespace CodeGen.Engine
 								
 								;;Did we get any structures loaded?
 								if (!Env.ProFormaStructures.Count)
-								begin
-									Logging.Errorlog("ParseProForma() did not load any structures!")
-									ErrStatus = true
-								end
+									ErrStatus = Logging.Errorlog("ParseProForma() did not load any structures!")
 							end
 							catch (e, @Exception)
 							begin
-								Logging.Errorlog(String.Format("Failed to execute ParseProForma(). Error was {0}",e.Message))
+								ErrStatus = Logging.Errorlog(String.Format("Failed to execute ParseProForma(). Error was {0}",e.Message))
 								if (e.InnerException!=^null)
 									Logging.Log(String.Format("       {0}",e.InnerException.Message))
-								ErrStatus = true
 							end
 							endtry
 							
@@ -943,10 +955,7 @@ namespace CodeGen.Engine
 							end
 						end
 						else
-						begin
-							Logging.Errorlog("Failed to locate the ParseProForma() routine!")
-							ErrStatus = true
-						end
+							ErrStatus = Logging.Errorlog("Failed to locate the ParseProForma() routine!")
 					end
 				end
 				
@@ -1019,15 +1028,9 @@ namespace CodeGen.Engine
 				if (task.Aliases.Count>0)
 				begin
 					if (!String.IsNullOrWhiteSpace(WscFile)) then
-					begin
-						Logging.Errorlog("Can't use WindowScript and Aliases properties together!")
-						ErrStatus = true
-					end
+						ErrStatus = Logging.Errorlog("Can't use WindowScript and Aliases properties together!")
 					else if (task.Aliases.Count > Structures.Count) then
-					begin
-						Logging.Errorlog("More aliases than repository structures!")
-						ErrStatus = true
-					end
+						ErrStatus = Logging.Errorlog("More aliases than repository structures!")
 					else
 					begin
 						Logging.VerboseLog("Applying structure aliases",true,false)
@@ -1046,20 +1049,11 @@ namespace CodeGen.Engine
 			if (!ErrStatus && (task.FileOverrides.Count>0))
 			begin
 				if ((Structures==^null)||(!Structures.Count)) then
-				begin
-					Logging.Errorlog("File overrides can only be used when structures are being processed!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("File overrides can only be used when structures are being processed!")
 				else if (task.FileOverrides.Count > Structures.Count) then
-				begin
-					Logging.Errorlog("You have specified more file name overrides than structures!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("You have specified more file name overrides than structures!")
 				else if (!String.IsNullOrWhiteSpace(WscFile)) then
-				begin
-					Logging.Errorlog("File overrides can't be used when processing a window script file!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("File overrides can't be used when processing a window script file!")
 				else
 				begin
 					;;Check that the alternate file names are valid for the structures
@@ -1086,8 +1080,7 @@ namespace CodeGen.Engine
 						end
 						if (!foundFile)
 						begin
-							Logging.Errorlog("Structure "+tmpStr.Name+" is not assigned to file "+task.FileOverrides[clFileIndex])
-							ErrStatus = true
+							ErrStatus = Logging.Errorlog("Structure "+tmpStr.Name+" is not assigned to file "+task.FileOverrides[clFileIndex])
 							exitloop
 						end
 					end
@@ -1107,8 +1100,7 @@ namespace CodeGen.Engine
 					if (Env.GenFromWsc) then
 					begin
 						;;Can't use filters if we're processing a script file, the fields to include are determined by the script file.
-						Logging.Errorlog("Can't use field filters when processing a window script!")
-						ErrStatus = true
+						ErrStatus = Logging.Errorlog("Can't use field filters when processing a window script!")
 					end
 					else
 					begin
@@ -1162,8 +1154,7 @@ namespace CodeGen.Engine
 					begin
 						;;Can't specify group prefixes if we're processing a script file,
 						;;the field names are determined by the script file.
-						Logging.Errorlog("Can't use group prefixes when processing a window script!")
-						ErrStatus = true
+						ErrStatus = Logging.Errorlog("Can't use group prefixes when processing a window script!")
 					end
 					else
 					begin
@@ -1199,10 +1190,7 @@ namespace CodeGen.Engine
 				
 				;;Make sure that we have at least two structures
 				if (Structures.Count<2) then
-				begin
-					Logging.Errorlog("MultipleStructures property requires that you specify at least two structures in the Structures property!")
-					ErrStatus = true
-				end
+					ErrStatus = Logging.Errorlog("MultipleStructures property requires that you specify at least two structures in the Structures property!")
 				else
 				begin
 					;;Check all of the structures and load them into the Env.CurrentStructures collection

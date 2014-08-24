@@ -54,24 +54,21 @@ namespace CodeGen.Engine
         endparams
 
         stack record
-            ok          ,boolean
+			ErrStatus		,boolean
         endrecord
 
     proc
 
-        ok = true
+		ErrStatus = false
 
         Logging.DebugLog("Validating structure " + Struct.Name,true,false)
 
         ;; Make sure the structure has fields
         if (!Struct.Fields.Count)
-        begin
-            Logging.Errorlog("Structure " + Struct.Name + " has no fields")
-            ok = false
-        end
+			ErrStatus = Logging.Errorlog("Structure " + Struct.Name + " has no fields")
 
         ;; Do we have any tags?
-        if (ok&&Struct.Tags.Count)
+		if (!ErrStatus&&Struct.Tags.Count)
         begin
             ;; Make sure it's a field=value tag
             if (Struct.TagType!=RpsTagType.FieldAndValue)
@@ -79,19 +76,17 @@ namespace CodeGen.Engine
 		end
 
         ;; Make sure the structure has not been excluded with @NOCODEGEN
-        if (ok)
-		begin
+		if (!ErrStatus)
 			if ((Struct.UserText.ToUpper().Contains("@NOCODEGEN"))||(Struct.LongDescription.ToUpper().Contains("@NOCODEGEN")))
-            begin
-                Logging.DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN")
-                ok = false
+			begin
+				Logging.DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN")
+				ErrStatus = true
 			end
-        end
 
         ;; The structure seems OK, now lets look at the fields
-        if (ok)
+		if (!ErrStatus)
         begin
-            data ix     ,int, -1    ;Index within collection of main fields
+            data ix, int, -1	;Index within collection of main fields
 
             while ((ix+=1)<Struct.Fields.Count)
             begin
@@ -115,8 +110,7 @@ namespace CodeGen.Engine
                     nextloop
                 end
 
-                ;; If there is a subset specified then remove all fields that are
-                ;; not a member of that subset
+                ;; If there is a subset specified then remove all fields that are not a member of that subset
 
                 if (!String.IsNullOrWhiteSpace(Env.SubSetName)) then
                 begin
@@ -173,8 +167,7 @@ namespace CodeGen.Engine
                 ;TODO: Enums are just an i4, so we should be able to add support
                 if (Field.DataType == RpsFieldDataType.Enum)
                 begin
-                    Logging.Errorlog("Field "+Field.Name+" is an unsupported ENUM field")
-                    ok = false
+					ErrStatus = Logging.Errorlog("Field "+Field.Name+" is an unsupported ENUM field")
                     exitloop
                 end
 
@@ -182,8 +175,7 @@ namespace CodeGen.Engine
                 ;TODO: Binary is just a character array so we should be able to add support
                 if (Field.DataType == RpsFieldDataType.Binary)
                 begin
-                    Logging.Errorlog("Field "+Field.Name+" is an unsupported BINARY field")
-                    ok = false
+					ErrStatus = Logging.Errorlog("Field "+Field.Name+" is an unsupported BINARY field")
                     exitloop
                 end
 
@@ -191,24 +183,21 @@ namespace CodeGen.Engine
                 ;TODO: Could treat a struct field as a string, or a class?
                 if (Field.DataType == RpsFieldDataType.StructField)
                 begin
-                    Logging.Errorlog("Field "+Field.Name+" is an unsupported STRUCTFIELD field")
-                    ok = false
+					ErrStatus = Logging.Errorlog("Field "+Field.Name+" is an unsupported STRUCTFIELD field")
                     exitloop
                 end
 
 				;; Look for the structures display field
 				if (!Struct.DisplayField)
-				begin
 					if ((instr(1,Field.UserText.ToUpper(),"@CODEGEN_DISPLAY_FIELD"))||(instr(1,Field.LongDescription.ToUpper(),"@CODEGEN_DISPLAY_FIELD")))
 						Struct.DisplayField = Field.Name
-				end
 				
 				;We have a field that we're keeping - set the FieldNumber property
 				Field.FieldNumber = ix+1
 			end
 		end
 
-		if (ok)
+		if (!ErrStatus)
 		begin
 			data ix     ,int, -1    ;Index within collection of main fields
 			data gfix   ,int        ;Index within the fields of a group which is being processed
@@ -597,25 +586,21 @@ namespace CodeGen.Engine
             end
         end
 
-		if (ok)
+		if (!ErrStatus)
 		begin
 			if (Struct.Fields.Count) then
 			begin
-				;;We have a valid structure with fields, and arrays and groups have been expanded
-				;;Set the "LogicalFieldNumber" properties
+				;;We have a valid structure with fields, and arrays and groups have been expanded. Set the "LogicalFieldNumber" properties.
 				data ix, int
 				for ix from 0 thru Struct.Fields.Count-1
 					Struct.Fields[ix].LogicalFieldNumber = ix+1
 			end	
 			else
-			begin
-				Logging.Errorlog("After applying CodeGen rules structure " + Struct.Name + " has no remaining fields!")
-				ok = false
-			end		
+				ErrStatus = Logging.Errorlog("After applying CodeGen rules structure " + Struct.Name + " has no remaining fields!")
 		end
 
 		;;Check for special prompt processing rules
-		if (ok)
+		if (!ErrStatus)
 		begin
 			;;Check for the CODEGEN_STRIP_FROM_PROMPT environment variable
 			data length, int
@@ -641,7 +626,7 @@ namespace CodeGen.Engine
 		end
 
 		;;If we're in developer debug mode then create a log file containing the remaining fields
-		if (ok&&Struct.Fields.Count&&Env.DeveloperDebug)
+		if (!ErrStatus&&Struct.Fields.Count&&Env.DeveloperDebug)
 		begin
 			data logCh, int, 0
 			data tmpFld, @RpsField
@@ -675,7 +660,7 @@ namespace CodeGen.Engine
 			endtry
 		end
 
-        freturn ok
+		freturn !ErrStatus
 
     endfunction
 

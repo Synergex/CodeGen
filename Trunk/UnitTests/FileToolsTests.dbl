@@ -1,0 +1,159 @@
+;;*****************************************************************************
+;;
+;; Title:       FileToolsTests.dbl
+;;
+;; Type:        Unit test class 
+;;
+;; Description: Unit tests for the methods in CodeGen.Engine.FileTools
+;;
+;; Date:        22nd August 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import Microsoft.VisualStudio.TestTools.UnitTesting
+import System
+import System.Collections
+import CodeGen.Engine
+
+namespace CodeGen.UnitTests
+	
+	{TestClass}
+	public class FileToolsTests
+		
+		private mMsg			,String
+		
+		{TestMethod}
+		{TestCategory("FileTools Tests")}
+		public method ExpandLogicalName1, void
+			endparams
+		proc
+			;;Test C:\file.txt
+			;;The routine should return the exact same string
+			data filePath, String, "C:\"
+			data fileName, String, "file.txt"
+			data originalFilespec, String, String.Format("{0}{1}",filePath,fileName)
+			data expectedFileSpec, String, originalFilespec
+			data actualFilespec, String, originalFilespec
+			data result, boolean, FileTools.ExpandLogicalName(actualFilespec)
+			Assert.IsTrue((result==true)&&(actualFilespec.eqs.expectedFileSpec),String.Format("Expected: {0} Received: {1}",expectedFileSpec,actualFilespec))
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("FileTools Tests")}
+		public method ExpandLogicalName2, void
+			endparams
+		proc
+			;;Test C:\some\path\file.txt
+			;;The routine should return the exact same string
+			data filePath, String, "C:\some\path\"
+			data fileName, String, "file.txt"
+			data originalFilespec, String, String.Format("{0}{1}",filePath,fileName)
+			data expectedFileSpec, String, originalFilespec
+			data actualFilespec, String, originalFilespec
+			data result, boolean, FileTools.ExpandLogicalName(actualFilespec)
+			Assert.IsTrue((result==true)&&(actualFilespec.eqs.expectedFileSpec),String.Format("Expected: {0} Received: {1}",expectedFileSpec,actualFilespec))
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("FileTools Tests")}
+		public method ExpandLogicalName3, void
+			endparams
+		proc
+			;;Test C:\
+			;;The routine should return the exact same string
+			data filePath, String, "C:\"
+			data fileName, String, ""
+			data originalFilespec, String, String.Format("{0}{1}",filePath,fileName)
+			data expectedFileSpec, String, originalFilespec
+			data actualFilespec, String, originalFilespec
+			data result, boolean, FileTools.ExpandLogicalName(actualFilespec)
+			Assert.IsTrue((result==true)&&(actualFilespec.eqs.expectedFileSpec),String.Format("Expected: {0} Received: {1}",expectedFileSpec,actualFilespec))
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("FileTools Tests")}
+		public method ExpandLogicalName4, void
+			endparams
+		proc
+			;;Test C:
+			;;This should be treated as a logical name not a drive name, so should fail
+			data originalFilespec, String, "C:"
+			data newFilespec, String, originalFilespec
+			data result, boolean, FileTools.ExpandLogicalName(newFilespec)
+			Assert.IsTrue((result==false)&&(newFilespec.eqs.originalFilespec),String.Format("Expected: {0} Received: {1}",originalFilespec,newFilespec))
+		endmethod
+
+		{TestMethod}
+		{TestCategory("FileTools Tests")}
+		public method ExpandLogicalName5, void
+			endparams
+		proc
+			;;Test MYLOGICAL: where the logical IS defined.
+			;;Should return the associated path, with a trailing \
+			data filePath, String, "G:\Some\Folder"
+			data fileName, String, ""
+			data logicalName, String, "MYWEIRDLOGICAL"
+			data originalFilespec, String, String.Format("{0}:{1}",logicalName,fileName)
+			data expectedFileSpec, String, String.Format("{0}\{1}",filePath,fileName)
+			data actualFilespec, String, originalFilespec
+			data sts, int
+			xcall setlog(logicalName,filePath,sts)
+			data result, boolean, FileTools.ExpandLogicalName(actualFilespec)
+			Assert.IsTrue((result==true)&&(actualFilespec.eqs.expectedFileSpec),String.Format("Expected: {0} Received: {1}",expectedFileSpec,actualFilespec))
+			xcall setlog(logicalName,,sts)
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("FileTools Tests")}
+		public method ExpandLogicalName6, void
+			endparams
+		proc
+			;;Test MYLOGICAL:MyFile.txt where the logical IS defined.
+			;;Should return the associated full file path
+			data filePath, String, "G:\Some\Folder"
+			data fileName, String, "MyFile.txt"
+			data logicalName, String, "MYWEIRDLOGICAL"
+			data originalFilespec, String, String.Format("{0}:{1}",logicalName,fileName)
+			data expectedFileSpec, String, String.Format("{0}\{1}",filePath,fileName)
+			data actualFilespec, String, originalFilespec
+			data sts, int
+			xcall setlog(logicalName,filePath,sts)
+			data result, boolean, FileTools.ExpandLogicalName(actualFilespec)
+			Assert.IsTrue((result==true)&&(actualFilespec.eqs.expectedFileSpec),String.Format("Expected: {0} Received: {1}",expectedFileSpec,actualFilespec))
+			xcall setlog(logicalName,,sts)
+		endmethod
+		
+	endclass
+	
+endnamespace
+
