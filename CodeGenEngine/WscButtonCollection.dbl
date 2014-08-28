@@ -40,255 +40,94 @@
 ;;
 ;;*****************************************************************************
 
-import CodeGen.Engine
-import CodeGen.RepositoryAPI
-import System.Collections
+import System.Collections.Generic
 
 .include "DBLDIR:synxml.def"
 
 namespace CodeGen.Engine
-
-    public sealed class WscButtonCollection
-
-        private p_Collection, @ArrayList
-
-        ;;Default constructor (default capacity)
-        public method WscButtonCollection
-            endparams
-        proc
-            p_Collection = new ArrayList()
-        endmethod
-
-        ;;Alternate constructor (specific capacity)
-        public method WscButtonCollection
-            required in Capacity, int
-            endparams
-        proc
-            p_Collection = new ArrayList(Capacity)
-        endmethod
-
-        ;;Destructor
-        method ~WscButtonCollection
-        proc
-            clear p_Collection
-        endmethod
-
-        ;;---------------------------------------------------------------------
-        ;;Public methods and properties
-
-        public method LoadDefaultButtons, void
-            endparams
-            record
-                parser,     XML_PARSER_TYPE
-                doc,        XML_DOC_TYPE
-                root,       XML_ELEM_TYPE
-                buttons,    XML_ELEMLIST_TYPE
-                button,     XML_ELEM_TYPE
-                idx,        int
-                NewButton,  @WscButton
-            endrecord
-        proc
-            try
-            begin
-                ;;Parse DefaultButtons.xml
-                parser = xml_parser_create()
-                doc = xml_parser_parsefile(parser,"CODEGEN_EXE:DefaultButtons.xml")
-                if ((!doc))
-                begin
-                    data ParserError, a80
-                    xml_parser_error(parser,ParserError)
-                    Logging.DebugLog(" - Failed to parse CODEGEN_EXE:DefaultButtons.xml. " + atrim(ParserError))
-                end
-                root = xml_doc_getroot(doc)
-                buttons = xml_elem_children(root)
-                ;;Remove any existing buttons from the collection
-                this.Clear()
-                ;;And add the default buttons
-                for idx from 1 thru xml_elemlist_count(buttons)
-                begin
-                    data TmpAttr, a128
-                    button = xml_elemlist_item(buttons,idx)
-                    NewButton = new WscButton()
-                    if ((xml_elem_getattribute(button,"name",TmpAttr)==XML_SUCCESS) && TmpAttr)
-                        NewButton.Name = atrim(TmpAttr)
+	
+	public sealed class WscButtonCollection extends List<WscButton>
+		
+		public method LoadDefaultButtons, void
+			endparams
+			record
+				parser,     XML_PARSER_TYPE
+				doc,        XML_DOC_TYPE
+				root,       XML_ELEM_TYPE
+				buttons,    XML_ELEMLIST_TYPE
+				button,     XML_ELEM_TYPE
+				idx,        int
+				NewButton,  @WscButton
+			endrecord
+		proc
+			try
+			begin
+				;;Parse DefaultButtons.xml
+				parser = xml_parser_create()
+				doc = xml_parser_parsefile(parser,"CODEGEN_EXE:DefaultButtons.xml")
+				if ((!doc))
+				begin
+					data ParserError, a80
+					xml_parser_error(parser,ParserError)
+					Logging.DebugLog(" - Failed to parse CODEGEN_EXE:DefaultButtons.xml. " + atrim(ParserError))
+				end
+				root = xml_doc_getroot(doc)
+				buttons = xml_elem_children(root)
+				
+				;;Remove any existing buttons from the collection
+				this.Clear()
+				
+				;;And add the default buttons
+				for idx from 1 thru xml_elemlist_count(buttons)
+				begin
+					data TmpAttr, a128
+					button = xml_elemlist_item(buttons,idx)
+					NewButton = new WscButton()
+					if ((xml_elem_getattribute(button,"name",TmpAttr)==XML_SUCCESS) && TmpAttr)
+						NewButton.Name = atrim(TmpAttr)
 					if ((xml_elem_getattribute(button,"caption",TmpAttr)==XML_SUCCESS) && TmpAttr)
-                        NewButton.Caption = atrim(TmpAttr)
+						NewButton.Caption = atrim(TmpAttr)
 					if ((xml_elem_getattribute(button,"image",TmpAttr)==XML_SUCCESS) && TmpAttr)
-                        NewButton.ImageName = atrim(TmpAttr)
+						NewButton.ImageName = atrim(TmpAttr)
 					if ((xml_elem_getattribute(button,"method",TmpAttr)==XML_SUCCESS) && TmpAttr)
-                        NewButton.MethodName = atrim(TmpAttr)
+						NewButton.MethodName = atrim(TmpAttr)
 					if ((xml_elem_getattribute(button,"elb",TmpAttr)==XML_SUCCESS) && TmpAttr)
-                        NewButton.ElbName = atrim(TmpAttr)
+						NewButton.ElbName = atrim(TmpAttr)
 					if ((xml_elem_getattribute(button,"quickselect",TmpAttr)==XML_SUCCESS) && TmpAttr)
-                        NewButton.QuickSelect = atrim(TmpAttr)
-                    Logging.DebugLog("")
-                    this.Add(NewButton)
-                end
-            end
-            catch (ex)
-            begin
-                ;;We'll just ignore any errors, because this will allow users
-                ;;to simply delete or rename the default button file to suppress
-                ;;default button processing
-                nop
-            end
-            finally
-            begin
-                if (parser)
-                    xml_parser_delete(parser)
-                if (doc)
-                    xml_doc_delete(doc)
-            end
-            endtry
-        endmethod
+						NewButton.QuickSelect = atrim(TmpAttr)
 
-        ;;; <summary>
-        ;;; Does a button index represent the bast button in the collection?
-        ;;; </summary>
-        ;;; <param name="Index">Index of button to check</param>
-        ;;; <returns>true=yes, false=no</returns>
-        public method IsLastButton, boolean
-            required in Index, int
-            endparams
-        proc
-            mreturn (Index==p_Collection.Count-1)
-        endmethod
-
-        ;;; <summary>
-        ;;; Expose the internal ArrayList so consumers can use FOREACH
-        ;;; </summary>
-        ;;; <returns>Internal ArrayList used to store buttons.</returns>
-        public method GetEnumerator, @ArrayList
-            endparams
-        proc
-            mreturn p_Collection
-        endmethod
-
-        ;;---------------------------------------------------------------------
-        ;;The follwoing members make the collection look just like an ArrayList
-
-        ;;Gets or sets the number of elements that the collection can contain.
-        public property Capacity, int
-            method get
-            proc
-                mreturn p_Collection.Capacity
-            endmethod
-            method set
-            proc
-                p_Collection.Capacity = value
-            endmethod
-        endproperty
-
-        ;;Gets the number of elements actually contained in the collection.
-        public property Count, int
-            method get
-            proc
-                mreturn p_Collection.Count
-            endmethod
-        endproperty
-
-        ;;Gets or sets the element at the specified index.
-        public property Indexer, @WscButton
-            required in Index, int
-            method get
-            proc
-                mreturn (WscButton)p_Collection[Index]
-            endmethod
-            method set
-            proc
-                p_Collection[Index] = value
-            endmethod
-        endproperty
-
-        ;;Adds an element to the end of the collection.
-        public method Add, int
-            required in WscButton, @WscButton
-            endparams
-        proc
-            mreturn p_Collection.Add(WscButton)
-        endmethod
-
-        ;;Removes the element at the specified index of the collection.
-        public method RemoveAt, void
-            required in Index, int
-        proc
-            p_Collection.RemoveAt(Index)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the entire collection.
-        public method IndexOf, int
-            required in WscButton, @WscButton
-        proc
-            mreturn p_Collection.IndexOf(WscButton)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the range of elements in the collection
-        ;;that extends from the specified index to the last element.
-        public method IndexOf, int
-            required in WscButton, @WscButton
-            required in StartIndex, int
-        proc
-            mreturn p_Collection.IndexOf(WscButton,StartIndex)
-        endmethod
-
-        ;;Searches for the specified element and returns the one-based index
-        ;;of the first occurrence within the range of elements in the collection
-        ;;that starts at the specified index and contains the specified number of
-        ;;elements.
-        public method IndexOf, int
-            required in WscButton, @WscButton
-            required in StartIndex, int
-            required in Count, int
-        proc
-            mreturn p_Collection.IndexOf(WscButton,StartIndex,Count)
-        endmethod
-
-        ;;Removes all elements from the collection.
-        public method Clear, void
-        proc
-            p_Collection.Clear()
-        endmethod
-
-        ;;Inserts an element into the collection at the specified index.
-        public method Insert, void
-            required in AtIndex, int
-            required in WscButton, @WscButton
-            endparams
-        proc
-            p_Collection.Insert(AtIndex,WscButton)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the entire collection.
-        public method LastIndexOf, int
-            required in WscButton, @WscButton
-        proc
-            mreturn p_Collection.LastIndexOf(WscButton)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the range of elements in the collection that
-        ;;extends from the first element to the specified index.
-        public method LastIndexOf, int
-            required in WscButton, @WscButton
-            required in StartIndex, int
-        proc
-            mreturn p_Collection.LastIndexOf(WscButton,StartIndex)
-        endmethod
-
-        ;;Searches for the specified object and returns the one-based index of
-        ;;the last occurrence within the range of elements in the collection that
-        ;;contains the specified number of elements and ends at the specified index.
-        public method LastIndexOf, int
-            required in WscButton, @WscButton
-            required in StartIndex, int
-            required in Count, int
-        proc
-            mreturn p_Collection.LastIndexOf(WscButton,StartIndex,Count)
-        endmethod
-
-    endclass
-
+					this.Add(NewButton)
+				end
+			end
+			catch (ex)
+			begin
+				;;We'll just ignore any errors, because this will allow users
+				;;to simply delete or rename the default button file to suppress
+				;;default button processing
+				nop
+			end
+			finally
+			begin
+				if (parser)
+					xml_parser_delete(parser)
+				if (doc)
+					xml_doc_delete(doc)
+			end
+			endtry
+		endmethod
+		
+		;;; <summary>
+		;;; Does a button index represent the bast button in the collection?
+		;;; </summary>
+		;;; <param name="Index">Index of button to check</param>
+		;;; <returns>true=yes, false=no</returns>
+		public method IsLastButton, boolean
+			required in Index, int
+			endparams
+		proc
+			mreturn (Index == (this.Count-1))
+		endmethod
+		
+	endclass
+	
 endnamespace
