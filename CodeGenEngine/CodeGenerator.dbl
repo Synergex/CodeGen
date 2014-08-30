@@ -112,9 +112,8 @@ namespace CodeGen.Engine
 			;;This repository will be used if individual tasks don't specify a repository.
 			if (!String.IsNullOrWhiteSpace(mTaskset.RepositoryMainFile) && !String.IsNullOrWhiteSpace(mTaskset.RepositoryTextFile))
 			begin
-				data sts, i4
-				xcall setlog("RPSMFIL",mTaskSet.RepositoryMainFile,sts)
-				xcall setlog("RPSTFIL",mTaskSet.RepositoryTextFile,sts)
+				Environment.SetEnvironmentVariable("RPSMFIL",mTaskSet.RepositoryMainFile)
+				Environment.SetEnvironmentVariable("RPSTFIL",mTaskSet.RepositoryTextFile)
 			end
 			
 		endmethod
@@ -123,7 +122,7 @@ namespace CodeGen.Engine
 			endparams
 			.include "CODEGEN_SRC:codegen.def"
 		proc
-
+			
 			;;Raise the StartingTaskSet event
 			mTaskSet.RaiseStartingTaskSet()
 			
@@ -138,22 +137,20 @@ namespace CodeGen.Engine
 				
 				;;Reset the environment
 				Env.Reset()
-
+				
 				;;Make sure that any messages that are logged while this task is executing are logged against the task
 				Env.TaskMessages = task.Messages
 				
 				;;If this task defines a repository then use it, otherwise reset to the task set repository if specified.
 				if (!String.IsNullOrWhiteSpace(task.RepositoryMainFile) && !String.IsNullOrWhiteSpace(task.RepositoryTextFile)) then
 				begin
-					data sts, i4
-					xcall setlog("RPSMFIL",task.RepositoryMainFile,sts)
-					xcall setlog("RPSTFIL",task.RepositoryTextFile,sts)
+					Environment.SetEnvironmentVariable("RPSMFIL",task.RepositoryMainFile)
+					Environment.SetEnvironmentVariable("RPSTFIL",task.RepositoryTextFile)
 				end
 				else if (!String.IsNullOrWhiteSpace(mTaskset.RepositoryMainFile) && !String.IsNullOrWhiteSpace(mTaskset.RepositoryTextFile))
 				begin
-					data sts, i4
-					xcall setlog("RPSMFIL",mTaskSet.RepositoryMainFile,sts)
-					xcall setlog("RPSTFIL",mTaskSet.RepositoryTextFile,sts)
+					Environment.SetEnvironmentVariable("RPSMFIL",mTaskSet.RepositoryMainFile)
+					Environment.SetEnvironmentVariable("RPSTFIL",mTaskSet.RepositoryTextFile)
 				end
 				
 				;;Generate code
@@ -254,8 +251,7 @@ namespace CodeGen.Engine
 					;;Don't replace this with File.Exists because we'd lose support for logical names.
 					if (FileTools.FileExists(mTaskSet.DataMappingsFile)) then
 					begin
-						data tmpsts, i4
-						xcall setlog("CODEGEN_DATAMAPPING_FILE",mTaskSet.DataMappingsFile,tmpsts)
+						Environment.SetEnvironmentVariable("CODEGEN_DATAMAPPING_FILE",mTaskSet.DataMappingsFile)
 						if (Env.DeveloperDebug)
 							Logging.DebugLog("DEVDBG: Custom data mapping file set to " + mTaskSet.DataMappingsFile)
 					end
@@ -270,32 +266,31 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data tmpbuf, a256
-				data length, int
-				xcall getlog("CODEGEN_TPLDIR",tmpbuf,length)
-				if (length)
+				data templateFolder, String, Environment.GetEnvironmentVariable("CODEGEN_TPLDIR")
+				if (!String.IsNullOrWhiteSpace(templateFolder))
 				begin
-					data tplFolder, String, tmpbuf(1:length)
-
+					;;Make sure there is no whitespace
+					templateFolder = templateFolder.Trim()
+					
 					;;Make sure the path ends with either a : (logical) or \
-					if (!tplFolder.EndsWith(":") && !tplFolder.EndsWith("\"))
-						tplFolder += "\"
-
-					;;Make sure the folder exists
-					if (!FileTools.FolderExists(tplFolder))
+					if (!templateFolder.EndsWith(":") && !templateFolder.EndsWith("\"))
+						templateFolder += "\"
+						
+					;;Make sure the folder exists. Don't swap this for a File.Exists because we'll lose logical name support!
+					if (!FileTools.FolderExists(templateFolder))
 					begin
 						;;CODEGEN_TPLDIR: is bad, but do we care?
 						if (String.IsNullOrWhiteSpace(task.TemplateFolder) && String.IsNullOrWhiteSpace(mTaskSet.TemplateFolder))
 						begin
 							;;Yes, we care!
-							ErrStatus = Logging.ErrorLog(String.Format("CODEGEN_TPLDIR points to {0} which doesn't exist!",tplFolder))
+							ErrStatus = Logging.ErrorLog(String.Format("CODEGEN_TPLDIR is set to {0} and the folder does not exist!",templateFolder))
 						end
 					end
-
+					
 					;;Looks like we're using CODEGEN_TPLDIR: for now
 					if (!ErrStatus)
 					begin
-						Env.TemplateDir = tplFolder
+						Env.TemplateDir = templateFolder
 						if (Env.DeveloperDebug)
 							Logging.DebugLog(String.Format("DEVDBG: CODEGEN_TPLDIR sets template folder to {0}",Env.TemplateDir))
 					end
@@ -333,13 +328,13 @@ namespace CodeGen.Engine
 					end
 				end
 			end
-
+			
 			;;-------------------------------------------------------------------------
 			;;Make sure there are template file(s) in the template folder
 			
 			if (!ErrStatus && !FileTools.FolderContainsFilesOfType(Env.TemplateDir,"*.tpl"))
 				ErrStatus = Logging.ErrorLog("No templates found in the template folder " + Env.TemplateDir)
-
+				
 			;;-------------------------------------------------------------------------
 			;;Report template file location (verbose mode only)
 			
@@ -357,32 +352,31 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data tmpbuf, a256
-				data length, int
-				xcall getlog("CODEGEN_OUTDIR",tmpbuf,length)
-				if (length)
+				data outputFolder, String, Environment.GetEnvironmentVariable("CODEGEN_OUTDIR")
+				if (!String.IsNullOrWhiteSpace(outputFolder))
 				begin
-					data outFolder, String, tmpbuf(1:length)
+					;;Make sure there is no whitespace
+					outputFolder = outputFolder.Trim()
 					
 					;;Make sure the path ends with either a : (logical) or \
-					if (!outFolder.EndsWith(":") && !outFolder.EndsWith("\"))
-						outFolder += "\"
-						
-					;;Make sure the folder exists
-					if (!FileTools.FolderExists(outFolder))
+					if (!outputFolder.EndsWith(":") && !outputFolder.EndsWith("\"))
+						outputFolder += "\"
+					
+					;;Make sure the folder exists. Don't swap this for a Directory.Exists or we'll lose logical name support!
+					if (!FileTools.FolderExists(outputFolder))
 					begin
 						;;CODEGEN_OUTDIR: is bad, but do we care?
 						if (String.IsNullOrWhiteSpace(task.OutputFolder) && String.IsNullOrWhiteSpace(mTaskSet.OutputFolder))
 						begin
 							;;Yes, we care!
-							ErrStatus = Logging.ErrorLog(String.Format("CODEGEN_OUTDIR points to {0} which doesn't exist!",outFolder))
+							ErrStatus = Logging.ErrorLog(String.Format("CODEGEN_OUTDIR is set to {0} and the folder doesn't exist!",outputFolder))
 						end
 					end
 					
 					;;Looks like we're using CODEGEN_OUTDIR: for now
 					if (!ErrStatus)
 					begin
-						Env.OutputDir = outFolder
+						Env.OutputDir = outputFolder
 						if (Env.DeveloperDebug)
 							Logging.DebugLog(String.Format("DEVDBG: CODEGEN_OUTDIR sets output folder to {0}",Env.OutputDir))
 					end
@@ -463,12 +457,10 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data tmpbuf, a80
-				data length, int
-				getlog("CODEGEN_AUTHOR",tmpbuf,length)
-				if (length)
+				data authorName, String, Environment.GetEnvironmentVariable("CODEGEN_AUTHOR")
+				if (!String.IsNullOrWhiteSpace(authorName))
 				begin
-					Env.Author = tmpbuf
+					Env.Author = authorName
 					if (Env.DeveloperDebug)
 						Logging.DebugLog("DEVDBG: Author name set by CODEGEN_AUTHOR to " + Env.Author)				
 				end
@@ -480,12 +472,10 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data tmpbuf, a80
-				data length, int
-				getlog("CODEGEN_COMPANY",tmpbuf,length)
-				if (length)
+				data companyName, String, Environment.GetEnvironmentVariable("CODEGEN_COMPANY")
+				if (!String.IsNullOrWhiteSpace(companyName))
 				begin
-					Env.Company = tmpbuf
+					Env.Company = companyName
 					if (Env.DeveloperDebug)
 						Logging.DebugLog("DEVDBG: Company name set by CODEGEN_COMPANY to " + Env.Company)				
 				end
@@ -497,11 +487,9 @@ namespace CodeGen.Engine
 			
 			if (!ErrStatus)
 			begin
-				data tmpbuf, a80
-				data length, int
-				getlog("SYNDEFNS",tmpbuf,length)
-				if (length)
-					Env.DefaultNamespace = tmpbuf
+				data defaultNamespace, String, Environment.GetEnvironmentVariable("SYNDEFNS")
+				if (!String.IsNullOrWhiteSpace(defaultNamespace))
+					Env.DefaultNamespace = defaultNamespace
 				if (Env.DeveloperDebug)
 					Logging.DebugLog("DEVDBG: Namespace set by SYNDEFNS to " + Env.DefaultNamespace)				
 			end
@@ -1330,80 +1318,75 @@ namespace CodeGen.Engine
 		proc
 			;;This code basically does what MAIN$CODEGEN normally does.
 			
-			data TxtLen		,int
-			data TempString	,a256
-			
 			;;Explicitly set CODEGEN_EXE to the location of the running executable
-			TempString = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(^typeof(CodeGenerator)).Location)
-			xcall setlog("CODEGEN_EXE",atrim(TempString),TxtLen)
+			Environment.SetEnvironmentVariable("CODEGEN_EXE",Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(^typeof(CodeGenerator)).Location))
 			
 			;;Is CODEGEN_TPLDIR already set in the environment?
-			xcall getlog("CODEGEN_TPLDIR",TempString,TxtLen)
-			if (!TxtLen)
+			data templateFolder, String, Environment.GetEnvironmentVariable("CODEGEN_TPLDIR")
+			if (String.IsNullOrWhiteSpace(templateFolder))
 			begin
 				;;No, look in the registry for the value set by InstallShield
-				data templateFolder, string
 				data templateFolderFound, boolean, false
 				
-				templateFolder = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
-				if ((templateFolder!=^null)&&(templateFolder!="")) then
+				templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
+				if (!String.IsNullOrWhiteSpace(templateFolder)) then
 				begin
 					;;Found it
-					xcall setlog("CODEGEN_TPLDIR",templateFolder,TxtLen)
+					Environment.SetEnvironmentVariable("CODEGEN_TPLDIR",templateFolder.Trim())
 					templateFolderFound = true
 				end
 				else if (Environment.Is64BitProcess)
 				begin
 					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
-					templateFolder = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","TemplatePath","")
-					if ((templateFolder!=^null)&&(templateFolder!=""))
+					templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","TemplatePath","")
+					if (!String.IsNullOrWhiteSpace(templateFolder))
 					begin
 						;;Found it
-						xcall setlog("CODEGEN_TPLDIR",templateFolder,TxtLen)
+						Environment.SetEnvironmentVariable("CODEGEN_TPLDIR",templateFolder.Trim())
 						templateFolderFound = true
 					end
 				end
 				
 				;;Still nothing - default to current directory
 				if (!templateFolderFound)
-					xcall setlog("CODEGEN_TPLDIR",".",TxtLen)
+					Environment.SetEnvironmentVariable("CODEGEN_TPLDIR",".")
 			end
 			
 			;;Is CODEGEN_AUTHOR already set in the environment?
-			xcall getlog("CODEGEN_AUTHOR",TempString,TxtLen)
-			if (TxtLen) then
-				Env.Author = atrim(TempString)
+			data authorName, String, Environment.GetEnvironmentVariable("CODEGEN_AUTHOR")
+			if (!String.IsNullOrWhiteSpace(authorName)) then
+				Env.Author = authorName.Trim()
 			else
 			begin
 				;;No, look in the registry for the value set by InstallShield
-				TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultAuthor","")
-				if (TempString) then
-					Env.Author = atrim(TempString)
+				authorName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultAuthor","")
+				if (!String.IsNullOrWhiteSpace(authorName)) then
+					Env.Author = authorName.Trim()
 				else if (Environment.Is64BitProcess)
 				begin
 					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
-					TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultAuthor","")
-					if (TempString)
-						Env.Author = atrim(TempString)
+					authorName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultAuthor","")
+					if (!String.IsNullOrWhiteSpace(authorName))
+						Env.Author = authorName.Trim()
 				end
 			end
 			
 			;;Is CODEGEN_COMPANY already set in the environment?
-			xcall getlog("CODEGEN_COMPANY",TempString,TxtLen)
-			if (TxtLen) then
-				Env.Company = atrim(TempString)
+			data companyName, String, Environment.GetEnvironmentVariable("CODEGEN_COMPANY")
+			if (!String.IsNullOrWhiteSpace(companyName)) then
+				Env.Company = companyName.Trim()
 			else
 			begin
 				;;No, look in the registry for the value set by InstallShield
-				TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultCompany","")
-				if (TempString) then
-					Env.Company = atrim(TempString)
+				companyName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultCompany","")
+				if (!String.IsNullOrWhiteSpace(companyName)) then
+					Env.Company = companyName.Trim()
 				else if (Environment.Is64BitProcess)
 				begin
 					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
-					TempString = (string)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultCompany","")
-					if (TempString)
-						Env.Company = atrim(TempString)
+					companyName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultCompany","")
+					if (!String.IsNullOrWhiteSpace(companyName))
+						Env.Company = companyName.Trim()
 				end
 			end
 			

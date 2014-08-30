@@ -48,80 +48,80 @@ import CodeGen.Engine
 import CodeGen.RepositoryAPI
 
 namespace CodeGen.Engine
-
-    function CheckStructure, boolean
-        required in  Struct, @RpsStructure
-        endparams
-
-        stack record
+	
+	function CheckStructure, boolean
+		required in  Struct, @RpsStructure
+		endparams
+		
+		stack record
 			ErrStatus		,boolean
-        endrecord
-
-    proc
-
+		endrecord
+		
+	proc
+		
 		ErrStatus = false
-
-        Logging.DebugLog("Validating structure " + Struct.Name,true,false)
-
-        ;; Make sure the structure has fields
-        if (!Struct.Fields.Count)
+		
+		Logging.DebugLog("Validating structure " + Struct.Name,true,false)
+		
+		;; Make sure the structure has fields
+		if (!Struct.Fields.Count)
 			ErrStatus = Logging.Errorlog("Structure " + Struct.Name + " has no fields")
-
-        ;; Do we have any tags?
+			
+		;; Do we have any tags?
 		if (!ErrStatus&&Struct.Tags.Count)
-        begin
-            ;; Make sure it's a field=value tag
-            if (Struct.TagType!=RpsTagType.FieldAndValue)
-                Logging.Log("WARNING: Structure "+Struct.Name+" has an unsupported record length tag. Tag loop tokens may not work!")
+		begin
+			;; Make sure it's a field=value tag
+			if (Struct.TagType!=RpsTagType.FieldAndValue)
+				Logging.Log("WARNING: Structure "+Struct.Name+" has an unsupported record length tag. Tag loop tokens may not work!")
 		end
-
-        ;; Make sure the structure has not been excluded with @NOCODEGEN
+		
+		;; Make sure the structure has not been excluded with @NOCODEGEN
 		if (!ErrStatus)
 			if ((Struct.UserText.ToUpper().Contains("@NOCODEGEN"))||(Struct.LongDescription.ToUpper().Contains("@NOCODEGEN")))
 			begin
 				Logging.DebugLog("Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN")
 				ErrStatus = true
 			end
-
-        ;; The structure seems OK, now lets look at the fields
+		
+		;; The structure seems OK, now lets look at the fields
 		if (!ErrStatus)
-        begin
-            data ix, int, -1	;Index within collection of main fields
-
-            while ((ix+=1)<Struct.Fields.Count)
-            begin
-                ;; Get a handle on the current field
-                data Field, @RpsField, Struct.Fields[ix]
-
-                ;; Exclude overlays (unless overridden) and apply optional field level filters
-                if (
-                &   ((!String.IsNullOrWhiteSpace(Field.OverlaysField))&&!Env.IncludeOverlays)
-                &   || ((Field.GroupType==RpsFieldGroup.Overlay)&&!Env.IncludeOverlays)
-                &   || (Env.ExcludeLanguage&&Field.ExcludedByLanguage)
-                &   || (Env.ExcludeToolkit&&Field.ExcludedByToolkit)
-                &   || (Env.ExcludeReport&&Field.ExcludedByReportWriter)
-                &   || (Env.ExcludeWeb&&Field.ExcludedByWeb)
-                &   )
-                begin
+		begin
+			data ix, int, -1	;Index within collection of main fields
+			
+			while ((ix+=1)<Struct.Fields.Count)
+			begin
+				;; Get a handle on the current field
+				data Field, @RpsField, Struct.Fields[ix]
+				
+				;; Exclude overlays (unless overridden) and apply optional field level filters
+				if (
+				&	((!String.IsNullOrWhiteSpace(Field.OverlaysField))&&!Env.IncludeOverlays)
+				&	|| ((Field.GroupType==RpsFieldGroup.Overlay)&&!Env.IncludeOverlays)
+				&	|| (Env.ExcludeLanguage&&Field.ExcludedByLanguage)
+				&	|| (Env.ExcludeToolkit&&Field.ExcludedByToolkit)
+				&	|| (Env.ExcludeReport&&Field.ExcludedByReportWriter)
+				&	|| (Env.ExcludeWeb&&Field.ExcludedByWeb)
+				&	)
+				begin
 					if (Env.DeveloperDebug)
 						Logging.DebugLog("DEVDBG: Removing field  " + Field.Name + " because of field filters")
 					Struct.Fields.RemoveAt(ix)
-                    ix-=1
-                    nextloop
-                end
-
-                ;; If there is a subset specified then remove all fields that are not a member of that subset
-
-                if (!String.IsNullOrWhiteSpace(Env.SubSetName)) then
-                begin
+					ix-=1
+					nextloop
+				end
+				
+				;; If there is a subset specified then remove all fields that are not a member of that subset
+				
+				if (!String.IsNullOrWhiteSpace(Env.SubSetName)) then
+				begin
 					if ((!instr(1,Field.UserText,"@SUB="+Env.SubSetName+";"))&&(!instr(1,Field.LongDescription,"@SUB="+Env.SubSetName+";")))
-                    begin
+					begin
 						if (Env.DeveloperDebug)
 							Logging.DebugLog("DEVDBG: Removing field  " + Field.Name + ", not a subset member")
 						Struct.Fields.RemoveAt(ix)
-                        ix-=1
-                        nextloop
-                    end
+						ix-=1
+						nextloop
+					end
 				end
 				else if (Env.SubSetFields.Count>0)
 				begin
@@ -149,31 +149,31 @@ namespace CodeGen.Engine
 						nextloop
 					end
 				end
-
-                ;; Make sure field isn't an ENUM field
-                ;TODO: Enums are just an i4, so we should be able to add support
-                if (Field.DataType == RpsFieldDataType.Enum)
-                begin
+				
+				;; Make sure field isn't an ENUM field
+				;TODO: Enums are just an i4, so we should be able to add support
+				if (Field.DataType == RpsFieldDataType.Enum)
+				begin
 					ErrStatus = Logging.Errorlog("Field "+Field.Name+" is an unsupported ENUM field")
-                    exitloop
-                end
-
-                ;; Make sure the field isn't a BINARY field
-                ;TODO: Binary is just a character array so we should be able to add support
-                if (Field.DataType == RpsFieldDataType.Binary)
-                begin
+					exitloop
+				end
+				
+				;; Make sure the field isn't a BINARY field
+				;TODO: Binary is just a character array so we should be able to add support
+				if (Field.DataType == RpsFieldDataType.Binary)
+				begin
 					ErrStatus = Logging.Errorlog("Field "+Field.Name+" is an unsupported BINARY field")
-                    exitloop
-                end
-
-                ;; Make sure field isn't an STRUCTFIELD type
-                ;TODO: Could treat a struct field as a string, or a class?
-                if (Field.DataType == RpsFieldDataType.StructField)
-                begin
+					exitloop
+				end
+				
+				;; Make sure field isn't an STRUCTFIELD type
+				;TODO: Could treat a struct field as a string, or a class?
+				if (Field.DataType == RpsFieldDataType.StructField)
+				begin
 					ErrStatus = Logging.Errorlog("Field "+Field.Name+" is an unsupported STRUCTFIELD field")
-                    exitloop
-                end
-
+					exitloop
+				end
+				
 				;; Look for the structures display field
 				if (!Struct.DisplayField)
 					if ((instr(1,Field.UserText.ToUpper(),"@CODEGEN_DISPLAY_FIELD"))||(instr(1,Field.LongDescription.ToUpper(),"@CODEGEN_DISPLAY_FIELD")))
@@ -183,7 +183,7 @@ namespace CodeGen.Engine
 				Field.FieldNumber = ix+1
 			end
 		end
-
+		
 		if (!ErrStatus)
 		begin
 			data ix     ,int, -1    ;Index within collection of main fields
@@ -195,61 +195,61 @@ namespace CodeGen.Engine
 				data Field, @RpsField, Struct.Fields[ix]
 				
 				;; Expand out array fields
-                if ((Field.ArrayDimension[1]>1)||(Field.ArrayDimension[2])||(Field.ArrayDimension[3])||(Field.ArrayDimension[4]))
-                begin
-                    data fieldsAdded, int, 0
-                    data bytesAdded, int, 0
-                    data al1, int
-                    for al1 from 1 thru Field.ArrayDimension[1]
-                    begin
-                        if (Field.ArrayDimension[2]||Field.ArrayDimension[3]||Field.ArrayDimension[4]) then
-                        begin
-                            ;;At least 2 levels
-                            data al2, int
-                            for al2 from 1 thru Field.ArrayDimension[2]
-                            begin
-                                if (Field.ArrayDimension[3]||Field.ArrayDimension[4]) then
-                                begin
-                                    ;;At least 3 levels
-                                    data al3, int
-                                    for al3 from 1 thru Field.ArrayDimension[3]
-                                    begin
-                                        if (Field.ArrayDimension[4]) then
-                                        begin
-                                            ;;All 4 levels
-                                            data al4, int
-                                            for al4 from 1 thru Field.ArrayDimension[4]
-                                            begin
-                                                data NewField, @RpsField
-                                                data arrayIndex, string
-
-                                                arrayIndex = "[" + string(al1) + "," + string(al2) + "," + string(al3) + "," + string(al4) + "]"
-
-                                                ;; Start with a copy of the current field
-                                                NewField = new RpsField(Field)
-
-                                                ;; Change the necessary properties
-                                                NewField.Name = Field.Name + arrayIndex
-                                                NewField.AlternateName = Field.AlternateName + arrayIndex
-                                                NewField.SqlName = SqlName(NewField.Name)
-                                                NewField.OdbcName = OdbcName(NewField.Name)
-
-                                                ;; Note: BaseName doesn't change because of array expansion
-
-                                                if (Field.MappedField.Length)
-                                                    NewField.MappedField = Field.MappedField + arrayIndex
-
-                                                if (Field.Description)
-                                                    NewField.Description = Field.Description + " " + string(al1) + " " + string(al2) + " " + string(al3) + " " + string(al4)
-
-                                                if (Field.ReportHeading)
-                                                    NewField.ReportHeading = Field.ReportHeading + " #" + string(al1) + " " + string(al2) + " " + string(al3) + " " + string(al4)
-
-                                                NewField.StartPosition = Field.StartPosition + bytesAdded
-                                                bytesAdded+=Field.Size
-
-                                                ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET?
-
+				if ((Field.ArrayDimension[1]>1)||(Field.ArrayDimension[2])||(Field.ArrayDimension[3])||(Field.ArrayDimension[4]))
+				begin
+					data fieldsAdded, int, 0
+					data bytesAdded, int, 0
+					data al1, int
+					for al1 from 1 thru Field.ArrayDimension[1]
+					begin
+						if (Field.ArrayDimension[2]||Field.ArrayDimension[3]||Field.ArrayDimension[4]) then
+						begin
+							;;At least 2 levels
+							data al2, int
+							for al2 from 1 thru Field.ArrayDimension[2]
+							begin
+								if (Field.ArrayDimension[3]||Field.ArrayDimension[4]) then
+								begin
+									;;At least 3 levels
+									data al3, int
+									for al3 from 1 thru Field.ArrayDimension[3]
+									begin
+										if (Field.ArrayDimension[4]) then
+										begin
+											;;All 4 levels
+											data al4, int
+											for al4 from 1 thru Field.ArrayDimension[4]
+											begin
+												data NewField, @RpsField
+												data arrayIndex, string
+												
+												arrayIndex = "[" + string(al1) + "," + string(al2) + "," + string(al3) + "," + string(al4) + "]"
+												
+												;; Start with a copy of the current field
+												NewField = new RpsField(Field)
+												
+												;; Change the necessary properties
+												NewField.Name = Field.Name + arrayIndex
+												NewField.AlternateName = Field.AlternateName + arrayIndex
+												NewField.SqlName = SqlName(NewField.Name)
+												NewField.OdbcName = OdbcName(NewField.Name)
+												
+												;; Note: BaseName doesn't change because of array expansion
+												
+												if (Field.MappedField.Length)
+													NewField.MappedField = Field.MappedField + arrayIndex
+													
+												if (Field.Description)
+													NewField.Description = Field.Description + " " + string(al1) + " " + string(al2) + " " + string(al3) + " " + string(al4)
+													
+												if (Field.ReportHeading)
+													NewField.ReportHeading = Field.ReportHeading + " #" + string(al1) + " " + string(al2) + " " + string(al3) + " " + string(al4)
+													
+												NewField.StartPosition = Field.StartPosition + bytesAdded
+												bytesAdded+=Field.Size
+												
+												;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET?
+												
 												;---------------------------
 												;TODO: BUG - Tracker 33206 2/24/12
 												;NewField.ArrayDimension[1] = 1
@@ -276,46 +276,46 @@ namespace CodeGen.Engine
 												NewField.SetOriginalElement4(al4)
 												;---------------------------
 												
-                                                ;; And add it to the fields collection
-                                                if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
-                                                    Struct.Fields.Insert(ix+fieldsAdded,NewField)
-                                                else
-                                                    Struct.Fields.Add(NewField)
-                                            end
-                                        end
-                                        else
-                                        begin
-                                            ;;Only 3 levels
-                                            data NewField, @RpsField
-                                            data arrayIndex, string
-
-                                            arrayIndex = "[" + string(al1) + "," + string(al2) + "," + string(al3) + "]"
-
-                                            ;; Start with a copy of the current field
-                                            NewField = new RpsField(Field)
-
-                                            ;; Change the necessary properties
-                                            NewField.Name = Field.Name + arrayIndex
-                                            NewField.AlternateName = Field.AlternateName + arrayIndex
-                                            NewField.SqlName = SqlName(NewField.Name)
-                                            NewField.OdbcName = OdbcName(NewField.Name)
-
-                                            ;; Note: BaseName doesn't change because of array expansion
-
-                                            if (Field.MappedField)
-                                                NewField.MappedField = Field.MappedField + arrayIndex
-
-                                            if (Field.Description)
-                                                NewField.Description = Field.Description + " " + string(al1) + " " + string(al2)+ " " + string(al3)
-
-                                            if (Field.ReportHeading)
-                                                NewField.ReportHeading = Field.ReportHeading + " #" + string(al1) + " " + string(al2)+ " " + string(al3)
-
-                                            NewField.StartPosition = Field.StartPosition + bytesAdded
-                                            bytesAdded+=Field.Size
-
-                                            ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET?
-
+												;; And add it to the fields collection
+												if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
+													Struct.Fields.Insert(ix+fieldsAdded,NewField)
+												else
+													Struct.Fields.Add(NewField)
+											end
+										end
+										else
+										begin
+											;;Only 3 levels
+											data NewField, @RpsField
+											data arrayIndex, string
+											
+											arrayIndex = "[" + string(al1) + "," + string(al2) + "," + string(al3) + "]"
+											
+											;; Start with a copy of the current field
+											NewField = new RpsField(Field)
+											
+											;; Change the necessary properties
+											NewField.Name = Field.Name + arrayIndex
+											NewField.AlternateName = Field.AlternateName + arrayIndex
+											NewField.SqlName = SqlName(NewField.Name)
+											NewField.OdbcName = OdbcName(NewField.Name)
+											
+											;; Note: BaseName doesn't change because of array expansion
+											
+											if (Field.MappedField)
+												NewField.MappedField = Field.MappedField + arrayIndex
+												
+											if (Field.Description)
+												NewField.Description = Field.Description + " " + string(al1) + " " + string(al2)+ " " + string(al3)
+												
+											if (Field.ReportHeading)
+												NewField.ReportHeading = Field.ReportHeading + " #" + string(al1) + " " + string(al2)+ " " + string(al3)
+												
+											NewField.StartPosition = Field.StartPosition + bytesAdded
+											bytesAdded+=Field.Size
+											
+											;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET?
+											
 											;---------------------------
 											;TODO: BUG - Tracker 33206 2/24/12
 											;NewField.ArrayDimension[1] = 1
@@ -337,48 +337,48 @@ namespace CodeGen.Engine
 											NewField.SetOriginalElement2(al2)
 											NewField.SetOriginalElement3(al3)
 											;---------------------------
-
-                                            ;; And add it to the fields collection
-                                            if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
-                                                Struct.Fields.Insert(ix+fieldsAdded,NewField)
-                                            else
-                                                Struct.Fields.Add(NewField)
-                                        end
-                                    end
-                                end
-                                else
-                                begin
-                                    ;;2 levels
-                                    data NewField, @RpsField
-                                    data arrayIndex, string
-
-                                    arrayIndex = "[" + string(al1) + "," + string(al2) + "]"
-
-                                    ;; Start with a copy of the current field
-                                    NewField = new RpsField(Field)
-
-                                    ;; Change the necessary properties
-                                    NewField.Name = Field.Name + arrayIndex
-                                    NewField.AlternateName = Field.AlternateName + arrayIndex
-                                    NewField.SqlName = SqlName(NewField.Name)
-                                    NewField.OdbcName = OdbcName(NewField.Name)
-
-                                    ;; Note: BaseName doesn't change because of array expansion
-
-                                    if (Field.MappedField)
-                                        NewField.MappedField = Field.MappedField + arrayIndex
-
-                                    if (Field.Description)
-                                        NewField.Description = Field.Description + " " + string(al1) + " " + string(al2)
-
-                                    if (Field.ReportHeading)
-                                        NewField.ReportHeading = Field.ReportHeading + " #" + string(al1) + " " + string(al2)
-
-                                    NewField.StartPosition = Field.StartPosition + bytesAdded
-                                    bytesAdded+=Field.Size
-
-                                    ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
-
+											
+											;; And add it to the fields collection
+											if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
+												Struct.Fields.Insert(ix+fieldsAdded,NewField)
+											else
+												Struct.Fields.Add(NewField)
+										end
+									end
+								end
+								else
+								begin
+									;;2 levels
+									data NewField, @RpsField
+									data arrayIndex, string
+									
+									arrayIndex = "[" + string(al1) + "," + string(al2) + "]"
+									
+									;; Start with a copy of the current field
+									NewField = new RpsField(Field)
+									
+									;; Change the necessary properties
+									NewField.Name = Field.Name + arrayIndex
+									NewField.AlternateName = Field.AlternateName + arrayIndex
+									NewField.SqlName = SqlName(NewField.Name)
+									NewField.OdbcName = OdbcName(NewField.Name)
+									
+									;; Note: BaseName doesn't change because of array expansion
+									
+									if (Field.MappedField)
+										NewField.MappedField = Field.MappedField + arrayIndex
+										
+									if (Field.Description)
+										NewField.Description = Field.Description + " " + string(al1) + " " + string(al2)
+										
+									if (Field.ReportHeading)
+										NewField.ReportHeading = Field.ReportHeading + " #" + string(al1) + " " + string(al2)
+										
+									NewField.StartPosition = Field.StartPosition + bytesAdded
+									bytesAdded+=Field.Size
+									
+									;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
+									
 									;---------------------------
 									;TODO: BUG - Tracker 33206 2/24/12
 									;NewField.ArrayDimension[1] = 1
@@ -397,47 +397,47 @@ namespace CodeGen.Engine
 									NewField.SetOriginalElement2(al2)
 									;---------------------------
 									
-                                    ;; And add it to the fields collection
-                                    if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
+									;; And add it to the fields collection
+									if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
 										Struct.Fields.Insert(ix+fieldsAdded,NewField)
 									else
 										Struct.Fields.Add(NewField)
-                                end
-                            end
-                        end
-                        else
-                        begin
-                            ;;Just one level
-                            data NewField, @RpsField
-                            data arrayIndex, string
-
-                            arrayIndex = "[" + string(al1) + "]"
-
-                            ;; Start with a copy of the current field
-                            NewField = new RpsField(Field)
-
-                            ;; Change the necessary properties
-                            NewField.Name			= Field.Name + arrayIndex
-                            NewField.AlternateName	= Field.AlternateName + arrayIndex
-                            NewField.SqlName		= SqlName(NewField.Name)
-                            NewField.OdbcName		= OdbcName(NewField.Name)
-
-                            ;; Note: BaseName doesn't change because of array expansion
-
-                            if (Field.MappedField)
-                                NewField.MappedField = Field.MappedField + arrayIndex
-
-                            if (Field.Description)
-                                NewField.Description = Field.Description + " " + string(al1)
-
-                            if (Field.ReportHeading)
-                                NewField.ReportHeading = Field.ReportHeading + " #" + string(al1)
-
-                            NewField.StartPosition = Field.StartPosition + bytesAdded
-                            bytesAdded+=Field.Size
-
-                            ;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
-
+								end
+							end
+						end
+						else
+						begin
+							;;Just one level
+							data NewField, @RpsField
+							data arrayIndex, string
+							
+							arrayIndex = "[" + string(al1) + "]"
+							
+							;; Start with a copy of the current field
+							NewField = new RpsField(Field)
+							
+							;; Change the necessary properties
+							NewField.Name			= Field.Name + arrayIndex
+							NewField.AlternateName	= Field.AlternateName + arrayIndex
+							NewField.SqlName		= SqlName(NewField.Name)
+							NewField.OdbcName		= OdbcName(NewField.Name)
+							
+							;; Note: BaseName doesn't change because of array expansion
+							
+							if (Field.MappedField)
+								NewField.MappedField = Field.MappedField + arrayIndex
+								
+							if (Field.Description)
+								NewField.Description = Field.Description + " " + string(al1)
+								
+							if (Field.ReportHeading)
+								NewField.ReportHeading = Field.ReportHeading + " #" + string(al1)
+								
+							NewField.StartPosition = Field.StartPosition + bytesAdded
+							bytesAdded+=Field.Size
+							
+							;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET???
+							
 							;---------------------------
 							;TODO: BUG - Tracker 33206 2/24/12
 							;NewField.ArrayDimension[1] = 1
@@ -451,56 +451,56 @@ namespace CodeGen.Engine
 							;NewField.OriginalElement[1] = al1
 							NewField.SetOriginalElement1(al1)
 							;---------------------------
-
+							
 							;; And add it to the fields collection
-
-                            if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
-                                Struct.Fields.Insert(ix+fieldsAdded,NewField)
-                            else
-                                Struct.Fields.Add(NewField)
-                        end
-                    end
-
-                    ;; Finally remove the group field from the structure
-                    Struct.Fields.RemoveAt(ix)
-
-                    ;; And process this index again (it's now the first field from the array)
-                    ix-=1
-                    nextloop
-                end
-
-                ;; Is the field a group?
-                if (Field.GroupType==RpsFieldGroup.No)
-                    nextloop
-
-                ;; Is it an implicit group and we've been told not to expand them?
-                if ((!String.IsNullOrWhiteSpace(Field.GroupStructure))&&Env.DontExpandImplicitGroups)
-                begin
-                    Field.TypeCode = "@"+Field.GroupStructure
-                    Field.TypeName = "CLASS"
-                    Field.CsType = Field.GroupStructure
-                    Field.CsNumericConvert = ""
-                    Field.VbType = Field.GroupStructure
-                    Field.CsDefault = "new "+Field.GroupStructure+"()"
-                    Field.VbDefault = "New "+Field.GroupStructure+"()"
-                    Field.SqlType = "VARCHAR("+string(Field.Size)+")"
-                    Field.OcType = "NSString"
-                    Field.OcDefault = '@""'
-                    Field.OcObject = true
-                    nextloop
-                end
-
-                ;; If we get here we need to expand out the group
-                for gfix from 0 thru Field.GroupFields.Count-1
-                begin
-                    data tmpName, string, ""
-                    data tmpAltName, string, ""
-                    data tmpBaseName, string, ""
-                    data Child, @RpsField
-
-                    ;; Start with the group field as defined
+							
+							if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
+								Struct.Fields.Insert(ix+fieldsAdded,NewField)
+							else
+								Struct.Fields.Add(NewField)
+						end
+					end
+					
+					;; Finally remove the group field from the structure
+					Struct.Fields.RemoveAt(ix)
+					
+					;; And process this index again (it's now the first field from the array)
+					ix-=1
+					nextloop
+				end
+				
+				;; Is the field a group?
+				if (Field.GroupType==RpsFieldGroup.No)
+					nextloop
+					
+				;; Is it an implicit group and we've been told not to expand them?
+				if ((!String.IsNullOrWhiteSpace(Field.GroupStructure))&&Env.DontExpandImplicitGroups)
+				begin
+					Field.TypeCode = "@"+Field.GroupStructure
+					Field.TypeName = "CLASS"
+					Field.CsType = Field.GroupStructure
+					Field.CsNumericConvert = ""
+					Field.VbType = Field.GroupStructure
+					Field.CsDefault = "new "+Field.GroupStructure+"()"
+					Field.VbDefault = "New "+Field.GroupStructure+"()"
+					Field.SqlType = "VARCHAR("+string(Field.Size)+")"
+					Field.OcType = "NSString"
+					Field.OcDefault = '@""'
+					Field.OcObject = true
+					nextloop
+				end
+				
+				;; If we get here we need to expand out the group
+				for gfix from 0 thru Field.GroupFields.Count-1
+				begin
+					data tmpName, string, ""
+					data tmpAltName, string, ""
+					data tmpBaseName, string, ""
+					data Child, @RpsField
+					
+					;; Start with the group field as defined
 					Child = Field.GroupFields[gfix]
-
+					
 					;; Exclude overlays (unless overridden) and apply optional field level filters
 					if (
 					&	((!String.IsNullOrWhiteSpace(Child.OverlaysField))&&!Env.IncludeOverlays)
@@ -515,64 +515,64 @@ namespace CodeGen.Engine
 					;;The child field is going to become part of the parent structure,
 					;;so set its "FieldNumber" property to the same as the parent field
 					Child.FieldNumber = Field.FieldNumber
-
-                    ;; If not suppressed, and no repository member prefix is specified,
-                    ;; prefix the name with the group field name
-                    if (Env.GroupPrefix)
-                    begin
-                        tmpName = Field.Name + "."
-                        tmpAltName = Field.AlternateName + "."
-                        ;; BaseName uses Field.Name so we get array dimensions back
-                        tmpBaseName = Field.Name + "."
-                    end
-
-                    ;; If not suppressed, prefix the name with the repository group field prefix
-                    if (Env.GroupMemberPrefix)
-                    begin
-                        tmpName = tmpName + Field.GroupMemberPrefix
-                        tmpAltName = tmpAltName + Field.GroupMemberPrefix
-                        tmpBaseName = tmpBaseName + Field.GroupMemberPrefix
-                    end
-
-                    ;; And then add the actual group field name
-                    tmpName = tmpName + Child.Name
-                    tmpAltName = tmpAltName + Child.AlternateName
-                    tmpBaseName = tmpBaseName + Child.Name
-
-                    ;; Change the childs field name properties
-                    Child.Name = tmpName
-                    Child.AlternateName = tmpAltName
-                    Child.BaseName = tmpBaseName
-                    Child.SqlName = SqlName(tmpName)
-                    Child.OdbcName = OdbcName(tmpName)
-
-                    ;; Update the fields position in the record
-                    ;; Group field psoitions in f_info are relative to the group
-                    Child.StartPosition = Field.StartPosition + Child.StartPosition - 1
-
-
+					
+					;; If not suppressed, and no repository member prefix is specified,
+					;; prefix the name with the group field name
+					if (Env.GroupPrefix)
+					begin
+						tmpName = Field.Name + "."
+						tmpAltName = Field.AlternateName + "."
+						;; BaseName uses Field.Name so we get array dimensions back
+						tmpBaseName = Field.Name + "."
+					end
+					
+					;; If not suppressed, prefix the name with the repository group field prefix
+					if (Env.GroupMemberPrefix)
+					begin
+						tmpName = tmpName + Field.GroupMemberPrefix
+						tmpAltName = tmpAltName + Field.GroupMemberPrefix
+						tmpBaseName = tmpBaseName + Field.GroupMemberPrefix
+					end
+					
+					;; And then add the actual group field name
+					tmpName = tmpName + Child.Name
+					tmpAltName = tmpAltName + Child.AlternateName
+					tmpBaseName = tmpBaseName + Child.Name
+					
+					;; Change the childs field name properties
+					Child.Name = tmpName
+					Child.AlternateName = tmpAltName
+					Child.BaseName = tmpBaseName
+					Child.SqlName = SqlName(tmpName)
+					Child.OdbcName = OdbcName(tmpName)
+					
+					;; Update the fields position in the record
+					;; Group field psoitions in f_info are relative to the group
+					Child.StartPosition = Field.StartPosition + Child.StartPosition - 1
+					
+					
 					;TODO: IF OVERLAYS ARE INCLUDED THEN NEED TO UPDATE OVERLAY OFFSET. NOT SURE IF THIS IS EVEN FEASIBLE???
-
-
+					
+					
 					;TODO:	BUG: There is a problem here because for nested groups the expanded fields are not being added back in the correct sequence
-
+					
 					
 					;; And add it to the fields collection
-                    if ((ix+gfix+1)<=Struct.Fields.Count-1) then
-                        Struct.Fields.Insert(ix+gfix+1,Child)
-                    else
-                        Struct.Fields.Add(Child)
-                end
-
-                ;; Finally remove the group field from the structure
-                Struct.Fields.RemoveAt(ix)
-
-                ;; And process this index again (it's now the first field from the group)
-                ix-=1
-
-            end
-        end
-
+					if ((ix+gfix+1)<=Struct.Fields.Count-1) then
+						Struct.Fields.Insert(ix+gfix+1,Child)
+					else
+						Struct.Fields.Add(Child)
+				end
+				
+				;; Finally remove the group field from the structure
+				Struct.Fields.RemoveAt(ix)
+				
+				;; And process this index again (it's now the first field from the group)
+				ix-=1
+				
+			end
+		end
+		
 		if (!ErrStatus)
 		begin
 			if (Struct.Fields.Count) then
@@ -585,40 +585,31 @@ namespace CodeGen.Engine
 			else
 				ErrStatus = Logging.Errorlog("After applying CodeGen rules structure " + Struct.Name + " has no remaining fields!")
 		end
-
+		
 		;;Check for special prompt processing rules
 		if (!ErrStatus)
 		begin
 			;;Check for the CODEGEN_STRIP_FROM_PROMPT environment variable
-			data length, int
-			data stripData, a40
-			xcall getlog("CODEGEN_STRIP_FROM_PROMPT",stripData,length)
-			if (length)
+			data stripData, String, Environment.GetEnvironmentVariable("CODEGEN_STRIP_FROM_PROMPT")
+			if (!String.IsNullOrWhiteSpace(stripData))
 			begin
 				;;stripData should be a double-quote delimited string, remove the quotes to leave the data to strip
-				data removeString, String
-				data pos1, int, %instr(1,stripData,'"')
-				data pos2, int, %instr(pos1+1,stripData,'"')
-				data ix, int
-				;;Do we have two double quotes?
-				if (!pos1||!pos2)
-					exit
-				;;Yes, get the data to be stripped from prompts
-				removeString = stripData(pos1+1,pos2-1)
+				stripData = stripData.Trim().Replace('"', '')
 				;;Remove the data from any prompts that it is found in
-				for ix from 0 thru Struct.Fields.Count-1
-					if (%instr(1,Struct.Fields[ix].Prompt,removeString))
-						Struct.Fields[ix].Prompt = ((a)Struct.Fields[ix].Prompt) - removeString
+				data tmpField, @RpsField
+				foreach tmpField in Struct.Fields
+					if (tmpField.Prompt.Contains(stripData))
+						tmpField.Prompt = tmpField.Prompt.Replace(stripData,"")
 			end
 		end
-
+		
 		;;If we're in developer debug mode then create a log file containing the remaining fields
 		if (!ErrStatus&&Struct.Fields.Count&&Env.DeveloperDebug)
 		begin
 			data logCh, int, 0
 			data tmpFld, @RpsField
 			data saveReplaceFiles, boolean, Env.ReplaceFiles
-
+			
 			Logging.DebugLog("DEVDBG: Saving field log for structure "+Struct.Name,true,false)
 			try
 			begin
@@ -646,9 +637,9 @@ namespace CodeGen.Engine
 			end
 			endtry
 		end
-
+		
 		freturn !ErrStatus
-
-    endfunction
-
+		
+	endfunction
+	
 endnamespace
