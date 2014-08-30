@@ -52,7 +52,7 @@ namespace CodeGen.Engine
 	subroutine LoadExtensions
 		endparams
 	proc
-
+		
 		data ok, boolean, true
 		data extensionsFound, boolean, false
 		
@@ -63,19 +63,11 @@ namespace CodeGen.Engine
 		end
 		
 		;;Do we have a CODEGEN_EXTDIR environment variable?
-
-		data envVarValue, a256
-		data len, int
-		data location, String
-
-		xcall getlog("CODEGEN_EXTDIR",envVarValue,len)
-		if (len) then
-			location = %atrim(envVarValue)
-		else
+		data location, String, Environment.GetEnvironmentVariable("CODEGEN_EXTDIR")
+		if (String.IsNullOrWhiteSpace(location))
 		begin
-			;;No CODEGEN_EXTDIR so we'll look in CODEGEN_EXE
-			xcall getlog("CODEGEN_EXE",envVarValue,len)
-			location = %atrim(envVarValue)
+			;;No CODEGEN_EXTDIR so we'll use CODEGEN_EXE which is ALWAYS defined
+			location = Environment.GetEnvironmentVariable("CODEGEN_EXE")
 		end
 		
 		if (Env.DeveloperDebug)
@@ -137,7 +129,7 @@ namespace CodeGen.Engine
 			end
 			endtry
 		end
-
+		
 		if (Env.DeveloperDebug)
 		begin
 			if (!extensionsFound)
@@ -318,45 +310,34 @@ namespace CodeGen.Engine
 		
 		if (Env.DeveloperDebug)
 			Logging.Log("DEVDBG: Finished loading extensions")
-			
+		
 		xreturn
 		
 	endsubroutine
 	
 	function loadProformaExtensions, boolean
 		endparams
-		stack record
-			ok				,boolean
-			dirSpec			,a256
-			tmpLen			,i4
-			usingExtDir		,Boolean
-			assemblySpec	,String
-		endrecord
 	proc
-
-		ok = true
-
+		
+		data ok, boolean, true
+		
 		;;-------------------------------------------------------------------------
 		;;Do we have a custom assembly containing a BusinessCreft ProForma processor?
 		
-		usingExtDir = false
-
 		if (Env.DeveloperDebug)
 			Logging.DebugLog("DEVDBG: Attempting to load BusinessCraft Proforma extensions")
-			
+		
 		;;Do we have a CODEGEN_EXTDIR environment variable?
-		xcall getlog("CODEGEN_EXTDIR",dirSpec,tmpLen)
-		if (tmpLen) then
-			usingExtDir = true
-		else
+		data location, String, Environment.GetEnvironmentVariable("CODEGEN_EXTDIR")
+		if (String.IsNullOrWhiteSpace(location))
 		begin
-			;;No CODEGEN_EXTDIR so we'll look in CODEGEN_EXE
-			xcall getlog("CODEGEN_EXE",dirSpec,tmpLen)
+			;;No CODEGEN_EXTDIR so we'll use CODEGEN_EXE which is ALWAYS defined
+			location = Environment.GetEnvironmentVariable("CODEGEN_EXE")
 		end
-			
+		
 		;;Setup a file spec to locate custom token processor extensions
-		assemblySpec = Path.Combine(%atrim(dirSpec),"CodeGenProForma.dll")
-			
+		data assemblySpec, String, Path.Combine(location,"CodeGenProForma.dll")
+		
 		;;Search for and open custom token processor extensions
 		if (!File.Exists(assemblySpec)) then
 		begin
@@ -377,9 +358,9 @@ namespace CodeGen.Engine
 			end
 			endtry
 		end
-
+		
 		freturn ok
-
+		
 	endfunction
 	
 	subroutine ReportExtensions

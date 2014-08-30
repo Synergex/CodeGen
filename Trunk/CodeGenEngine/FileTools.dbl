@@ -46,22 +46,21 @@ import System.IO
 namespace CodeGen.Engine
 	
 	public class FileTools
-
+		
 		public static method ExpandLogicalName, boolean
 			required inout fileSpec, String
 			endparams
 		proc
 			data ok, boolean, true
 			data filePath, String, fileSpec.Trim()
+			
 			if (filePath.Contains(":") && !filePath.Contains("\"))
 			begin
 				;;Looks like we have a logical name, but is it JUST a logical name, or is there also a file name?
-				data envvar, a256
-				data len, int
-				xcall getlog(filePath.Substring(0,filePath.IndexOf(":")),envvar,len)
-				if (ok=(len>0))
+				data envvar, String, Environment.GetEnvironmentVariable(filePath.Substring(0,filePath.IndexOf(":")))
+				if (ok=(!String.IsNullOrWhiteSpace(envvar)))
 				begin
-					data pathPart, String, %atrim(envvar)
+					data pathPart, String, envvar.Trim()
 					if (!pathPart.EndsWith("\"))
 						pathPart += "\"
 					if (filePath.EndsWith(":")) then
@@ -79,7 +78,7 @@ namespace CodeGen.Engine
 			end
 			mreturn ok
 		endmethod
-
+		
 		public static method FileExists, boolean
 			required in fileSpec, String
 			endparams
@@ -112,12 +111,10 @@ namespace CodeGen.Engine
 			;;We may be dealing with a logical name
 			if (folder.EndsWith(":"))
 			begin
-				data trans, a256
-				data len, int
 				folder = folder.Replace(":","")
-				xcall getlog(folder,trans,len)
-				if (len) then
-					folder = trans(1:len)
+				data trans, String, Environment.GetEnvironmentVariable(folder)
+				if (!String.IsNullOrWhiteSpace(trans)) then
+					folder = trans.Trim()
 				else
 					filesExist = false
 			end
@@ -129,7 +126,7 @@ namespace CodeGen.Engine
 			end
 			mreturn filesExist
 		endmethod
-
+		
 		public static method FolderExists, boolean
 			required in folderSpec, String
 			endparams
@@ -139,12 +136,10 @@ namespace CodeGen.Engine
 			;;We may be dealing with a logical name
 			if (folder.EndsWith(":"))
 			begin
-				data trans, a256
-				data len, int
 				folder = folder.Replace(":","")
-				xcall getlog(folder,trans,len)
-				if (len) then
-					folder = trans(1:len)
+				data trans, String, Environment.GetEnvironmentVariable(folder)
+				if (!String.IsNullOrWhiteSpace(trans)) then
+					folder = trans.Trim()
 				else
 					exists = false
 			end
@@ -169,7 +164,7 @@ namespace CodeGen.Engine
 			end
 			mreturn matchingFiles
 		endmethod
-
+		
 		public static method GetFilePathsInFolder, @List<String>
 			required in folder, String
 			required in pattern, String
@@ -181,12 +176,10 @@ namespace CodeGen.Engine
 			;;We may be dealing with a logical name
 			if (pathname.EndsWith(":"))
 			begin
-				data trans, a256
-				data len, int
 				pathname = pathname.Replace(":","")
-				xcall getlog(pathname,trans,len)
-				if (len) then
-					pathname = trans(1:len)
+				data trans, String, Environment.GetEnvironmentVariable(pathname)
+				if (!String.IsNullOrWhiteSpace(trans)) then
+					pathname = trans.Trim()
 				else
 					filesExist = false
 			end
@@ -195,11 +188,11 @@ namespace CodeGen.Engine
 			begin
 				data matchingFile, String
 				foreach matchingFile in Directory.GetFiles(pathname,pattern)
-					matchingFiles.Add(matchingFile)
+				matchingFiles.Add(matchingFile)
 			end
 			mreturn matchingFiles
 		endmethod
-
+		
 		public static method CanCreateFileInFolder, boolean
 			required in location, String
 			endparams
@@ -220,7 +213,7 @@ namespace CodeGen.Engine
 			endtry
 			mreturn canCreateFile
 		endmethod
-
+		
 	endclass
 	
 endnamespace
