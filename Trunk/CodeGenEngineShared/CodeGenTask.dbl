@@ -1,0 +1,749 @@
+;;*****************************************************************************
+;;
+;; Title:       CodeGenTask.dbl
+;;
+;; Type:        Partial Class (see also CodeCenTaskStatus.dbl)
+;;
+;; Description: Represents the part of a task that a consuming application
+;;				would interact with in order to specify and process tasks.
+;;
+;; Date:        31st August 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+	public partial class CodeGenTask
+		
+.region "Constructors"
+
+		public method CodeGenTask
+			endparams
+		proc
+			
+		endmethod
+
+		public method CodeGenTask
+			required in aTemplate, String
+			required in aStructure, String
+			endparams
+		proc
+			mTemplates.Add(aTemplate)
+			mStructures.Add(aStructure)
+		endmethod
+
+.endregion
+
+.region "Task configuration properties"
+
+		private mDescription,					String,									"New Task"
+
+		;;Defaults for these can be provided by the task set
+		private mRepositoryMainFile,			String
+		private mRepositoryTextFile,			String
+		private mTemplateFolder,				String																; -i
+		private mOutputFolder,					String																; -o
+
+		;;Specific to each task
+		private mTemplates,						@List<String>,					new List<String>()					; -t
+		private mStructures,					@List<String>,					new List<String>()					; -s
+		private mAliases,						@List<String>,					new List<String>()					; -a
+		private mFileOverrides,					@List<String>,					new List<String>()					; -fo
+		private mSubsetFields,					@List<Tuple<String, String>>,	new List<Tuple<String, String>>()	; -fields
+		
+		private mUserTokens,					@List<UserToken>,				new List<UserToken>()				; -ut
+		private mUserTokenFile,					String																; -u
+
+		private mNamespace,						String																; -n
+		private mFieldPrefix,					String																; -prefix
+		private mSubset,						String																; -subset
+		private mRepositoryFile,				String																; -file
+		private mWindowScript,					String																; -w
+		private mSelectionWindowScript,			String																; -ws
+		private mProformaFile,					String																; -proforma
+		private mProFormaStructures,			@RpsStructureCollection
+
+		private mCharacterWidth,				int,									12							; -cw
+		private mCharacterHeight,				int,									25							; -ch
+		private mPrimaryKeyNumber,				int,									0							; -opk
+
+		private mReplaceFiles,					Boolean,								false						; -r
+		private mMultiWriteFiles,				Boolean,								false						; -mw
+		private mIgnoreScriptFieldAttributes,	Boolean,								false						; -wn
+		private mAlwaysLoadDefaultButtons,		Boolean,								false						; -ba
+		private mNeverLoadDefaultButtons,		Boolean,								false						; -bd
+		private mNeverLoadAnyButtons,			Boolean,								false						; -bn
+		private mIncludeOverlayFields,			Boolean,								false						; -f o
+		private mIgnoreExcludeLanguage,			Boolean,								false						; -f l
+		private mHonorExcludeToolkit,			Boolean,								false						; -f t
+		private mHonorExcludeReportWriter,		Boolean,								false						; -f r
+		private mHonorExcludeWeb,				Boolean,								false						; -f w
+		private mGroupFieldNoGroupPrefix,		Boolean,								false						; -g f
+		private mGroupNoExpand,					Boolean,								false						; -g i
+		private mGroupFieldNoRpsPrefix,			Boolean,								false						; -g r
+		private mMultipleStructures,			Boolean,								false						; -ms
+
+		;;; <summary>
+		;;; Description of this task
+		;;; </summary>
+		public property Description, String
+			method get
+			proc
+				mreturn mDescription
+			endmethod
+			method set
+			proc
+				mDescription = value
+			endmethod
+		endproperty
+	
+		public property RepositoryMainFile, String
+			method get
+			proc
+				mreturn mRepositoryMainFile
+			endmethod
+			method set
+			proc
+				mRepositoryMainFile = value
+			endmethod
+		endproperty
+		
+		public property RepositoryTextFile, String
+			method get
+			proc
+				mreturn mRepositoryTextFile
+			endmethod
+			method set
+			proc
+				mRepositoryTextFile = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Templates to process. Setting this property is mandatory for all operations.
+		;;; Setting this property is equivalent to using the -t command line option.
+		;;; </summary>
+		public property Templates, @List<String>
+			method get
+			proc
+				mreturn mTemplates
+			endmethod
+			method set
+			proc
+				mTemplates = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Strcutures to process. To process all structures add an * as the first structure name.
+		;;; Setting this property is equivalent to using the -s command line option.
+		;;; </summary>
+		public property Structures, @List<String>
+			method get
+			proc
+				mreturn mStructures
+			endmethod
+			method set
+			proc
+				mStructures = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Structure aliases. The number of aliases should be less than or equal to the
+		;;; number of structures being processed.
+		;;; Setting this property is equivalent to using the -a command line option.
+		;;; </summary>
+		public property Aliases, @List<String>
+			method get
+			proc
+				mreturn mAliases
+			endmethod
+			method set
+			proc
+				mAliases = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	File Overrides. This option allows you to specify which repository file definition is
+		;;; used for each structure that you are processing. This option is useful if the structure
+		;;; that you are using is assigned to multiple files, because CodeGen will by default will
+		;;; always select the first assigned file. The number of file overrides must be less than
+		;;; or equal to the number of structures being processed.
+		;;; Setting this property is equivalent to using the -fo command line option.
+		;;; </summary>
+		public property FileOverrides, @List<String>
+			method get
+			proc
+				mreturn mFileOverrides
+			endmethod
+			method set
+			proc
+				mFileOverrides = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Subset fields. This option allows you to specify which repository fields from the current
+		;;; structure or structures will be used to create a subset.
+		;;; Setting this property is equivalent to using the -fields command line option.
+		;;; </summary>
+		public property SubsetFields, @List<Tuple<String, String>>
+			method get
+			proc
+				mreturn mSubsetFields
+			endmethod
+			method set
+			proc
+				mSubsetFields = value
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;;	User defined tokens.
+		;;; Setting this property is equivalent to using the -ut command line option.
+		;;; </summary>
+		public property UserTokens, @List<UserToken>
+			method get
+			proc
+				mreturn mUserTokens
+			endmethod
+			method set
+			proc
+				mUserTokens = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	User defined token file. Optionally specify the path to a file which contains user
+		;;; defined token definitions.
+		;;; Setting this property is equivalent to using the -u command line option.
+		;;; </summary>
+		public property UserTokenFile, String
+			method get
+			proc
+				mreturn mUserTokenFile
+			endmethod
+			method set
+			proc
+				mUserTokenFile = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Template folder. If not specified then the folder defined by the environment variable
+		;;; CODEGEN_TPLDIR is used. If that is not defined then the current folder is used.
+		;;; Setting this property is equivalent to using the -i command line option.
+		;;; </summary>
+		public property TemplateFolder, String
+			method get
+			proc
+				mreturn mTemplateFolder
+			endmethod
+			method set
+			proc
+				mTemplateFolder = value.Trim()
+				if (!mTemplateFolder.EndsWith(":")&&!mTemplateFolder.EndsWith("\"))
+					mTemplateFolder = mTemplateFolder + "\"
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Output folder. If not specified then the folder defined by the environment variable
+		;;; CODEGEN_OUTDIR is used. If that is not defined then the current folder is used.
+		;;; Setting this property is equivalent to using the -o command line option.
+		;;; </summary>
+		public property OutputFolder, String
+			method get
+			proc
+				mreturn mOutputFolder
+			endmethod
+			method set
+			proc
+				mOutputFolder = value.trim()
+				if (!mOutputFolder.EndsWith(":")&&!mOutputFolder.EndsWith("\"))
+					mOutputFolder = mOutputFolder + "\"
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Namespace to be used if the <NAMESPACE> token is used. If not specified
+		;;; then the namespace defined by the environment variable SYNDEFNS is used.
+		;;; Setting this property is equivalent to using the -n command line option.
+		;;; </summary>
+		public property Namespace, String
+			method get
+			proc
+				mreturn mNamespace
+			endmethod
+			method set
+			proc
+				mNamespace = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Optional prefix to apply to field names when the <FIELD_NAME> token is used.
+		;;; Setting this property is equivalent to using the -prefix command line option.
+		;;; </summary>
+		public property FieldPrefix, String
+			method get
+			proc
+				mreturn mFieldPrefix
+			endmethod
+			method set
+			proc
+				mFieldPrefix = value.Trim()
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Subset of fields to use. Specify subsets in field user text strings with @SUB=name;
+		;;; syntax. This option is only valid when processing a single repository structure.
+		;;; Setting this property is equivalent to using the -subset command line option.
+		;;; </summary>
+		public property Subset, String
+			method get
+			proc
+				mreturn mSubset
+			endmethod
+			method set
+			proc
+				mSubset = value.ToUpper()
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Repository file name to process. Setting this property makes all of the structures
+		;;; associated with the file definition to be available during code generation, as if
+		;;; you had specified those structures via the Structures property and also set the
+		;;; MultipleStructures property to true.
+		;;; Setting this property is equivalent to using the -file command line option.
+		;;; </summary>
+		public property RepositoryFile, String
+			method get
+			proc
+				mreturn mRepositoryFile
+			endmethod
+			method set
+			proc
+				mRepositoryFile = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Process input from a UI Toolkit Window script file.  By default the fields and
+		;;; buttons collection will be based on the first input window found in the script file,
+		;;; but this can be overridden by specifying the name of number or name of the window to
+		;;; use following a # character after the script file name.
+		;;; Setting this property is equivalent to using the -w command line option.
+		;;; </summary>
+		public property WindowScript, String
+			method get
+			proc
+				mreturn mWindowScript
+			endmethod
+			method set
+			proc
+				mWindowScript = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Window script selection list processing. When this option is used CodeGen will examine
+		;;; any fields which have selection windows specified and will attempt to populate the field
+		;;; selections property based on the selection items defined in the named selection window.
+		;;; Setting this property is equivalent to using the -ws command line option.
+		;;; </summary>
+		public property SelectionWindowScript, String
+			method get
+			proc
+				mreturn mSelectionWindowScript
+			endmethod
+			method set
+			proc
+				mSelectionWindowScript = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Process input from a BusinessCraft Proforma file.
+		;;; Setting this property is equivalent to using the -proforma command line option.
+		;;; </summary>
+		public property ProformaFile, String
+			method get
+			proc
+				mreturn mProformaFile
+			endmethod
+			method set
+			proc
+				mProformaFile = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	
+		;;; 
+		;;; </summary>
+		public property ProformaStructures, @RpsStructureCollection
+			method get
+			proc
+				mreturn mProFormaStructures
+			endmethod
+			method set
+			proc
+				mProFormaStructures = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	The width of a character in pixels. The default width is 12 pixels.
+		;;; Setting this property is equivalent to using the -cw command line option.
+		;;; </summary>
+		public property CharacterWidth, int
+			method get
+			proc
+				mreturn mCharacterWidth
+			endmethod
+			method set
+			proc
+				mCharacterWidth = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	The height of a character (or row) in pixels. The default height is 25 pixels.
+		;;; Setting this property is equivalent to using the -ch command line option.
+		;;; </summary>
+		public property CharacterHeight, int
+			method get
+			proc
+				mreturn mCharacterHeight
+			endmethod
+			method set
+			proc
+				mCharacterHeight = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	The key number that should be treated as the primary key when using
+		;;; a primary key block.
+		;;; </summary>
+		public property PrimaryKeyNumber, int
+			method get
+			proc
+				mreturn mPrimaryKeyNumber
+			endmethod
+			method set
+			proc
+				mPrimaryKeyNumber = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Replace existing files. Default is to not replace existing files.
+		;;; Setting this property is equivalent to using the -r command line option.
+		;;; </summary>
+		public property ReplaceFiles, Boolean
+			method get
+			proc
+				mreturn mReplaceFiles
+			endmethod
+			method set
+			proc
+				mReplaceFiles = value
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;;	If multiple files with the same output file name are generared by the task
+		;;; the defailt bahavior is to not write the second and subsequent files to disk,
+		;;; so the first file generated will remain. This option allows you to specify
+		;;; that all generations of the file are written to disk, meaning the last
+		;;; generated file will remain. Setting this property is equivalent to using
+		;;; the -mw command line option.
+		;;; </summary>
+		public property MultiWriteFiles, Boolean
+			method get
+			proc
+				mreturn mMultiWriteFiles
+			endmethod
+			method set
+			proc
+				mMultiWriteFiles = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	When processing input from a UI Toolkit Window script file this option prevents script
+		;;; file input window field attributes from being used to override repository field attributes.
+		;;; This allows you to generate code based on only the fields listed in an input window, but
+		;;; using only the repository field definitions.
+		;;; Setting this property is equivalent to using the -wn command line option.
+		;;; </summary>
+		public property IgnoreScriptFieldAttributes, Boolean
+			method get
+			proc
+				mreturn mIgnoreScriptFieldAttributes
+			endmethod
+			method set
+			proc
+				mIgnoreScriptFieldAttributes = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Always use the default buttons defined in DefaultButtons.xml.
+		;;; Setting this property is equivalent to using the -b a command line option.
+		;;; </summary>
+		public property AlwaysLoadDefaultButtons, Boolean
+			method get
+			proc
+				mreturn mAlwaysLoadDefaultButtons
+			endmethod
+			method set
+			proc
+				mAlwaysLoadDefaultButtons = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Never use the default buttons defined in DefaultButtons.xml.
+		;;; Setting this property is equivalent to using the -b d command line option.
+		;;; </summary>
+		public property NeverLoadDefaultButtons, Boolean
+			method get
+			proc
+				mreturn mNeverLoadDefaultButtons
+			endmethod
+			method set
+			proc
+				mNeverLoadDefaultButtons = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Never load any buttons (DefaultButtons.xml or window script).
+		;;; Setting this property is equivalent to using the -b n command line option.
+		;;; </summary>
+		public property NeverLoadAnyButtons, Boolean
+			method get
+			proc
+				mreturn mNeverLoadAnyButtons
+			endmethod
+			method set
+			proc
+				mNeverLoadAnyButtons = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Include overlay fields.
+		;;; Setting this property is equivalent to using the -f o command line option.
+		;;; </summary>
+		public property IncludeOverlayFields, Boolean
+			method get
+			proc
+				mreturn mIncludeOverlayFields
+			endmethod
+			method set
+			proc
+				mIncludeOverlayFields = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Include fields which are 'Excluded by Language'.
+		;;; Setting this property is equivalent to using the -f l command line option.
+		;;; </summary>
+		public property IgnoreExcludeLanguage, Boolean
+			method get
+			proc
+				mreturn mIgnoreExcludeLanguage
+			endmethod
+			method set
+			proc
+				mIgnoreExcludeLanguage = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Exclude fields which are 'Excluded by Toolkit'.
+		;;; Setting this property is equivalent to using the -f t command line option.
+		;;; </summary>
+		public property HonorExcludeToolkit, Boolean
+			method get
+			proc
+				mreturn mHonorExcludeToolkit
+			endmethod
+			method set
+			proc
+				mHonorExcludeToolkit = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Exclude fields which are 'Excluded by ReportWriter'.
+		;;; Setting this property is equivalent to using the -f r command line option.
+		;;; </summary>
+		public property HonorExcludeReportWriter, Boolean
+			method get
+			proc
+				mreturn mHonorExcludeReportWriter
+			endmethod
+			method set
+			proc
+				mHonorExcludeReportWriter = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Exclude fields which are 'Excluded by Web'.
+		;;; Setting this property is equivalent to using the -f w command line option.
+		;;; </summary>
+		public property HonorExcludeWeb, Boolean
+			method get
+			proc
+				mreturn mHonorExcludeWeb
+			endmethod
+			method set
+			proc
+				mHonorExcludeWeb = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Don't prefix group fields with group name.
+		;;; Setting this property is equivalent to using the -g f command line option.
+		;;; </summary>
+		public property GroupFieldNoGroupPrefix, Boolean
+			method get
+			proc
+				mreturn mGroupFieldNoGroupPrefix
+			endmethod
+			method set
+			proc
+				mGroupFieldNoGroupPrefix = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Don't use repository group field prefix.
+		;;; Setting this property is equivalent to using the -g r command line option.
+		;;; </summary>
+		public property GroupFieldNoRpsPrefix, Boolean
+			method get
+			proc
+				mreturn mGroupFieldNoRpsPrefix
+			endmethod
+			method set
+			proc
+				mGroupFieldNoRpsPrefix = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Don't expand implicit groups to individual fields.
+		;;; Setting this property is equivalent to using the -g i command line option.
+		;;; </summary>
+		public property GroupNoExpand, Boolean
+			method get
+			proc
+				mreturn mGroupNoExpand
+			endmethod
+			method set
+			proc
+				mGroupNoExpand = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;	Multiple Structures. Specifies that the structures specified via the Structures
+		;;; property should all be available to templates being processed at the same time.
+		;;; Setting this property is equivalent to using the -ms command line option.
+		;;; </summary>
+		public property MultipleStructures, Boolean
+			method get
+			proc
+				mreturn mMultipleStructures
+			endmethod
+			method set
+			proc
+				mMultipleStructures = value
+			endmethod
+		endproperty
+
+.endregion
+
+
+.region "Events"
+		
+		public delegate StartingTaskEventHandler, void
+			task, @CodeGenTask
+		enddelegate
+
+		public delegate TaskCompleteEventHandler, void
+			task, @CodeGenTask
+		enddelegate
+		
+		public event StartingTask, @StartingTaskEventHandler
+		public event TaskComplete, @TaskCompleteEventHandler
+		
+		;TODO: When back into a single assembly, should be internal
+		public method RaiseStartingTask, void
+		proc
+			if (StartingTask!=^null)
+				raiseevent(StartingTask,this)
+		endmethod
+
+		;TODO: When back into a single assembly, should be internal
+		public method RaiseTaskComplete, void
+		proc
+			if (TaskComplete!=^null)
+				raiseevent(TaskComplete,this)
+		endmethod
+		
+.endregion
+
+	endclass
+	
+endnamespace
+

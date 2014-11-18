@@ -1,0 +1,482 @@
+;; *****************************************************************************
+;; 
+;;  Title:       ExpressionEvaluatorKeySegmentLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Evaluates key segment loop expression nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import CodeGen.RepositoryAPI
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class ExpressionEvaluator
+
+        keySegmentLoopExpressionEvaluators, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
+
+        private method registerSegmentLoopExpressions, void
+            endparams
+        proc
+			
+			keySegmentLoopExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
+			
+			keySegmentLoopExpressionEvaluators.Add("INCREMENT", evaluateSegmentIncrement)
+            keySegmentLoopExpressionEvaluators.Add("NOINCREMENT", evaluateSegmentNoIncrement)
+            keySegmentLoopExpressionEvaluators.Add("SEG_ALPHA", evaluateSegmentAlpha)
+            keySegmentLoopExpressionEvaluators.Add("SEG_ASCENDING", evaluateSegmentAscending)
+            keySegmentLoopExpressionEvaluators.Add("SEG_AUTO_SEQUENCE", evaluateSegmentAutoSequence)
+            keySegmentLoopExpressionEvaluators.Add("SEG_AUTO_TIMESTAMP", evaluateSegmentAutoTimestamp)
+            keySegmentLoopExpressionEvaluators.Add("SEG_DECIMAL", evaluateSegmentDecimal)
+            keySegmentLoopExpressionEvaluators.Add("SEG_DESCENDING", evaluateSegmentDescending)
+            keySegmentLoopExpressionEvaluators.Add("SEG_NOCASE", evaluateSegmentNoCaseAlpha)
+            keySegmentLoopExpressionEvaluators.Add("SEG_SIGNED", evaluateSegmentSignedInteger)
+            keySegmentLoopExpressionEvaluators.Add("SEG_TYPE_EXTERNAL", evaluateSegmentTypeExternal)
+            keySegmentLoopExpressionEvaluators.Add("SEG_TYPE_FIELD", evaluateSegmentTypeField)
+            keySegmentLoopExpressionEvaluators.Add("SEG_TYPE_LITERAL", evaluateSegmentTypeLiteral)
+            keySegmentLoopExpressionEvaluators.Add("SEG_TYPE_RECNUM", evaluateSegmentTypeRecNum)
+            keySegmentLoopExpressionEvaluators.Add("SEG_UNSIGNED", evaluateSegmentTypeSignedInteger)
+            keySegmentLoopExpressionEvaluators.Add("ALLOW_LIST", evaluateFieldAllowList)
+            keySegmentLoopExpressionEvaluators.Add("ALPHA", evaluateFieldAlpha)
+            keySegmentLoopExpressionEvaluators.Add("ALTERNATE_NAME", evaluateFieldAlternateName)
+            keySegmentLoopExpressionEvaluators.Add("ARRAY", evaluateFieldArray)
+            keySegmentLoopExpressionEvaluators.Add("ARRIVE", evaluateFieldArrive)
+            keySegmentLoopExpressionEvaluators.Add("BINARY", evaluateFieldBinary)
+            keySegmentLoopExpressionEvaluators.Add("BOLD", evaluateFieldBold)
+            keySegmentLoopExpressionEvaluators.Add("BOOLEAN", evaluateFieldBoolean)
+            keySegmentLoopExpressionEvaluators.Add("BREAK", evaluateFieldBreak)
+            keySegmentLoopExpressionEvaluators.Add("BREAK_ALWAYS", evaluateFieldBreakAlways)
+            keySegmentLoopExpressionEvaluators.Add("BREAK_CHANGE", evaluateFieldBreakChange)
+            keySegmentLoopExpressionEvaluators.Add("BREAK_RETURN", evaluateFieldBreakReturn)
+            keySegmentLoopExpressionEvaluators.Add("BZERO", evaluateFieldBzero)
+            keySegmentLoopExpressionEvaluators.Add("CHANGE", evaluateFieldChange)
+            keySegmentLoopExpressionEvaluators.Add("CHECKBOX", evaluateFieldCheckBox)
+            keySegmentLoopExpressionEvaluators.Add("COERCEBOOLEAN", evaluateFieldCoerceBoolean)
+            keySegmentLoopExpressionEvaluators.Add("COMBOBOX", evaluateFieldComboBox)
+            keySegmentLoopExpressionEvaluators.Add("DATE", evaluateFieldDate)
+            keySegmentLoopExpressionEvaluators.Add("DATE_JULIAN", evaluateFieldDateJulian)
+            keySegmentLoopExpressionEvaluators.Add("DATE_NOT_JULIAN", evaluateFieldDateNotJulian)
+            keySegmentLoopExpressionEvaluators.Add("DATE_NOT_NULLABLE", evaluateFieldDateNotNullable)
+            keySegmentLoopExpressionEvaluators.Add("DATE_NOT_PERIOD", evaluateFieldDateNotPeriod)
+            keySegmentLoopExpressionEvaluators.Add("DATE_NOT_YMD", evaluateFieldDateNotYMD)
+            keySegmentLoopExpressionEvaluators.Add("DATE_NOT_YYYYMMDD", evaluateFieldDateNotYYYYMMDD)
+            keySegmentLoopExpressionEvaluators.Add("DATE_NULLABLE", evaluateFieldDateNullable)
+            keySegmentLoopExpressionEvaluators.Add("DATE_PERIOD", evaluateFieldDatePeriod)
+            keySegmentLoopExpressionEvaluators.Add("DATE_YMD", evaluateFieldDateYMD)
+            keySegmentLoopExpressionEvaluators.Add("DATE_YYJJJ", evaluateFieldDayeYYJJJ)
+            keySegmentLoopExpressionEvaluators.Add("DATE_YYMMDD", evaluateFieldDateYYMMDD)
+            keySegmentLoopExpressionEvaluators.Add("DATE_YYPP", evaluateFieldDateYYPP)
+            keySegmentLoopExpressionEvaluators.Add("DATE_YYYYJJJ", evaluateFieldDateYYYYJJJ)
+            keySegmentLoopExpressionEvaluators.Add("DATE_YYYYMMDD", evaluateFieldDateYYYYMMDD)
+            keySegmentLoopExpressionEvaluators.Add("DATE_YYYYPP", evaluateFieldYYYYPP)
+            keySegmentLoopExpressionEvaluators.Add("DATEORTIME", evaluateFieldDateOrTime)
+            keySegmentLoopExpressionEvaluators.Add("DATETODAY", evaluateFieldDateToday)
+            keySegmentLoopExpressionEvaluators.Add("DECIMAL", evaluateFieldDecimal)
+            keySegmentLoopExpressionEvaluators.Add("DEFAULT", evaluateFieldDefault)
+            keySegmentLoopExpressionEvaluators.Add("DESCRIPTION", evaluateFieldDescription)
+            keySegmentLoopExpressionEvaluators.Add("DISABLED", evaluateFieldDisabled)
+            keySegmentLoopExpressionEvaluators.Add("DISPLAY", evaluateFieldDisplay)
+            keySegmentLoopExpressionEvaluators.Add("DISPLAY_LENGTH", evaluateFieldDisplayLength)
+            keySegmentLoopExpressionEvaluators.Add("DRILL", evaluateFieldDrill)
+            keySegmentLoopExpressionEvaluators.Add("ECHO", evaluateFieldEcho)
+            keySegmentLoopExpressionEvaluators.Add("EDITFORMAT", evaluateFieldEditFormat)
+            keySegmentLoopExpressionEvaluators.Add("ENABLED", evaluateFieldEnabled)
+            keySegmentLoopExpressionEvaluators.Add("ENUM", evaluateFieldEnum)
+            keySegmentLoopExpressionEvaluators.Add("ENUMERATED", evaluateFieldEnumerated)
+            keySegmentLoopExpressionEvaluators.Add("FIELD_POSITION", evaluateFieldPosition)
+            keySegmentLoopExpressionEvaluators.Add("FORMAT", evaluateFieldFormat)
+            keySegmentLoopExpressionEvaluators.Add("GROUP_EXPAND", evaluateFieldGroupExpand)
+            keySegmentLoopExpressionEvaluators.Add("GROUP_NO_EXPAND", evaluateFieldGroupNoExpand)
+            keySegmentLoopExpressionEvaluators.Add("HEADING", evaluateFieldHeading)
+            keySegmentLoopExpressionEvaluators.Add("HELPID", evaluateFieldHelpID)
+            keySegmentLoopExpressionEvaluators.Add("HYPERLINK", evaluateFieldHyperlink)
+            keySegmentLoopExpressionEvaluators.Add("I1", evaluateFieldI1)
+            keySegmentLoopExpressionEvaluators.Add("I124", evaluateFieldI123)
+            keySegmentLoopExpressionEvaluators.Add("I2", evaluateFieldI2)
+            keySegmentLoopExpressionEvaluators.Add("I4", evaluateFieldI4)
+            keySegmentLoopExpressionEvaluators.Add("I8", evaluateFieldI8)
+            keySegmentLoopExpressionEvaluators.Add("INFOLINE", evaluateFieldInfoLine)
+            keySegmentLoopExpressionEvaluators.Add("INPUT_CENTER", evaluateFieldInputCenter)
+            keySegmentLoopExpressionEvaluators.Add("INPUT_LEFT", evaluateFieldInputLeft)
+            keySegmentLoopExpressionEvaluators.Add("INPUT_RIGHT", evaluateFieldInputRight)
+            keySegmentLoopExpressionEvaluators.Add("INTEGER", evaluateFieldInteger)
+            keySegmentLoopExpressionEvaluators.Add("LANGUAGE", evaluateFieldLanguage)
+            keySegmentLoopExpressionEvaluators.Add("LEAVE", evaluateFieldLeave)
+            keySegmentLoopExpressionEvaluators.Add("LONGDESC", evaluateFieldLongDescription)
+            keySegmentLoopExpressionEvaluators.Add("MAPPED", evaluateFieldMapped)
+            keySegmentLoopExpressionEvaluators.Add("MAPPEDSTR", evaluateFieldMappedStr)
+            keySegmentLoopExpressionEvaluators.Add("NEGATIVE_ALLOWED", evaluateFieldNegativeAllowed)
+            keySegmentLoopExpressionEvaluators.Add("NEGATIVE_ORZERO", evaluateFieldNegativeOrZero)
+            keySegmentLoopExpressionEvaluators.Add("NEGATIVE_REQUIRED", evaluateFieldNegativeRequired)
+            keySegmentLoopExpressionEvaluators.Add("NOALLOW_LIST", evaluateFieldNoAllowList)
+            keySegmentLoopExpressionEvaluators.Add("NOALTERNATE_NAME", evaluateFieldNoAlternateName)
+            keySegmentLoopExpressionEvaluators.Add("NOARRIVE", evaluateFieldNoArrive)
+            keySegmentLoopExpressionEvaluators.Add("NOBREAK", evaluateFieldNoBreak)
+            keySegmentLoopExpressionEvaluators.Add("NOCHANGE", evaluateFieldNoChange)
+            keySegmentLoopExpressionEvaluators.Add("NOCHECKBOX", evaluateFieldNoCheckBox)
+            keySegmentLoopExpressionEvaluators.Add("NOCOERCEBOOLEAN", evaluateFieldNoCoerceBoolean)
+            keySegmentLoopExpressionEvaluators.Add("NODEFAULT", evaluateFieldNoDefault)
+            keySegmentLoopExpressionEvaluators.Add("NODESCRIPTION", evaluateFieldNoDescription)
+            keySegmentLoopExpressionEvaluators.Add("NODISPLAY", evaluateFieldNoDisplay)
+            keySegmentLoopExpressionEvaluators.Add("NODISPLAY_LENGTH", evaluateFieldNoDisplayLength)
+            keySegmentLoopExpressionEvaluators.Add("NODRILL", evaluateFieldNoDrill)
+            keySegmentLoopExpressionEvaluators.Add("NOECHO", evaluateFieldNoEcho)
+            keySegmentLoopExpressionEvaluators.Add("NOEDITFORMAT", evaluateFieldNoEditFormat)
+            keySegmentLoopExpressionEvaluators.Add("NOFORMAT", evaluateFieldNoFormat)
+            keySegmentLoopExpressionEvaluators.Add("NOHELPID", evaluateFieldNoHelpID)
+            keySegmentLoopExpressionEvaluators.Add("NOHYPERLINK", evaluateFieldNoHyperlink)
+            keySegmentLoopExpressionEvaluators.Add("NOINFOLINE", evaluateFieldNoInfoLine)
+            keySegmentLoopExpressionEvaluators.Add("NOLANGUAGE", evaluateFieldNoLanguage)
+            keySegmentLoopExpressionEvaluators.Add("NOLEAVE", evaluateFieldNoLeave)
+            keySegmentLoopExpressionEvaluators.Add("NOLONGDESC", evaluateFieldNoLongDescription)
+            keySegmentLoopExpressionEvaluators.Add("NONEGATIVE", evaluateFieldNoNegative)
+            keySegmentLoopExpressionEvaluators.Add("NOPAINTCHAR", evaluateFieldNoPaintChar)
+            keySegmentLoopExpressionEvaluators.Add("NOPRECISION", evaluateFieldNoPrecision)
+            keySegmentLoopExpressionEvaluators.Add("NOPROMPT", evaluateFieldNoPrompt)
+            keySegmentLoopExpressionEvaluators.Add("NORANGE", evaluateFieldNoRange)
+            keySegmentLoopExpressionEvaluators.Add("NOREPORT", evaluateFieldNoReport)
+            keySegmentLoopExpressionEvaluators.Add("NOSELECTIONS", evaluateFieldNoSelections)
+            keySegmentLoopExpressionEvaluators.Add("NOSELWND", evaluateFieldNoSelWnd)
+            keySegmentLoopExpressionEvaluators.Add("NOTALPHA", evaluateFieldNotAlpha)
+            keySegmentLoopExpressionEvaluators.Add("NOTARRAY", evaluateFieldNotArray)
+            keySegmentLoopExpressionEvaluators.Add("NOTBINARY", evaluateFieldNotBinary)
+            keySegmentLoopExpressionEvaluators.Add("NOTBOOLEAN", evaluateFieldNotBoolean)
+            keySegmentLoopExpressionEvaluators.Add("NOTBZERO", evaluateFieldNotBzero)
+            keySegmentLoopExpressionEvaluators.Add("NOTDATE", evaluateFieldNotDate)
+            keySegmentLoopExpressionEvaluators.Add("NOTDATEORTIME", evaluateFieldNotDateOrTime)
+            keySegmentLoopExpressionEvaluators.Add("NOTDATETODAY", evaluateFieldNotDateToday)
+            keySegmentLoopExpressionEvaluators.Add("NOTDECIMAL", evaluateFieldNotDecimal)
+            keySegmentLoopExpressionEvaluators.Add("NOTENUM", evaluateFieldNotEnum)
+            keySegmentLoopExpressionEvaluators.Add("NOTENUMERATED", evaluateFieldNotEnumerated)
+            keySegmentLoopExpressionEvaluators.Add("NOTIMEOUT", evaluateFieldNoTimeout)
+            keySegmentLoopExpressionEvaluators.Add("NOTINTEGER", evaluateFieldNotInteger)
+            keySegmentLoopExpressionEvaluators.Add("NOTNUMERIC", evaluateFieldNotNumeric)
+            keySegmentLoopExpressionEvaluators.Add("NOTOOLKIT", evaluateFieldNoToolkit)
+            keySegmentLoopExpressionEvaluators.Add("NOTOVERLAY", evaluateFieldNotOverlay)
+            keySegmentLoopExpressionEvaluators.Add("NOTPKSEGMENT", evaluateFieldNotPkSegment)
+            keySegmentLoopExpressionEvaluators.Add("NOTRADIOBUTTONS", evaluateFieldNotRadioButtons)
+            keySegmentLoopExpressionEvaluators.Add("NOTSTRUCTFIELD", evaluateFieldNotStructField)
+            keySegmentLoopExpressionEvaluators.Add("NOTTIME", evaluateFieldNotTime)
+            keySegmentLoopExpressionEvaluators.Add("NOTUPPERCASE", evaluateFieldNotUppercase)
+            keySegmentLoopExpressionEvaluators.Add("NOTUSER", evaluateFieldNotUser)
+            keySegmentLoopExpressionEvaluators.Add("NOTUSERTIMESTAMP", evaluateFieldNotUserTimeStamp)
+            keySegmentLoopExpressionEvaluators.Add("NOUSERTEXT", evaluateFieldNoUserText)
+            keySegmentLoopExpressionEvaluators.Add("NOVIEW_LENGTH", evaluateFieldNoViewLength)
+            keySegmentLoopExpressionEvaluators.Add("NOWEB", evaluateFieldNoWeb)
+            keySegmentLoopExpressionEvaluators.Add("NUMERIC", evaluateFieldNumeric)
+            keySegmentLoopExpressionEvaluators.Add("OCNATIVE", evaluateFieldOcNative)
+            keySegmentLoopExpressionEvaluators.Add("OCOBJECT", evaluateFieldOcObject)
+            keySegmentLoopExpressionEvaluators.Add("OPTIONAL", evaluateFieldOptional)
+            keySegmentLoopExpressionEvaluators.Add("OVERLAY", evaluateFieldOverlay)
+            keySegmentLoopExpressionEvaluators.Add("PAINTCHAR", evaluateFieldPaintChar)
+            keySegmentLoopExpressionEvaluators.Add("PKSEGMENT", evaluateFieldPkSegment)
+            keySegmentLoopExpressionEvaluators.Add("PRECISION", evaluateFieldPrecision)
+            keySegmentLoopExpressionEvaluators.Add("PROMPT", evaluateFieldPrompt)
+            keySegmentLoopExpressionEvaluators.Add("PROMPT_POSITION", evaluateFieldPromptPosition)
+            keySegmentLoopExpressionEvaluators.Add("RADIOBUTTONS", evaluateFieldRadioButtons)
+            keySegmentLoopExpressionEvaluators.Add("RANGE", evaluateFieldRange)
+            keySegmentLoopExpressionEvaluators.Add("READONLY", evaluateFieldReadOnly)
+            keySegmentLoopExpressionEvaluators.Add("READWRITE", evaluateFieldReadWrite)
+            keySegmentLoopExpressionEvaluators.Add("REPORT", evaluateFieldReport)
+            keySegmentLoopExpressionEvaluators.Add("REPORT_CENTER", evaluateFieldReportCenter)
+            keySegmentLoopExpressionEvaluators.Add("REPORT_LEFT", evaluateFieldReportLeft)
+            keySegmentLoopExpressionEvaluators.Add("REPORT_RIGHT", evaluateFieldReportRight)
+            keySegmentLoopExpressionEvaluators.Add("REQUIRED", evaluateFieldRequired)
+            keySegmentLoopExpressionEvaluators.Add("REVERSE", evaluateFieldReverse)
+            keySegmentLoopExpressionEvaluators.Add("SELECTIONS", evaluateFieldSelections)
+            keySegmentLoopExpressionEvaluators.Add("SELWND", evaluateFieldSelWnd)
+            keySegmentLoopExpressionEvaluators.Add("STRUCTFIELD", evaluateFieldStructField)
+            keySegmentLoopExpressionEvaluators.Add("TEXTBOX", evaluateFieldTextBox)
+            keySegmentLoopExpressionEvaluators.Add("TIME", evaluateFieldTime)
+            keySegmentLoopExpressionEvaluators.Add("TIME_HHMM", evaluateFieldTimeHHMM)
+            keySegmentLoopExpressionEvaluators.Add("TIME_HHMMSS", evaluateFieldTimeHHMMSS)
+            keySegmentLoopExpressionEvaluators.Add("TIMENOW", evaluateFieldTimeNow)
+            keySegmentLoopExpressionEvaluators.Add("TIMEOUT", evaluateFieldTimeout)
+            keySegmentLoopExpressionEvaluators.Add("TOOLKIT", evaluateFieldToolkit)
+            keySegmentLoopExpressionEvaluators.Add("UNDERLINE", evaluateFieldUnderline)
+            keySegmentLoopExpressionEvaluators.Add("UPPERCASE", evaluateFieldUppercase)
+            keySegmentLoopExpressionEvaluators.Add("USER", evaluateFieldUser)
+            keySegmentLoopExpressionEvaluators.Add("USERTEXT", evaluateFieldUserText)
+            keySegmentLoopExpressionEvaluators.Add("USERTIMESTAMP", evaluateFieldUserTimeStamp)
+            keySegmentLoopExpressionEvaluators.Add("VIEW_LENGTH", evaluateFieldViewLength)
+			keySegmentLoopExpressionEvaluators.Add("WEB", evaluateFieldWeb)
+
+        endmethod
+		
+		;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; Key segment loop expressions
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="tkn"></param>
+        ;;;  <param name="file"></param>
+        ;;;  <param name="loops"></param>
+        ;;;  <param name="specific"></param>
+        ;;;  <returns></returns>
+        public static method EvaluateSegmentLoopExpression, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<RpsStructure, RpsKey, RpsKeySegment, int, RpsField, boolean> 
+            endparams
+		proc
+			;;Find the nearest key segment loop
+            lambda isSegmentLoop(node)
+            begin
+                mreturn node .is. SegmentLoopNode
+            end
+			data loop, @SegmentLoopNode, ^as(loops.First(isSegmentLoop), SegmentLoopNode)
+
+			;; Find the field associated with each segment
+			lambda isSegmentField(field)
+            begin
+                mreturn field.Name == loop.CurrentSegment.Field
+            end
+			loop.AssociatedField = file.Context.CurrentStructure.Fields.First(isSegmentField)
+			
+			mreturn specific(file.Context.CurrentStructure, loop.CurrentKey, loop.CurrentSegment, loop.CurrentIndex, loop.AssociatedField)
+
+		endmethod
+
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+
+        private static method evaluateSegmentIncrement, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (field.AutoIncrement)
+            end
+			mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentNoIncrement, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (!field.AutoIncrement)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentAlpha, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.DataType == RpsKeySegmentDataType.Alpha)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentAscending, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.Order == RpsKeySegmentOrder.Ascending)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentAutoSequence, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.DataType == RpsKeySegmentDataType.AutoSequence)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentAutoTimestamp, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.DataType == RpsKeySegmentDataType.AutoTimestamp)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentDecimal, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.DataType == RpsKeySegmentDataType.Decimal)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentDescending, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.Order == RpsKeySegmentOrder.Descending)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentNoCaseAlpha, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.DataType == RpsKeySegmentDataType.NoCaseAlpha)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentSignedInteger, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.DataType == RpsKeySegmentDataType.SignedInteger)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentTypeExternal, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.SegmentType == RpsKeySegmentType.External)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentTypeField, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.SegmentType == RpsKeySegmentType.Field)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentTypeLiteral, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.SegmentType == RpsKeySegmentType.Literal)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentTypeRecNum, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.SegmentType == RpsKeySegmentType.RecordNumber)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateSegmentTypeSignedInteger, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                mreturn (segment.DataType == RpsKeySegmentDataType.UnsignedInteger)
+            end
+            mreturn EvaluateSegmentLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+	
+	endclass
+
+endnamespace
+

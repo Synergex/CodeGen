@@ -1,0 +1,187 @@
+;;*****************************************************************************
+;;
+;; Title:       UserTokenCollection.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a collection of user-defined tokens
+;;
+;; Date:        9th November 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections.Generic
+import System.Collections.ObjectModel
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+	public static sealed class UserTokenCollection
+
+		;;; <summary>
+		;;;	This method loads user defined tokens in a token file into the context.UserTokens collection.
+		;;; </summary>
+		public static method LoadTokensFromFile, boolean
+			required in context, @CodeGenContext
+			endparams
+		proc
+
+			data errStatus	,boolean, false
+			data tokenFile	,String, context.CurrentTask.UserTokenFile.Trim()
+			data tmpch		,int
+			
+			context.CurrentTask.VerboseLog("Loading user defined tokens from " + context.CurrentTask.UserTokenFile,true,false)				
+
+			try
+				open(tmpch=0,i:s,tokenFile)
+			catch (ex)
+				errStatus = context.CurrentTask.ErrorLog("Failed to open user defined token file " + tokenFile)
+			endtry
+			
+			if (!errStatus)
+			begin
+				data recCount, int, 0
+				repeat
+				begin
+					data tmpbuf		,a256
+					data pos1		,int, 0
+					data pos2		,int, 0
+					data pos3		,int, 0
+					data pos4		,int, 0
+					data lastRec	,boolean, false
+					
+					begin
+						reads(tmpch,tmpbuf,eout)
+						exit
+					eout,       if (rdlen()) then
+							lastRec = true
+						else
+							exitloop
+					end
+					
+					;;Ignore blank lines
+					if (!tmpbuf)
+					begin
+						if (lastRec) then
+							exitloop
+						else
+							nextloop
+					end
+					
+					;;Ignore comment lines
+					if (tmpbuf==";")
+					begin
+						if (lastRec) then
+							exitloop
+						else
+							nextloop
+					end
+					
+					recCount += 1
+					
+					pos1=instr(1,tmpbuf,"<")
+					if (pos1) pos2=instr(pos1,tmpbuf,">")
+					if (pos2) pos3=instr(pos2,tmpbuf,"</")
+					if (pos3) pos4=instr(pos3,tmpbuf,">")
+					
+					;;Make sure the record looks like a open/close tag record
+					if ((!pos1)||(!pos2)||(!pos3)||(!pos4))
+					begin
+						errStatus = context.CurrentTask.ErrorLog("Record " + string(recCount) + " in user defined token file is invalid!")
+						exitloop
+					end
+					
+					;;Make sure the open and close tags match
+					if (tmpbuf(pos1+1,pos2-1)!=tmpbuf(pos3+2,pos4-1))
+					begin
+						errStatus = context.CurrentTask.ErrorLog("Record " + string(recCount) + " in user defined token file is invalid!")
+						exitloop
+					end
+					
+					;;Store details of this user token
+					context.UserTokens.Add(new UserToken(tmpbuf(pos1+1,pos2-1),tmpbuf(pos2+1,pos3-1)))
+					
+					if (lastRec)
+						exitloop
+				end
+			end
+			
+			if (tmpch&&%chopen(tmpch))
+				close tmpch
+			
+			mreturn errStatus
+
+		endmethod
+
+		;;; <summary>
+		;;; This method adds user defined tokens passed in via a papameter to the tokens already present in context.UserTokens.
+		;;; If a named token already exists then its value is replaced.
+		;;; </summary>
+		public static method AddTokens, void
+			required in tokens, @List<UserToken>
+			required in task, @CodeGenTask
+			required in context, @CodeGenContext
+			endparams
+		proc
+			data token, @UserToken
+			foreach token in tokens
+			begin
+				;;Make sure names are always upper case
+				token.Name = token.Name.ToUpper()
+					
+				;;Does the token already exist?
+				data existingToken, @UserToken
+				data existingTokenUpdated, Boolean, false
+				foreach existingToken in context.UserTokens
+				begin
+					if existingToken.Name.Equals(token.Name)
+					begin
+						;;Yes, update it's value
+						existingToken.value = token.value
+						existingTokenUpdated = true
+						exitloop
+					end
+				end
+				;;No, add the new token
+				if (!existingTokenUpdated)
+					context.UserTokens.Add(token)
+			end
+
+		endmethod
+		
+	endclass
+
+endnamespace

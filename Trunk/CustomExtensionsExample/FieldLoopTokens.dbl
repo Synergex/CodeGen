@@ -1,0 +1,64 @@
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CustomExtensionsExample
+
+	;;To implement a custom expansion token you must provide a class that implements the CodeGenParser.IExpansionToken interface.
+	;;The class MUST have a default constructor. By default classes have an implicit default constructor, but if you need to
+	;;explicitly define a constructor, make sure you don't define any parameters.
+	;;For example, if you wanted to build an expression to return the name of a field in parentheses
+	;;you could do something like this:
+
+	public class FieldNameInParens implements IExpansionToken
+		
+		public property TokenName, String
+			method get
+			proc
+				mreturn "FIELD_NAME_IN_PARENS"
+			endmethod
+		endproperty
+		
+		public property Description, String
+			method get
+			proc
+				mreturn "Returns the name of the current field surrounded by parentheses."
+			endmethod
+		endproperty
+		
+		public property Validity, TokenValidity
+			method get
+			proc
+				mreturn TokenValidity.FieldLoop
+			endmethod
+		endproperty
+		
+		public property TokenCase, TokenCaseMode
+			method get
+			proc
+				mreturn TokenCaseMode.AllCasingOptions
+			endmethod
+		endproperty
+		
+		public method Expand, String
+			tkn, @Token
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode>
+			endparams
+		proc
+			lambda process(str, field) String.Format("({0})",TokenExpander.ChangeResultCase(field.Name, tkn.Modifier))
+			mreturn TokenExpander.ExpandFieldLoopToken(tkn, file, loops, process)
+		endmethod
+		
+		;;You could then use this token in field loops, like this:
+		;;
+		;;		<FIELD_LOOP>
+		;;		Field <FIELD_NAME>, when placed in parentheses, looks like this: <FIELD_NAME_IN_PARENS>
+		;;		</FIELD_LOOP>
+		;;
+		
+	endclass
+
+endnamespace

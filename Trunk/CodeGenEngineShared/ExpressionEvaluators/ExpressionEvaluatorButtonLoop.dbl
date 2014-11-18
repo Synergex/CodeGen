@@ -1,0 +1,200 @@
+;; *****************************************************************************
+;; 
+;;  Title:       ExpressionEvaluatorButtonLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Evaluates button loop expression nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class ExpressionEvaluator
+
+        buttonLoopExpressionEvaluators, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
+
+        private method registerButtonLoopExpressions, void
+            endparams
+        proc
+			
+			buttonLoopExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
+			
+			buttonLoopExpressionEvaluators.Add("CANCELBUTTON", evaluateButtonCancel)
+            buttonLoopExpressionEvaluators.Add("CAPTION", evaluateButtonCaption)
+            buttonLoopExpressionEvaluators.Add("ELB", evaluateButtonElb)
+            buttonLoopExpressionEvaluators.Add("GENERICBUTTON", evaluateButtonGeneric)
+            buttonLoopExpressionEvaluators.Add("IMAGE", evaluateButtonImage)
+            buttonLoopExpressionEvaluators.Add("METHOD", evaluateButtonMethod)
+            buttonLoopExpressionEvaluators.Add("OKBUTTON", evaluateButtonOK)
+			buttonLoopExpressionEvaluators.Add("QUICKSELECT", evaluateButtonQuickSelect)
+
+		endmethod
+
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; Button loop expressions
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="tkn"></param>
+        ;;;  <param name="file"></param>
+        ;;;  <param name="loops"></param>
+        ;;;  <param name="specific"></param>
+        ;;;  <returns></returns>
+        public static method EvaluateButtonLoopExpression, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<WscButtonCollection, WscButton, int, boolean> 
+            endparams
+        proc
+            lambda isButtonLoop(node)
+            begin
+                mreturn node .is. ButtonLoopNode
+            end
+			data loop, @ButtonLoopNode, ^as(loops.First(isButtonLoop), ButtonLoopNode)
+            mreturn specific(file.Context.Buttons, loop.CurrentButton, loop.CurrentIndex)
+		endmethod
+
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+
+        private static method evaluateButtonCancel, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(buttons, button, index) (button.Name.ToLower().Contains("cancel") || button.Name.ToLower().Contains("abandon")) || button.Caption.ToLower().Contains("cancel")
+            mreturn EvaluateButtonLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateButtonCaption, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(buttons, button, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(button.Caption))
+            end
+            mreturn EvaluateButtonLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateButtonElb, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(buttons, button, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(button.ElbName))
+            end
+            mreturn EvaluateButtonLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateButtonGeneric, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(buttons, button, index) (((!button.Name.ToLower().Contains("ok") && !button.Name.ToLower().Contains("cancel")) && !button.Name.ToLower().Contains("abandon")) && !button.Caption.ToLower().Contains("ok")) && !button.Caption.ToLower().Contains("cancel")
+            mreturn EvaluateButtonLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateButtonImage, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(buttons, button, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(button.ImageName))
+            end
+            mreturn EvaluateButtonLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateButtonMethod, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(buttons, button, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(button.MethodName))
+            end
+            mreturn EvaluateButtonLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateButtonOK, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(buttons, button, index) button.Name.ToLower().Contains("ok") || button.Caption.ToLower().Contains("ok")
+            mreturn EvaluateButtonLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateButtonQuickSelect, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(buttons, button, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(button.QuickSelect))
+            end
+            mreturn EvaluateButtonLoopExpression(tkn, file, loops, doEvaluate)
+		endmethod
+
+	endclass
+
+endnamespace
+

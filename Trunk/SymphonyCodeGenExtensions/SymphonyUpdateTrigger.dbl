@@ -1,0 +1,84 @@
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import Symphony.Core
+
+namespace Symphony.CodeGen.Extensions
+	
+	public class SymphonyUpdateTrigger implements IExpansionToken
+		
+		private const rpsString, a*, "<SYMPHONY_UPDATE_TRIGGER="
+
+		public property TokenName, String
+			method get
+			proc
+				mreturn "SYMPHONY_UPDATE_TRIGGER"
+			endmethod
+		endproperty
+		
+		public property Description, String
+			method get
+			proc
+				mreturn "SYMPHONY_UPDATE_TRIGGER"
+			endmethod
+		endproperty
+		
+		public property Validity, TokenValidity
+			method get
+			proc
+				mreturn TokenValidity.FieldLoop
+			endmethod
+		endproperty
+		
+		public property TokenCase, TokenCaseMode
+			method get
+			proc
+				mreturn TokenCaseMode.UppercaseOnly
+			endmethod
+		endproperty
+		
+		public method Expand, String
+			tkn, @Token
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode>
+			endparams
+		proc
+			lambda process(str, field)
+			begin
+				DebugView.Write("SymphonyCodeGenExtension, <" + TokenName + ">: (Replace)")
+				data startPos		,i4
+				data endPos			,i4
+				data tokenValue		,a30
+				data tokenLength	,i4
+				tokenLength = %trim(rpsString)
+				startPos = %instr(1, field.LongDescription, rpsString)
+				if (startPos) then
+				begin
+					startPos += tokenLength
+					endPos = %instr(startPos, field.LongDescription,">")
+					tokenValue = field.LongDescription(startPos , endpos - 1)
+					DebugView.Write("SymphonyCodeGenExtension, <" + TokenName + ">: (Replace)" + %atrim(tokenValue))
+					mreturn %atrim(tokenValue)
+				end
+				else
+				begin
+					if (field.BreakMode == RpsFieldBreak.Always || field.BreakMode == RpsFieldBreak.Change) then
+					begin
+						DebugView.Write("SymphonyCodeGenExtension, <" + TokenName + ">: (Replace) PropertyChanged.")
+						mreturn "PropertyChanged"
+					end
+					else
+					begin
+						DebugView.Write("SymphonyCodeGenExtension, <" + TokenName + ">: (Replace) Default.")
+						mreturn "Default"
+					end
+				end
+			end
+			mreturn TokenExpander.ExpandFieldLoopToken(tkn, file, loops, process)
+		endmethod
+		
+	endclass
+	
+endnamespace

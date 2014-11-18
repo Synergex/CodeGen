@@ -1,0 +1,195 @@
+;;*****************************************************************************
+;;
+;; Title:       io.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Generic file I/O routine
+;;
+;; Date:        16th July 2004
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+;;
+function io, ^val
+    required in    a_operation  ,n  ;;Operation
+    required inout a_channel    ,n  ;;Channel number
+    optional inout a_record     ,a  ;;Data area (or file spec for OPEN)
+    optional in    a_keynum     ,n  ;;Key number
+    optional in    a_keyval     ,a  ;;Key value (or mode for OPEN)
+    optional in    a_partial    ,n  ;;Partial key match (FIND/READ)
+    optional in    a_lock       ,n  ;;Lock the record (READ/READS)
+    endparams
+
+    .include "CODEGEN_INC:io.def"
+
+    .align
+    record
+        status      ,i4             ;;Return status (0=OK)
+        lock        ,i4             ;;Record lock mode
+    endrecord
+
+proc
+
+    status=IO_OK
+
+    using a_operation select
+    (IO_OPEN),
+        call OpenFile
+    (IO_CLOSE),
+        call CloseFile
+    (IO_FIND),
+        call Find
+    (IO_FIRST),
+        call FindFirst
+    (IO_DELETE),
+        call Delete
+    (IO_READ),
+        call Read
+    (IO_READS),
+        call Reads
+    (IO_STORE),
+        call Store
+    (IO_WRITE),
+        call Write
+    endusing
+
+    freturn status
+
+OpenFile,
+
+    open(a_channel,MODE:a_keyval,a_record)
+
+    return
+
+CloseFile,
+
+    close a_channel
+
+    return
+
+Find,
+
+    if (^passed(a_keyval)) then
+        if (^passed(a_partial).and.a_partial) then
+            find(a_channel,,%atrim(a_keyval),KEYNUM:a_keynum) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+        else
+            find(a_channel,,a_keyval,KEYNUM:a_keynum) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+    else
+        if (^passed(a_partial).and.a_partial) then
+            find(a_channel,,%atrim(%keyval(a_channel,a_record,a_keynum)),KEYNUM:a_keynum) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+        else
+            find(a_channel,,%keyval(a_channel,a_record,a_keynum),KEYNUM:a_keynum) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+
+    return
+
+FindFirst,
+
+    if (^passed(a_keynum)) then
+        find(a_channel,,^FIRST,KEYNUM:a_keynum) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+    else
+        find(a_channel,,^FIRST) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+
+    return
+
+Read,
+
+    if (^passed(a_lock)) then
+        lock = a_lock
+    else
+        lock = Q_NO_LOCK
+
+    if (^passed(a_keyval)) then
+        if (^passed(a_partial).and.a_partial) then
+            read(a_channel,a_record,%atrim(a_keyval),KEYNUM:a_keynum,LOCK:lock) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+        else
+            read(a_channel,a_record,a_keyval,KEYNUM:a_keynum,LOCK:lock) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+    else
+        if (^passed(a_partial).and.a_partial) then
+            read(a_channel,a_record,%atrim(%keyval(a_channel,a_record,a_keynum)),KEYNUM:a_keynum,LOCK:lock) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+        else
+            read(a_channel,a_record,%keyval(a_channel,a_record,a_keynum),KEYNUM:a_keynum,LOCK:lock) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof,$ERR_KEYNOT=KeyNot]
+
+    return
+
+Reads,
+
+    if (^passed(a_lock)) then
+        lock = a_lock
+    else
+        lock = Q_NO_LOCK
+
+    reads(a_channel,a_record,,LOCK:lock) [$ERR_LOCKED=Locked,$ERR_TOOBIG=TooBig,$ERR_EOF=Eof]
+    return
+
+Store,
+    store(a_channel,a_record) [$ERR_IRCSIZ=IrcSiz,$ERR_NODUPS=NoDups,$ERR_EOF=Eof]
+    return
+
+Write,
+    write(a_channel,a_record) [$ERR_NOCURR=NoCurr,$ERR_KEYNOT=KeyNot]
+    return
+
+Delete,
+    delete(a_channel) [$ERR_NOCURR=NoCurr]
+    return
+
+Locked,
+    status=IO_LOCKED
+    return
+
+TooBig,
+    status=IO_TOOBIG
+    return
+
+Eof,
+    status=IO_EOF
+    return
+
+KeyNot,
+    status=IO_KEYNOT
+    return
+
+IrcSiz,
+    status=IO_IRCSIZ
+    return
+
+NoDups,
+    status=IO_NODUPS
+    return
+
+NoCurr,
+    status=IO_NOCURR
+    return
+
+endfunction
+

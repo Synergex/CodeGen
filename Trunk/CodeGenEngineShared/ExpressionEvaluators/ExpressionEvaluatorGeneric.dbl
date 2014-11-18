@@ -1,0 +1,173 @@
+;; *****************************************************************************
+;; 
+;;  Title:       ExpressionEvaluatorGeneric.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Evaluates generic expression nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import CodeGen.RepositoryAPI
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class ExpressionEvaluator
+
+        genericExpressionEvaluators, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
+
+        private method registerGenericExpressions, void
+            endparams
+        proc
+			
+			genericExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
+			
+			genericExpressionEvaluators.Add("COUNTER_1", evaluateCounter1)
+            genericExpressionEvaluators.Add("COUNTER_2", evaluateCounter2)
+            genericExpressionEvaluators.Add("NOT_COUNTER_1", evaluateNotCounter1)
+            genericExpressionEvaluators.Add("NOT_COUNTER_2", evaluateNotCounter2)
+			genericExpressionEvaluators.Add("STRUCTURE_LDESC", evaluateStructureLongDesc)
+
+		endmethod
+
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; Counter expressions
+
+        private static method evaluateCounter1, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn (file.Context.Counter1 != 0)
+        endmethod
+
+        private static method evaluateCounter2, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn (file.Context.Counter2 != 0)
+        endmethod
+
+        private static method evaluateNotCounter1, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn (file.Context.Counter1 == 0)
+        endmethod
+
+        private static method evaluateNotCounter2, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn (file.Context.Counter2 == 0)
+        endmethod
+		
+		;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; Structure expressions
+
+        private static method evaluateStructureExpression, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<RpsStructure, boolean> 
+            endparams
+        proc
+            mreturn specific(file.Context.CurrentStructure)
+        endmethod
+
+        private static method evaluateStructureLongDesc, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(str.LongDescription))
+            end
+			mreturn evaluateStructureExpression(tkn, file, loops, doEvaluate)
+		endmethod
+
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; User-defined token expressions
+
+        private static method evaluateUserToken, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            ;; We get here for any expression <IF USERTOKEN_xxx> or <IF NOT_USERTOKEN_xxx>
+            ;; Extract the search text from the token
+            data userTokenName, string, tkn.Value.ToUpper().Replace("NOT_USERTOKEN_", "").Replace("USERTOKEN_", "")
+			
+			;; Make sure we have a user token name
+            if (String.IsNullOrWhiteSpace(userTokenName))
+                throw new ApplicationException(String.Format("Invalid user-defined token expression {0}", tkn.Value))
+			
+			;; Is it there?
+            data found, boolean, false
+            begin
+                data local_userToken, @UserToken
+                foreach local_userToken in file.Context.UserTokens
+                begin
+                    if (local_userToken.Name == userTokenName)
+                    begin
+                        found = true
+                        exitloop
+                    end
+                end
+            end
+            mreturn found
+		endmethod
+
+	endclass
+
+endnamespace
+

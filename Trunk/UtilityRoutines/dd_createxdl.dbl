@@ -1,0 +1,371 @@
+;;*****************************************************************************
+;;
+;; Title:       dd_createxdl.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Creates an XDL file from a repository file/structure definition
+;;
+;; Date:        13th July 2001
+;;
+;; Author:      Paul H Fenton, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+;;
+function dd_createxdl, ^val, stack
+    a_dcs               ,a          ;;repository control data
+    a_structure         ,a          ;;sturture name
+    a_mode              ,n          ;;mode (1=no screen output)
+    a_overwrite         ,n          ;;(Optional) overwrite file if found
+    a_assignfile        ,a          ;;(Optional) specify which of the assigned files to build
+    a_filename          ,a          ;;(optional) xdl filename to create
+    a_rps_main          ,a          ;;(Optional) Repository main filename
+    a_rps_text          ,a          ;;(Optional) Repository text filename
+
+    .include 'WND:tools.def'
+    .include 'RPSLIB:ddinfo.def'
+
+    .ifndef FILES_ASSIGNED
+    .define FILES_ASSIGNED  ,20         ;;20 max files assigned to 1 structure
+    .define MAX_KEYS        ,20         ;;20 max keys defined per file
+    .endc
+
+    .align
+    record ivar
+        interactive         ,i4
+        ferror              ,i4
+        file_idx            ,i4
+        key_idx             ,i4
+        seg_idx             ,i4
+        overwrite           ,i4
+        open_file_ch        ,i4
+        status              ,i4
+        opened              ,i4
+        len                 ,i4
+        pos                 ,i4
+    endrecord
+
+    record avar
+        rps_main            ,a40
+        rps_text            ,a40
+        filedef             ,[FILES_ASSIGNED]a30
+        keyspecs            ,[MAX_KEYS]a255
+        keynames            ,[MAX_KEYS]a30
+        keydata             ,[MAX_KEYS]a^size(k_info)
+        recdata             ,a80
+        nullval             ,a20
+        xdl_name            ,a255
+        str_name            ,a30
+    endrecord
+
+    record dvar
+        keynum              ,d3
+    endrecord
+
+    local record
+        rec_type            ,3a8    ,'fixed'       ;;Fixed
+        &                           ,'m'           ;;Multiple
+        &                           ,'variable'    ;;Variable
+        compress            ,2a3    ,'no '
+        &                           ,'yes'         ;;Compress
+        page_size           ,5a4    ,'1024'        ;;(default)
+        &                           ,'512'
+        &                           ,'2048'
+        &                           ,'4096'
+        &                           ,'8192'
+        static_rfa          ,2a3    ,'no '
+        &                           ,'yes'
+        tbyte               ,2a2    ,'32'
+        &                           ,'40'
+        key_order           ,2a10   ,'ascending'   ;;ascending
+        &                           ,'descending'  ;;descending
+        key_segtyp          ,5a8    ,'alpha'       ;;alpha (default)
+        &                           ,'nocase'      ;;nocase
+        &                           ,'decimal'     ;;decimal
+        &                           ,'integer'     ;;integer
+        &                           ,'unsigned'    ;;unsigned
+    endrecord
+
+proc
+    clear ^i(ivar), ^d(dvar), avar
+    dcs = a_dcs
+    if (.not. mchn_r)                                               ;;repository not open
+        begin
+        if (%passed(a_rps_main) .and. a_rps_main)
+            rps_main = a_rps_main
+        if (%passed(a_rps_text) .and. a_rps_text)
+            rps_text = a_rps_text
+        if (.not. rps_main)
+            xcall getlog('RPSMFIL', rps_main, len)                  ;;get default repository
+        if (.not. rps_text)
+            xcall getlog('RPSTFIL', rps_text, len)
+
+        xcall dd_init(dcs, rps_main, rps_text)                    ;;initialise repository
+        opened = TRUE
+        end
+
+    interactive = TRUE
+    if (%passed(a_mode) .and. a_mode)
+        clear interactive                                           ;;no output to screen
+    if (%passed(a_overwrite) .and. a_overwrite)
+        overwrite = TRUE                                            ;;overwrite files if found
+
+    str_name = a_structure
+    upcase str_name
+    xcall dd_struct(dcs, DDS_INFO, str_name, s_info)                ;;get structure info
+    if (error)                                                      ;;structure not found
+        begin
+        if (interactive)
+            xcall u_message("Sturcture NOT found")
+        status = 1
+        goto routine_exit
+        end
+                                                                    ;;no of files assign to structure
+    if (si_nmfils)
+    then
+        begin
+        if (si_nmfils.eq.1)
+        then
+            filedef[1] = si_file                                    ;;only one file assigned
+        else
+            begin                                                   ;;multi files addigned
+            xcall dd_struct(dcs, DDS_FILS, si_nmfils, filedef)      ;;get array of names
+
+            if (%passed(a_assignfile) .and. a_assignfile)
+                begin
+                filedef[1] = a_assignfile
+                si_nmfils = 1
+                end
+            end
+        end
+    else
+        begin
+        if (interactive)
+            xcall u_message('Structure NOT assigned to any files')
+        status = 2
+        goto routine_exit
+        end
+
+    ;;create file
+    for file_idx from 1 thru si_nmfils
+        begin
+
+        xcall dd_filespec(dcs, filedef[file_idx], str_name, fls_info)
+        if (error)
+            begin
+            if (interactive)
+                xcall u_message("File Specification NOT found")
+            status = 3
+            goto routine_exit
+            end
+
+        if (flsi_filtyp .ne. 'DBL ISAM')
+            begin
+            if (interactive)
+                xcall u_message("NOT an ISAM file Structure")
+            status = 5
+            end
+
+        if (.not. flsi_nmkeys)                                  ;;no keys defined
+            begin
+            if (interactive)
+                xcall u_message("No Keys Defined")
+            status = 4
+            goto routine_exit
+            end
+
+        if (si_nmfils.eq.1)                                     ;;only if one file assigned
+            if (%passed(a_filename) .and. a_filename)
+                flsi_name = a_filename                          ;;use filename if passed
+
+        xdl_name = flsi_name
+        if (pos = %instr(1, flsi_name, '.'))
+        then
+            xdl_name = xdl_name(1:pos)+'xdl'
+        else
+            xdl_name = %atrim(xdl_name)+'.xdl'
+
+        xcall u_open(open_file_ch, 'I ', xdl_name,,, ferror)
+        if (.not.ferror)                                        ;;file found
+            begin
+            xcall u_close(open_file_ch)
+            if (.not. overwrite)
+                if (interactive)
+                then
+                    begin
+                    if (D_MIDNO .eq. %u_msgbox("XDL File Already Exists. Overwrite ?",
+                    &              D_MYESNO+D_MICONQUESTION+D_MDEFBUTTON2, "File Found"))
+                        nextloop
+                    end
+                else
+                    nextloop
+
+            xcall delet(xdl_name)                                   ;;delete existing file
+            end
+
+        xcall u_open(open_file_ch, 'O ', xdl_name,,, ferror)
+
+        ;write file section
+        writes(open_file_ch, 'FILE')
+        writes(open_file_ch, '    NAME            '+%atrim(flsi_name))
+        writes(open_file_ch, '    ADDRESSING      '+tbyte(flsi_addressing+1))
+        writes(open_file_ch, '    PAGE_SIZE       '+page_size(flsi_pagesize+1))
+        if (flsi_density .lt. 50) flsi_density = 50
+        writes(open_file_ch, '    DENSITY         '+%string(flsi_density))
+        writes(open_file_ch, '    KEY             '+%string(flsi_nmkeys))
+        writes(open_file_ch, ' ')                               ;blank line
+
+        ;;write record section
+        writes(open_file_ch, 'RECORD')
+        writes(open_file_ch, '    SIZE            '+%string(flsi_recsz))
+        writes(open_file_ch, '    FORMAT          '+rec_type(flsi_rectyp+1))
+        writes(open_file_ch, '    COMPRESS_DATA   '+compress(flsi_compress+1))
+        writes(open_file_ch, '    STATIC_RFA      '+static_rfa(flsi_staticrfa+1))
+        ;writes(open_file_ch, '    PORT_INT       '+)
+        writes(open_file_ch, ' ')                               ;;blank line
+
+        ;;build key info
+        xcall dd_key(dcs, DDK_LIST, MAX_KEYS, keynames[1]) ;;get all key names
+        for key_idx from 1 thru flsi_nmkeys
+            begin                                            ;;get all key info
+            xcall dd_key(dcs, DDK_INFO, keynames[key_idx], k_info)
+            keydata[key_idx] = k_info
+            end
+        xcall qsort(keydata[1], flsi_nmkeys)                 ;;sort into key sequence
+
+        ;;write key section
+        for key_idx from 1 thru flsi_nmkeys
+            begin
+            keynum = key_idx-1
+            writes(open_file_ch, 'KEY'+%string(keynum))
+
+            k_info = keydata[key_idx]
+
+            recdata = '    START           '+%string(ki_segpos(1))
+            if (ki_nmseg .ge. 2)
+                for seg_idx from 2 thru ki_nmseg                ;;number of segments in key
+                    recdata = %atrim(recdata)+':'+%string(ki_segpos(seg_idx))
+            writes(open_file_ch, %atrim(recdata))
+
+            recdata = '    LENGTH          '+%string(ki_seglen(1))
+            if (ki_nmseg .ge. 2)
+                for seg_idx from 2 thru ki_nmseg                ;;number of segments in key
+                    recdata = %atrim(recdata)+':'+%string(ki_seglen(seg_idx))
+            writes(open_file_ch, %atrim(recdata))
+
+            if (ki_segdtyp(1))
+            then
+                begin
+                recdata = '    TYPE            '+key_segtyp(ki_segdtyp(1))
+                if (ki_nmseg .ge. 2)
+                    for seg_idx from 2 thru ki_nmseg            ;;number of segments in key
+                        recdata = %atrim(recdata)+':'+key_segtyp(ki_segdtyp(seg_idx))
+                writes(open_file_ch, %atrim(recdata))
+                end
+            else
+                writes(open_file_ch, '    TYPE           alpha')
+
+            if (ki_segord(1))
+            then
+                begin
+                recdata = '    ORDER           '+key_order(ki_segord(1))
+                if (ki_nmseg .ge. 2)
+                    for seg_idx from 2 thru ki_nmseg            ;;number of segments in key
+                        recdata = %atrim(recdata)+':'+key_order(ki_segord(seg_idx))
+                writes(open_file_ch, %atrim(recdata))
+                end
+            else
+                begin
+                if (ki_order .eq. KI_DES)
+                then
+                    writes(open_file_ch, '    ORDER           descending')
+                else
+                    writes(open_file_ch, '    ORDER           ascending')
+                end
+            writes(open_file_ch, '    NAME            '+%atrim(ki_name))
+
+            if (ki_dups .eq. KI_DPS)
+            then
+                begin
+                writes(open_file_ch, '    DUPLICATES      yes')
+                &
+                if(ki_insert)
+                then
+                    writes(open_file_ch, '    DUPLICATE_ORDER fifo')
+                else
+                    writes(open_file_ch, '    DUPLICATE_ORDER lifo')
+                end
+            else
+                writes(open_file_ch, '    DUPLICATES      no')
+
+            if (ki_mod .eq. KI_MDF)
+            then
+                writes(open_file_ch, '    MODIFIABLE      yes')
+            else
+                writes(open_file_ch, '    MODIFIABLE      no')
+
+            using ki_null select
+            (KI_REP),
+                writes(open_file_ch, '    NULL        replicating')
+            (KI_NONREP),
+                writes(open_file_ch, '    NULL        non_replicating')
+            (KI_SHORT),
+                writes(open_file_ch, '    NULL        short')
+            endusing
+            if (ki_nullval)
+                begin
+                xcall dd_key(dcs, DDK_TEXT, ki_nullval, nullval)
+                writes(open_file_ch, '    VALUE_NULL  '+%atrim(nullval))
+                end
+
+            if (ki_density .lt. 50) ki_density = 50
+            writes(open_file_ch, '    DENSITY         '+%string(ki_density))
+            writes(open_file_ch, ' ')                               ;;blank line
+            end
+
+        xcall u_close(open_file_ch)
+
+        if (interactive)
+            xcall u_message("Successfully Created XDL File: "+%atrim(filedef(file_idx)))
+        end
+
+routine_exit,
+    if (opened)
+        begin
+        xcall dd_exit(dcs)                                      ;;close repository
+        clear dcs, mchn_r, tchn_r
+        a_dcs = dcs
+        end
+
+    freturn(status)
+
+endfunction
+

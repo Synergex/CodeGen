@@ -1,0 +1,1659 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TokenExpanderFieldLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Expands field loop token nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class TokenExpander
+
+        fieldLoopTokenExpanders, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>
+
+        private method registerFieldLoopTokens, void
+            endparams
+		proc
+
+			fieldLoopTokenExpanders = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>()
+
+            fieldLoopTokenExpanders.Add("FIELD_ALTNAME", expandFieldAltName)
+            fieldLoopTokenExpanders.Add("FIELD_ARRIVEM", expandFieldArriveMethod)
+            fieldLoopTokenExpanders.Add("FIELD_BASENAME", expandFieldBaseName)
+            fieldLoopTokenExpanders.Add("FIELD_BREAK_MODE", expandFieldBreakMode)
+            fieldLoopTokenExpanders.Add("FIELD_CHANGEM", expandFieldChangeMethod)
+            fieldLoopTokenExpanders.Add("FIELD_COL", expandFieldColumn)
+            fieldLoopTokenExpanders.Add("FIELD_CSDEFAULT", expandFieldCsDefault)
+            fieldLoopTokenExpanders.Add("FIELD_CSTYPE", expandFieldCsType)
+            fieldLoopTokenExpanders.Add("FIELD_CSCONVERT", expandFieldCsConvert)
+            fieldLoopTokenExpanders.Add("FIELD_DEFAULT", expandFieldDefault)
+            fieldLoopTokenExpanders.Add("FIELD_DESC", expandFieldDescription)
+            fieldLoopTokenExpanders.Add("FIELD_DIMENSION1_INDEX", expandFieldDim1Index)
+            fieldLoopTokenExpanders.Add("FIELD_DIMENSION2_INDEX", expandFieldDim2Index)
+            fieldLoopTokenExpanders.Add("FIELD_DIMENSION3_INDEX", expandFieldDim3Index)
+            fieldLoopTokenExpanders.Add("FIELD_DIMENSION4_INDEX", expandFieldDim4Index)
+            fieldLoopTokenExpanders.Add("FIELD_DRILLM", expandFieldDrillMethod)
+            fieldLoopTokenExpanders.Add("FIELD_ELEMENT", expandFieldElement)
+            fieldLoopTokenExpanders.Add("FIELD_ELEMENT0", expandFieldElement0)
+            fieldLoopTokenExpanders.Add("FIELD_ENUMLENGTH", expandFieldEnumLength)
+            fieldLoopTokenExpanders.Add("FIELD_ENUMWIDTH", expandFieldEnumWidth)
+            fieldLoopTokenExpanders.Add("FIELD_FORMATNAME", expandFieldFormatName)
+            fieldLoopTokenExpanders.Add("FIELD_HEADING", expandFieldHeading)
+            fieldLoopTokenExpanders.Add("FIELD_HELPID", expandFieldHelpId)
+            fieldLoopTokenExpanders.Add("FIELD_HYPERM", expandFieldHyperMethod)
+            fieldLoopTokenExpanders.Add("FIELD_INFOLINE", expandFieldInfoLine)
+            fieldLoopTokenExpanders.Add("FIELD_LDESC", expandFieldLongDescription)
+            fieldLoopTokenExpanders.Add("FIELD_LEAVEM", expandFieldLeaveMethod)
+            fieldLoopTokenExpanders.Add("FIELD_MAXVALUE", expandFieldMaxValue)
+            fieldLoopTokenExpanders.Add("FIELD_MINVALUE", expandFieldMinValue)
+            fieldLoopTokenExpanders.Add("FIELD_NAME", expandFieldName)
+            fieldLoopTokenExpanders.Add("FIELD_NETNAME", expandFieldSqlName)
+            fieldLoopTokenExpanders.Add("FIELD_NOECHO_CHAR", expandFieldNoEchoChar)
+            fieldLoopTokenExpanders.Add("FIELD_OCDEFAULT", expandFieldOcDefault)
+            fieldLoopTokenExpanders.Add("FIELD_OCTYPE", expandFieldOcType)
+            fieldLoopTokenExpanders.Add("FIELD_ORIGINAL_NAME", expandFieldOriginalName)
+            fieldLoopTokenExpanders.Add("FIELD_PATH", expandFieldPath)
+            fieldLoopTokenExpanders.Add("FIELD_PATH_CONV", expandFieldPathConv)
+            fieldLoopTokenExpanders.Add("FIELD_PIXEL_COL", expandFieldPixelCol)
+            fieldLoopTokenExpanders.Add("FIELD_PIXEL_ROW", expandFieldPixelRow)
+            fieldLoopTokenExpanders.Add("FIELD_PIXEL_WIDTH", expandFieldPixelWidth)
+            fieldLoopTokenExpanders.Add("FIELD_DRILL_PIXEL_COL", expandFieldDrillPixelCol)
+            fieldLoopTokenExpanders.Add("FIELD_INPUT_LENGTH", expandFieldInputLength)
+            fieldLoopTokenExpanders.Add("FIELD_ODBCNAME", expandFieldOdbcName)
+            fieldLoopTokenExpanders.Add("FIELD_POSITION", expandFieldPosition)
+            fieldLoopTokenExpanders.Add("FIELD_POSITION_ZERO", expandFieldPositionZero)
+            fieldLoopTokenExpanders.Add("FIELD_PRECISION", expandFieldPrecision)
+            fieldLoopTokenExpanders.Add("FIELD_PRECISION2", expandFieldPrecision2)
+            fieldLoopTokenExpanders.Add("FIELD_PROMPT", expandFieldPrompt)
+            fieldLoopTokenExpanders.Add("FIELD_RANGE_MAX", expandFieldRangeMax)
+            fieldLoopTokenExpanders.Add("FIELD_RANGE_MIN", expandFieldRangeMin)
+            fieldLoopTokenExpanders.Add("FIELD_REGEX", expandFieldRegex)
+            fieldLoopTokenExpanders.Add("FIELD_ROW", expandFieldRow)
+            fieldLoopTokenExpanders.Add("FIELD_SELECTIONS", expandFieldSelections)
+            fieldLoopTokenExpanders.Add("FIELD_SELECTIONS1", expandFieldSelections1)
+            fieldLoopTokenExpanders.Add("FIELD_SELLENGTH", expandFieldSelLength)
+            fieldLoopTokenExpanders.Add("FIELD_SELWND", expandFieldSelWnd)
+            fieldLoopTokenExpanders.Add("FIELD_SELWND_ORIGINAL", expandFieldSelWndOriginal)
+            fieldLoopTokenExpanders.Add("FIELD_SIZE", expandFieldSize)
+            fieldLoopTokenExpanders.Add("FIELD_SNTYPE", expandFieldSnType)
+            fieldLoopTokenExpanders.Add("FIELD_SNDEFAULT", expandFieldSnDefault)
+            fieldLoopTokenExpanders.Add("FIELD_SPEC", expandFieldSpec)
+            fieldLoopTokenExpanders.Add("FIELD_SQLNAME", expandFieldSqlName)
+            fieldLoopTokenExpanders.Add("FIELD_SQLTYPE", expandFieldSqlType)
+            fieldLoopTokenExpanders.Add("FIELD_TEMPLATE", expandFieldTemplate)
+            fieldLoopTokenExpanders.Add("FIELD_TKSCRIPT", expandFieldTkScript)
+            fieldLoopTokenExpanders.Add("FIELD_TYPE", expandFieldType)
+            fieldLoopTokenExpanders.Add("FIELD_TYPE_NAME", expandFieldTypeName)
+            fieldLoopTokenExpanders.Add("FIELD_UTEXT", expandFieldUserText)
+            fieldLoopTokenExpanders.Add("FIELD_VBDEFAULT", expandFieldVbDefault)
+            fieldLoopTokenExpanders.Add("FIELD_VBTYPE", expandFieldVbType)
+            fieldLoopTokenExpanders.Add("FIELD#", expandFieldNumber)
+            fieldLoopTokenExpanders.Add("FIELD#_ZERO", expandFieldNumberZero)
+            fieldLoopTokenExpanders.Add("FIELD#LOGICAL", expandFieldNumberLogical)
+            fieldLoopTokenExpanders.Add("FIELD#LOGICAL_ZERO", expandFieldNumberLogicalZero)
+            fieldLoopTokenExpanders.Add("MAPPED_FIELD", expandFieldMappedField)
+            fieldLoopTokenExpanders.Add("MAPPED_PATH", expandFieldMappedPath)
+            fieldLoopTokenExpanders.Add("MAPPED_PATH_CONV", expandFieldMappedPathConv)
+            fieldLoopTokenExpanders.Add("PROMPT_COL", expandFieldPromptCol)
+            fieldLoopTokenExpanders.Add("PROMPT_PIXEL_COL", expandFieldPromptPixelCol)
+            fieldLoopTokenExpanders.Add("PROMPT_PIXEL_ROW", expandFieldPromptPixelRow)
+            fieldLoopTokenExpanders.Add("PROMPT_PIXEL_WIDTH", expandFieldPromptPixelWidth)
+			fieldLoopTokenExpanders.Add("PROMPT_ROW", expandFieldPromptRow)
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="tkn"></param>
+        ;;;  <param name="file"></param>
+        ;;;  <param name="loops"></param>
+        ;;;  <param name="specific"></param>
+        ;;;  <returns></returns>
+        public static method ExpandFieldLoopToken, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<RpsStructure, RpsField, string> 
+            endparams
+        proc
+            lambda isFieldLoop(node)
+            begin
+                mreturn node .is. FieldLoopNode
+            end
+			data fieldLoop, @FieldLoopNode, ^as(loops.FirstOrDefault(isFieldLoop), FieldLoopNode)
+			
+			if (fieldLoop != ^null) then
+                mreturn specific(file.Context.CurrentStructure, fieldLoop.CurrentField)
+            else
+            begin
+                lambda isSegmentLoop(node)
+                begin
+                    mreturn node .is. SegmentLoopNode
+                end
+				data segloop, @SegmentLoopNode, ^as(loops.FirstOrDefault(isSegmentLoop), SegmentLoopNode)
+                mreturn specific(file.Context.CurrentStructure, segloop.CurrentField)
+			end
+
+        endmethod
+
+        private static method expandFieldAltName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.AlternateName
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldArriveMethod, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.ArriveMethod
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldBaseName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.BaseName
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldBreakMode, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                using (field.BreakMode) select
+                (RpsFieldBreak.Always),
+                    mreturn "Always"
+                (RpsFieldBreak.Change),
+                    mreturn "Change"
+                (RpsFieldBreak.None),
+                    mreturn "None"
+                (RpsFieldBreak.OnReturn),
+                    mreturn "Return"
+                (),
+                    mreturn "None"
+                endusing
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldChangeMethod, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.ChangeMethod
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldColumn, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.FieldColumn == 0) then
+                    mreturn Convert.ToString(DefaultValues.DefaultFieldColumn)
+                else
+                    mreturn Convert.ToString(field.FieldColumn)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldCsDefault, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.CsDefault
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldCsType, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.CsType
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldCsConvert, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.CsNumericConvert
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldDefault, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.DefaultValue
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldDescription, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.Description
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldDim1Index, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.WasArrayElement) then
+                    mreturn Convert.ToString(field.OriginalElement[0])
+                else
+                    mreturn "0"
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldDim2Index, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.OriginalElement[1])
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldDim3Index, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.OriginalElement[2])
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldDim4Index, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.OriginalElement[3])
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldDrillMethod, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.DrillMethod
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldElement, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if ((((field.OriginalElement[0] != 0) && (field.OriginalElement[1] != 0)) && (field.OriginalElement[2] != 0)) && (field.OriginalElement[3] != 0)) then
+                    mreturn String.Format("{0},{1},{2},{3}", field.OriginalElement[0], field.OriginalElement[1], field.OriginalElement[2], field.OriginalElement[3])
+                else if (((field.OriginalElement[0] != 0) && (field.OriginalElement[1] != 0)) && (field.OriginalElement[2] != 0)) then
+                    mreturn String.Format("{0},{1},{2}", field.OriginalElement[0], field.OriginalElement[1], field.OriginalElement[2])
+                else if ((field.OriginalElement[0] != 0) && (field.OriginalElement[1] != 0)) then
+                    mreturn String.Format("{0},{1}", field.OriginalElement[0], field.OriginalElement[1])
+                else if (field.OriginalElement[0] != 0) then
+                    mreturn Convert.ToString(field.OriginalElement[0])
+                else
+                    mreturn ""
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldElement0, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if ((((field.OriginalElement[0] != 0) && (field.OriginalElement[1] != 0)) && (field.OriginalElement[2] != 0)) && (field.OriginalElement[3] != 0)) then
+                    mreturn String.Format("{0},{1},{2},{3}", field.OriginalElement[0], field.OriginalElement[1], field.OriginalElement[2], field.OriginalElement[3])
+                else if (((field.OriginalElement[0] != 0) && (field.OriginalElement[1] != 0)) && (field.OriginalElement[2] != 0)) then
+                    mreturn String.Format("{0},{1},{2}", field.OriginalElement[0], field.OriginalElement[1], field.OriginalElement[2])
+                else if ((field.OriginalElement[0] != 0) && (field.OriginalElement[1] != 0)) then
+                    mreturn String.Format("{0},{1}", field.OriginalElement[0], field.OriginalElement[1])
+                else if (field.OriginalElement[0] != 0) then
+                    mreturn Convert.ToString(field.OriginalElement[0])
+                else
+                    mreturn "0"
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldEnumLength, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.EnumeratedDisplayLength)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldEnumWidth, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            data width, int, DefaultValues.DefaultCharacterWidth
+            if (file.Context.CurrentTask.CharacterWidth > 0)
+                width = file.Context.CurrentTask.CharacterWidth
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.EnumeratedDisplayLength * width)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldFormatName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.FormatName
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldHeading, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data value, string
+                if (!String.IsNullOrWhiteSpace(field.ReportHeading)) then
+                    value = field.ReportHeading
+                else if (!String.IsNullOrWhiteSpace(field.Prompt)) then
+                    value = field.Prompt
+                else
+                    value = field.Name
+                ;; Clean up the data (remove " and ^)
+                mreturn value.Replace("""", "").Replace("^", "")
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldHelpId, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.HelpIdentifier
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldHyperMethod, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.HyperlinkMethod
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldInfoLine, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.InfoLineText.Replace("""", "")
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldLongDescription, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.LongDescription
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldLeaveMethod, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.LeaveMethod
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldMaxValue, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data tmpMaxVal, string, ""
+                ;; If the field has a range specified  use it
+                if (field.NumericRangeMaximum > 0) then
+                begin
+                    if (field.Precision > 0) then
+                        tmpMaxVal = Convert.ToString(field.NumericRangeMaximum)
+                    else
+                        tmpMaxVal = Convert.ToString(Convert.ToInt32(field.NumericRangeMaximum))
+                end
+                else
+                begin
+                    ;; Make sure the field is numeric
+                    using (field.DataType) select
+                    (RpsFieldDataType.Decimal),
+                    begin
+                        if (field.ViewAs == RpsFieldViewAs.CheckBox) then
+                            tmpMaxVal = "1"
+                        else if (field.Enumerated) then
+                        begin
+                            if (field.EnumeratedStepValue > 0) then
+                                tmpMaxVal = Convert.ToString(field.EnumeratedBaseValue + (field.EnumeratedStepValue * (field.SelectionList.Count - 1)))
+                            else
+                                tmpMaxVal = Convert.ToString(field.EnumeratedBaseValue)
+                        end
+                        else if (field.Precision > 0) then
+                        begin
+                            if (field.Precision < field.Size) then
+                                tmpMaxVal = ((string)"9999999999999999999999999999").Substring(0, field.Size - field.Precision)
+                            else
+                                tmpMaxVal = "0"
+                            tmpMaxVal += "."
+                            tmpMaxVal += ((string)"9999999999999999999999999999").Substring(0, field.Precision)
+                        end
+                        else
+                            tmpMaxVal = ((string)"9999999999999999999999999999").Substring(0, field.Size)
+                    end
+                    (RpsFieldDataType.Integer),
+                    begin
+                        if (field.ViewAs == RpsFieldViewAs.CheckBox) then
+                            tmpMaxVal = "1"
+                        else if (field.Enumerated) then
+                        begin
+                            if (field.EnumeratedBaseValue > 0) then
+                                tmpMaxVal = Convert.ToString(field.EnumeratedBaseValue + (field.EnumeratedStepValue * (field.SelectionList.Count - 1)))
+                            else
+                                tmpMaxVal = Convert.ToString(field.EnumeratedBaseValue)
+                        end
+                        else
+                        begin
+                            using (field.Size) select
+                            (1),
+                                tmpMaxVal = "127"
+                            (2),
+                                tmpMaxVal = "32767"
+                            (4),
+                                tmpMaxVal = "2147483647"
+                            (8),
+                                tmpMaxVal = "9223372036854775807"
+                            endusing
+                        end
+                        exit
+                    end
+                    (),
+                    begin
+                        ;; Not numeric, throw an error
+                        ;; TODO: The error should not be thrown if output is off because of an expression!
+                        throw new ApplicationException(file.GetTokenErrorMessage(tkn, "can only be used with numeric fields"))
+                    end
+                    endusing
+                end
+                mreturn tmpMaxVal
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldMinValue, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data tmpMinVal, string, ""
+                ;; If the field has a range specified then use it
+                if (field.NumericRangeMinimum != 0) then
+                begin
+                    if (field.Precision > 0) then
+                        tmpMinVal = Convert.ToString(field.NumericRangeMinimum)
+                    else
+                        tmpMinVal = Convert.ToString(Convert.ToInt32(field.NumericRangeMinimum))
+                end
+                else
+                begin
+                    ;; Make sure the field is numeric
+                    using (field.DataType) select
+                    (RpsFieldDataType.Decimal),
+                    begin
+                        if (field.ViewAs == RpsFieldViewAs.CheckBox) then
+                            tmpMinVal = "0"
+                        else if (field.Enumerated) then
+                        begin
+                            if (field.EnumeratedStepValue > 0) then
+                                tmpMinVal = Convert.ToString(field.EnumeratedBaseValue)
+                            else
+                                tmpMinVal = Convert.ToString(field.EnumeratedBaseValue + (field.EnumeratedStepValue * (field.SelectionList.Count - 1)))
+                        end
+                        else if (field.Precision > 0) then
+                        begin
+                            if (field.NegativeAllowed != RpsFieldNegatives.None) then
+                            begin
+                                tmpMinVal = "-"
+                                if (field.Precision < field.Size) then
+                                    tmpMinVal += ((string)"9999999999999999999999999999").Substring(0, field.Size - field.Precision)
+                                else
+                                    tmpMinVal += "0"
+                                tmpMinVal += "."
+                                tmpMinVal += ((string)"9999999999999999999999999999").Substring(0, field.Precision)
+                            end
+                            else
+                                tmpMinVal = "0"
+                        end
+                        else
+                        begin
+                            if (field.NegativeAllowed != RpsFieldNegatives.None) then
+                            begin
+                                tmpMinVal = "-" + (((string)"9999999999999999999999999999").Substring(0, field.Size))
+                            end
+                            else
+                                tmpMinVal = "0"
+                        end
+                    end
+                    (RpsFieldDataType.Integer),
+                    begin
+                        if (field.ViewAs == RpsFieldViewAs.CheckBox) then
+                            tmpMinVal = "0"
+                        else if (field.Enumerated) then
+                        begin
+                            if (field.EnumeratedStepValue > 0) then
+                                tmpMinVal = Convert.ToString(field.EnumeratedBaseValue)
+                            else
+                                tmpMinVal = Convert.ToString(field.EnumeratedBaseValue + (field.EnumeratedStepValue * (field.SelectionList.Count - 1)))
+                        end
+                        else if (field.NegativeAllowed == RpsFieldNegatives.None) then
+                            tmpMinVal = "0"
+                        else
+                        begin
+                            using (field.Size) select
+                            (1),
+                                tmpMinVal = "-128"
+                            (2),
+                                tmpMinVal = "-32768"
+                            (4),
+                                tmpMinVal = "-2147483648"
+                            (8),
+                                tmpMinVal = "-9223372036854775808"
+                            endusing
+                        end
+                    end
+                    (),
+                    begin
+                        ;; Not numeric, throw an error
+                        ;; TODO: The error should not be thrown if output is off because of an expression!
+                        throw new ApplicationException(file.GetTokenErrorMessage(tkn, "can only be used with numeric fields"))
+                    end
+                    endusing
+                end
+                mreturn tmpMinVal
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data fieldName, string, field.Name
+                if (!String.IsNullOrWhiteSpace(file.Context.CurrentTask.FieldPrefix))
+                begin
+                    fieldName = file.Context.CurrentTask.FieldPrefix.Trim() + fieldName
+                    if (fieldName.Contains("."))
+                        fieldName.Replace(".", "." + file.Context.CurrentTask.FieldPrefix.Trim())
+                end
+                mreturn fieldName
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldNoEchoChar, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (String.IsNullOrWhiteSpace(field.NoEchoCharacter)) then
+                    mreturn DefaultValues.DefaultFieldNoEchoChar
+                else
+                    mreturn field.NoEchoCharacter
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldOcDefault, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.OcDefault
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldOcType, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.OcType
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldOriginalName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.OriginalName
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPath, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn String.Format("{0}.{1}", str.Alias, field.Name)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPathConv, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                ;; Do we have conversion function?
+                if (String.IsNullOrWhiteSpace(field.UnmappingFunction)) then
+                    mreturn String.Format("{0}.{1}", str.Alias, field.Name)
+                else
+                    mreturn String.Format("%{0}({1}.{2})", field.UnmappingFunction, str.Alias, field.Name)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPixelCol, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data width, int, DefaultValues.DefaultCharacterWidth
+                if (file.Context.CurrentTask.CharacterWidth > 0)
+                    width = file.Context.CurrentTask.CharacterWidth
+                if (field.FieldColumn > 0) then
+                    mreturn Convert.ToString((field.FieldColumn * width) - (width - 1))
+                else
+                    mreturn Convert.ToString((DefaultValues.DefaultFieldColumn * width) - (width - 1))
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPixelRow, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data height, int, DefaultValues.DefaultCharacterHeight
+                if (file.Context.CurrentTask.CharacterHeight > 0)
+                    height = file.Context.CurrentTask.CharacterHeight
+                if (field.FieldRow > 0) then
+                    mreturn Convert.ToString(((field.FieldRow + field.ArrayDimension[1] - 1) * height) - (height - 1))
+                else
+                    mreturn Convert.ToString((field.LogicalFieldNumber * height) - (height - 1))
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPixelWidth, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data width, int, DefaultValues.DefaultCharacterWidth
+                if (file.Context.CurrentTask.CharacterWidth > 0)
+                    width = file.Context.CurrentTask.CharacterWidth
+                if (field.SelectionList.Count > 0) then
+                    mreturn Convert.ToString(field.SelectionListMaxLength * width)
+                else if (field.Enumerated) then
+                    mreturn Convert.ToString(field.EnumeratedDisplayLength * width)
+                else
+                    mreturn Convert.ToString(field.Size * width)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldDrillPixelCol, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data width, int, DefaultValues.DefaultCharacterWidth
+                if (file.Context.CurrentTask.CharacterWidth > 0)
+                    width = file.Context.CurrentTask.CharacterWidth
+                data fieldPixWidth, int
+                if (field.SelectionList.Count > 0) then
+                    fieldPixWidth = field.SelectionListMaxLength * width
+                else if (field.Enumerated) then
+                    fieldPixWidth = field.EnumeratedDisplayLength * width
+                else
+                    fieldPixWidth = field.Size * width
+                if (field.FieldColumn > 0) then
+                    mreturn Convert.ToString((field.FieldColumn * width) + fieldPixWidth - width)
+                else
+                    mreturn Convert.ToString((DefaultValues.DefaultFieldColumn * width) + fieldPixWidth - width)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldInputLength, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data fieldInputLength, int
+                using (field.DataType) select
+                (RpsFieldDataType.Alpha),
+                    mreturn Convert.ToString(field.Size)
+                (RpsFieldDataType.Decimal),
+                begin
+                    fieldInputLength = field.Size
+                    if (field.NegativeAllowed != RpsFieldNegatives.None)
+                        fieldInputLength += 1
+                    if (field.Precision > 0)
+                        fieldInputLength += 1
+                    mreturn Convert.ToString(fieldInputLength)
+                end
+                (RpsFieldDataType.Integer),
+                begin
+                    fieldInputLength = 0
+                    using (field.Size) select
+                    (1),
+                        fieldInputLength = 3
+                    (2),
+                        fieldInputLength = 5
+                    (4),
+                        fieldInputLength = 10
+                    (8),
+                        fieldInputLength = 19
+                    endusing
+                    if (field.NegativeAllowed != RpsFieldNegatives.None)
+                        fieldInputLength += 1
+                    mreturn Convert.ToString(fieldInputLength)
+                end
+                (),
+                    mreturn Convert.ToString(field.Size)
+                endusing
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldOdbcName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.OdbcName
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPosition, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.StartPosition)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPositionZero, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.StartPosition - 1)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPrecision, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.Precision)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPrecision2, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.Precision > 0) then
+                    mreturn Convert.ToString(field.Precision)
+                else
+                    mreturn ""
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPrompt, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.Prompt.Replace("""", "").Replace("^", "").Replace("<", "").Replace(">", "").Replace(":", "")
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldRangeMax, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.NumericRangeMaximum)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldRangeMin, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.NumericRangeMinimum)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldRegex, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn CodeGen.Engine.StringTools.FieldRegex(field)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldRow, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.FieldRow > 0) then
+                    mreturn Convert.ToString(field.FieldRow + field.ArrayDimension[1] - 1)
+                else
+                    mreturn Convert.ToString(field.LogicalFieldNumber)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSelections, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.SelectionList.Count > 0) then
+                begin
+                    data selections, string, ""
+                    data selection, string
+                    foreach selection in field.SelectionList
+                        selections += String.Format("""{1}"",", selection)
+                    ;; Return the string without the trailing comma
+                    mreturn selections.Substring(0, selections.Length - 1)
+                end
+                else
+                    mreturn """"""
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSelections1, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.SelectionList.Count > 0) then
+                begin
+                    data selections, string, """"
+                    data selection, string
+                    foreach selection in field.SelectionList
+                        selections += String.Format("{0}|", selection)
+                    ;; Return the string without the trailing pipe, and with a close quote
+                    mreturn selections.Substring(0, selections.Length - 1) + """"
+                end
+                else
+                    mreturn """"""
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSelLength, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.SelectionListMaxLength)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSelWnd, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.SelectionWindowName.ToUpper()
+            end
+            ;; This one is slightly different because the data from the repository is mixed case. So we upper case it here before case processing.
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSelWndOriginal, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.SelectionWindowName
+            end
+            ;; This one is slightly different because the data from the repository is mixed case and this tokens purpose is to maintain the original casing.
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSize, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.Size)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSnType, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.SnType
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSnDefault, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.SnDefault
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSpec, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data tmpSpec, string, ""
+                if ((field.IsGroup && !String.IsNullOrWhiteSpace(field.GroupStructure)) && file.Context.CurrentTask.GroupNoExpand) then
+                begin
+                    ;; We've got an implicit structure which has not been expanded
+                    tmpSpec = field.TypeCode
+                end
+                else
+                begin
+                    using (field.DataType) select
+                    (RpsFieldDataType.Boolean),
+                        tmpSpec = "BOOLEAN"
+                    (RpsFieldDataType.Binary),
+                    begin
+						;; Can't currently happen because of %CheckStructure
+						nop
+                    end
+                    (RpsFieldDataType.StructField),
+                    begin
+                        ;; Can't currently happen because of %CheckStructure
+                        tmpSpec = field.UserFieldType
+                    end
+                    (RpsFieldDataType.Enum),
+                    begin
+                        ;; Can't currently happen because of %CheckStructure
+                        tmpSpec = field.UserFieldType
+                    end
+                    (),
+                    begin
+                        tmpSpec = field.TypeCode + Convert.ToString(field.Size)
+                        if (field.Precision > 0)
+                            tmpSpec += "." + Convert.ToString(field.Precision)
+                    end
+                    endusing
+                end
+                mreturn tmpSpec
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSqlName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.SqlName
+            end
+            ;; This one is also used for <FIELD_NETNAME>
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSqlType, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.SqlType
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldTemplate, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.Template
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldTkScript, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if ((((field.PromptRow > 0) && (field.PromptColumn > 0)) && (field.FieldRow > 0)) && (field.FieldColumn > 0)) then
+                    mreturn String.Format(".field {0}, pos({1},{2}), fpos({3},{4})", field.Name, field.PromptRow, field.PromptColumn, field.FieldRow, field.FieldColumn)
+                else
+                    mreturn String.Format(".field {0}, pos({1},1)", field.Name, field.LogicalFieldNumber)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldType, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.TypeCode
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldTypeName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.TypeName
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldUserText, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.UserText
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldVbDefault, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.VbDefault
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldVbType, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn field.VbType
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldNumber, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.FieldNumber)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldNumberZero, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.FieldNumber - 1)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldNumberLogical, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.LogicalFieldNumber)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldNumberLogicalZero, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.LogicalFieldNumber - 1)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldMappedField, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data value, string, ""
+                if (!String.IsNullOrWhiteSpace(field.MappedField)) then
+                    value = field.MappedField.ToUpper()
+                else
+                begin
+                    using (field.TypeCode) select
+                    ("A", "U"),
+                        value = '""'
+                    ("D", "I"),
+                        value = "0"
+                    ("@"),
+                        value = String.Format("new {0}()", field.TypeCode)
+                    endusing
+                end
+                mreturn value
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldMappedPath, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (String.IsNullOrWhiteSpace(str.MappedStructure)) then
+                    throw new ApplicationException(file.GetTokenErrorMessage(tkn, String.Format("requires structure {0} be mapped to another structure", str.Name)))
+                else
+                begin
+                    data value, string, ""
+                    if (!String.IsNullOrWhiteSpace(field.MappedField)) then
+                        value = String.Format("{0}.{1}", str.MappedStructure.ToUpper(), field.MappedField.ToUpper())
+                    else
+                    begin
+                        using (field.TypeCode) select
+                        ("A", "U"),
+                            value = '""'
+                        ("D", "I"),
+                            value = "0"
+                        ("@"),
+                            value = String.Format("new {0}()", field.TypeCode)
+                        endusing
+                    end
+                    mreturn value
+                end
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldMappedPathConv, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (String.IsNullOrWhiteSpace(str.MappedStructure)) then
+                    throw new ApplicationException(file.GetTokenErrorMessage(tkn, String.Format("requires structure {0} be mapped to another structure", str.Name)))
+                else
+                begin
+                    data value, string, ""
+                    if (!String.IsNullOrWhiteSpace(field.MappedField)) then
+                        value = String.Format("{0}.{1}", str.MappedStructure.ToUpper(), field.MappedField.ToUpper())
+                    else
+                    begin
+                        using (field.TypeCode) select
+                        ("A", "U"),
+                            value = '""'
+                        ("D", "I"),
+                            value = "0"
+                        ("@"),
+                            value = String.Format("new {0}()", field.TypeCode)
+                        endusing
+                    end
+                    if (!String.IsNullOrWhiteSpace(field.MappingFunction))
+                        value = String.Format("%{0}({1})", field.MappingFunction.ToUpper(), value)
+                    mreturn value
+                end
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPromptCol, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.PromptColumn != 0) then
+                    mreturn Convert.ToString(field.PromptColumn)
+                else
+                    mreturn Convert.ToString(DefaultValues.DefaultFieldPromptColumn)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPromptPixelCol, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data width, int, DefaultValues.DefaultCharacterWidth
+                if (file.Context.CurrentTask.CharacterWidth > 0)
+                    width = file.Context.CurrentTask.CharacterWidth
+                if (field.PromptColumn > 0) then
+                    mreturn Convert.ToString((field.PromptColumn * width) - (width - 1))
+                else
+                    mreturn Convert.ToString((DefaultValues.DefaultFieldPromptColumn * width) - (width - 1))
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPromptPixelRow, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data height, int, DefaultValues.DefaultCharacterHeight
+                if (file.Context.CurrentTask.CharacterHeight > 0)
+                    height = file.Context.CurrentTask.CharacterHeight
+                if (field.PromptRow > 0) then
+                    mreturn Convert.ToString(((field.PromptRow + field.ArrayDimension[1] - 1) * height) - (height - 1))
+                else
+                    mreturn Convert.ToString((field.LogicalFieldNumber * height) - (height - 1))
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPromptPixelWidth, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            data width, int, DefaultValues.DefaultCharacterWidth
+            if (file.Context.CurrentTask.CharacterWidth > 0)
+                width = file.Context.CurrentTask.CharacterWidth
+            lambda doExpand(str, field)
+            begin
+                mreturn Convert.ToString(field.Prompt.Length * width)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPromptRow, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.PromptRow > 0) then
+                    mreturn Convert.ToString(field.PromptRow + field.ArrayDimension[0] - 1)
+                else
+                    mreturn Convert.ToString(field.LogicalFieldNumber)
+            end
+            mreturn ExpandFieldLoopToken(tkn, file, loops, doExpand)
+		endmethod
+
+	endclass
+
+endnamespace

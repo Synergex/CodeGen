@@ -1,0 +1,1887 @@
+;;*****************************************************************************
+;;
+;; Title:       CodeGenerator.dbl
+;;
+;; Type:        Class
+;;
+;; Description: In-process callable interface to CodeGen
+;;
+;; Date:        
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import Microsoft.Win32
+import System
+import System.Collections
+import System.Collections.Generic
+import System.Collections.ObjectModel
+import System.IO
+import System.Reflection
+import CodeGen.Engine
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+	
+	.include "CODEGEN_SRC:codegen.def"
+	
+	public sealed class CodeGenerator
+		
+		private context						,@CodeGenContext
+		private readonly originalRpsmain	,String
+		private readonly originalRpstext	,String
+		
+		public method CodeGenerator
+			required in taskset				,@CodeGenTaskSet
+			endparams
+		proc
+			
+			context = new CodeGenContext(taskset)
+			
+			;;If we're in developer debug or verbose modes then display the heading
+			if (context.DeveloperDebugLoggingEnabled || (context.VerboseLoggingEnabled))
+				taskset.VerboseLog(String.Format("CodeGen {0}",CODEGEN_VERSION), true, false)
+			
+			;;Remember the original repository that was set before we changed anything
+			originalRpsmain = Environment.GetEnvironmentVariable("RPSMFIL")
+			originalRpstext = Environment.GetEnvironmentVariable("RPSTFIL")
+			
+			;;Set the main environment variables (CODEGEN_EXE, CODEGEN_TPLDIR, CODEGEN_OUTDIR, CODEGEN_AUTHOR and CODEGEN_COMPANY)
+			configureEnvironment()
+			
+			;;Load Symphony Framework extensions
+			loadSymphonyExtensions()
+			
+			;;Load other extensions
+			loadExtensions()
+			
+			;;Report loaded extensions
+			if (context.DeveloperDebugLoggingEnabled)
+				reportLoadedExtensions()
+			
+		endmethod
+		
+		private method configureEnvironment, void
+			endparams
+			.include "CODEGEN_SRC:codegen.def"
+		proc
+			;;Explicitly set CODEGEN_EXE to the location of the running executable
+			Environment.SetEnvironmentVariable("CODEGEN_EXE",Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(^typeof(CodeGenerator)).Location))
+			
+			;;Make the current version number available in the expander
+			context.Version = CODEGEN_VERSION
+			
+			;;Is CODEGEN_TPLDIR already set in the environment?
+			data templateFolder, String, Environment.GetEnvironmentVariable("CODEGEN_TPLDIR")
+			if (String.IsNullOrWhiteSpace(templateFolder))
+			begin
+				;;No, look in the registry for the value set by InstallShield
+				data templateFolderFound, boolean, false
+				
+				templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
+				if (!String.IsNullOrWhiteSpace(templateFolder)) then
+				begin
+					;;Found it
+					Environment.SetEnvironmentVariable("CODEGEN_TPLDIR",templateFolder.Trim())
+					templateFolderFound = true
+				end
+				else if (Environment.Is64BitProcess)
+				begin
+					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+					templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","TemplatePath","")
+					if (!String.IsNullOrWhiteSpace(templateFolder))
+					begin
+						;;Found it
+						Environment.SetEnvironmentVariable("CODEGEN_TPLDIR",templateFolder.Trim())
+						templateFolderFound = true
+					end
+				end
+			end
+			
+			;;Is CODEGEN_AUTHOR already set in the environment?
+			data authorName, String, Environment.GetEnvironmentVariable("CODEGEN_AUTHOR")
+			if (!String.IsNullOrWhiteSpace(authorName)) then
+				context.Author = authorName
+			else
+			begin
+				;;No, look in the registry for the value set by InstallShield
+				authorName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultAuthor","")
+				if (!String.IsNullOrWhiteSpace(authorName)) then
+					context.Author = authorName
+				else if (Environment.Is64BitProcess)
+				begin
+					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+					authorName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultAuthor","")
+					if (!String.IsNullOrWhiteSpace(authorName))
+						context.Author = authorName
+				end
+			end
+			
+			;;Is CODEGEN_COMPANY already set in the environment?
+			data companyName, String, Environment.GetEnvironmentVariable("CODEGEN_COMPANY")
+			if (!String.IsNullOrWhiteSpace(companyName)) then
+				context.Company = companyName
+			else
+			begin
+				;;No, look in the registry for the value set by InstallShield
+				companyName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultCompany","")
+				if (!String.IsNullOrWhiteSpace(companyName)) then
+					context.Company = companyName
+				else if (Environment.Is64BitProcess)
+				begin
+					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+					companyName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultCompany","")
+					if (!String.IsNullOrWhiteSpace(companyName))
+						context.Company = companyName
+				end
+			end			
+			
+		endmethod
+		
+		private method loadSymphonyExtensions, void
+			endparams
+		proc
+			
+			data errStatus, Boolean, false
+			
+			;;Get task and taskset handles for convenience
+			data taskset, @CodeGenTaskSet, context.Taskset
+			data task, @CodeGenTask, context.CurrentTask
+			
+			taskset.DevDebugLog("----------------------------------------------------------")
+			taskset.DevDebugLog("SYMPHONY FRAMEWORK EXTENSIONS")
+			
+			;;Report whether we're running 32-bit or 64-bit
+			if (Environment.Is64BitProcess) then
+				taskset.DevDebugLog("Process is 64-bit")
+			else
+				taskset.DevDebugLog("Process is 32-bit")
+			
+			;;Look for extensions in the registry
+			
+			data symphonyLocation,   String, (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","CodeGenExtensionPath","")
+			data extensionsAssembly, String, (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","CodeGenExtensionLibrary","")
+			data extensionsFound, boolean, false
+			
+			if (!String.IsNullOrWhiteSpace(symphonyLocation)&&!String.IsNullOrWhiteSpace(extensionsAssembly))
+			begin
+				extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
+				if (File.Exists(extensionsAssembly)) then
+				begin
+					taskset.DevDebugLog("Extensions definition found in registry and assembly found")
+					extensionsFound = true
+				end
+				else
+				begin
+					taskset.DevDebugLog("Extensions definition found in registry but assembly not found")
+				end
+			end
+			
+			;;If we didn't find extensions, and we're 64-bit, let's try looking in the 32-bit registry
+			
+			if (!extensionsFound&&Environment.Is64BitProcess)
+			begin
+				symphonyLocation   = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\SymphonyFramework","CodeGenExtensionPath","")
+				extensionsAssembly = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\SymphonyFramework","CodeGenExtensionLibrary","")
+				
+				if (!String.IsNullOrWhiteSpace(symphonyLocation)&&!String.IsNullOrWhiteSpace(extensionsAssembly))
+				begin
+					extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
+					if (File.Exists(extensionsAssembly)) then
+					begin
+						taskset.DevDebugLog("Extensions definition found in 32-bit registry and assembly found")
+						extensionsFound = true
+					end
+					else
+					begin
+						taskset.DevDebugLog("Extensions definition found in 32-bit registry but assembly not found")
+					end
+				end
+			end
+			
+			;;If we still didn't find extensions then look in the same folder as CodeGen
+			if (!extensionsFound)
+			begin
+				data codeBaseUri, @UriBuilder, new UriBuilder(Assembly.GetExecutingAssembly().CodeBase)
+				symphonyLocation = Path.GetDirectoryName(Uri.UnescapeDataString(codeBaseUri.Path))
+				extensionsAssembly = Path.Combine(symphonyLocation,"SymphonyCodeGenExtensions.dll")
+				if (File.Exists(extensionsAssembly)) then
+				begin
+					taskset.DevDebugLog("Extensions found on disk")
+					extensionsFound = true
+				end
+				else
+				begin
+					taskset.DevDebugLog("Extensions not found on disk")
+				end
+			end
+			
+			if (extensionsFound)
+			begin
+				;;Report the extensions assembly we're going to use
+				taskset.DevDebugLog(String.Format("Using {0}",extensionsAssembly))
+
+				;;Open the assembly and load extensions
+				if (!loadExtensionsFromAssembly(extensionsAssembly))
+					taskset.DevDebugLog("No extensions were found in the Symphony extensions assembly!")					
+			end
+			
+			taskset.DevDebugLog("Finished loading Symphony extensions")
+			
+		endmethod
+		
+		private method loadExtensions, void
+			endparams
+		proc
+			;;Get task and taskset handles for convenience
+			data taskset, @CodeGenTaskSet, context.Taskset
+			data task, @CodeGenTask, context.CurrentTask
+			
+			taskset.DevDebugLog("----------------------------------------------------------")
+			taskset.DevDebugLog("OTHER EXTENSIONS")
+			
+			;;Do we have a CODEGEN_EXTDIR environment variable?
+			data location, String, Environment.GetEnvironmentVariable("CODEGEN_EXTDIR")
+			if (!string.IsNullOrWhiteSpace(location))
+			begin
+				if (!Directory.Exists(location))
+				begin
+					taskset.DevDebugLog("Ignoring extensions location specified by CODEGEN_EXTDIR because the location does not exist")
+					location = String.Empty
+				end
+			end
+
+			if (String.IsNullOrWhiteSpace(location))
+			begin
+				;;No CODEGEN_EXTDIR so we'll use CODEGEN_EXE which is ALWAYS defined
+				location = Environment.GetEnvironmentVariable("CODEGEN_EXE")
+			end
+			
+			taskset.DevDebugLog("Searching for extensions in " + location)
+			
+			data extensionAssembly, String
+			data extensionsFound, boolean, false
+			
+			foreach extensionAssembly in Directory.GetFiles(location,"custom*.dll")
+			begin
+				if (loadExtensionsFromAssembly(extensionAssembly))
+					extensionsFound = true
+			end
+			
+			if (!extensionsFound)
+				taskset.DevDebugLog("No extensions found")
+			
+			taskset.DevDebugLog("Finished loading extensions")
+			
+		endmethod
+		
+		private method loadProformaExtensions, boolean
+			endparams
+		proc
+			
+			data errStatus, boolean, false
+			
+			;;-------------------------------------------------------------------------
+			;;Get task and taskset handles for convenience
+			data taskset, @CodeGenTaskSet, context.Taskset
+			data task, @CodeGenTask, context.CurrentTask
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have a custom assembly containing a BusinessCreft ProForma processor?
+			
+			taskset.DevDebugLog("Attempting to load BusinessCraft Proforma extensions")
+			
+			;;Do we have a CODEGEN_EXTDIR environment variable?
+			data location, String, Environment.GetEnvironmentVariable("CODEGEN_EXTDIR")
+			if (String.IsNullOrWhiteSpace(location))
+			begin
+				;;No CODEGEN_EXTDIR so we'll use CODEGEN_EXE which is ALWAYS defined
+				location = Environment.GetEnvironmentVariable("CODEGEN_EXE")
+			end
+			
+			;;Setup a file spec to locate custom token processor extensions
+			data extensionsAssembly, String, Path.Combine(location,"CodeGenProForma.dll")
+			
+			;;Search for and open custom token processor extensions
+			if (!File.Exists(extensionsAssembly)) then
+				errStatus = taskset.Errorlog(String.Format("Proforma assembly {0} not found!",extensionsAssembly))
+			else
+			begin
+				;;Open the assembly and load extensions
+				if (!loadExtensionsFromAssembly(extensionsAssembly))
+					errStatus = taskset.ErrorLog("No extensions were found in the proforma extensions assembly!")					
+			end
+			
+			mreturn !errStatus
+			
+		endmethod
+		
+		private method loadExtensionsFromAssembly, boolean
+			required in extensionAssembly, string
+			endparams
+		proc
+			data ok, boolean, true
+			data extensionsLoaded, int, 0
+			
+			;;Get task and taskset handles for convenience
+			data taskset, @CodeGenTaskSet, context.Taskset
+			data task, @CodeGenTask, context.CurrentTask
+
+			;;Open the assembly
+			data asm, @Assembly
+			try
+			begin
+				asm = Assembly.LoadFrom(extensionAssembly)
+			end
+			catch (e, @Exception)
+			begin
+				task.Warning(String.Format("Potential extensions assembly {0} couldn't be activated.",Path.GetFileName(extensionAssembly)))
+				ok = false
+			end
+			endtry
+			
+			if (ok)
+			begin
+				taskset.DevDebugLog(String.Format("Opened assembly {0}",extensionAssembly))
+				
+				;;Look through all the types in the assembly searching for types that implement
+				;;IExpansionToken or IExpressionToken and record them in the extension collections.
+				
+				data discoveredType, @Type
+				foreach discoveredType in asm.GetTypes()
+				begin
+					data discoveredInterfaces, [#]@Type, discoveredType.GetInterfaces()
+					if (discoveredInterfaces.Length)
+					begin
+						;;The type we found implements at least one interface
+						data interfaceType, @Type
+						foreach interfaceType in discoveredInterfaces
+						begin
+							if (interfaceType==^typeof(IExpansionToken)&&(discoveredType.GetConstructor(Type.EmptyTypes)!=^null)) then
+							begin
+								data expander, @IExpansionToken, (@IExpansionToken)Activator.CreateInstance(discoveredType)
+								context.CustomTokenExpanders.Add(Tuple.Create(expander.TokenName,expander.Description,expander.Validity,expander.TokenCase,(@Func<Token, FileNode, IEnumerable<LoopNode>, String>)expander.Expand))
+								extensionsLoaded += 1
+								exitloop
+							end
+							else if (interfaceType==^typeof(IExpressionToken)&&(discoveredType.GetConstructor(Type.EmptyTypes)!=^null))
+							begin
+								data evaluator, @IExpressionToken, (@IExpressionToken)Activator.CreateInstance(discoveredType)
+								context.CustomExpressionEvaluators.Add(Tuple.Create(evaluator.TokenName,evaluator.Description,evaluator.Validity,(@Func<Token, FileNode, IEnumerable<LoopNode>, Boolean>)evaluator.Evaluate))
+								extensionsLoaded += 1
+								exitloop
+							end
+						end
+					end
+				end
+			end
+
+			mreturn (extensionsLoaded > 0)
+
+		endmethod
+
+		private method reportLoadedExtensions, void
+			endparams
+		proc
+			;;Get task and taskset handles for convenience
+			data taskset, @CodeGenTaskSet, context.Taskset
+			data task, @CodeGenTask, context.CurrentTask
+			
+			taskset.DevDebugLog("----------------------------------------------------------")
+			taskset.DevDebugLog("SUMMARY OF LOADED EXTENSIONS")
+			
+			if (context.CustomTokenExpanders.Count>0) then
+			begin
+				taskset.DevDebugLog(" - Custom tokens have been loaded:")
+				if (context.DeveloperDebugLoggingEnabled)
+				begin
+					data expander, @Tuple<String,String,TokenValidity,TokenCaseMode,Func<Token, FileNode, IEnumerable<LoopNode>, String>>
+					foreach expander in context.CustomTokenExpanders
+						taskset.DevDebugLog("   <" + expander.Item1 + ">")
+				end
+			end
+			else
+				taskset.DevDebugLog(" - No custom tokens have been loaded")
+
+			if (context.CustomExpressionEvaluators.Count>0) then
+			begin
+				taskset.DevDebugLog(" - Custom expressions have been loaded:")
+				if (context.DeveloperDebugLoggingEnabled)
+				begin
+					data evaluator, @Tuple<String,String,TokenValidity,Func<Token, FileNode, IEnumerable<LoopNode>, Boolean>>
+					foreach evaluator in context.CustomExpressionEvaluators
+						taskset.DevDebugLog("   <" + evaluator.Item1 + ">")
+				end
+			end
+			else
+				taskset.DevDebugLog(" - No custom expressions have been loaded")
+			
+		endmethod
+		
+		public method GenerateCode, Boolean
+			endparams
+		proc
+			
+			;;Get a handle on the task set
+			data taskset, @CodeGenTaskSet, context.Taskset
+			data taskSetComplete, Boolean, true
+			
+			;;Make sure we have at least one task
+			if (taskset.Tasks.Count == 0)
+			begin
+				taskset.ErrorLog("Your CodeGen task set doen't contain any tasks!")
+				taskset.Complete = false
+				mreturn false
+			end
+			
+			;;Raise the StartingTaskSet event
+			taskset.RaiseStartingTaskSet()
+			
+			;;Process each task
+			data task, @CodeGenTask
+			foreach task in taskset.Tasks
+			begin
+				;;Reset the context for the new task and specify the current task
+				context.ResetTaskContext()
+				context.CurrentTask = task
+				
+				;;Raise the TaskStarting event
+				task.RaiseStartingTask()
+				
+				;;If this task defines a repository then use it. If not, and the task set has a repository, use that.
+				;;Otherwise, reset the repository to the way it was on entry
+				if (!String.IsNullOrWhiteSpace(task.RepositoryMainFile) && !String.IsNullOrWhiteSpace(task.RepositoryTextFile)) then
+				begin
+					Environment.SetEnvironmentVariable("RPSMFIL",task.RepositoryMainFile)
+					Environment.SetEnvironmentVariable("RPSTFIL",task.RepositoryTextFile)
+					task.DevDebugLog("Using the respository specified by the TASK")
+				end
+				else if (!String.IsNullOrWhiteSpace(taskset.RepositoryMainFile) && !String.IsNullOrWhiteSpace(taskset.RepositoryTextFile)) then
+				begin
+					Environment.SetEnvironmentVariable("RPSMFIL",taskset.RepositoryMainFile)
+					Environment.SetEnvironmentVariable("RPSTFIL",taskset.RepositoryTextFile)
+					task.DevDebugLog("Using the respository specified by the TASK SET")
+				end
+				else
+				begin
+					Environment.SetEnvironmentVariable("RPSMFIL",originalRpsmain)
+					Environment.SetEnvironmentVariable("RPSTFIL",originalRpstext)
+					task.DevDebugLog("Repository not specified by task or task set. Using repository environment defined on entry.")
+				end
+				
+				;;Generate code
+				generateCodeForTask()
+				
+				;;Record the final status of the task
+				task.Complete = (task.Errors == 0) && (task.Warnings == 0)
+
+				;;If the task failed, then so sis the overall task set
+				if (!task.Complete)
+					taskSetComplete = false
+				
+				;;Raise the TaskComplete event
+				task.RaiseTaskComplete()
+			end
+			
+			;;Record if everything in the task set was completed successfully
+			taskset.Complete = taskSetComplete
+			
+			;;Raise the TaskSetComplete event
+			taskset.RaiseTaskSetComplete()
+			
+			mreturn taskset.Complete
+			
+		endmethod
+		
+		;;;<summary>
+		;;;Performs code generation for a single task
+		;;;</summary>
+		private method generateCodeForTask, void
+			endparams
+		proc
+			
+			data errStatus, boolean, false
+			
+			;;-------------------------------------------------------------------------
+			;;Get task and taskset handles for convenience
+			
+			data taskset, @CodeGenTaskSet, context.Taskset
+			data task, @CodeGenTask, context.CurrentTask
+			
+			;;-------------------------------------------------------------------------
+			;;Echo command line?
+			
+			if (taskset.EchoCommands)
+				task.EchoCommand()
+			
+			;;-------------------------------------------------------------------------
+			;;Open the tasks repository and load enums and files into context
+			
+			disposable data rps, @Repository
+			
+			try
+			begin
+				rps = new Repository()
+				context.Enumerations = rps.Enumerations
+				context.Files = rps.Files
+			end
+			catch (ex, @RpsException)
+			begin
+				errStatus = task.ErrorLog(ex.Message)
+			end
+			endtry
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have a custom data mappings file specified?
+			
+			if (!errStatus)
+			begin
+				if (!String.IsNullOrWhiteSpace(taskset.DataMappingsFile))
+				begin
+					;;Expand any logical names that might be there
+					data mappingFile, String, taskset.DataMappingsFile
+					if (!FileTools.ExpandLogicalName(mappingFile)) then
+						errStatus = task.ErrorLog(String.Format("Failed to translate logical names in data mappings file {0}",taskset.DataMappingsFile))
+					else
+					begin
+						;;Make sure the file exists
+						if (!File.Exists(mappingFile)) then
+							errStatus = task.Errorlog(string.Format("Failed to open custom data mappings file {0}", taskset.DataMappingsFile))
+						else
+						begin
+							Environment.SetEnvironmentVariable("CODEGEN_DATAMAPPING_FILE",mappingFile)
+							task.DevDebugLog("Custom data mapping file set to " + mappingFile)
+						end
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have a template folder specified via CODEGEN_TPLDIR: ? If so this overrides the default location of current directory.
+			
+			if (!errStatus)
+			begin
+				data folder, String, Environment.GetEnvironmentVariable("CODEGEN_TPLDIR")
+				if (!String.IsNullOrWhiteSpace(folder))
+				begin
+					;;Make sure there is no whitespace
+					folder = folder.Trim()
+					
+					;;Expand any logical names in the file spec.
+					if (!FileTools.ExpandLogicalName(folder)) then
+						errStatus = task.ErrorLog(String.Format("Failed to expand logical name {0} in CODEGEN_TPLDIR:",folder))
+					else
+					begin
+						;;Make sure the folder ends with a \
+						if (!folder.EndsWith("\"))
+							folder += "\"
+						
+						;;Make sure the folder exists.
+						if (!Directory.Exists(folder))
+						begin
+							;;CODEGEN_TPLDIR: is bad, but do we care?
+							if (String.IsNullOrWhiteSpace(task.TemplateFolder) && String.IsNullOrWhiteSpace(taskset.TemplateFolder))
+							begin
+								;;Yes, we care!
+								errStatus = task.ErrorLog(String.Format("CODEGEN_TPLDIR is set to {0} and the folder does not exist!",folder))
+							end
+						end
+						
+						;;Looks like we're using CODEGEN_TPLDIR: for now
+						if (!errStatus)
+						begin
+							context.TemplateFolder = folder
+							task.DevDebugLog(String.Format("CODEGEN_TPLDIR sets template folder to {0}",folder))
+						end
+					end					
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have a template folder specified for the task or taskset?
+			;;If so this overrides CODEGEN_TPLDIR:
+			
+			if (!errStatus)
+			begin
+				if (!String.IsNullOrWhiteSpace(task.TemplateFolder)) then
+				begin
+					;;We have a task template folder
+					data folder, String, task.TemplateFolder
+					
+					;;Expand any logical names
+					if (!FileTools.ExpandLogicalName(folder)) then
+						errStatus = task.ErrorLog(String.Format("Failed to expand logical name {0} in task template folder",folder))
+					else
+					begin
+						;;Make sure the folder ends with a \
+						if (!folder.EndsWith("\"))
+							folder += "\"
+						
+						;;Is the folder valid?
+						if (!Directory.Exists(folder)) then
+							errStatus = task.ErrorLog(String.Format("Task specifies an invalid template folder {0}",folder))
+						else
+						begin
+							context.TemplateFolder = folder
+							task.DevDebugLog(String.Format("Task sets template folder to {0}",folder))
+						end
+					end
+				end
+				else if (!String.IsNullOrWhiteSpace(taskset.TemplateFolder))
+				begin
+					;;We have a task template folder
+					data folder, String, taskset.TemplateFolder
+					
+					;;Expand any logical names
+					if (!FileTools.ExpandLogicalName(folder)) then
+						errStatus = task.ErrorLog(String.Format("Failed to expand logical name {0} in task set template folder",folder))
+					else
+					begin
+						;;Make sure the folder ends with a \
+						if (!folder.EndsWith("\"))
+							folder += "\"
+						
+						;;Is the folder valid?
+						if (!Directory.Exists(folder)) then
+							errStatus = task.ErrorLog(String.Format("Task set specifies an invalid template folder {0}",folder))
+						else
+						begin
+							context.TemplateFolder = folder
+							task.DevDebugLog(String.Format("Task set sets template folder to {0}",folder))
+						end
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Report template file folder (verbose mode only)
+			
+			if ((!errStatus) && context.VerboseLoggingEnabled)
+			begin
+				if (String.IsNullOrWhiteSpace(context.TemplateFolder)) then
+					task.Log("Template folder : Current directory", true, false)
+				else
+					task.Log("Template folder : " + context.TemplateFolder, true, false)
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Make sure there are template file(s) in the template folder
+			
+			if (!errStatus)
+			begin
+				data tplfiles = Directory.GetFiles(context.TemplateFolder,"*.tpl")
+				if (tplfiles.Length == 0)
+					errStatus = task.ErrorLog(string.Format("No templates found in template folder {0}", context.TemplateFolder))
+			end
+			;;-------------------------------------------------------------------------
+			;;See if we have an output location specified with CODEGEN_OUTDIR
+			;;If present, this location overrides the default location (current dir)
+			
+			if (!errStatus)
+			begin
+				data folder, String, Environment.GetEnvironmentVariable("CODEGEN_OUTDIR")
+				if (!String.IsNullOrWhiteSpace(folder))
+				begin
+					;;Make sure there is no whitespace
+					folder = folder.Trim()
+					
+					;;Expand any logical names in the file spec.
+					if (!FileTools.ExpandLogicalName(folder)) then
+						errStatus = task.ErrorLog(String.Format("Failed to expand logical name {0} in CODEGEN_OUTDIR:",folder))
+					else
+					begin
+						;;Make sure the path ends with \
+						if (!folder.EndsWith("\"))
+							folder += "\"
+						
+						;;Make sure the folder exists.
+						if (!Directory.Exists(folder))
+						begin
+							;;CODEGEN_OUTDIR: is bad, but do we care?
+							if (String.IsNullOrWhiteSpace(task.OutputFolder) && String.IsNullOrWhiteSpace(taskset.OutputFolder))
+							begin
+								;;Yes, we care!
+								errStatus = task.ErrorLog(String.Format("CODEGEN_OUTDIR is set to {0} and the folder doesn't exist!",folder))
+							end
+						end
+						
+						;;Looks like we're using CODEGEN_OUTDIR: for now
+						if (!errStatus)
+						begin
+							context.OutputFolder = folder
+							task.DevDebugLog(String.Format("CODEGEN_OUTDIR sets output folder to {0}",folder))
+						end
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have an output folder specified for the task or taskset?
+			;;If so this overrides CODEGEN_OUTDIR:
+			
+			if (!errStatus)
+			begin
+				if (!String.IsNullOrWhiteSpace(task.OutputFolder)) then
+				begin
+					;;We have a task output folder
+					data folder, String, task.OutputFolder
+					
+					;;Expand any logical names
+					if (!FileTools.ExpandLogicalName(folder)) then
+						errStatus = task.ErrorLog(String.Format("Failed to expand logical name {0} in task output folder",folder))
+					else
+					begin
+						;;Make sure the folder ends with a \
+						if (!folder.EndsWith("\"))
+							folder += "\"
+						
+						;;Is the folder valid?
+						if (!Directory.Exists(folder)) then
+							errStatus = task.ErrorLog(String.Format("Task specifies an invalid output folder {0}",folder))
+						else
+						begin
+							context.OutputFolder = folder
+							task.DevDebugLog(String.Format("Task sets output folder to {0}",folder))
+						end
+					end
+				end
+				else if (!String.IsNullOrWhiteSpace(taskset.OutputFolder))
+				begin
+					;;We have a task set output folder
+					data folder, String, taskset.OutputFolder
+					
+					;;Expand any logical names
+					if (!FileTools.ExpandLogicalName(folder)) then
+						errStatus = task.ErrorLog(String.Format("Failed to expand logical name {0} in task set output folder",folder))
+					else
+					begin
+						;;Make sure the folder ends with a \
+						if (!folder.EndsWith("\"))
+							folder += "\"
+						
+						;;Is the folder valid?
+						if (!Directory.Exists(folder)) then
+							errStatus = task.ErrorLog(String.Format("Task set specifies an invalid output folder {0}",folder))
+						else
+						begin
+							context.OutputFolder = folder
+							task.DevDebugLog(String.Format("Task set sets output folder to {0}",folder))
+						end
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Report output location (verbose mode only)
+			
+			if (!errStatus)
+			begin
+				if (context.VerboseLoggingEnabled)
+				begin
+					if (String.IsNullOrWhiteSpace(context.OutputFolder)) then
+						task.Log("Output folder   : Current directory")
+					else
+						task.Log("Output folder   : " + context.OutputFolder)
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Make sure we can create files in the output folder
+			
+			if (!errStatus && !FileTools.CanCreateFileInFolder(context.OutputFolder))
+				errStatus = task.ErrorLog(String.Format("Can't create files in output folder {0}!",context.OutputFolder))
+			
+			;;-------------------------------------------------------------------------
+			;;Report if we're replacing existing files
+			
+			if (!errStatus)
+			begin
+				if (task.ReplaceFiles) then
+					task.VerboseLog("Replace files   : YES")
+				else
+					task.VerboseLog("Replace files   : NO")
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Namespace processing
+			
+			if (!errStatus)
+			begin
+				;;Does the task have a namespace?
+				if (!String.IsNullOrWhiteSpace(task.Namespace)) then
+					task.DevDebugLog("Namespace set by task to " + task.Namespace)
+				else
+				begin
+					data namespace, String, Environment.GetEnvironmentVariable("SYNDEFNS")
+					if (!String.IsNullOrEmpty(namespace))
+					begin
+						context.Namespace = namespace.Trim()
+						task.DevDebugLog("Namespace set by SYNDEFNS to " + task.Namespace)
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Are we being asked to override the key that is used with the <PRIMARY_KEY> construct?
+			
+			if (!errStatus && (task.PrimaryKeyNumber!=0))
+				task.DebugLog(String.Format("<PRIMARY_KEY> blocks will use key {0}",task.PrimaryKeyNumber),true,false)
+			
+			;;-------------------------------------------------------------------------
+			;;Get a list of template files in template directory
+			
+			if (!errStatus)
+			begin
+				task.VerboseLog("")
+				
+				if (task.Templates.Count==0) then
+					errStatus = task.ErrorLog("Nothing to do ... specify template(s) to process!")
+				else
+				begin
+					if (task.Templates[0]=="*") then
+					begin
+						;;We already checked that there are .tpl files in the template folder!
+						context.TemplateFiles = new List<String>(Directory.GetFiles(context.TemplateFolder,"*.tpl",SearchOption.TopDirectoryOnly))
+					end
+					else
+					begin
+						;;Check that all of the specified template files exist
+						data templateName, String
+						foreach templateName in task.Templates
+							errStatus = !addTemplateToProcessList(templateName, true)
+					end
+				end
+				
+				if (!errStatus)
+				begin
+					;;Report templates to process
+					if (context.DebugLoggingEnabled)
+					begin
+						data tmpTemplate, String
+						task.Log("Template(s):",true,false)
+						foreach tmpTemplate in context.TemplateFiles
+							task.Log(" - " + Path.GetFileNameWithoutExtension(tmpTemplate).ToUpper())
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have a repository file definition specified?
+			
+			if (!errStatus && (!String.IsNullOrWhiteSpace(task.RepositoryFile)))
+			begin
+				;;Get the file details from the repository
+				task.RepositoryFile = task.RepositoryFile.ToUpper()
+				try
+				begin
+					context.FileDefinition = new RpsFile(task.RepositoryFile)
+				end
+				catch (e, @RpsFileException)
+				begin
+					errStatus = task.Errorlog("Failed to load repository file definition " + task.RepositoryFile)
+				end
+				endtry
+				
+				if (!errStatus)
+				begin
+					;;Make sure the file has at least one structure defined, and if so set them as the structures to process
+					if (context.FileDefinition.StructureCount>0) then
+					begin
+						context.Structures = context.FileDefinition.Structures
+						
+						;;Default all structures to use the file being processed
+						begin
+							data ix, int
+							context.StructureFileIndex = new int[context.Structures.Count]
+							for ix from 0 thru context.Structures.Count-1
+							begin
+								data iy, int
+								context.StructureFileIndex[ix] = 0
+								for iy from 0 thru context.Structures[ix].Files.Count-1
+								begin
+									if (context.Structures[ix].Files[iy].Name==context.FileDefinition.Name)
+									begin
+										context.StructureFileIndex[ix] = iy
+										exitloop
+									end
+								end
+							end
+						end
+					end
+					else
+						errStatus = task.Errorlog("Repository file " + task.RepositoryFile + " doesn't have any structures assigned")
+				end					
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have a UI Toolkit window script specified?
+			
+			if (!errStatus && (!String.IsNullOrWhiteSpace(task.WindowScript)))
+			begin
+				if (!String.IsNullOrWhiteSpace(task.RepositoryFile)) then
+					errStatus = task.Errorlog("The repository file and window script file options can't be used together!")
+				else
+					task.DevDebugLog("Window script file " + task.WindowScript + " will be processed")
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have a BusinessCraft Proforma file specified?
+			
+			if (!errStatus && (!String.IsNullOrWhiteSpace(task.ProformaFile)))
+			begin
+				if (context.FileDefinition!=^null) then
+					errStatus = task.ErrorLog("Proforma and repository file processing can't be used together!")
+				else if (!String.IsNullOrWhiteSpace(task.WindowScript)) then
+					errStatus = task.ErrorLog("Proforma and window script processing can't be used together!")
+				else
+					task.DevDebugLog("Processing BusinessCraft proforma file " + task.ProformaFile)
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Are we provided with a UI Toolkit window script to search for selection windows in?
+			
+			if (!errStatus && (!String.IsNullOrWhiteSpace(task.SelectionWindowScript)))
+			begin
+				;;Translate any logical names that may be present
+				data fileSpec, String, task.SelectionWindowScript
+				if (!FileTools.ExpandLogicalName(fileSpec)) then
+					errStatus = task.ErrorLog(String.Format("Failed to expand logical names in task selection window script {0}",task.SelectionWindowScript))
+				else
+				begin
+					;;Open the file, fail if can't.
+					if (!File.Exists(fileSpec)) then
+						errStatus = task.Errorlog(String.Format("Can't open selection window script {0}. Check your -ws option!",task.SelectionWindowScript))
+					else
+					begin
+						context.SelectionWindowScript = fileSpec
+						task.DebugLog(String.Format("Selection window processing enabled from file {0}",fileSpec))				
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have Repository structures specified in the task?
+			
+			if (!errStatus && (task.Structures.Count>0))
+			begin
+				if (context.FileDefinition!=^null) then
+					errStatus = task.Errorlog("You can't specify both a repository file and repository structures at the same time!")
+				else if (!String.IsNullOrWhiteSpace(task.WindowScript)) then
+					errStatus = task.Errorlog("You can't specify a window script and repository structures at the same time!")
+				else if (!String.IsNullOrEmpty(task.ProformaFile)) then
+					errStatus = task.Errorlog("You can't specify a proforma file and repository structures at the same time!")
+				else
+				begin
+					;;All or specific structures?
+					if (task.Structures[0]=="*") then
+					begin
+						;;Process all structures
+						try
+						begin
+							context.Structures = new RpsStructureCollection(RpsLoadMode.Load)
+							if (context.Structures.Count == 0)
+								errStatus = task.Errorlog("Your repository contains no structures!")
+						end
+						catch (ex, @RpsException)
+						begin
+							errStatus = task.Errorlog(ex.Message)
+						end
+						endtry
+					end
+					else
+					begin
+						;;Process specified structures
+						data ix, int
+						for ix from 0 thru task.Structures.Count-1 
+						begin
+							try
+							begin
+								data newStructure, @RpsStructure, new RpsStructure(task.Structures[ix])
+								if (!String.IsNullOrWhiteSpace(context.SelectionWindowScript))
+								begin
+									if (!ProcessSelectionWindows(context,newStructure))
+									begin
+										errStatus = task.Errorlog(String.Format("Failed to resolve selection windows for structure {0}.",newStructure.Name))
+										exitloop
+									end
+								end
+								context.Structures.Add(newStructure)
+							end
+							catch (ex)
+							begin
+								errStatus = task.Errorlog(ex.Message)
+							end
+							endtry
+						end
+					end
+					
+					;;Default all structures to use the first file assigned
+					if (!errStatus)
+					begin
+						data ix, int
+						context.StructureFileIndex = new int[context.Structures.Count]
+						for ix from 0 thru context.Structures.Count - 1
+							context.StructureFileIndex[ix] = 0
+					end							
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Are we being asked to process a subset of the fields in a structure?
+			
+			if (!errStatus && (!String.IsNullOrWhiteSpace(task.Subset)))
+					task.DevDebugLog("Subset processing was enabled for subset " + task.Subset)					
+			
+			;;-------------------------------------------------------------------------
+			;;Are we being asked to create a subset from a list of field names?
+			
+			if (!errStatus && (task.SubsetFields.Count>0))
+			begin
+				if (!String.IsNullOrWhiteSpace(task.Subset)) then
+					errStatus = task.Errorlog("Field subsets from field names can't be used at the same time as a named subset!")
+				else
+				begin
+					;;Make sure that each structure named in SubSetFields is being processed, and each field exists within the structure!
+					data subsetField, @Tuple<String, String>
+					foreach subsetField in task.SubsetFields
+					begin
+						;;Is the structure being processed?
+						data foundStructure, boolean, false
+						data foundField, boolean, false
+						data str, @RpsStructure
+						foreach str in context.Structures
+						begin
+							if (str.Name == subsetField.Item1)
+							begin
+								foundStructure = true
+								data fld, @RpsField
+								foreach fld in str.Fields
+								begin
+									if (fld.Name == subsetField.Item2)
+									begin
+										foundField = true
+										exitloop
+									end
+								end
+								exitloop
+							end
+						end
+						if (!foundStructure||!foundField)
+						begin
+							;;Report the issue, but continue processing for now, so that we report all errors not just one
+							errStatus = task.ErrorLog(string.Format("An invalid subset field {0}.{1} was requested!",subsetField.Item1,subsetField.Item2))
+						end
+					end
+					if (!errStatus)
+						task.DevDebugLog("Subset processing was enabled via a list of supplied field names")
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;If we have a window script file or ProForma file then process it
+			
+			if (!errStatus)
+			begin
+				
+				;;Now parse the script file
+				if (!String.IsNullOrWhiteSpace(task.WindowScript)) then
+				begin
+					task.DevDebugLog("Parsing window script " + task.WindowScript)					
+					errStatus = (boolean)ParseWindowScript(context)
+				end
+				else if (!String.IsNullOrWhiteSpace(task.ProformaFile))
+				begin
+					data errTxt, string
+					data address, D_ADDR
+					
+					;;Try to load the Proforma extensions
+					if (!loadProformaExtensions()) then
+						errStatus = true
+					else
+					begin
+						task.DevDebugLog("Parsing ProForma file " + task.ProFormaFile)					
+						
+						if (address = %xaddr("ParseProForma",,1)) then
+						begin
+							data pfStructure, @RpsStructure
+							
+							task.ProFormaStructures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+							
+							try
+							begin
+								task.DebugLog("Executing ParseProForma()")
+								
+								if (errStatus = (boolean)%xsubr(address,(a)task.ProFormaFile))
+									exit
+								
+								;;Did we get any structures loaded?
+								if (!task.ProFormaStructures.Count)
+									errStatus = task.Errorlog("ParseProForma() did not load any structures!")
+							end
+							catch (e, @Exception)
+							begin
+								errStatus = task.Errorlog(String.Format("Failed to execute ParseProForma(). Error was {0}",e.Message))
+								if (e.InnerException!=^null)
+									task.Log(String.Format("       {0}",e.InnerException.Message))
+							end
+							endtry
+							
+							;;Load the structures from ParseProForma()
+							if (!errStatus)
+							begin
+								context.Structures.Clear()
+								foreach pfStructure in task.ProFormaStructures
+									context.Structures.Add(pfStructure)
+							end
+						end
+						else
+							errStatus = task.Errorlog("Failed to locate the ParseProForma() routine!")
+					end
+				end
+				
+				if (errStatus)
+					exit
+				
+				;;Default the structures to using the first assigned file definition
+				data ix, int
+				context.StructureFileIndex = new int[context.Structures.Count]
+				for ix from 0 thru context.Structures.Count -1
+					context.StructureFileIndex[ix] = 0
+				
+				;;If we got buttons from the script file, but we're being told not to do
+				;;button processing (-bn), then delete the buttons
+				if (task.NeverLoadAnyButtons && (context.Buttons.Count > 0))
+				begin
+					task.DebugLog("Removing script file buttons because of the NeverLoadAnyButtons property")
+					context.Buttons.Clear()
+				end
+				
+				;;If after parsing the script file we don't have any buttons, or we are being
+				;;told to always use default buttons (-ba), and we're not being told to not
+				;;load default buttons (-bd) and were not being told to not use any buttons
+				;;(-bn) then add the default buttons that are defined in
+				;;CODEGEN_EXE:DefaultButtons.xml
+				if (((context.Buttons.Count == 0) || (task.AlwaysLoadDefaultButtons)) && (!task.NeverLoadDefaultButtons) && (!task.NeverLoadAnyButtons))
+				begin
+					if (context.Buttons.Count == 0) then
+						task.DebugLog("Loading default buttons because no script file buttons were found",true,false)
+					else if (task.AlwaysLoadDefaultButtons)
+						task.DebugLog("Loading default buttons because of the AlwaysLoadDefaultButtons property",true,false)
+					context.Buttons.LoadDefaultButtons(context)
+				end
+				
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Report if we're doing Repository processing
+			
+			if (!errStatus)
+			begin
+				if (context.Structures.Count==0) then
+					errStatus = task.ErrorLog("No Repository structures were selected for processing!")
+				else
+				begin
+					if (context.DebugLoggingEnabled)
+					begin
+						task.Log("Structure(s):",true,false)						
+						data str, @RpsStructure
+						foreach str in context.Structures
+							task.Log(" - " + str.Name)
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have structure aliases specified
+			
+			if (!errStatus)
+			begin
+				;;First, default all alias names to the same as the structure name
+				data tmpStr, @RpsStructure
+				foreach tmpStr in context.Structures
+					tmpStr.Alias = tmpStr.Name
+				
+				;;Now apply specific aliases from the command line
+				if (task.Aliases.Count>0)
+				begin
+					if (!String.IsNullOrWhiteSpace(task.WindowScript)) then
+						errStatus = task.Errorlog("Can't use WindowScript and Aliases properties together!")
+					else if (task.Aliases.Count > context.Structures.Count) then
+						errStatus = task.Errorlog("More aliases than repository structures!")
+					else
+					begin
+						task.DebugLog("Applying structure aliases",true,false)
+						data AliasIndex, int
+						for AliasIndex from 0 thru task.Aliases.Count - 1
+						begin
+							context.Structures[AliasIndex].Alias = task.Aliases[AliasIndex].ToUpper()
+							task.DebugLog(" - Structure " + context.Structures[AliasIndex].Name + " aliased as " + context.Structures[AliasIndex].Alias)
+						end
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have alternate repository file references specified
+			
+			if (!errStatus && (task.FileOverrides.Count>0))
+			begin
+				if (task.FileOverrides.Count > context.Structures.Count) then
+					errStatus = task.Errorlog("You have specified more file name overrides than structures!")
+				else if (!String.IsNullOrWhiteSpace(task.WindowScript)) then
+					errStatus = task.Errorlog("File overrides can't be used when processing a window script file!")
+				else
+				begin
+					;;Check that the alternate file names are valid for the structures
+					data clFileIndex, int
+					for clFileIndex from 0 thru task.FileOverrides.Count -1
+					begin
+						task.FileOverrides[clFileIndex] = task.FileOverrides[clFileIndex].ToUpper()
+						
+						data strFileIndex, int
+						data foundFile, Boolean, false
+						
+						for strFileIndex from 0 thru context.Structures[clFileIndex].Files.Count-1
+						begin
+							if (context.Structures[clFileIndex].Files[strFileIndex].Name == task.FileOverrides[clFileIndex])
+							begin
+								;;Found it - this is the one we need later
+								context.StructureFileIndex[clFileIndex] = strFileIndex
+								foundFile = true
+								task.DebugLog("Using file definition " + context.Structures[clFileIndex].Files[strFileIndex].Name,true,false)
+								exitloop
+							end
+						end
+						if (!foundFile)
+						begin
+							errStatus = task.Errorlog("Structure "+context.Structures[clFileIndex].Name+" is not assigned to file "+task.FileOverrides[clFileIndex])
+							exitloop
+						end
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;See if we have any special field processing filters specified
+			
+			if (!errStatus)
+			begin
+				if (task.IncludeOverlayFields||task.IgnoreExcludeLanguage||task.HonorExcludeToolkit||task.HonorExcludeReportWriter||task.HonorExcludeWeb)
+				begin
+					if (!String.IsNullOrWhiteSpace(task.WindowScript)) then
+					begin
+						;;Can't use filters if we're processing a script file, the fields to include are determined by the script file.
+						errStatus = task.Errorlog("Field filters can't be used when processing a window script!")
+					end
+					else if (context.DebugLoggingEnabled)
+					begin
+						task.Log("Custom field filters in use", true, false)							
+						if (task.IncludeOverlayFields)
+							task.Log(" - Overlays will be included")
+						if (task.IgnoreExcludeLanguage)
+							task.Log(" - 'Excluded by Language' will be ignored")
+						if (task.HonorExcludeToolkit)
+							task.Log(" - 'Excluded by Toolkit' will be honored")
+						if (task.HonorExcludeReportWriter)
+							task.Log(" - 'Excluded by ReportWriter' will be honored")
+						if (task.HonorExcludeWeb)
+							task.Log(" - 'Excluded by Web' will be honored")
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;See if we have any special group processing filters specified
+			
+			if (!errStatus)
+			begin
+				if (task.GroupFieldNoGroupPrefix||task.GroupFieldNoRpsPrefix||task.GroupNoExpand)
+				begin
+					if (!String.IsNullOrWhiteSpace(task.WindowScript)) then
+					begin
+						;;Can't specify group prefixes if we're processing a script file, the field names are determined by the script file.
+						errStatus = task.Errorlog("Custom group processing rules can't be used when processing a window script!")
+					end
+					else if (context.DebugLoggingEnabled)
+					begin
+						task.Log("Custom group processing rules are in use", true, false)						
+						if (task.GroupFieldNoGroupPrefix)  ;;Do not prefix group fields with group name
+							task.Log(" - Group fields will not be prefixed with the group name")
+						if (task.GroupNoExpand)
+							task.Log(" - Implicit groups will not be expanded to individual fields")
+						if (task.GroupFieldNoRpsPrefix)  ;;Do not use repository group field prefix
+							task.Log(" - Repository group field prefix will not be used")
+					end
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Are we being asked to process multiple structures at the same time (in the same template)
+			
+			if (!errStatus && (task.MultipleStructures || ((context.FileDefinition!=^null)&&(context.Structures.Count>1))))
+			begin
+				;;Make sure that we have at least two structures
+				if (context.Structures.Count<2) then
+					errStatus = task.Errorlog("Processing multiple structures (-ms) requires that you specify at least two structures!")
+				else if (context.Structures.Count>5) then
+					errStatus = task.Errorlog("A maximum of five structures is supported when processing multiple structures together!")
+				else
+				begin
+					context.MultiStructureMode = true
+					task.VerboseLog(String.Format("Processing {0} structures concurrently",context.Structures.Count),true,false)
+				end
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Are we being asked to process a user defined token file?
+			
+			if (!errStatus && (!String.IsNullOrWhiteSpace(task.UserTokenFile)))
+				errStatus = UserTokenCollection.LoadTokensFromFile(context)
+			
+			;;-------------------------------------------------------------------------
+			;;Do we have user defined tokens on in the task?
+			
+			if (!errStatus && (task.UserTokens.Count>0))
+			begin
+				if (context.UserTokens.Count==0) then
+				begin
+					data token, @UserToken
+					foreach token in task.UserTokens
+						context.UserTokens.Add(token)					
+				end
+				else
+					UserTokenCollection.AddTokens(task.UserTokens,task,context)
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;Report the user-defined tolkens we're dealing with
+			if (!errStatus && context.UserTokens.Count > 0 && context.DebugLoggingEnabled)
+			begin
+				task.Log("User-defined tokens have been loaded:",true,false)
+				data ut, @UserToken
+				foreach ut in context.UserTokens
+					task.Log(string.Format(" - Token {0} = {1}", ut.Name, ut.Value))
+			end
+			
+			;;-------------------------------------------------------------------------
+			;;We're good to go. Generate souce code
+			
+			if (!errStatus)
+			begin
+				if (context.DeveloperDebugLoggingEnabled)
+				begin
+					task.Log("------------------------------",true,false)
+					task.DevDebugLog("READY TO GENERATE CODE")
+					task.Log("------------------------------")
+				end
+				
+				;;Don't do a foreach because we dynamically change the size of the collection
+				data templateIndex, int, -1
+				while ((templateIndex += 1) < context.TemplateFiles.Count)
+				begin
+					context.CurrentTemplate = context.TemplateFiles[templateIndex]
+					errStatus = false
+					
+					task.VerboseLog(String.Format("Processing template {0}",context.CurrentTemplateBaseName), true, false)
+					
+					;;Turn the template into a collection of tokens
+					task.DebugLog(" - Tokenization phase beginning", true, false)
+					data tokens, @List<Token>
+					data tokenizerError, String
+					if (!new Tokenizer(context).TokenizeCurrentTemplate(tokens))
+					begin
+						;;The errors will have been written to the tasks messages
+						nextloop
+					end
+					
+					;;Write the tokens to a log file?
+					if (taskset.LogTokenizerResults)
+						writeTokensToLogFile(tokens)
+					
+					;;Parse the collection of tokens into a tree the file name is only provided for error reporting purposes
+					task.DebugLog(" - Parser phase beginning")
+					data tree, @FileNode
+					if (!Parser.Parse(context,tokens,tree))
+					begin
+						;;The errors will have been written to the tasks messages
+						nextloop
+					end
+					
+					;;Write the initial tree to a log file?
+					if (taskset.LogTokenizerResults)
+						writeTreeToLogFile(tree,"PARSER_OUTPUT")
+						
+					;;Bind context data. We need to do this here because ErrorReporting needs information about user-defined tokens
+					tree.Context = context
+					
+					;;Walk the tree for errors
+					task.DebugLog(" - Tree validation phase beginning")
+					data errorReporting, @ErrorReporting, new ErrorReporting()
+					errorReporting.Visit(tree)
+					if (errorReporting.Errors.Count > 0)
+					begin
+						data treeError, @Tuple<String, int, int, String>
+						foreach treeError in errorReporting.Errors
+							errStatus = task.ErrorLog(String.Format("{0} at line {1} position {2} in {3}", treeError.Item1, treeError.Item2, treeError.Item3, Path.GetFileName(treeError.Item4)))
+						nextloop
+					end
+					
+					;;If we get here we have a valid tree that represents the template file we're processing
+					
+					;;Pre-processes the tree to deal with newline characters around loops, etc.
+					task.DebugLog(" - Tree pre-expansion phase beginning")
+					data preExpander, @TreePreExpander, new TreePreExpander()
+					preExpander.Visit(tree)
+					
+					;;Write the pre-expanded tree to a log file?
+					if (taskset.LogTokenizerResults)
+						writeTreeToLogFile(tree,"EXPANDER_INPUT")
+						
+					task.DebugLog(" - Tree expansion phase beginning", false, true)
+
+					;;Are we processing multiple structures at the same time?
+					if (context.MultiStructureMode) then
+					begin
+						;;Process the template once for all structures
+
+						;;Check each structure, flatten arrays and groups, etc.
+						context.CurrentTask.DebugLog("")
+						data ix, int
+						for ix from 0 thru context.Structures.Count-1
+						begin
+							errStatus = !RepositoryTools.CheckStructure(context,context.Structures[ix])
+							if (errStatus)
+								exitloop
+						end
+
+						if (!errStatus)
+						begin
+							;;Set the initial context to the first structure. This isn't required for <STRUCTURE_LOOP> but will ensure that
+							;;the default context is <STRUCTURE#1> if <STRUCTURE_LOOP> is not used.
+							context.CurrentStructure = context.Structures[0]
+
+							;;Generate the code
+							errStatus = expandTreeToCode(tree)
+						end
+					end
+					else
+					begin
+						;;Process the template once per structure
+						data ix, int
+						for ix from 0 thru context.Structures.Count-1
+						begin
+							;;Check the structure, flatten arrays and groups, etc.
+							if (!RepositoryTools.CheckStructure(context,context.Structures[ix])) then
+								errStatus = true
+							else
+							begin
+								;;Set structure context
+								context.CurrentStructure = context.Structures[ix]
+								
+								;;Generate the code
+								errStatus = expandTreeToCode(tree)
+							end
+							;;Bail structure loop on failure?
+							if ((errStatus) && (!taskset.ContinueAfterError))
+								exitloop
+						end
+					end
+					
+					;;Bail template loop on failure?
+					if (errStatus && !taskset.ContinueAfterError)
+						exitloop
+				end
+				
+				context.CurrentTemplate = String.Empty
+				
+			end
+			
+			;;All done with this task
+			
+			reportTaskSummary()
+			
+		endmethod
+		
+		private method expandTreeToCode, boolean
+			required in tree, @FileNode
+			endparams
+		proc
+			
+			data errStatus, boolean, false
+			
+			data task, @CodeGenTask, context.CurrentTask
+			
+			if (!context.MultiStructureMode)
+				task.VerboseLog(String.Format(" - Processing structure {0}",context.CurrentStructure.Name))
+			
+			;;Create a stream for the TreeExpander to write the generated code to
+			disposable data generatedCode, @StringWriter, new StringWriter()
+			
+			;;Produce the code
+			try
+			begin
+				data expander, @TreeExpander, new TreeExpander(context, generatedCode)
+				expander.Visit(tree)
+			end
+			catch (ex, @ApplicationException)
+			begin
+				;;If the expander throws an ApplicationException it will already have
+				;;logged the message to the current tasks messages collection.
+				generatedCode.Close()
+				task.FilesFailed += 1
+				errStatus = true
+			end
+;			catch (ex, @Exception)
+;			begin
+;				;;Something unexpected!
+;				errStatus = task.ErrorLog(String.Format("Unexpected error during tree expansion. Error was {0}", ex.Message))
+;				generatedCode.Close()
+;				task.FilesFailed += 1
+;			end
+			endtry
+			
+			;;Create the output file
+			if (!errStatus)
+			begin
+				disposable data newFile, @StreamWriter
+				try
+				begin
+					;;Does the file we just generated content for already exist?
+					data skipFile, boolean, False
+					data fileMsg, String, "Creating"
+					data outputFile, String, Path.Combine(context.OutputFolder,tree.OutputFileName)
+					if (File.Exists(outputFile)) then
+					begin
+						if (task.ReplaceFiles) then
+							fileMsg = "Replacing"
+						else
+						begin
+							task.VerboseLog(String.Format(" - Not replacing file {0}",Path.GetFileName(outputFile)))
+							skipFile = true
+							task.FilesFailed += 1
+						end
+					end
+					else if (task.FilesGenerated.Contains(outputFile))
+					begin
+						if (task.MultiWriteFiles == false) then
+						begin
+							task.VerboseLog(String.Format(" - Not writing file {0} multiple times",Path.GetFileName(outputFile)))
+							skipFile = true
+							task.FilesFailed += 1
+						end
+						else
+						begin
+							task.VerboseLog(String.Format(" - Writing file {0} multiple times",Path.GetFileName(outputFile)))
+						end
+					end
+					
+					if (!skipFile)
+					begin
+						task.DebugLog(String.Format(" - {0} {1}",fileMsg,Path.GetFileName(outputFile)))
+						
+						;;Write the generated code to the new file!
+						newFile = File.CreateText(outputFile)
+						newFile.Write(generatedCode.ToString())
+						
+						;;Close the file and clean up
+						newFile.Close()
+						
+						;;Record the file that was created
+						task.FilesGenerated.Add(outputFile)
+					end
+				end
+				catch (ex, @Exception)
+				begin
+					;;Something unexpected!
+					errStatus = task.ErrorLog(String.Format("Unexpected error while saving new file. Error was {0}", ex.Message))
+					task.FilesFailed += 1
+				end
+				finally
+				begin
+					if (newFile!=^null)
+						newFile.Close()
+					generatedCode.Close()
+				end
+				endtry
+			end
+			
+			;;Did the current template request any additional templates be processed?
+			if (!errStatus)
+				addTemplatesToProcessList(tree)
+				
+			;;Did the template request that additional files be provided?
+			if (!errStatus)
+				provideAdditionalFiles(tree)
+				
+			mreturn errStatus
+			
+		endmethod
+		
+		private method provideAdditionalFiles, void
+			required in tree, @FileNode
+			endparams
+		proc
+			data task, @CodeGenTask, context.CurrentTask
+			
+			if ((tree.ProvideFiles != ^null) && (tree.ProvideFiles.Count>0))
+			begin
+				data fileToProvide, String
+				foreach	fileToProvide in tree.ProvideFiles
+				begin
+					;;First expand any logicals.
+					FileTools.ExpandLogicalName(fileToProvide)
+					
+					;;If we only have a file name then look for the file in the template folder
+					if (Path.GetDirectoryName(fileToProvide) == string.Empty)
+						fileToProvide = Path.Combine(context.TemplateFolder,fileToProvide)
+						
+					;;Does the input file exist?
+					if (!File.Exists(fileToProvide))
+					begin
+						task.Warning(string.Format("Template {0} specifies that file {1} be copied to the output folder, but the file does not exist!",context.CurrentTemplateBaseName,Path.GetFileName(fileToProvide).ToUpper()))
+						nextloop
+					end
+					
+					;;Make sure the name we're using exactly matches the on-disk name
+					fileToProvide = Directory.GetFiles(Path.GetDirectoryName(fileToProvide),Path.GetFileName(fileToProvide))[0]
+					
+					;;Did we already provide the same file?
+					data outputFile, String, Path.Combine(context.OutputFolder,Path.GetFileName(fileToProvide))
+					if (task.FilesProvided.Contains(outputFile))
+						nextloop
+						
+					;;Provide the file
+					try
+					begin
+						File.Copy(fileToProvide,outputFile,task.ReplaceFiles)
+						;;Record what we did
+						task.FilesProvided.Add(outputFile)
+					end
+					catch (e, @Exception)
+					begin
+						;;If the copy fails we'll ignore it, it's because we said an existing file can't be replaced!
+						nop
+					end
+					endtry
+				end
+			end
+		endmethod
+		
+		private method addTemplatesToProcessList, void
+			required in tree, @FileNode
+			endparams
+		proc
+			if ((tree.ProcessTemplates != ^null) && (tree.ProcessTemplates.Count>0))
+			begin
+				data templateName, String
+				foreach templateName in tree.ProcessTemplates
+					addTemplateToProcessList(templateName,false )
+			end
+		endmethod
+		
+		private method addTemplateToProcessList, boolean
+			required in templateBaseName, String
+			required in initialLoad, boolean
+			endparams
+		proc
+			data ok, boolean, true
+			data task, @CodeGenTask, context.CurrentTask
+			
+			;;Add ".tpl" if necessary
+			data templateName, String, templateBaseName.Trim()
+			if (!templateName.ToLower().EndsWith(".tpl"))
+				templateName = templateName + ".tpl"
+			
+			;;Does this template spec contain a wildward?
+			if (templateName.Contains("*")) then
+			begin
+				data matchingFiles, [#]String, Directory.GetFiles(context.TemplateFolder,templateName)
+				if (matchingFiles.Length == 0) then
+				begin
+					if (initialLoad) then
+					begin
+						task.ErrorLog(String.Format("No templates match wildcard specification {0}",templateName))
+						ok = false
+					end
+					else
+						task.Warning(String.Format("Template {0} requested additional templates matching {1} be processed, but no matching templates were found.",context.CurrentTemplateBaseName,Path.GetFileNameWithoutExtension(templateName).ToUpper()))
+				end
+				else
+				begin
+					;;Add the matching templates to the list to process, if not already there
+					foreach templateName in matchingFiles
+					begin
+						if (!context.TemplateFiles.Contains(templateName))
+							context.TemplateFiles.Add(templateName)
+					end
+				end
+			end
+			else
+			begin
+				;;Turn the template file name into a full path
+				templateName = Path.Combine(context.TemplateFolder,templateName)
+				
+				;;Make sure the file exists
+				if (!File.Exists(templateName)) then
+				begin
+					if (initialLoad) then
+					begin
+						task.Errorlog(String.Format("Template {0} not found!",Path.GetFileNameWithoutExtension(templateName).ToUpper()))
+						ok = false
+					end
+					else
+						task.Warning(String.Format("Template {0} requested additional template {1} be processed, but that template was not found.",context.CurrentTemplateBaseName,Path.GetFileNameWithoutExtension(templateName).ToUpper()))
+				end
+				else
+				begin
+					;;Make sure the case of the file spec matches the on-disk name
+					templateName = Directory.GetFiles(Path.GetDirectoryName(templateName),Path.GetFileName(templateName))[0]
+					
+					;;Add the template to the collection
+					if (!context.TemplateFiles.Contains(templateName))
+					begin
+						context.TemplateFiles.Add(templateName)
+						if (!initialLoad)
+							task.VerboseLog(String.Format(" - Instruction to process additional template {0}",Path.GetFileNameWithoutExtension(templateName).ToUpper()))
+					end
+				end				
+			end
+			
+			mreturn ok
+			
+		endmethod
+		
+		private method reportTaskSummary, void
+			endparams
+		proc
+
+			data task, @CodeGenTask, context.CurrentTask
+			data taskset, @CodeGenTaskSet, context.Taskset
+			data msg, String
+
+			if ((task.Errors>0) || (task.Warnings>0))
+			begin
+				if ((task.Errors > 0) && (task.Warnings > 0)) then
+				begin
+					msg = "Task incomplete with " + task.Errors.ToString() + " error"
+					if (task.Errors != 1)
+						msg = msg + "s"
+					msg = msg + " and " + task.Warnings.ToString() + " warning"
+					if (task.Warnings != 1)
+						msg = msg + "s"
+				end
+				else if (task.Errors > 0) then
+				begin
+					msg = "Task incomplete with " + task.Errors.ToString() + " error"
+					if (task.Errors != 1)
+						msg = msg + "s"
+				end
+				else if (task.Warnings > 0)
+				begin
+					msg = "Task incomplete with " + task.Warnings.ToString() + " warning"
+					if (task.Warnings != 1)
+						msg = msg + "s"
+				end
+				
+				task.Log(msg, true, false)
+			end
+
+			if (task.FilesGenerated.Count > 0 && task.FilesFailed > 0) then
+			begin
+				msg = task.FilesGenerated.Count.ToString() + " file"
+				if (task.FilesGenerated.Count > 1)
+					msg = msg + "s"
+				msg = msg + " generated, " + task.FilesFailed.ToString() + " failed"
+			end
+			else if (task.FilesGenerated.Count > 0 ) then
+			begin
+				msg = %string(task.FilesGenerated.Count) + " file"
+				if (task.FilesGenerated.Count > 1)
+					msg = msg + "s"
+				msg = msg + " generated"
+			end
+			else if (task.FilesFailed > 0)
+			begin
+				msg = %string(task.FilesFailed) + " file"
+				if (task.FilesFailed > 1)
+					msg = msg + "s"
+				msg = msg + " failed"
+			end
+			
+			task.Log(msg, true, false)
+
+			if ((task.FilesGenerated.Count > 0) && (taskset.ListGeneratedFiles || context.VerboseLoggingEnabled))
+			begin
+				task.Log("")
+				data fileSpec, String
+				foreach fileSpec in task.FilesGenerated
+					task.Log(" - " + Path.GetFileName(fileSpec))
+			end
+
+		endmethod
+		
+		private method writeTokensToLogFile, void
+			required in tokens, @List<Token>
+			endparams
+		proc
+			data logFile, String, String.Format("{0}.TOKENS.LOG",context.CurrentTemplateBaseName)
+			if (Tokenizer.WriteTokensToFile(tokens, Path.Combine(context.OutputFolder,logFile))) then
+				context.CurrentTask.DevDebugLog(string.Format("Tokenization results were recorded in {0}",logFile))
+			else
+				context.CurrentTask.DevDebugLog("Failed to record tokenization results!")
+		endmethod
+		
+		private method writeTreeToLogFile, void
+			required in tree, @FileNode
+			required in suffix, String
+			endparams
+		proc
+			data logFile, String, Path.Combine(context.OutputFolder,string.Format("{0}.{1}.LOG",context.CurrentTemplateBaseName,suffix))
+			try
+			begin
+				data logger, @TreeLogger, new TreeLogger(logFile)
+				logger.Visit(tree)
+				context.CurrentTask.DevDebugLog(string.Format("Tree data was recorded in {0}",logFile))
+			end
+			catch (e, @Exception)
+			begin
+				context.CurrentTask.DevDebugLog("Failed to record tree data!")
+			end
+			endtry
+		endmethod
+		
+	endclass
+	
+endnamespace

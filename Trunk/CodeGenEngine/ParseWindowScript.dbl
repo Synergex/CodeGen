@@ -1,0 +1,558 @@
+;;*****************************************************************************
+;;
+;; Title:       ParseWindowScript.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Parse a UI Toolkit window script file
+;;
+;; Date:        9th November 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace CodeGen.Engine
+
+    function ParseWindowScript, ^val
+		required in  context, @CodeGenContext
+        endparams
+
+        record local_data
+            CurrentFieldSet ,@WscFieldCollection    ;;Collection of input window fields for current structure
+            FieldSets       ,@ArrayList             ;;Collection of field collections for multiple structures
+            ErrStatus       ,int                    ;;Error status
+            WindowNum       ,int                    ;;Input window number to process
+            WindowName      ,String                 ;;Input window name to process
+            WindowCnt       ,int                    ;;Input windows found so far
+            WscChn          ,int                    ;;Window script file channel
+            GotWindow       ,int                    ;;We have an input window to process
+            WndHeight       ,int                    ;;Height of input window
+            WndWidth        ,int                    ;;Width of input window
+            InWindow        ,int                    ;;We are processing an input window
+            wscrec1         ,a2048                  ;;Temp I/O buffer
+            wscrec2         ,a2048                  ;;Temp I/O buffer
+			InpWnd          ,String                 ;;Input window being processed
+			WscFile			,a80
+        endrecord
+
+    proc
+
+        init local_data
+        WindowName = ""
+		WscFile = context.CurrentTask.WindowScript
+
+        ;;Is there a window number or name specified?
+        begin
+            data pos1, int
+            if (pos1=instr(1,WscFile,"#"))
+            begin
+                ;;Make sure there is data after the # and it is numeric
+                if (pos1==trim(WscFile))
+					freturn context.CurrentTask.ErrorLog("No window number or name following # in script file name!")
+				
+				;;Is the data after the # numeric?
+				if (StringTools.IsNumeric(WscFile(pos1+1,trim(WscFile)))) then
+                begin
+                    ;;Extract the window number
+                    WindowNum = integer(WscFile(pos1+1,trim(WscFile)))
+                end
+                else
+                begin
+                    ;;Extract the window name
+					WindowName = StringTools.UpperCase(WscFile(pos1+1,trim(WscFile)))
+                end
+                ;;Remove the window number or name from the script file name
+                WscFile = WscFile(1:pos1-1)
+            end
+        end
+
+        ;;Add default file extension if needed
+        if (!instr(1,WscFile,"."))
+            WscFile=atrim(WscFile)+".wsc"
+
+		context.CurrentTask.DebugLog("Parsing window script "+StringTools.UpperCase(WscFile),true,false)
+
+        if (WindowNum!=0) then
+            context.CurrentTask.DebugLog(" - Searching for input window #" + string(WindowNum))
+        else if (WindowName)
+            context.CurrentTask.DebugLog(" - Searching for input window " + WindowName)
+
+        ;;Open the file, fail if can't
+        try
+            open(WscChn=0,i:s,WscFile)
+        catch (ex)
+		begin
+			freturn context.CurrentTask.ErrorLog("Can't open window script "+WscFile)
+        end
+        endtry
+
+        CurrentFieldSet = new WscFieldCollection("_LOCAL_")
+        FieldSets = new ArrayList()
+        FieldSets.Add(CurrentFieldSet)
+        
+        clear InWindow
+
+        repeat
+        begin
+            ;;Read a record
+            reads(WscChn,wscrec1,eowsc)
+
+            ;;Ignore blank lines
+            if (!wscrec1)
+                nextloop
+
+            ;;Ignore comments
+            if (wscrec1==";")
+                nextloop
+
+            ;;Check for continuation lines and concatenate them into single lines
+            repeat
+            begin
+                data ix, int
+                data pos1, int, 1
+                if (wscrec1(trim(wscrec1):1)!="-")
+                    exitloop
+                ;;Strip off the continuation
+                wscrec1 = wscrec1(1:trim(wscrec1)-1)
+                ;;Read the next record
+                reads(WscChn,wscrec2,eowsc)
+                ;;Find the first non-whitespace character in the additional line
+                for ix from 1 thru trim(wscrec2)
+                begin
+                    if (wscrec2(ix:1))
+                    begin
+                        pos1 = ix
+                        if (pos1>1)
+                            pos1-=1
+                        exitloop
+                    end
+                end
+                ;;Add this line to the previous one
+                wscrec1 = atrim(wscrec1) + wscrec2(pos1,trim(wscrec2))
+            end
+
+            ;;If we're processing an input window and we find a .end then we're
+            ;;done, otherwise ignore it
+			if (StringTools.LowerCase(wscrec1)==".end")
+            begin
+                if (InWindow) then
+                begin
+                    if (WindowNum>0) then
+                        context.CurrentTask.DebugLog(" - Found end of input window #" + string(WindowCnt) + " " + InpWnd)
+                    else
+						context.CurrentTask.DebugLog(" - Found end of input window " + InpWnd)
+                    GotWindow=1
+                    exitloop
+                end
+                else
+                    nextloop
+            end
+
+            ;;Look for the start of an input window
+			if (StringTools.LowerCase(wscrec1)==".input")
+            begin
+                data pos1, int
+                WindowCnt += 1
+
+                ;;Remove the .input
+                locase wscrec1(1:6)
+                wscrec1 = wscrec1 - ".input "
+                ;;Find the , for the end of the window name and extract the name
+                pos1=instr(1,wscrec1,",")
+				InpWnd = StringTools.UpperCase(wscrec1(1:pos1-1))
+                wscrec1 = wscrec1(pos1+1,trim(wscrec1))
+				wscrec1 = StringTools.RemoveLeading(wscrec1)
+                
+                ;;Is this the one we were looking for?
+                if (((WindowNum>0)&&(WindowCnt!=WindowNum)) || (WindowName.Length>0&&(WindowName.nes.InpWnd)))
+                    nextloop
+                
+                ;;Yes, found it!
+                InWindow=1
+
+                ;;Find the , for the end of the height
+                pos1=instr(1,wscrec1,",")
+                WndHeight = integer(atrim(wscrec1(1:pos1-1)))
+                wscrec1 = wscrec1(pos1+1,trim(wscrec1))
+				wscrec1 = StringTools.RemoveLeading(wscrec1)
+
+                ;;All that is left should be the width
+                WndWidth = integer(atrim(wscrec1))
+                if (WindowNum>0) then
+					context.CurrentTask.DebugLog(" - Found input window #" + string(WindowCnt) + " " + StringTools.UpperCase(InpWnd))
+                else 
+					context.CurrentTask.DebugLog(" - Found input window " + atrim(InpWnd))
+
+                nextloop
+            end
+
+			if (InWindow&&StringTools.LowerCase(wscrec1)==".repository_structure")
+            begin
+                data pos1, int
+                data InpWndStr, String
+                data foundStr, Boolean, false
+                data fieldSet, @WscFieldCollection
+
+                upcase wscrec1
+                wscrec1 = wscrec1 - ".REPOSITORY_STRUCTURE "
+                
+                ;;Look for a , which would indicate the presence of repository file specs
+                if (pos1=instr(1,wscrec1,","))
+                    wscrec1 = wscrec1(1:pos1-1)
+                
+                ;;What remains should be the structure name
+				InpWndStr = StringTools.UpperCase(wscrec1)
+
+				context.CurrentTask.DebugLog(" - Found repository structure " + atrim(InpWndStr))
+
+                ;;Do we already have a field set for this structure?
+                foreach fieldSet in FieldSets
+                begin
+                    if (fieldSet.StructureName.Equals(InpWndStr))
+                    begin
+                        CurrentFieldSet = fieldSet
+                        foundStr = true
+						context.CurrentTask.DebugLog(" - Adding fields to existing structure " + atrim(InpWndStr))
+                        exitloop
+                    end
+                end
+
+                ;;If we didn't find an existing fieldset for the structure then we need to add a new one
+                if (!foundStr)
+                begin
+                    ;;First check that we're not going to process multiple structures unless we've been asked to
+                    if ((FieldSets.Count>1)&&(!context.CurrentTask.MultipleStructures))
+                    begin
+                        ErrStatus = context.CurrentTask.ErrorLog("Input window references multiple repository structures!!")
+                        exitloop
+                    end
+                    
+					context.CurrentTask.DebugLog(" - Adding fields to new structure " + atrim(InpWndStr))
+                    CurrentFieldSet = new WscFieldCollection(InpWndStr)
+                    FieldSets.Add(CurrentFieldSet)
+                end
+
+                nextloop
+            end
+
+            if (InWindow&&StringTools.LowerCase(wscrec1)==".field")
+            begin
+                data pos1, int
+                data WscField, @WscField
+
+                ;;Remove the .field
+                locase wscrec1(1:6)
+                wscrec1 = wscrec1 - ".field "
+
+                ;;Find the , at the end of the field name
+                pos1=instr(1,wscrec1,",")
+
+                ;;Add the field to the fields collection
+                WscField = new WscField(CurrentFieldSet.StructureName, wscrec1(1:pos1-1),CleanScriptField(wscrec1(pos1+1,trim(wscrec1))))
+                CurrentFieldSet.Add(WscField)
+
+				context.CurrentTask.DebugLog(" - Found field "+WscField.Name+" params "+WscField.Attributes)
+                nextloop
+            end
+
+            ;;If we find local fields then switch to the local fields set
+            if (InWindow&&StringTools.LowerCase(wscrec1)==".local")
+            begin
+				context.CurrentTask.DebugLog(" - Adding fields to LOCAL structure")
+                CurrentFieldSet = (@WscFieldCollection)FieldSets[0]
+            end
+
+            if (InWindow&&StringTools.LowerCase(wscrec1)==".structure")
+                nextloop
+
+            ;;Ignore .blank
+            if (StringTools.LowerCase(wscrec1)==".blank")
+                nextloop
+
+            ;;Ignore .border
+            if (StringTools.LowerCase(wscrec1)==".border")
+                nextloop
+
+            ;;Ignore .box
+            if (StringTools.LowerCase(wscrec1)==".box")
+                nextloop
+
+            ;;If we find a .button then add it to the context.Buttons collection
+            if (StringTools.LowerCase(wscrec1)==".button ")
+				context.Buttons.Add(WscButton.ParseScript(context,wscrec1))
+
+            ;;Ignore .button_set
+            if (StringTools.LowerCase(wscrec1)==".button_set")
+                nextloop
+
+            ;;Ignore .column
+            if (StringTools.LowerCase(wscrec1)==".column")
+                nextloop
+
+            ;;Ignore .data
+            if (StringTools.LowerCase(wscrec1)==".data")
+                nextloop
+
+            ;;Ignore .date_generated
+            if (StringTools.LowerCase(wscrec1)==".date_generated")
+                nextloop
+
+            ;;Ignore .display_area
+            if (StringTools.LowerCase(wscrec1)==".display_area")
+                nextloop
+
+            ;;Ignore .entry
+            if (StringTools.LowerCase(wscrec1)==".entry")
+                nextloop
+
+            ;;Ignore .fill
+            if (StringTools.LowerCase(wscrec1)==".fill")
+                nextloop
+
+            ;;Ignore .font
+            if (StringTools.LowerCase(wscrec1)==".font")
+                nextloop
+
+            ;;Ignore .item
+            if (StringTools.LowerCase(wscrec1)==".item")
+                nextloop
+
+            ;;Ignore .line
+            if (StringTools.LowerCase(wscrec1)==".line")
+                nextloop
+
+            ;;Ignore .list
+            if (StringTools.LowerCase(wscrec1)==".list")
+                nextloop
+
+            ;;Ignore .listclass
+            if (StringTools.LowerCase(wscrec1)==".listclass")
+                nextloop
+
+            ;;Ignore .paint
+            if (StringTools.LowerCase(wscrec1)==".paint")
+                nextloop
+
+            ;;Ignore .placement
+            if (StringTools.LowerCase(wscrec1)==".placement")
+                nextloop
+
+            ;;Ignore .script
+            if (StringTools.LowerCase(wscrec1)==".script")
+                nextloop
+
+            ;;Ignore .script
+            if (StringTools.LowerCase(wscrec1)==".select")
+                nextloop
+
+            ;;Ignore .set - for the time being at least.  Later we can try to support
+            ;;sets by generating methods to enable and disable set fields?
+            if (StringTools.LowerCase(wscrec1)==".set")
+                nextloop
+
+            ;;Ignore .text
+            if (StringTools.LowerCase(wscrec1)==".text")
+                nextloop
+
+            ;;Ignore .title - for the time being at least.  Later we should try to
+            ;;propagate this so it can be used to set generated form titles.
+            if (StringTools.LowerCase(wscrec1)==".title")
+                nextloop
+
+            ;;Ignore .trim
+            if (StringTools.LowerCase(wscrec1)==".trim")
+                nextloop
+
+            ;;Ignore .user_define
+            if (StringTools.LowerCase(wscrec1)==".user_define")
+                nextloop
+
+            ;;Ignore .version
+            if (StringTools.LowerCase(wscrec1)==".version")
+                nextloop
+
+            ;;Ignore .wfield
+            if (StringTools.LowerCase(wscrec1)==".wfield")
+                nextloop
+
+            ;;Ignore .wfield
+            if (StringTools.LowerCase(wscrec1)==".window")
+                nextloop
+
+        end
+
+eowsc,  close WscChn
+
+        ;;Did we find an input window
+        if ((!errstatus)&&(!GotWindow))
+        begin
+            ErrStatus = context.CurrentTask.ErrorLog("No input windows found in window script "+atrim(WscFile))
+            clear FieldSets
+        end
+
+        ;;Iterate through the structures we found, ignoring local fields
+        if ((!ErrStatus)&&(FieldSets.Count>1))
+        begin
+            data fsix, int
+
+            context.Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+
+            for fsix from 1 thru FieldSets.Count-1
+            begin
+                CurrentFieldSet = (@WscFieldCollection)FieldSets[fsix]
+
+                ;;Did it have any fields
+                if (!CurrentFieldSet.Count)
+                begin
+                    ErrStatus = context.CurrentTask.ErrorLog("Structure "+CurrentFieldSet.StructureName+" in window "+atrim(InpWnd)+" in script "+atrim(WscFile)+" contains no fields!")
+                    exitloop
+                end
+                
+                if (!ErrStatus)
+                begin
+                    ;;We have a structure to process
+                    data Fields     ,@RpsFieldCollection
+                    data WscField   ,@WscField
+                    data Struct     ,@RpsStructure
+                    data ix, int
+                    
+                    ;;Create an collection of repository fields containing only the
+                    ;;fields from the input window
+                    
+                    Fields = new RpsFieldCollection()
+                    foreach WscField in CurrentFieldSet.GetEnumerator()
+                    begin
+                        data Field, @RpsField
+                        ;;Create a new field containing the repository data
+                        try
+                        begin
+                            ;;This code is a bit of a cludge.  Basically script files
+                            ;;can now contain array elements, so we need to suppress
+                            ;;that and treat them like individual fields
+                            data Bracket1Pos, int
+                            Bracket1Pos = instr(1,WscField.Name,"[")
+                            if (Bracket1Pos) then
+                            begin
+                                data Bracket2Pos, int
+                                data TmpArrayDim, [#]int
+                                Field = new RpsField(WscField.Structure,WscField.Name(1,Bracket1Pos-1))
+                                ;;Suffix the field name with the old array element #
+                                Bracket2Pos = instr(Bracket1Pos,WscField.Name,"]")
+                                Field.SqlName = Field.Name + WscField.Name(Bracket1Pos+1,Bracket2Pos-1)
+                                Field.OdbcName = Field.Name + "_" + WscField.Name(Bracket1Pos+1,Bracket2Pos-1)
+                                Field.Name = Field.Name + WscField.Name(Bracket1Pos+1,Bracket2Pos-1)
+                                ;;Now stop the field being treated as an array by CodeGen
+                                TmpArrayDim = new int[4]
+                                TmpArrayDim[1] = 1
+                                TmpArrayDim[2] = 0
+                                TmpArrayDim[3] = 0
+                                TmpArrayDim[4] = 0
+                                Field.ArrayDimension = TmpArrayDim
+                            end
+                            else
+                                Field = new RpsField(WscField.Structure,WscField.Name)
+                        end
+                        catch (ex)
+                        begin
+                            ErrStatus = context.CurrentTask.ErrorLog(ex.ToString())
+                            exitloop
+                        end
+                        endtry
+                        
+						;;Apply script file customizations to the field
+						if (!context.CurrentTask.IgnoreScriptFieldAttributes)
+                        begin
+                            if (ErrStatus = ParseScriptField(context,Field,WscField.Attributes))
+                            begin
+                                context.CurrentTask.ErrorLog("Failed to apply script file customizations to repository field.")
+                                exitloop
+                            end
+                        end
+                        
+                        ;;Add the field to the fields collection
+                        Fields.Add(Field)
+                    end
+                    
+                    if (ErrStatus)
+                        exitloop
+                    
+                    ;;Now create a structure containing the fields from the input window
+                    try
+                        Struct = new RpsStructure(CurrentFieldSet.StructureName,Fields)
+                    catch (ex)
+					begin
+						ErrStatus = context.CurrentTask.ErrorLog("Structure "+CurrentFieldSet.StructureName+" not found!" )
+                        exitloop
+                    end
+					endtry
+
+                    if (!String.IsNullOrWhiteSpace(context.CurrentTask.SelectionWindowScript))
+					begin
+						if (!ProcessSelectionWindows(context,Struct))
+						begin
+							ErrStatus = context.CurrentTask.ErrorLog("Failed to resolve selection windows for structure " + Struct.Name)
+                            exitloop
+                        end
+                    end
+                        
+                    ;;Load the structure into a structure collection
+                    if (!ErrStatus)
+						context.Structures.Add(Struct)
+                end
+            end
+        end
+
+        if (!ErrStatus)
+        begin
+            context.WindowHeight = WndHeight
+			context.WindowWidth = WndWidth
+			context.WindowName = StringTools.UpperCase(InpWnd)
+
+            if ((int)context.Taskset.LoggingLevel>=(int)LoggingLevel.Verbose)
+            begin
+				context.CurrentTask.Log("Processing UI Toolkit Window Script, input window " + StringTools.UpperCase(InpWnd),true,false)
+                context.CurrentTask.Log(String.Format(" - Height {0}, width {1}",WndHeight,WndWidth))
+				data Struct, @RpsStructure
+				foreach Struct in context.Structures
+					context.CurrentTask.Log(String.Format(" - Structure {0}, fields {1}",Struct.Name,Struct.Fields.Count))
+            end
+        end
+
+        freturn ErrStatus
+
+    endfunction
+
+endnamespace

@@ -1,0 +1,76 @@
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import Symphony.Core
+
+namespace Symphony.CodeGen.Extensions
+	
+	public class SymphonyItemsSourcePath implements IExpansionToken
+		
+		private const rpsString, a*, "<SYMPHONY_ITEMSSOURCE_PATH="
+
+		public property TokenName, String
+			method get
+			proc
+				mreturn "SYMPHONY_ITEMSSOURCE_PATH"
+			endmethod
+		endproperty
+		
+		public property Description, String
+			method get
+			proc
+				mreturn "SYMPHONY_ITEMSSOURCE_PATH"
+			endmethod
+		endproperty
+		
+		public property Validity, TokenValidity
+			method get
+			proc
+				mreturn TokenValidity.FieldLoop
+			endmethod
+		endproperty
+		
+		public property TokenCase, TokenCaseMode
+			method get
+			proc
+				mreturn TokenCaseMode.UppercaseOnly
+			endmethod
+		endproperty
+		
+		public method Expand, String
+			tkn, @Token
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode>
+			endparams
+		proc
+			lambda process(str, field)
+			begin
+				DebugView.Write("SymphonyCodeGenExtension, <" + TokenName + ">: (Replace)")
+				data startPos	,i4
+				data endPos		,i4
+				data height		,i4
+				data width		,i4
+				startPos = %instr(1, field.LongDescription, rpsString)
+				if (startPos) then
+				begin
+					startPos += %trim(rpsString)
+					endPos = %instr(startPos, field.LongDescription,">")
+					data bind	,a100
+					bind = field.LongDescription(startPos , endpos - 1)
+					DebugView.Write("SymphonyCodeGenExtension, <" + TokenName + ">: (Replace )" + "Path=" + bind)
+					mreturn "Path=" + bind
+				end
+				else
+				begin
+					DebugView.Write("SymphonyCodeGenExtension, <" + TokenName + ">: (Replace)" + "Source={StaticResource <FIELD_ORIGINAL_NAME>items}")
+					mreturn "Source={StaticResource <FIELD_ORIGINAL_NAME>items}"
+				end
+			end
+			mreturn TokenExpander.ExpandFieldLoopToken(tkn, file, loops, process)
+		endmethod
+		
+	endclass
+	
+endnamespace
