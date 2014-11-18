@@ -1,0 +1,147 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsEnumCollection.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a collection of repository enumeration definitions
+;;
+;; Date:        2nd November 2009
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.define DDINFO_DEFINES_ONLY
+.include "RPSLIB:ddinfo.def"
+.undefine DDINFO_DEFINES_ONLY
+
+import System.Collections.Generic
+
+namespace CodeGen.RepositoryAPI
+
+    public class RpsEnumCollection extends List<RpsEnum>
+
+        ;; Constructor (all enumerations)
+        public method RpsEnumCollection
+            endparams
+        proc
+            Repository.CheckIsOpen()
+            LoadAllEnumerations()
+        endmethod
+
+        ;; Constructor (enumerations used by a structures fields)
+        public method RpsEnumCollection
+            required in StructureName, String
+            endparams
+        proc
+            Repository.CheckIsOpen()
+            LoadStructureEnumerations(StructureName)
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;; Private methods and properties
+
+        ;; Load all enumerations
+        private method LoadAllEnumerations, void
+            endparams
+            record local_data
+                MemHandle, int
+                EnumCount, int
+                ix, int
+            endrecord
+        proc
+            init local_data
+            try
+            begin
+                ;Get the number of enumerations in the repository
+                dd_name(Repository.RpsControl,DDN_COUNT,DDN_ENUM,EnumCount)
+                if (Repository.RpsControl.error)
+                    throw new RpsEnumException("Failed to get repository enumeration count")
+                ;Do we have any enumerations to load?
+                if (EnumCount)
+                begin
+                    ;Allocate enumeration name memory and get enum names
+                    MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*EnumCount)
+                    dd_name(Repository.RpsControl,DDN_LIST,DDN_ENUM,EnumCount,^m(strIdentifier,MemHandle))
+                    if (Repository.RpsControl.error)
+                        throw new RpsEnumException("Failed to get repository enumeration names")
+                    for ix from 1 thru EnumCount
+                        this.Add(new RpsEnum(^m(strIdentifier[ix],MemHandle)))
+                end
+            end
+            finally
+            begin
+                ;;Free enumeration names array
+                if (MemHandle)
+                    MemHandle = %mem_proc(DM_FREE,MemHandle)
+            end
+            endtry
+        endmethod
+
+        ;; Load enumerations used by a structure
+        private method LoadStructureEnumerations, void
+            required in StructureName, String
+            endparams
+            record
+                str, @RpsStructure
+                ix, int
+            endrecord
+        proc
+            str = new RpsStructure(StructureName)
+            for ix from 0 thru str.Fields.Count-1
+            begin
+                if (str.Fields[ix].EnumName)
+                begin
+                    data enm, @RpsEnum
+                    data done, boolean, false
+                    ;;Look for the enum in our existing collection
+                    foreach enm in this
+                    begin
+                        if (enm.Name==str.Fields[ix].EnumName)
+                        begin
+                            done = true
+                            exitloop
+                        end
+                    end
+                    ;;Skip it if we already have it
+                    if (done)
+                        nextloop
+                    ;;Add to collection
+                    this.Add(new RpsEnum(str.Fields[ix].EnumName))
+                end
+            end
+            str = ^null
+		endmethod
+
+	endclass
+
+endnamespace

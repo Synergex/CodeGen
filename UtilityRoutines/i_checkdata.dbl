@@ -1,0 +1,224 @@
+;;*****************************************************************************
+;;
+;; Title:       i_checkdata.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Validate required fields in an input window
+;;
+;; Date:
+;;
+;; Author:      Richard C. Morris, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+;;
+;; This function is a suppliment to the Synergy/UI toolkit API.  It accepts an
+;; input window ID, and optional set name.  It then validates each field on the
+;; window, and checks both the required flag, and if the data field has been
+;; entered into.  When a field is found to be required, and is empty, the
+;; standard toolkit/UI information dialog is displayed, and an I_NEXT to
+;; that field is performed.
+;;
+;; It will also accept an optional data argument, which if passed will be
+;; checked also. This check is performed on the actual data.  If the check
+;; fails (blank for alpha, zero for decimal, etc.) then the routine will
+;; initialise the field, and display the correct message.
+;;
+;; The function has one of two return values:
+;;       TRUE (non-zero) window data checked OK!!
+;;       FALSE (zero) window data fields incomplete - return to I_INPUT
+;;
+;; To enable compilation of any routine using the function, ensure the following
+;; is declared in the data division:
+;;
+;;       external function
+;;               i_checkdata,    ^val
+;;
+;; or use the compiler switch -X.
+;;
+;;*****************************************************************************
+;;
+function i_checkdata, ^val
+    required in a_winid     ,n ;;Window id
+    optional in a_set_name  ,a ;;Set name to process
+    optional in a_data      ,a ;;Data argument
+    optional in a_nomsg     ,n ;;If passed, and true, no message is diaplayed.
+    endparams
+
+    .include 'WND:tools.def'
+    .include 'WND:fldinf.def'
+    .include 'WND:setinf.def'
+
+    stack record
+      fld_number,           i4      ;;field number in window
+      set_number,           i4      ;;ordinal set number
+      empty_flag,           i4      ;;TRUE if field is empty
+      enabled,              i4      ;;field enabled status
+      stop_on_field,        i4      ;;stop on the field flag.
+      count,                i4      ;;loop counter
+      got_data,             i4      ;;set if we have data argument
+      routine_addr,         D_ADDR  ;;hold toolkit I_NEXT routine
+      fld_name,             a30     ;;name of input field
+     endrecord
+
+    .define D_SPACES,'                                              '
+
+proc
+
+    clear fld_number, fld_name, set_number, stop_on_field, got_data
+
+    if (^passed(a_data))
+        got_data=TRUE
+
+    if (^passed(a_set_name)&&a_set_name!='    ') then
+    begin
+
+        ;;do processing for a single set of fields, set name passed.
+
+        xcall i_setinf(a_winid, a_set_name, set_number,, gs_fldset)
+
+        for count from 1 thru gs_setcnt
+        begin
+
+            clear fld_name
+            xcall i_fldinf(a_winid,fld_name,gs_setfldi(count),empty_flag,gs_inpfld,,enabled)
+
+            call check_the_field
+
+            if (stop_on_field)
+                exitloop
+        end
+    end
+    else
+    begin
+
+        ;;do processing for all fields on the input windwo, no set name passed
+
+        clear fld_number, fld_name
+
+        if (g_fldnam)
+            fld_name=g_fldnam
+
+        repeat
+        begin
+
+            if (fld_number)
+                clear fld_name
+
+            if (fld_name=='   ')
+                incr fld_number
+
+            xcall i_fldinf(a_winid,fld_name,fld_number,empty_flag,gs_inpfld,,enabled)
+
+            if (fld_name=='   ')
+                exitloop
+
+            call check_the_field
+
+            if (stop_on_field)
+                exitloop
+
+        end
+
+    end
+
+    if (!stop_on_field)
+        freturn TRUE     ;;all data checked, and OK!!
+
+    ;;now display a warning message
+
+    if !(^passed(a_nomsg)&&a_nomsg)
+        xcall u_msgbox('Required field has no data',D_MOK+D_MICONINFO,"Warning")
+
+    ;;Force processing to empty field
+
+    xcall i_next(a_winid, a_set_name, fld_name)
+
+    g_fldnam=fld_name             ;;in case it is required!
+
+    freturn FALSE
+
+check_the_field,
+
+    ;;Check the field details
+
+    ;;Ignore disabled fields
+    if (!enabled)
+        return
+
+    ;;Check it is a required field
+    if (!gs_req)
+        return
+
+    ;;Field required - is it empty ?
+    if (empty_flag)
+    begin
+        stop_on_field=TRUE
+        return
+    end
+
+    onerror bad_data
+
+    ;;Now check the actual data area.
+
+    if (got_data)
+    begin
+
+        using gs_typ select
+        (D_ALPHA),
+            if (a_data(gs_pos:gs_siz)==D_SPACES)
+                stop_on_field=TRUE
+        (D_DECIMAL),
+            if (!^d(a_data(gs_pos:gs_siz)))
+                stop_on_field=TRUE
+        (D_FIXED),
+            if (!^d(a_data(gs_pos:gs_siz)))
+                stop_on_field=TRUE
+        (D_INTEGER),
+            if (!^i(a_data(gs_pos:gs_siz)))
+                stop_on_field=TRUE
+        endusing
+
+    end
+
+    offerror
+
+    return
+
+bad_data,
+
+    offerror
+    stop_on_field=TRUE
+
+    return
+
+endfunction
+

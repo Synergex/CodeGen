@@ -1,0 +1,161 @@
+;;*****************************************************************************
+;;
+;; Title:       RpsFileCollection.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a collection of Repository files.  This can either
+;;              be all files in the Repository, or all f=of the files assigned
+;;              to a single structure.
+;;
+;; Date:        19th October 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.define DDINFO_DEFINES_ONLY
+.include "RPSLIB:ddinfo.def"
+.undefine DDINFO_DEFINES_ONLY
+
+import System.Collections.Generic
+
+namespace CodeGen.RepositoryAPI
+
+    public class RpsFileCollection extends List<RpsFile>
+
+        ;; Constructor (no files)
+        public method RpsFileCollection
+            endparams
+        proc
+        endmethod
+
+        ;; Constructor (all files)
+        public method RpsFileCollection
+            required in LoadMode, RpsLoadMode
+            endparams
+        proc
+            if (LoadMode==RpsLoadMode.Load)
+            begin
+                Repository.CheckIsOpen()
+                LoadAllFiles()
+            end
+        endmethod
+
+        ;; Constructor (structure files)
+        public method RpsFileCollection
+            required in StructureName, String
+            endparams
+        proc
+            Repository.CheckIsOpen()
+            LoadStructureFiles(StructureName)
+        endmethod
+
+        ;; Load all Files
+        private method LoadAllFiles, void
+            endparams
+            record local_data
+                FileCount, int
+                MemHandle, int
+                ix, int
+            endrecord
+        proc
+            init local_data
+            try
+            begin
+                ;;Get the number of files defined in the repository
+                dd_name(Repository.RpsControl,DDN_COUNT,DDN_FILE,FileCount)
+                if (Repository.RpsControl.error)
+                    throw new RpsFileException("Failed to get number of repository file definitions")
+                ;;Do we have any files to load?
+                if (FileCount)
+                begin
+                    ;;Size the format names array and get the format names
+                    MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*FileCount)
+                    dd_name(Repository.RpsControl,DDN_LIST,DDN_FILE,FileCount,^m(strIdentifier,MemHandle))
+                    if (Repository.RpsControl.error)
+                        throw new RpsFileException("Failed to get repository file definition names")
+                    ;;Add files to collection
+                    for ix from 1 thru FileCount
+                        this.Add(new RpsFile(^m(strIdentifier[ix],MemHandle)))
+                end
+            end
+            finally
+            begin
+                ;;Free file names array
+                if (MemHandle)
+                    MemHandle = %mem_proc(DM_FREE,MemHandle)
+            end
+            endtry
+        endmethod
+
+        ;; Load structure Files
+        private method LoadStructureFiles, void
+            required in StructureName, String
+            endparams
+            record local_data
+                MemHandle, int
+                ix, int
+            endrecord
+        proc
+            init local_data
+            try
+            begin
+                data ms_info, s_info
+                ;;Set the current structure?
+                dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
+                if (Repository.RpsControl.error)
+                    throw new RpsFileException("Failed to get information for repository structure "+StructureName)
+                ;;Do we have any files to load?
+                if (ms_info.si_nmfils)
+                begin
+                    ;;Size the file names array and get file names
+                    MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*ms_info.si_nmfils)
+                    dd_struct(Repository.RpsControl,DDS_FILS,ms_info.si_nmfils,^m(strIdentifier,MemHandle))
+                    if (Repository.RpsControl.error)
+                        throw new RpsFileException("Failed to get file names for repository structure "+StructureName)
+                    ;;Add files to collection
+                    for ix from 1 thru ms_info.si_nmfils
+                        this.Add(new RpsFile(^m(strIdentifier[ix],MemHandle)))
+                end
+            end
+            finally
+            begin
+                ;;Free file names array
+                if (MemHandle)
+                    MemHandle = %mem_proc(DM_FREE,MemHandle)
+            end
+            endtry
+        endmethod
+
+    endclass
+
+endnamespace

@@ -1,0 +1,548 @@
+import System.IO
+;;*****************************************************************************
+;;
+;; Title:       CodeGenContext.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Defines additional context information not avalable via the
+;;              CodeGenTaskSet and CodeGenTask classes.
+;;
+;; Date:        31st August 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+	
+	;TODO: When back into a single assembly, should be internal
+	public class CodeGenContext
+		
+		public method CodeGenContext
+			required in aTaskset, @CodeGenTaskSet
+			endparams
+		proc
+
+			Taskset = aTaskset
+			
+			;;Define the collections where we can build up any custom token expanders and expression evaluators
+			CustomTokenExpanders = new List<Tuple<String,String,TokenValidity,TokenCaseMode,Func<Token, FileNode, IEnumerable<LoopNode>, String>>>()
+			CustomExpressionEvaluators = new List<Tuple<String,String,TokenValidity,Func<Token, FileNode, IEnumerable<LoopNode>, Boolean>>>()
+			
+			ResetTaskContext()
+
+		endmethod
+		
+		public method ResetTaskContext, void
+			endparams
+		proc
+			Buttons = new WscButtonCollection()
+			Counter1 = 0
+			Counter2 = 0
+			CurrentFileIndex = 0
+			CurrentStructure = ^null
+			CurrentTask = ^null
+			CurrentTemplate = String.Empty
+			FileDefinition = ^null
+			MultiStructureMode = false
+			OutputFolder = String.Empty
+			SelectionWindowScript = String.Empty
+			StructureFileIndex = ^null
+			Structures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+			TemplateFiles = new List<String>()
+			TemplateFolder = String.Empty
+			UserTokens = new List<UserToken>()
+			WindowHeight = 0
+			WindowName = String.Empty
+			WindowWidth = 0
+		endmethod
+		
+		.region "Task Context"
+		
+		private mButtons, @WscButtonCollection
+		
+		public property Buttons, @WscButtonCollection
+			method get
+			proc
+				mreturn mButtons
+			endmethod
+			method set
+			proc
+				mButtons = value
+			endmethod
+		endproperty
+		
+		private mCounter1, int
+		
+		public property Counter1, int
+			method get
+			proc
+				mreturn mCounter1
+			endmethod
+			method set
+			proc
+				mCounter1 = value
+			endmethod
+		endproperty
+		
+		private mCounter2, int
+		
+		public property Counter2, int
+			method get
+			proc
+				mreturn mCounter2
+			endmethod
+			method set
+			proc
+				mCounter2 = value
+			endmethod
+		endproperty
+		
+		private mCurrentFileIndex, int
+		
+		public property CurrentFileIndex, int
+			method get
+			proc
+				mreturn mCurrentFileIndex
+			endmethod
+			method set
+			proc
+				mCurrentFileIndex = value
+			endmethod
+		endproperty
+		
+		private mCurrentStructure, @RpsStructure
+		
+		public property CurrentStructure, @RpsStructure
+			method get
+			proc
+				mreturn mCurrentStructure
+			endmethod
+			method set
+			proc
+				mCurrentStructure = value
+				if (mCurrentStructure!=^null)
+					CurrentFileIndex = Structures.IndexOf(mCurrentStructure)
+			endmethod
+		endproperty
+		
+		private mCurrentTask, @CodeGenTask
+		
+		public property CurrentTask, @CodeGenTask
+			method get
+			proc
+				mreturn mCurrentTask
+			endmethod
+			method set
+			proc
+				mCurrentTask = value
+			endmethod
+		endproperty
+		
+		private mCurrentTemplate, String
+
+		public property CurrentTemplate, String
+			method get
+			proc
+				mreturn mCurrentTemplate
+			endmethod
+			method set
+			proc
+				mCurrentTemplate = value
+			endmethod
+		endproperty
+
+		public property CurrentTemplateBaseName, String
+			method get
+			proc
+				mreturn Path.GetFileNameWithoutExtension(mCurrentTemplate).ToUpper()
+			endmethod
+		endproperty
+		
+		private mFileDefinition, @RpsFile
+
+		public property FileDefinition, @RpsFile
+			method get
+			proc
+				mreturn mFileDefinition
+			endmethod
+			method set
+			proc
+				mFileDefinition = value
+			endmethod
+		endproperty
+
+		private mMultiStructureMode, boolean
+
+		public property MultiStructureMode, boolean
+			method get
+			proc
+				mreturn mMultiStructureMode
+			endmethod
+			method set
+			proc
+				mMultiStructureMode = value
+			endmethod
+		endproperty
+
+		private mOutputFolder, String
+		
+		public property OutputFolder, String
+			method get
+			proc
+				mreturn mOutputFolder
+			endmethod
+			method set
+			proc
+				mOutputFolder = value
+			endmethod
+		endproperty
+		
+		private mSelectionWindowScript, String
+
+		public property SelectionWindowScript, String
+			method get
+			proc
+				mreturn mSelectionWindowScript
+			endmethod
+			method set
+			proc
+				mSelectionWindowScript = value
+			endmethod
+		endproperty
+
+		private mStructureFileIndex, [#]int
+
+		public property StructureFileIndex, [#]int
+			method get
+			proc
+				mreturn mStructureFileIndex
+			endmethod
+			method set
+			proc
+				mStructureFileIndex = value
+			endmethod
+		endproperty
+
+		private mStructures, @RpsStructureCollection
+
+		public property Structures, @RpsStructureCollection
+			method get
+			proc
+				mreturn mStructures
+			endmethod
+			method set
+			proc
+				mStructures = value
+			endmethod
+		endproperty
+
+		private mTemplateFiles, @List<String>
+		
+		public property TemplateFiles, @List<String>
+			method get
+			proc
+				mreturn mTemplateFiles
+			endmethod
+			method set
+			proc
+				mTemplateFiles = value
+			endmethod
+		endproperty
+		
+		private mTemplateFolder, String
+		
+		public property TemplateFolder, String
+			method get
+			proc
+				mreturn mTemplateFolder
+			endmethod
+			method set
+			proc
+				mTemplateFolder = value
+			endmethod
+		endproperty
+		
+		private mUserTokens, @List<UserToken>
+		
+		public property UserTokens, @List<UserToken>
+			method get
+			proc
+				mreturn mUserTokens
+			endmethod
+			method set
+			proc
+				mUserTokens = value
+			endmethod
+		endproperty
+		
+		private mWindowHeight, int
+		
+		public property WindowHeight, int
+			method get
+			proc
+				mreturn mWindowHeight
+			endmethod
+			method set
+			proc
+				mWindowHeight = value
+			endmethod
+		endproperty
+		
+		private mWindowWidth, int
+		
+		private mWindowName, String
+		
+		public property WindowName, String
+			method get
+			proc
+				mreturn mWindowName
+			endmethod
+			method set
+			proc
+				mWindowName = value
+			endmethod
+		endproperty
+		
+		public property WindowWidth, int
+			method get
+			proc
+				mreturn mWindowWidth
+			endmethod
+			method set
+			proc
+				mWindowWidth = value
+			endmethod
+		endproperty
+		
+		.endregion
+		
+		.region "Taskset Context"
+		
+		private mAuthor, String, "CodeGen"
+		
+		public property Author, String
+			method get
+			proc
+				mreturn mAuthor
+			endmethod
+			method set
+			proc
+				mAuthor = value.Trim()
+			endmethod
+		endproperty
+		
+		private mCompany, String, "Synergex"
+		
+		public property Company, String
+			method get
+			proc
+				mreturn mCompany
+			endmethod
+			method set
+			proc
+				mCompany = value.Trim()
+			endmethod
+		endproperty
+		
+		private mEnumerations, @RpsEnumCollection
+
+		;;; <summary>
+		;;; Exposes all repository enumerations to the parser environment
+		;;; </summary>
+		public property Enumerations, @RpsEnumCollection
+			method get
+			proc
+				mreturn mEnumerations
+			endmethod
+			method set
+			proc
+				mEnumerations = value
+			endmethod
+		endproperty
+
+		private mCustomTokenExpanders, @List<Tuple<String,String,TokenValidity,TokenCaseMode,Func<Token, FileNode, IEnumerable<LoopNode>, String>>>
+
+		;;; <summary>
+		;;; Exposes custom token expanders from all extension sources
+		;;; </summary>
+		public property CustomTokenExpanders, @List<Tuple<String,String,TokenValidity,TokenCaseMode,Func<Token, FileNode, IEnumerable<LoopNode>, String>>>
+			method get
+			proc
+				mreturn mCustomTokenExpanders
+			endmethod
+			method set
+			proc
+				mCustomTokenExpanders = value
+			endmethod
+		endproperty
+		
+		private mCustomExpressionEvaluators, @List<Tuple<String,String,TokenValidity,Func<Token, FileNode, IEnumerable<LoopNode>, Boolean>>>
+
+		;;; <summary>
+		;;; Exposes custom expression evaluators from all extension sources
+		;;; </summary>
+		public property CustomExpressionEvaluators, @List<Tuple<String,String,TokenValidity,Func<Token, FileNode, IEnumerable<LoopNode>, Boolean>>>
+			method get
+			proc
+				mreturn mCustomExpressionEvaluators
+			endmethod
+			method set
+			proc
+				mCustomExpressionEvaluators = value
+			endmethod
+		endproperty
+		
+		private mFiles, @RpsFileCollection
+		
+		;;; <summary>
+		;;; Exposes all repository file definitions to the parser environment
+		;;; </summary>
+		public property Files, @RpsFileCollection
+			method get
+			proc
+				mreturn mFiles
+			endmethod
+			method set
+			proc
+				mFiles = value
+			endmethod
+		endproperty
+		
+		private mGuid1, String
+		
+		public property Guid1, String
+			method get
+			proc
+				if (mGuid1 == ^null)
+					mGuid1 = String.Format("{{0}}",Guid.NewGuid().ToString())
+				mreturn mGuid1
+			endmethod
+		endproperty
+		
+		private mGuid2, String
+		
+		public property Guid2, String
+			method get
+			proc
+				if (mGuid2 == ^null)
+					mGuid2 = String.Format("{{0}}",Guid.NewGuid().ToString())
+				mreturn mGuid2
+			endmethod
+		endproperty
+		
+		private mGuid3, String
+		
+		public property Guid3, String
+			method get
+			proc
+				if (mGuid3 == ^null)
+					mGuid3 = String.Format("{{0}}",Guid.NewGuid().ToString())
+				mreturn mGuid3
+			endmethod
+		endproperty
+		
+		private mNamespace, String, String.Empty
+		
+		public property Namespace, String
+			method get
+			proc
+				mreturn mNamespace
+			endmethod
+			method set
+			proc
+				mNamespace = value
+			endmethod
+		endproperty
+		
+		private mTaskset, @CodeGenTaskSet
+		
+		public property Taskset, @CodeGenTaskSet
+			method get
+			proc
+				mreturn mTaskset
+			endmethod
+			method set
+			proc
+				mTaskset = value
+			endmethod
+		endproperty
+		
+		private mVersion, String, String.Empty
+		
+		public property Version, String
+			method get
+			proc
+				mreturn mVersion
+			endmethod
+			method set
+			proc
+				mVersion = value
+			endmethod
+		endproperty
+		
+		.endregion
+		
+		.region "Public methods"
+		
+		public property VerboseLoggingEnabled, boolean
+			method get
+			proc
+				mreturn ((int)Taskset.LoggingLevel >= (int)LoggingLevel.Verbose)
+			endmethod
+		endproperty
+		
+		public property DebugLoggingEnabled, boolean
+			method get
+			proc
+				mreturn ((int)Taskset.LoggingLevel >= (int)LoggingLevel.Debug)
+			endmethod
+		endproperty
+		
+		public property DeveloperDebugLoggingEnabled, boolean
+			method get
+			proc
+				mreturn (Taskset.LoggingLevel == LoggingLevel.DeveloperDebug)
+			endmethod
+		endproperty
+		
+		.endregion
+		
+	endclass
+	
+endnamespace

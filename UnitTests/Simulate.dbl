@@ -1,0 +1,76 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace UnitTests
+
+	public class Simulate
+		
+		private str, @RpsStructure
+		private taskset, @CodeGenTaskSet
+		private task, @CodeGenTask
+		private context, @CodeGenContext
+
+		public method Simulate
+			required in structureName, String
+			endparams
+		proc
+			str = new RpsStructure(structureName)
+			
+			taskset = new CodeGenTaskSet()
+			task = new CodeGenTask()
+			task.Structures.Add(structureName)
+			taskset.Tasks.Add(task)
+			
+			context = new CodeGenContext(taskset)
+			context.CurrentTask = task
+			context.CurrentStructure = str
+			
+			if (!RepositoryTools.CheckStructure(context, str))
+				throw new Exception("Structure didn't pass %CheckStructure!")
+		endmethod
+
+		public method ExpandCode, boolean
+			required in templateString, String
+			required out codeString, String
+			required out errorText, String
+			endparams
+		proc
+			errorText = string.Empty
+
+			;;Tokenize the template code
+			data tokens, @List<Token>, Tokenizer().Tokenize(templateString)
+
+			;;Parse the template code and check for errors
+			data errors, @List<Tuple<int, int, string>>, new List<Tuple<int, int, string>>()			
+			data tree, @FileNode, Parser.Parse(tokens, errors)
+			if (errors != ^null)
+			begin
+				errorText = errors[0].Item3
+				mreturn false
+			end
+
+			;;Use TreePreExpander to tag unnecessary items
+			tree.Context = context
+			new TreePreExpander().Visit(tree)
+			
+			;;Expand the tree to code
+			disposable data outStream, @StringWriter, new StringWriter()			
+			data expander, @TreeExpander, new TreeExpander(context,outStream)
+			expander.Visit(tree)
+
+			;;Return the result
+			codeString = outStream.ToString()
+			outStream.Close()
+			
+			mreturn true
+			
+		endmethod
+		
+
+	endclass
+
+endnamespace

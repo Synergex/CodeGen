@@ -1,0 +1,414 @@
+;;*****************************************************************************
+;;
+;; Title:       dd_createfile.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Creates a file from a repository file/structure definition
+;;
+;; Date:        12th July 2000
+;;
+;; Author:      Paul H Fenton, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+;;
+function dd_createfile, ^val, stack
+    optional in  a_dcs          ,a  ;;Repository control data
+    required in  a_structure    ,a  ;;Sturture name
+    optional in  a_silent       ,n  ;;Silent mode (no screen output)
+    optional in  a_overwrite    ,n  ;;Overwrite file if found
+    optional in  a_filename     ,a  ;;Filename to create
+    optional out a_filecreated  ,a  ;;File name created
+    optional out a_errtxt       ,a  ;;Error text
+    optional in  a_rpsmain      ,a  ;;Repository main file spec
+    optional in  a_rpstext      ,a  ;;Repository text file spec
+    endparams
+
+    .include 'WND:tools.def'
+    .include 'RPSLIB:ddinfo.def'
+
+    .define FILES_ASSIGNED  ,20     ;;20 max files assigned to 1 structure
+    .define MAX_KEYS        ,20     ;;20 max keys defined per file
+
+    .align
+    record ivar
+        interactive         ,i4
+        ferror              ,i4
+        file_idx            ,i4
+        key_idx             ,i4
+        seg_idx             ,i4
+        overwrite           ,i4
+        open_file_ch        ,i4
+        status              ,i4
+        opened              ,i4
+        len                 ,i4
+        existed             ,i4
+    endrecord
+
+    record avar
+        rpsmain            ,a256
+        rpstext            ,a256
+        filedef             ,[FILES_ASSIGNED]a30
+        filespec            ,a255
+        keyspecs            ,[MAX_KEYS]a255
+        keynames            ,[MAX_KEYS]a30
+        keydata             ,[MAX_KEYS]a^size(k_info)
+        nullval             ,a20
+        strname             ,a30
+        errtxt              ,a80
+        endrecord
+
+    local record
+        rec_type            ,3a2    ,',F'   ;;Fixed
+        &                           ,',M'   ;;Multiple
+        &                           ,',V'   ;;Variable
+        compress            ,2a2    ,'  '
+        &                           ,',C'   ;;Compress
+        page_size           ,5a4    ,'1024' ;;(default)
+        &                           ,'512'
+        &                           ,'2048'
+        &                           ,'4096'
+        &                           ,'8192'
+        static_rfa          ,2a2    ,'  '
+        &                           ,',S'
+        tbyte               ,2a2    ,'  '
+        &                           ,',T'
+        key_order           ,2a1    ,'A'    ;;ascending
+        &                           ,'D'    ;;descending
+        key_segtyp          ,5a1    ,'A'    ;;alpha (default)
+        &                           ,'N'    ;;nocase
+        &                           ,'D'    ;;decimal
+        &                           ,'I'    ;;integer
+        &                           ,'U'    ;;unsigned
+        endrecord
+
+    .define append(x,y)     x = %atrim(x) + y
+
+proc
+
+    clear ^i(ivar), avar, flsi_name
+
+    if (^passed(a_dcs))
+        dcs = a_dcs
+
+    ;;Check if the repository is not open
+    if (!dcs.mchn_r)
+    begin
+
+        ;;If we were passed rps file names then use them
+        if (^passed(a_rpsmain) && a_rpsmain && ^passed(a_rpstext) && a_rpstext)
+        begin
+            rpsmain = a_rpsmain
+            rpstext = a_rpstext
+        end
+
+        ;;Otherwise check RPSMFIL and RPSTFIL logicals
+        if ((!rpsmain)||(!rpstext))
+        begin
+            xcall getlog('RPSMFIL',rpsmain,len)
+            xcall getlog('RPSTFIL',rpstext,len)
+        end
+
+        ;;Otherwise use the default repository
+        if (!rpsmain)
+        begin
+            rpsmain = "RPSDAT:rpsmain.ism"
+            rpstext = "RPSDAT:rpsmain.ism"
+        end
+
+        ;;Open the repository
+        xcall dd_init(dcs,rpsmain,rpstext)
+        if (dcs.error) then
+        begin
+            status = 1
+            errtxt = "Failed to open repository!"
+        end
+        else
+            opened = TRUE
+    end
+
+    strname = a_structure
+    upcase strname
+
+    interactive = TRUE
+
+    ;;Suppress screen output if requested
+    if (^passed(a_silent) && a_silent)
+        clear interactive
+
+    if (^passed(a_overwrite) && a_overwrite)
+        overwrite = TRUE                                ;;Overwrite files if found
+
+    xcall dd_struct(dcs,DDS_INFO,strname,s_info)        ;;Get structure info
+    if (error)
+    begin
+        status = 2
+        errtxt = "Structure not found"
+        if (interactive)
+            xcall u_message(errtxt)
+    end
+
+    if (!status)
+    begin
+        if (si_nmfils)
+        then
+        begin
+            if (si_nmfils==1) then
+                filedef[1] = si_file
+            else
+                xcall dd_struct(dcs,DDS_FILS,si_nmfils,filedef)
+        end
+        else
+        begin
+            status = 3
+            errtxt = "Structure has no file assignments!"
+            if (interactive)
+                xcall u_message(errtxt)
+        end
+    end
+
+    ;;Create file
+    if (!status)
+    begin
+
+        for file_idx from 1 thru si_nmfils
+        begin
+
+            xcall dd_filespec(dcs,filedef[file_idx],strname,fls_info)
+
+            if (error)
+            begin
+                status = 4
+                errtxt = "File specification not found!"
+                if (interactive)
+                    xcall u_message(errtxt)
+                exitloop
+            end
+
+            if (!flsi_nmkeys)
+            begin
+                status = 5
+                errtxt = "Structure has no keys defined!"
+                if (interactive)
+                    xcall u_message(errtxt)
+                exitloop
+            end
+
+            ;;Passed filename if present
+            if (si_nmfils==1)
+                if (^passed(a_filename) && a_filename)
+                    flsi_name = a_filename
+
+            clear existed
+            xcall u_open(open_file_ch, 'I ', flsi_name,,, ferror)
+            if (!ferror)
+            begin
+                existed = TRUE
+                xcall u_close(open_file_ch)
+                if (!overwrite)
+                begin
+                    if (interactive) then
+                    begin
+                        if (%u_msgbox("File already exists. Overwrite ?",
+                        &              D_MYESNO+D_MICONQUESTION+D_MDEFBUTTON2,
+                        &              "File Found")==D_MIDNO)
+                            nextloop
+                    end
+                    else
+                    begin
+                        status = 6
+                        errtxt = "File already exists!"
+                        exitloop
+                    end
+                end
+            end
+
+            using (flsi_filtyp) select
+            ('DBL ISAM'),
+            begin
+
+                ;;Build file specification
+
+                if (flsi_density<50)
+                    flsi_density = 50
+
+                filespec = flsi_name
+                append(filespec,rec_type(flsi_rectyp+1))
+                append(filespec,compress(flsi_compress+1))
+                append(filespec,',DENSITY='+%string(flsi_density))
+                append(filespec,',PAGE='+page_size(flsi_pagesize+1))
+                append(filespec,static_rfa(flsi_staticrfa+1))
+                append(filespec,tbyte(flsi_addressing+1))
+
+                ;;Build key specifications
+
+                xcall dd_key(dcs,DDK_LIST,MAX_KEYS,keynames[1])
+
+                for key_idx from 1 thru flsi_nmkeys
+                begin
+                    xcall dd_key(dcs,DDK_INFO,keynames[key_idx],k_info)
+                    keydata[key_idx] = k_info
+                end
+
+                xcall qsort(keydata[1],flsi_nmkeys)
+
+                for key_idx from 1 thru flsi_nmkeys
+                begin
+                    k_info = keydata[key_idx]
+
+                    keyspecs[key_idx] = 'START='+^a(ki_segpos(1))
+
+                    if (ki_nmseg>=2)
+                        for seg_idx from 2 thru ki_nmseg
+                            append(keyspecs[key_idx],':'+%string(ki_segpos(seg_idx)))
+
+                    append(keyspecs[key_idx],',LENGTH='+%string(ki_seglen(1)))
+
+                    if (ki_nmseg>=2)
+                        for seg_idx from 2 thru ki_nmseg
+                            append(keyspecs[key_idx],':'+%string(ki_seglen(seg_idx)))
+
+                    append(keyspecs[key_idx],',NAME='+ki_name)
+
+                    if (ki_segdtyp(1))
+                    begin
+                        append(keyspecs[key_idx],',TYPE='+key_segtyp(ki_segdtyp(1)))
+                        if (ki_nmseg>=2)
+                            for seg_idx from 2 thru ki_nmseg
+                                append(keyspecs[key_idx],':'+key_segtyp(ki_segdtyp(seg_idx)))
+                    end
+
+                    if (ki_segord(1))
+                    begin
+                        append(keyspecs[key_idx],',ORDER='+key_order(ki_segord(1)))
+                        if (ki_nmseg>=2)
+                            for seg_idx from 2 thru ki_nmseg
+                                append(keyspecs[key_idx],':'+key_order(ki_segord(seg_idx)))
+                    end
+
+                    if (ki_density<50)
+                        ki_density = 50
+
+                    append(keyspecs[key_idx],',DENSITY='+%string(ki_density))
+
+                    using ki_dups select
+                    (KI_DPS),
+                    begin
+                        append(keyspecs[key_idx],',DUPS')
+                        .ifndef OS_VMS
+                        using ki_insert select
+                        (KI_FRT),
+                            append(keyspecs[key_idx],',NOATEND')
+                        (KI_END),
+                            append(keyspecs[key_idx],',ATEND')
+                        endusing
+                        .endc
+                    end
+                    (KI_NDPS),
+                        append(keyspecs[key_idx],',NODUPS')
+                    endusing
+
+                    using ki_mod select
+                    (KI_MDF),
+                        append(keyspecs[key_idx],',MODIFY')
+                    (KI_NMDF),
+                        append(keyspecs[key_idx],',NOMODIFY')
+                    endusing
+
+                    using ki_order select
+                    (KI_ASC),
+                        append(keyspecs[key_idx],',ASCEND')
+                    (KI_DES),
+                        append(keyspecs[key_idx],',NOASCEND')
+                    endusing
+
+                    .ifdef OS_VMS
+                    append(keyspecs[key_idx],',COMPRESS=ALL')
+                    .endc
+
+                    using ki_null select
+                    (KI_REP),
+                        append(keyspecs[key_idx],',NULL=REPLICATING')
+                    (KI_NONREP),
+                        append(keyspecs[key_idx],',NULL=NON_REPLICATING')
+                    (KI_SHORT),
+                        append(keyspecs[key_idx],',NULL=SHORT')
+                    endusing
+
+                    if (ki_nullval)
+                    begin
+                        xcall dd_key(dcs, DDK_TEXT, ki_nullval, nullval)
+                        append(keyspecs[key_idx],',VALUE_NULL='+%atrim(nullval))
+                    end
+                end
+
+                xcall isamc(%atrim(filespec),flsi_recsz,flsi_nmkeys,keyspecs)
+
+            end
+
+            ('RELATIVE'),
+            begin
+                nop
+            end
+
+            ('ASCII'),
+            begin
+                nop
+            end
+
+            endusing
+
+            if (existed) then
+                errtxt = "File replaced."
+            else
+                errtxt = "File created."
+
+            if (interactive)
+                xcall u_message(errtxt)
+
+        end
+
+    end
+
+    ;;If we opened the repository, then close it again
+    if (opened)
+        xcall dd_exit(dcs)
+
+    if (^passed(a_filecreated))
+        a_filecreated = flsi_name
+
+    if (^passed(a_errtxt))
+        a_errtxt = errtxt
+
+    freturn (status)
+
+endfunction
+

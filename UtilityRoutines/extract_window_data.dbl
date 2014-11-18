@@ -1,0 +1,95 @@
+;;*****************************************************************************
+;;
+;; Title:       extract_window_data.dbl
+;;
+;; Type:        Subroutine
+;;
+;; Description: Extract data (prompts and field content) from an input window
+;;
+;; Date:        7th October 2008
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+;;
+subroutine extract_window_data
+    required in  a_winid    ,n  ;;Window id to extract from
+    required out a_data     ,i  ;;Window content (memory handle)
+    optional out a_rows     ,n  ;;Height of window
+    optional out a_cols     ,n  ;;Width of window
+    endparams
+
+    .include "WND:tkctl.def"
+    .include "DBLDIR:windows.def"
+
+    stack record local_data
+        win_area,       8d3
+          rows,         d3  @win_area + 6
+          cols,         d3  @win_area + 9
+        check_pos       ,int
+    endrecord
+
+    structure char
+                        ,a1
+    endstructure
+
+proc
+
+    init local_data
+
+    xcall w_info(WI_AREAS, a_winid, win_area)
+
+    xcall w_area(a_winid, WA_SET, 1, 1, rows, cols)
+
+    ;;Allocate dynamic memory for window data
+    a_data = %mem_proc(DM_ALLOC+DM_STATIC+DM_BLANK,(rows*cols))
+
+    xcall w_info(WI_XFR, a_winid, WIX_DGET, ^m(a_data))
+
+    ;;If necessary, replace checkbox check characters with X
+    if (g_chk_char!="X")
+    begin
+        while (check_pos=%instr(1,^m(a_data),g_chk_char))
+            ^m(char(check_pos:1),a_data) = "X"
+    end
+
+    ;;Return height
+    if (^passed(a_rows))
+        a_rows = rows
+
+    ;;Return width
+    if (^passed(a_cols))
+        a_cols = cols
+
+    xreturn
+
+endsubroutine
+

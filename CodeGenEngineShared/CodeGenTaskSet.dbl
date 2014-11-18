@@ -1,0 +1,479 @@
+;;*****************************************************************************
+;;
+;; Title:       CodeGenTaskSet.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a collection of code generation tasks.
+;;
+;; Date:        31st August 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.ObjectModel
+import System.Collections.Specialized
+import System.ComponentModel
+import System.IO
+import System.Runtime.Serialization
+import System.Xml
+import System.Xml.Serialization
+
+.array 0
+
+namespace CodeGen.Engine
+
+	public enum LoggingLevel
+		Normal,
+		Verbose,
+		Debug,
+		DeveloperDebug
+	endenum
+
+	public class CodeGenTaskSet
+
+.region "Constructors"
+
+		public method CodeGenTaskSet
+			endparams
+		proc
+			mTasks = new ObservableCollection<CodeGenTask>()
+			mMessages = new ObservableCollection<String>()
+
+			;;Whenever a new task is added, set it's logging level to the task set logging level
+			mTasks.CollectionChanged += tasksChanged
+
+		endmethod
+		
+		private method tasksChanged, void
+			sender, @Object
+			e, @NotifyCollectionChangedEventArgs 
+			endparams
+		proc
+			;;Tell the task who it's "parent" task set is
+			if (e.Action==NotifyCollectionChangedAction.Add)
+			begin
+				data newTask, @CodeGenTask
+				foreach newTask in e.NewItems
+					newTask.TaskSet = this
+			end
+		endmethod
+
+.endregion
+
+.region "TaskSet configuration properties"
+
+		private mDescription,			String,								"New Task Set"
+
+		;;Provide defaults for each task
+		private mRepositoryMainFile,	String
+		private mRepositoryTextFile,	String
+		private mTemplateFolder,		String																;; -i / CODEGEN_TPLDIR:
+		private mOutputFolder,			String																;; -o / CODEGEN_OUTDIR:
+		
+		;;Specific to the task set
+		private mTasks,					@ObservableCollection<CodeGenTask>
+		private mLoggingLevel,			LoggingLevel,						LoggingLevel.Normal				;; -v -d, etc.
+		private mListGeneratedFiles,	boolean,							false							;;-lf
+		private mEchoCommands,			boolean,							false							;; -e
+		private mLogTokenizerResults,	boolean,							false							;; -dt
+		private mContinueAfterError,	boolean,							false							;; -c
+		private mDataMappingsFile,		String																;; -cdm
+		
+		public property Description, String
+			method get
+			proc
+				mreturn mDescription
+			endmethod
+			method set
+			proc
+				mDescription = value
+			endmethod
+		endproperty
+
+		public property RepositoryMainFile, String
+			method get
+			proc
+				mreturn mRepositoryMainFile
+			endmethod
+			method set
+			proc
+				mRepositoryMainFile = value
+			endmethod
+		endproperty
+		
+		public property RepositoryTextFile, String
+			method get
+			proc
+				mreturn mRepositoryTextFile
+			endmethod
+			method set
+			proc
+				mRepositoryTextFile = value
+			endmethod
+		endproperty
+
+		public property TemplateFolder, String
+			method get
+			proc
+				mreturn mTemplateFolder
+			endmethod
+			method set
+			proc
+				mTemplateFolder = value.Trim()
+				if (!mTemplateFolder.EndsWith(":")&&!mTemplateFolder.EndsWith("\"))
+					mTemplateFolder = mTemplateFolder + "\"
+			endmethod
+		endproperty
+
+		public property OutputFolder, String
+			method get
+			proc
+				mreturn mOutputFolder
+			endmethod
+			method set
+			proc
+				mOutputFolder = value.Trim()
+				if (!mOutputFolder.EndsWith(":")&&!mOutputFolder.EndsWith("\"))
+					mOutputFolder = mOutputFolder + "\"
+			endmethod
+		endproperty
+		
+		public property Tasks, @ObservableCollection<CodeGenTask>
+			method get
+			proc
+				mreturn mTasks
+			endmethod
+		endproperty
+		
+		public property LoggingLevel, LoggingLevel
+			method get
+			proc
+				mreturn mLoggingLevel
+			endmethod
+			method set
+			proc
+				mLoggingLevel = value
+			endmethod
+		endproperty
+		
+		public property ListGeneratedFiles, Boolean
+			method get
+			proc
+				mreturn mListGeneratedFiles
+			endmethod
+			method set
+			proc
+				mListGeneratedFiles = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;;  Echo the command line to the output log
+		;;; </summary>
+		public property EchoCommands, Boolean
+			method get
+			proc
+				mreturn mEchoCommands
+			endmethod
+			method set
+			proc
+				mEchoCommands = value
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; Write the results of tokenization to a log file.
+		;;; </summary>
+		public property LogTokenizerResults, Boolean
+			method get
+			proc
+				mreturn mLogTokenizerResults
+			endmethod
+			method set
+			proc
+				mLogTokenizerResults = value
+			endmethod
+		endproperty
+
+		;;; <summary>
+		;;; Continue processing even after an error.
+		;;; </summary>
+		public property ContinueAfterError, Boolean
+			method get
+			proc
+				mreturn mContinueAfterError
+			endmethod
+			method set
+			proc
+				mContinueAfterError = value
+			endmethod
+		endproperty		
+		
+		public property DataMappingsFile, String
+			method get
+			proc
+				mreturn mDataMappingsFile
+			endmethod
+			method set
+			proc
+				mDataMappingsFile = value
+			endmethod
+		endproperty
+		
+.endregion
+
+.region "Taskset status properties"
+		
+		{NonSerialized}
+		private mMessages, @ObservableCollection<String>
+		
+		{XmlIgnore}
+		public property Messages, @ObservableCollection<String>
+			method get
+			proc
+				mreturn mMessages
+			endmethod
+		endproperty
+		
+		{NonSerialized}
+		private mComplete, Boolean, false
+		
+		;TODO: When back into a single assembly, setter should be internal
+		{XmlIgnore}
+		public property Complete, Boolean
+			method get
+			proc
+				mreturn mComplete
+			endmethod
+			method set
+			proc
+				mComplete = value
+			endmethod
+		endproperty
+		
+		{NonSerialized}
+		private mLastErrorMessage, String, String.Empty
+
+		{XmlIgnore}
+		public property LastErrorMessage, String
+			method get
+			proc
+				mreturn mLastErrorMessage
+			endmethod
+			method set
+			proc
+				mLastErrorMessage = value
+			endmethod
+		endproperty
+		
+.endregion
+
+.region "Events"
+		
+		public delegate StartingTaskSetEventHandler, void
+			taskset, @CodeGenTaskSet
+		enddelegate
+		
+		public delegate TaskSetCompleteEventHandler, void
+			taskset, @CodeGenTaskSet
+		enddelegate
+		
+		public event StartingTaskSet, @StartingTaskSetEventHandler
+		public event TaskSetComplete, @TaskSetCompleteEventHandler
+		
+		;TODO: When back into a single assembly, should be internal
+		public method RaiseStartingTaskSet, void
+		proc
+			if (StartingTaskSet!=^null)
+				raiseevent(StartingTaskSet,this)
+		endmethod
+
+		;TODO: When back into a single assembly, should be internal
+		public method RaiseTaskSetComplete, void
+		proc
+			if (TaskSetComplete!=^null)
+				raiseevent(TaskSetComplete,this)
+		endmethod
+		
+.endregion
+		
+.region "Public methods"
+
+		public method Log				,void
+			required in text			,String
+			endparams
+		proc
+			Messages.Add(text)
+		endmethod
+		
+		public method Log				,void
+			required in text			,String
+			required in blankLineBefore	,boolean
+			required in blankLineAfter	,boolean
+			endparams
+		proc
+			if (blankLineBefore)
+				Messages.Add("")
+			Messages.Add(text)
+			if (blankLineAfter)
+				Messages.Add("")
+		endmethod
+		
+		public method VerboseLog		,void
+			required in text			,String
+			required in blankLineBefore	,boolean
+			required in blankLineAfter	,boolean
+			endparams
+		proc
+			if ((int)mLoggingLevel>=(int)LoggingLevel.Verbose)
+			begin
+				if (blankLineBefore)
+					Messages.Add("")
+				Messages.Add(text)
+				if (blankLineAfter)
+					Messages.Add("")
+			end
+		endmethod
+		
+		public method VerboseLog		,void
+			required in text			,String
+			endparams
+		proc
+			if ((int)mLoggingLevel>=(int)LoggingLevel.Verbose)
+				Messages.Add(text)
+		endmethod
+		
+		public method ErrorLog			,boolean
+			required in text			,String
+			endparams
+		proc
+			Messages.Add(String.Format("ERROR:   {0}",text))
+			LastErrorMessage = text
+			mreturn true
+		endmethod
+		
+		public method Warning			,void
+			required in text			,String
+			endparams
+		proc
+			Messages.Add(String.Format("WARNING: {0}",text))
+		endmethod
+		
+		public method DebugLog			,void
+			required in text			,String
+			required in blankLineBefore	,boolean
+			required in blankLineAfter	,boolean
+			endparams
+		proc
+			if ((int)mLoggingLevel>=(int)LoggingLevel.Debug)
+			begin
+				if (blankLineBefore)
+					Messages.Add("")
+				Messages.Add(text)
+				if (blankLineAfter)
+					Messages.Add("")
+			end
+		endmethod
+		
+		public method DebugLog			,void
+			required in text			,String
+			endparams
+		proc
+			if ((int)mLoggingLevel>=(int)LoggingLevel.Debug)
+				Messages.Add(text)
+		endmethod
+
+		public method DevDebugLog		,void
+			required in text			,String
+			endparams
+		proc
+			if (mLoggingLevel==LoggingLevel.DeveloperDebug)
+				Messages.Add(string.Format("DEVDBG: {0}",text))
+		endmethod
+		
+		public method SaveToFile		,boolean
+			required in fileSpec		,String
+			endparams
+		proc
+			data ok, boolean, true
+			try
+			begin
+				disposable data stm, @StreamWriter, File.CreateText(fileSpec)
+				if(stm!=^null)
+				begin
+					data xs, @XmlSerializer, new XmlSerializer(this.GetType())
+					xs.Serialize(stm,this)
+					stm.Close()
+				end
+			end
+			catch (e, @Exception)
+			begin
+				ok = false
+			end
+			endtry
+			mreturn ok
+		endmethod
+		
+		public static method LoadFromFile, boolean
+			required in fileSpec		,String
+			required out taskSet		,@CodeGenTaskSet
+			endparams
+		proc
+			data ok, boolean, true
+			disposable data stm, @StreamReader
+			try
+			begin
+				stm = File.OpenText(fileSpec)
+				if (stm!=^null)
+				begin
+					data xs, @XmlSerializer, new XmlSerializer(^typeof(CodeGenTaskSet))
+					data xr, @XmlReader, new XmlTextReader(stm)
+					taskSet = (CodeGenTaskSet)xs.Deserialize(xr)
+					stm.Close()
+				end
+			end
+			catch (ex, @Exception)
+			begin
+				ok = false
+			end
+			endtry
+			mreturn ok
+		endmethod
+
+.endregion
+
+	endclass
+
+endnamespace
+

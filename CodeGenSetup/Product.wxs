@@ -1,0 +1,835 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension"
+     xmlns:netfx="http://schemas.microsoft.com/wix/NetFxExtension">
+
+  <!--
+    When publishing a new version, change the version number and Product Id GUID.
+    *** NEVER CHANGE THE UpgradeCode GUID ***
+    -->
+
+  <Product
+    Name="CodeGen"
+    Version="5.0.0"
+    Id="{E2F61A51-DFCC-4648-AB50-CDC47E609567}"
+    Language="1033"
+    Manufacturer="Synergex International Corporation"
+    UpgradeCode="{0B992863-4C0E-4769-ABBC-49DB5C3A09A6}">
+
+    <Package
+      Description="CodeGen code generator"
+      InstallerVersion="200"
+      Compressed="yes"
+      InstallScope="perMachine" />
+
+    <!-- Setting these properties causes these URL's to be displayed when the application is selected in "Programs and Features"-->
+    <Property
+      Id="ARPHELPLINK"
+      Value="http://codegen.codeplex.com/documentation" />
+    <Property
+      Id="ARPURLINFOABOUT"
+      Value="http://codegen.codeplex.com/discussions" />
+    <Property
+      Id="ARPURLUPDATEINFO"
+      Value="http://codegen.codeplex.com/downloads" />
+
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <MediaTemplate
+      EmbedCab="yes" />
+
+    <!-- Set the license text to be displayed before installation -->
+    <WixVariable
+      Id="WixUILicenseRtf"
+      Value="..\Documentation\license.rtf" />
+
+    <!-- Set the icon to be used in "Programs & Features" -->
+    <Icon
+      Id="ico_CodeGen.ico"
+      SourceFile="..\CodeGen\CodeGen.ico"/>
+    <Property
+      Id="ARPPRODUCTICON"
+      Value="ico_CodeGen.ico" />
+
+    <!--
+     These properties are used to capture the user input from the two edit controls in the
+     custom user registration UI page. The Id's are also special windows installer varibale
+     names, that will br pre-populated with the user and company names from the Windows
+     registration registry entries, thus providing default values for the installer UI.
+    -->
+    <Property
+      Id="USERNAME"
+      Secure="yes" />
+    <Property
+      Id="COMPANYNAME"
+      Secure="yes" />
+
+    <!-- Add a checkbox to the final UI dialog and configure it to open the documentation -->
+    <Property
+      Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT"
+      Value="Open the CodeGen documentation now" />
+    <Property
+      Id="WixShellExecTarget"
+      Value="[#CodeGen.chm]" />
+    <CustomAction
+      Id="LaunchDocumentation"
+      BinaryKey="WixCA"
+      DllEntry="WixShellExec"
+      Impersonate="yes" />
+
+    <!-- Set the installer UI type -->
+    <UI>
+      <!-- Select out custom UI (based on WixUI_FeatureTree, with an additonal dialog added) -->
+      <UIRef
+        Id="WixUI_CodeGen"/>
+      <!-- Hook up the custom action to launch the documentation -->
+      <Publish
+        Dialog="ExitDialog"
+        Control="Finish"
+        Event="DoAction"
+        Value="LaunchDocumentation">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+    </UI>
+
+    <!-- Search the registry to determine if Synergy/DE is installed -->
+    <Property
+      Id="SDEINSTALLED">
+      <RegistrySearch
+        Id="SdeInstalledValue"
+        Root="HKLM"
+        Key="SOFTWARE\Synergex\Install"
+        Name="SDELOC"
+        Type="raw" />
+    </Property>
+
+    <!-- Terminate the installation if Synergy/DE is not installed -->
+    <Condition
+      Message="CodeGen requires Synergy/DE. Please install Synergy/DE then run this installer again.">
+      <![CDATA[Installed OR SDEINSTALLED]]>
+    </Condition>
+
+    <!-- Is .NET Framework 4.5 installed? -->
+    <PropertyRef
+      Id="NETFRAMEWORK45"/>
+
+    <!-- Terminate the installation if .NET Framework 4.5 is not installed -->
+    <Condition
+      Message="This application requires .NET Framework 4.5. Please install the .NET Framework then run this installer again.">
+      <![CDATA[Installed OR NETFRAMEWORK45]]>
+    </Condition>
+
+    <!-- Define the folders that the installation uses -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <!-- Program Files Folder -->
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="SynergexFolder" Name="Synergex">
+          <Directory Id="MAINFOLDER" Name="CodeGen">
+            <Directory Id="TemplatesFolder" Name="Templates" />
+          </Directory>
+        </Directory>
+      </Directory>
+      <!-- Start Menu Folder -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="CodeGen"/>
+      </Directory>
+    </Directory>
+
+    <!-- Core Feature Files -->
+    <DirectoryRef Id="MAINFOLDER">
+      <!-- Main CodeGen executable -->
+      <Component Id="$(var.CodeGen.TargetFileName)" Guid="{38A4C86A-6964-434D-B915-F124F2769632}">
+        <File Id="$(var.CodeGen.TargetFileName)" KeyPath="yes" Source="$(var.CodeGen.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.CodeGen.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <!-- CodeGenEngine Assembly -->
+      <Component Id="$(var.CodeGenEngine.TargetFileName)" Guid="{35806540-F2A1-433A-B5EF-692E312BF975}">
+        <File Id="$(var.CodeGenEngine.TargetFileName)" KeyPath="yes" Source="$(var.CodeGenEngine.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.CodeGenEngine.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <!-- CodeGenEngineShared Assembly -->
+      <Component Id="$(var.CodeGenEngineShared.TargetFileName)" Guid="{254E970E-D7FA-4D16-9289-9481EB56436B}">
+        <File Id="$(var.CodeGenEngineShared.TargetFileName)" KeyPath="yes" Source="$(var.CodeGenEngineShared.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.CodeGenEngineShared.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <!-- CodeGenParser Assembly -->
+      <Component Id="$(var.CodeGenParser.TargetFileName)" Guid="{AA0D1CCD-A9A3-47B0-ABA7-8ABCDDB20E19}">
+        <File Id="$(var.CodeGenParser.TargetFileName)" KeyPath="yes" Source="$(var.CodeGenParser.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.CodeGenParser.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <!-- Repository API Assembly -->
+      <Component Id="$(var.RepositoryAPI.TargetFileName)" Guid="{C3CB4512-F28C-4F5A-94BB-06F392516682}">
+        <File Id="$(var.RepositoryAPI.TargetFileName)" KeyPath="yes" Source="$(var.RepositoryAPI.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.RepositoryAPI.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <!-- Method Catalog API Assembly -->
+      <Component Id="$(var.MethodCatalogAPI.TargetFileName)" Guid="{F0054A33-9A7B-4045-B24B-3A86771BF80C}">
+        <File Id="$(var.MethodCatalogAPI.TargetFileName)" KeyPath="yes" Source="$(var.MethodCatalogAPI.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.MethodCatalogAPI.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <!-- Data mapping customization example -->
+      <Component Id="DataMappingsExample.xml" Guid="{60DC0496-723B-424F-9F6B-BCDFAD7B1DDB}">
+        <File Id="DataMappingsExample.xml" KeyPath="yes" Source="..\RepositoryAPI\DataMappingsExample.xml" />
+      </Component>
+      <!-- Default button definitions file -->
+      <Component Id="DefaultButtons.xml" Guid="{931753E4-FDC8-4DB6-BF2A-FAA53B7BCB7F}">
+        <File Id="DefaultButtons.xml" KeyPath="yes" Source="..\CodeGenEngine\DefaultButtons.xml" />
+      </Component>
+      <!-- Help file -->
+      <Component Id="CodeGen.chm" Guid="{CB08A98F-8F51-48EF-8FE1-2ECCB56649AC}">
+        <File Id="CodeGen.chm" KeyPath="yes" Source="..\Documentation\CodeGen.chm" />
+      </Component>
+      <!-- Internet Explorer icon -->
+      <Component Id="InternetExplorer.ico" Guid="{1EED1638-B755-4508-8345-7C5396159300}">
+        <File Id="InternetExplorer.ico" KeyPath="yes" Source="..\Documentation\InternetExplorer.ico" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Core Feature Registry Entries -->
+    <DirectoryRef Id="MAINFOLDER">
+      <Component Id="Core_Registry_InstallPath" Guid="{DDE2569D-4D29-49CB-BC4E-3481A8B77E1E}">
+        <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
+          <RegistryValue Type="string" Name="InstallPath" Value="[MAINFOLDER]" KeyPath="yes"/>
+        </RegistryKey>
+      </Component>
+      <Component Id="Core_Registry_TemplatePath" Guid="{311A4845-58D1-4DFA-B90C-3B82C91E3D5F}">
+        <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
+          <RegistryValue Type="string" Name="TemplatePath" Value="[TemplatesFolder]" KeyPath="yes"/>
+        </RegistryKey>
+      </Component>
+      <Component Id="Core_Registry_Author" Guid="{128D6361-F720-4A16-BB00-F6FABAEB10BC}">
+        <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
+          <RegistryValue Type="string" Name="DefaultAuthor"  Value="[USERNAME]" KeyPath="yes"/>
+        </RegistryKey>
+      </Component>
+      <Component Id="Core_Registry_Company" Guid="{A4EE28AE-F91D-4B08-BC2F-AE771E4C6B63}">
+        <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
+          <RegistryValue Type="string" Name="DefaultCompany" Value="[COMPANYNAME]" KeyPath="yes"/>
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Core Feature Environment Variables -->
+    <DirectoryRef Id="MAINFOLDER">
+      <Component Id="Core_Environment" Guid="{CC5B94D9-3678-43D6-9E25-171FCE84519D}">
+        <CreateFolder/>
+        <Environment Id="Core_Environment_PATH" Action="set" Name="PATH" Part="first" System="yes" Value="[MAINFOLDER]" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Core Feature Shortcuts -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="Core_Shortcuts" Guid="{24B6AE7D-02F4-4093-828C-BD58D4D573F7}">
+        <Shortcut
+          Id="UninstallShortcut"
+          Name="Uninstall CodeGen"
+          Description="Uninstalls CodeGen"
+          Target="[System64Folder]msiexec.exe"
+          Arguments="/x [ProductCode]"/>
+        <Shortcut
+          Id="HelpFileShortcut"
+          Name="CodeGen Documentation"
+          Description="Displays the CodeGen documentation"
+          Target="[#CodeGen.chm]"
+          WorkingDirectory="MAINFOLDER"/>
+        <util:InternetShortcut
+          Id="WebSiteShortcut"
+          Name="CodeGen Web Site"
+          Target="http://codegen.synergex.com/"/>
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Synergex\CodeGen"
+          Name="UninstallShortcutInstalled"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+        <RemoveFolder
+          Id="ApplicationProgramsFolder"
+          On="uninstall"/>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Core Feature -->
+    <Feature Id="FeatureCore" Title="Code Generator" Level="1" Absent="disallow">
+      <ComponentRef Id="$(var.CodeGen.TargetFileName)" />
+      <ComponentRef Id="$(var.CodeGenEngine.TargetFileName)" />
+      <ComponentRef Id="$(var.CodeGenEngineShared.TargetFileName)" />
+      <ComponentRef Id="$(var.CodeGenParser.TargetFileName)" />
+      <ComponentRef Id="$(var.RepositoryAPI.TargetFileName)" />
+      <ComponentRef Id="$(var.MethodCatalogAPI.TargetFileName)" />
+      <ComponentRef Id="CodeGen.chm" />
+      <ComponentRef Id="InternetExplorer.ico" />
+      <ComponentRef Id="DataMappingsExample.xml" />
+      <ComponentRef Id="DefaultButtons.xml" />
+      <ComponentRef Id="Core_Registry_InstallPath" />
+      <ComponentRef Id="Core_Registry_TemplatePath" />
+      <ComponentRef Id="Core_Registry_Author" />
+      <ComponentRef Id="Core_Registry_Company" />
+      <ComponentRef Id="Core_Environment" />
+      <ComponentRef Id="Core_Shortcuts" />
+    </Feature>
+
+    <!-- Utility Programs Feature Files -->
+    <DirectoryRef Id="MAINFOLDER">
+      <Component Id="$(var.CreateFile.TargetFileName)" Guid="{73C39A3B-65F0-4611-B80D-64249BD12086}">
+        <File Id="$(var.CreateFile.TargetFileName)" KeyPath="yes" Source="$(var.CreateFile.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.CreateFile.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <Component Id="$(var.MapPrep.TargetFileName)" Guid="{F547C915-A914-45C8-BCDE-C8EB190F4C8D}">
+        <File Id="$(var.MapPrep.TargetFileName)" KeyPath="yes" Source="$(var.MapPrep.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.MapPrep.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <Component Id="$(var.RpsBrowser.TargetFileName)" Guid="{8A033827-44A8-4FA5-B8DF-71D56273742C}">
+        <File Id="$(var.RpsBrowser.TargetFileName)" KeyPath="yes" Source="$(var.RpsBrowser.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.RpsBrowser.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <Component Id="$(var.RpsInfo.TargetFileName)" Guid="{C90BFDFC-1B9F-4BE0-BE45-A20030130939}">
+        <File Id="$(var.RpsInfo.TargetFileName)" KeyPath="yes" Source="$(var.RpsInfo.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.RpsInfo.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <Component Id="$(var.SmcInfo.TargetFileName)" Guid="{B3989E12-4575-4688-8EB9-37EA953D384D}">
+        <File Id="$(var.SmcInfo.TargetFileName)" KeyPath="yes" Source="$(var.SmcInfo.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.SmcInfo.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <Component Id="$(var.TemplateBrowser.TargetFileName)" Guid="{F9A73FB8-A072-4DB8-A6CD-741457019B1F}">
+        <File Id="$(var.TemplateBrowser.TargetFileName)" KeyPath="yes" Source="$(var.TemplateBrowser.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.TemplateBrowser.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Utility Programs Feature Shortcuts -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="Utility_Shortcuts" Guid="{3287AAE0-F129-4572-B724-EB8922F1B838}">
+        <Shortcut
+          Id="$(var.RpsBrowser.ProjectName)Shortcut"
+          Name="Repository Browser"
+          Description="Starts the Repository Browser utility"
+          Target="[#$(var.RpsBrowser.TargetFileName)]"
+          WorkingDirectory="MAINFOLDER"/>
+        <Shortcut
+          Id="$(var.TemplateBrowser.ProjectName)Shortcut"
+          Name="Template Browser"
+          Description="Starts the Template Browser utility"
+          Target="[#$(var.TemplateBrowser.TargetFileName)]"
+          WorkingDirectory="MAINFOLDER"/>
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Synergex\CodeGen"
+          Name="DocShortcutsInstalled"
+          Type="integer"
+          Value="1"
+          KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Utility Programs Feature-->
+    <Feature Id="FeatureUtilityPrograms" Title="Utility Programs" Level="1">
+      <ComponentRef Id="$(var.CreateFile.TargetFileName)" />
+      <ComponentRef Id="$(var.MapPrep.TargetFileName)" />
+      <ComponentRef Id="$(var.RpsBrowser.TargetFileName)" />
+      <ComponentRef Id="$(var.RpsInfo.TargetFileName)" />
+      <ComponentRef Id="$(var.SmcInfo.TargetFileName)" />
+      <ComponentRef Id="$(var.TemplateBrowser.TargetFileName)" />
+      <ComponentRef Id="Utility_Shortcuts" />
+    </Feature>
+
+    <!-- Template Feature Files -->
+    <DirectoryRef Id="TemplatesFolder">
+      <Component Id="cs_annotated_class.tpl" Guid="{4EE50444-1813-47A0-B9A7-5FE2A59302DD}">
+        <File Id="cs_annotated_class.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_annotated_class.tpl" />
+      </Component>
+      <Component Id="cs_asp_data_provider.tpl" Guid="{7069CA70-E0A8-4060-B844-E20AB014FE88}">
+        <File Id="cs_asp_data_provider.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_asp_data_provider.tpl" />
+      </Component>
+      <Component Id="cs_class.tpl" Guid="{8308CD8F-AC73-41DF-BE01-9DCBB12E062F}">
+        <File Id="cs_class.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_class.tpl" />
+      </Component>
+      <Component Id="cs_mvvm_maint_cancelcommand.tpl" Guid="{DA2E320E-B03E-41C3-8DEF-2A183EBD3E85}">
+        <File Id="cs_mvvm_maint_cancelcommand.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_mvvm_maint_cancelcommand.tpl" />
+      </Component>
+      <Component Id="cs_mvvm_maint_manager.tpl" Guid="{7A920E2B-8700-4A0E-8C88-AE88C9434E17}">
+        <File Id="cs_mvvm_maint_manager.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_mvvm_maint_manager.tpl" />
+      </Component>
+      <Component Id="cs_mvvm_maint_savecommand.tpl" Guid="{62B555A9-F1D3-4BBB-84B4-36AD5CAD4986}">
+        <File Id="cs_mvvm_maint_savecommand.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_mvvm_maint_savecommand.tpl" />
+      </Component>
+      <Component Id="cs_mvvm_maint_view.tpl" Guid="{C6C04E7B-454D-4503-BFD8-A5E23310C96A}">
+        <File Id="cs_mvvm_maint_view.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_mvvm_maint_view.tpl" />
+      </Component>
+      <Component Id="cs_mvvm_maint_viewmodel.tpl" Guid="{C224C40F-95ED-4940-8155-D1A361CE8E3F}">
+        <File Id="cs_mvvm_maint_viewmodel.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_mvvm_maint_viewmodel.tpl" />
+      </Component>
+      <Component Id="cs_mvvm_maint_view_code.tpl" Guid="{7882A436-154D-498D-BF41-4C30E6E36453}">
+        <File Id="cs_mvvm_maint_view_code.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_mvvm_maint_view_code.tpl" />
+      </Component>
+      <Component Id="cs_mvvm_model.tpl" Guid="{858CE029-5946-4766-B93B-CD5618E74A4F}">
+        <File Id="cs_mvvm_model.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_mvvm_model.tpl" />
+      </Component>
+      <Component Id="cs_mvvm_model_manual.tpl" Guid="{7BCD29CB-16BC-437B-A269-84D1E77EB56C}">
+        <File Id="cs_mvvm_model_manual.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_mvvm_model_manual.tpl" />
+      </Component>
+      <Component Id="cs_webform.tpl" Guid="{03ECCFDB-34D7-4ED7-BCF9-CF02CC65A11B}">
+        <File Id="cs_webform.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_webform.tpl" />
+      </Component>
+      <Component Id="cs_webform_absolute.tpl" Guid="{8C09DFEB-5CAC-4C45-B986-9DD2D343B50E}">
+        <File Id="cs_webform_absolute.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_webform_absolute.tpl" />
+      </Component>
+      <Component Id="cs_webform_codebehind.tpl" Guid="{42275F14-34CF-45F8-9CC6-300376749D47}">
+        <File Id="cs_webform_codebehind.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_webform_codebehind.tpl" />
+      </Component>
+      <Component Id="cs_webform_master.tpl" Guid="{521AA363-38E7-4624-B2FB-CC0017DAE79A}">
+        <File Id="cs_webform_master.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_webform_master.tpl" />
+      </Component>
+      <Component Id="cs_winform.tpl" Guid="{15665A44-38AF-4A5C-97A0-DD86D51C814E}">
+        <File Id="cs_winform.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_winform.tpl" />
+      </Component>
+      <Component Id="cs_winform_codebehind.tpl" Guid="{04B6EC63-37B1-481A-9497-3FF367B35FB9}">
+        <File Id="cs_winform_codebehind.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_winform_codebehind.tpl" />
+      </Component>
+      <Component Id="cs_winform_resources.tpl" Guid="{73ABBB5C-E2DE-44BB-90F0-54817D4DE389}">
+        <File Id="cs_winform_resources.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_winform_resources.tpl" />
+      </Component>
+      <Component Id="cs_xaml.tpl" Guid="{5A0546C2-5971-4749-98C6-AAE719FA2F54}">
+        <File Id="cs_xaml.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_xaml.tpl" />
+      </Component>
+      <Component Id="cs_xaml_codebehind.tpl" Guid="{F55DAB6B-27F6-4A36-88B3-C4ACB9C6D496}">
+        <File Id="cs_xaml_codebehind.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_xaml_codebehind.tpl" />
+      </Component>
+      <Component Id="cs_xaml_ig.tpl" Guid="{EE445201-B78F-4CA5-9DB4-03F633E8C1AB}">
+        <File Id="cs_xaml_ig.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_xaml_ig.tpl" />
+      </Component>
+      <Component Id="cs_xaml_ig_codebehind.tpl" Guid="{8C398ADE-A0E8-4CD6-9217-B4687E9544CC}">
+        <File Id="cs_xaml_ig_codebehind.tpl" KeyPath="yes" Source="..\SampleTemplates\cs_xaml_ig_codebehind.tpl" />
+      </Component>
+      <Component Id="DatabaseRoutines.tpl" Guid="{DFA46921-E45C-4DE9-9B4F-1BC9C19EE678}">
+        <File Id="DatabaseRoutines.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseRoutines.tpl" />
+      </Component>
+      <Component Id="DatabaseRoutinesBulkLoad.tpl" Guid="{540C3159-38BA-4F85-BFFA-1C60AF941A67}">
+        <File Id="DatabaseRoutinesBulkLoad.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseRoutinesBulkLoad.tpl" />
+      </Component>
+      <Component Id="DatabaseRoutinesBulkLoadMapped.tpl" Guid="{A970A4B1-294B-446D-9FCE-1F1EA16C60BB}">
+        <File Id="DatabaseRoutinesBulkLoadMapped.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseRoutinesBulkLoadMapped.tpl" />
+      </Component>
+      <Component Id="DatabaseRoutinesLoad.tpl" Guid="{BC71547F-4BB4-410D-95C5-F22B69CDC35E}">
+        <File Id="DatabaseRoutinesLoad.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseRoutinesLoad.tpl" />
+      </Component>
+      <Component Id="DatabaseRoutinesLoadMapped.tpl" Guid="{ADAA5888-AF72-4535-A771-8C73B66D8388}">
+        <File Id="DatabaseRoutinesLoadMapped.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseRoutinesLoadMapped.tpl" />
+      </Component>
+      <Component Id="DatabaseRoutinesTest.tpl" Guid="{2D8505D3-2AC0-4E1E-85AE-7B2C9C0A0A2A}">
+        <File Id="DatabaseRoutinesTest.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseRoutinesTest.tpl" />
+      </Component>
+      <Component Id="DatabaseTable.tpl" Guid="{1D9E50A5-DA83-4714-BD57-3DC02FC05969}">
+        <File Id="DatabaseTable.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseTable.tpl" />
+      </Component>
+      <Component Id="DatabaseTableBase.tpl" Guid="{A27DE617-02A3-4CE9-A976-DAF1DCFA7F60}">
+        <File Id="DatabaseTableBase.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseTableBase.tpl" />
+      </Component>
+      <Component Id="DatabaseTableConnection.tpl" Guid="{81731752-3ECC-45BC-AFD5-9A88ECA49595}">
+        <File Id="DatabaseTableConnection.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseTableConnection.tpl" />
+      </Component>
+      <Component Id="DatabaseTableMapped.tpl" Guid="{79D11898-DD5A-4843-B590-145EC0A32CA3}">
+        <File Id="DatabaseTableMapped.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseTableMapped.tpl" />
+      </Component>
+      <Component Id="DatabaseTableTest.tpl" Guid="{A4D8E840-0F61-4DEB-87C0-F2E1BC08E5F1}">
+        <File Id="DatabaseTableTest.tpl" KeyPath="yes" Source="..\SampleTemplates\DatabaseTableTest.tpl" />
+      </Component>
+      <Component Id="html_codegen.tpl" Guid="{6E355868-CD1E-4486-99B4-6B0BB6278EBA}">
+        <File Id="html_codegen.tpl" KeyPath="yes" Source="..\SampleTemplates\html_codegen.tpl" />
+      </Component>
+      <Component Id="html_rps_structure_docs.tpl" Guid="{C9B13DE8-3D80-4BE4-84B3-ED39FEE720CD}">
+        <File Id="html_rps_structure_docs.tpl" KeyPath="yes" Source="..\SampleTemplates\html_rps_structure_docs.tpl" />
+      </Component>
+      <Component Id="json_from_record.tpl" Guid="{DA4D6794-CEBB-4E2E-8B1B-36792E80F93D}">
+        <File Id="json_from_record.tpl" KeyPath="yes" Source="..\SampleTemplates\json_from_record.tpl" />
+      </Component>
+      <Component Id="oc_class_implementation.tpl" Guid="{0A708AB4-59EA-448E-AB3A-9C24F3FACE8D}">
+        <File Id="oc_class_implementation.tpl" KeyPath="yes" Source="..\SampleTemplates\oc_class_implementation.tpl" />
+      </Component>
+      <Component Id="oc_class_interface.tpl" Guid="{3FB75B14-2201-424F-8E3C-288A707DB76A}">
+        <File Id="oc_class_interface.tpl" KeyPath="yes" Source="..\SampleTemplates\oc_class_interface.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_data.tpl" Guid="{A69674B8-5039-4EC4-9A3E-0144FB5E5103}">
+        <File Id="synnet_mvvm_data.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_data.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_data_util.tpl" Guid="{907C814C-62AD-4D9E-AE31-3CC7487AFA3A}">
+        <File Id="synnet_mvvm_data_util.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_data_util.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_global_resources.tpl" Guid="{A48EC5C5-E436-42D2-8323-F7CF30D7B8C0}">
+        <File Id="synnet_mvvm_global_resources.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_global_resources.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_relay_command.tpl" Guid="{421E814F-0A9B-4823-9F7B-C6FB075DCD16}">
+        <File Id="synnet_mvvm_relay_command.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_relay_command.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_view_list.tpl" Guid="{D6139F0E-B686-42DD-A763-BC74FDCB43FA}">
+        <File Id="synnet_mvvm_view_list.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_view_list.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_view_list_code.tpl" Guid="{55140225-6655-4124-B6A1-24714B1BDD51}">
+        <File Id="synnet_mvvm_view_list_code.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_view_list_code.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_view_maint.tpl" Guid="{AB8DB631-76C2-42C9-B7C3-56C1441BC22A}">
+        <File Id="synnet_mvvm_view_maint.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_view_maint.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_view_maint_code.tpl" Guid="{719AF306-E9A7-4C75-8335-FD98BDAC65CC}">
+        <File Id="synnet_mvvm_view_maint_code.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_view_maint_code.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_view_statemanager.tpl" Guid="{704FD63D-066F-474B-9CC3-39F22852D187}">
+        <File Id="synnet_mvvm_view_statemanager.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_view_statemanager.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_vm.tpl" Guid="{92F52A8F-4BE2-4EB4-BDE6-CD87EE79B896}">
+        <File Id="synnet_mvvm_vm.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_vm.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_vm_list.tpl" Guid="{D26E9617-FBC7-4C9A-A19C-9EC4D876C9A2}">
+        <File Id="synnet_mvvm_vm_list.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_vm_list.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_vm_maint.tpl" Guid="{1AE2EC81-8EBE-4CC1-9EAB-03AF0E708FF3}">
+        <File Id="synnet_mvvm_vm_maint.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_vm_maint.tpl" />
+      </Component>
+      <Component Id="synnet_mvvm_vm_tk.tpl" Guid="{629CB941-E917-4C94-B0E5-0FFD6CB24171}">
+        <File Id="synnet_mvvm_vm_tk.tpl" KeyPath="yes" Source="..\SampleTemplates\synnet_mvvm_vm_tk.tpl" />
+      </Component>
+      <Component Id="syn_collection.tpl" Guid="{34790EDD-F1A9-4C8D-A428-7003E862C55E}">
+        <File Id="syn_collection.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_collection.tpl" />
+      </Component>
+      <Component Id="syn_collection_test.tpl" Guid="{56543B64-4E2D-421A-A4E4-2853E0FF2C0A}">
+        <File Id="syn_collection_test.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_collection_test.tpl" />
+      </Component>
+      <Component Id="syn_csv_export.tpl" Guid="{32C410A0-FFA7-4A58-8743-3D0F55E0F8EA}">
+        <File Id="syn_csv_export.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_csv_export.tpl" />
+      </Component>
+      <Component Id="syn_data_class.tpl" Guid="{1F175EE7-0BA3-4F14-9AF1-0B1242E5CAAE}">
+        <File Id="syn_data_class.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_data_class.tpl" />
+      </Component>
+      <Component Id="syn_io.tpl" Guid="{347D9642-7D71-4D6B-9C72-9ED75C988695}">
+        <File Id="syn_io.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_io.tpl" />
+      </Component>
+      <Component Id="syn_io_replicate.tpl" Guid="{CF6911AB-8804-45E0-929A-290397DB8F5E}">
+        <File Id="syn_io_replicate.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_io_replicate.tpl" />
+      </Component>
+      <Component Id="syn_multi_data_class.tpl" Guid="{828ECB29-EF0D-4A60-B1D8-2F3D3974B3BC}">
+        <File Id="syn_multi_data_class.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_multi_data_class.tpl" />
+      </Component>
+      <Component Id="syn_oplock.tpl" Guid="{535540F3-12CD-47CE-8DEB-E1D130EC5434}">
+        <File Id="syn_oplock.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_oplock.tpl" />
+      </Component>
+      <Component Id="syn_winform.tpl" Guid="{1DB69682-194B-4D84-B2CD-A981D7F5A1A2}">
+        <File Id="syn_winform.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_winform.tpl" />
+      </Component>
+      <Component Id="syn_xdl.tpl" Guid="{1CE4A7BC-3C82-4ED4-A10C-A9D424AE4EF1}">
+        <File Id="syn_xdl.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_xdl.tpl" />
+      </Component>
+      <Component Id="syn_xml_doc.tpl" Guid="{B9A271F7-472F-455C-9886-E899473166FD}">
+        <File Id="syn_xml_doc.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_xml_doc.tpl" />
+      </Component>
+      <Component Id="syn_xml_elem.tpl" Guid="{716AE1FB-7F3E-41BF-A6CA-B1BC3B0BE54C}">
+        <File Id="syn_xml_elem.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_xml_elem.tpl" />
+      </Component>
+      <Component Id="syn_xml_export.tpl" Guid="{703F8B58-E784-4BEE-92F8-B1BDA816B674}">
+        <File Id="syn_xml_export.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_xml_export.tpl" />
+      </Component>
+      <Component Id="syn_xml_export_test.tpl" Guid="{00EECED8-385B-48D6-95CE-026118BB6D21}">
+        <File Id="syn_xml_export_test.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_xml_export_test.tpl" />
+      </Component>
+      <Component Id="syn_xml_file.tpl" Guid="{26712DC2-DEC9-4FC6-89F5-05BF75B6DEDF}">
+        <File Id="syn_xml_file.tpl" KeyPath="yes" Source="..\SampleTemplates\syn_xml_file.tpl" />
+      </Component>
+      <Component Id="tk_change.tpl" Guid="{31DC366F-49D9-495D-944D-D1CEDB012705}">
+        <File Id="tk_change.tpl" KeyPath="yes" Source="..\SampleTemplates\tk_change.tpl" />
+      </Component>
+      <Component Id="tk_drill.tpl" Guid="{0780B9BE-FB67-4813-B866-B6F3D51387EF}">
+        <File Id="tk_drill.tpl" KeyPath="yes" Source="..\SampleTemplates\tk_drill.tpl" />
+      </Component>
+      <Component Id="tk_input_window.tpl" Guid="{0941140C-03FF-4F03-9BFE-9A2BC31BC252}">
+        <File Id="tk_input_window.tpl" KeyPath="yes" Source="..\SampleTemplates\tk_input_window.tpl" />
+      </Component>
+      <Component Id="tk_io.tpl" Guid="{1D9B0CA6-857F-4E67-9131-06F88D67D9DC}">
+        <File Id="tk_io.tpl" KeyPath="yes" Source="..\SampleTemplates\tk_io.tpl" />
+      </Component>
+      <Component Id="tk_lookup.tpl" Guid="{C24B7E73-8B02-48AB-99A6-806A2280A7E7}">
+        <File Id="tk_lookup.tpl" KeyPath="yes" Source="..\SampleTemplates\tk_lookup.tpl" />
+      </Component>
+      <Component Id="tk_maint_simple.tpl" Guid="{14C5F56E-0086-4FB2-AA9D-2FB5FEA22970}">
+        <File Id="tk_maint_simple.tpl" KeyPath="yes" Source="..\SampleTemplates\tk_maint_simple.tpl" />
+      </Component>
+      <Component Id="tk_maint_tab.tpl" Guid="{984BB41B-2334-43DB-A754-2C5524B7185F}">
+        <File Id="tk_maint_tab.tpl" KeyPath="yes" Source="..\SampleTemplates\tk_maint_tab.tpl" />
+      </Component>
+      <Component Id="tk_search.tpl" Guid="{4F48B6B0-D279-4FE6-8CAA-A959657EC3AE}">
+        <File Id="tk_search.tpl" KeyPath="yes" Source="..\SampleTemplates\tk_search.tpl" />
+      </Component>
+      <Component Id="vb_class.tpl" Guid="{73B5A5F4-5F51-45F4-975D-3ABBA6CEE9AA}">
+        <File Id="vb_class.tpl" KeyPath="yes" Source="..\SampleTemplates\vb_class.tpl" />
+      </Component>
+      <Component Id="vb_webform.tpl" Guid="{C6231744-80B0-43B8-8165-8FABD59AEFC1}">
+        <File Id="vb_webform.tpl" KeyPath="yes" Source="..\SampleTemplates\vb_webform.tpl" />
+      </Component>
+      <Component Id="vb_webform_absolute.tpl" Guid="{2E584CBE-6837-4C77-9C8E-5EB4FEA8F805}">
+        <File Id="vb_webform_absolute.tpl" KeyPath="yes" Source="..\SampleTemplates\vb_webform_absolute.tpl" />
+      </Component>
+      <Component Id="vb_webform_codebehind.tpl" Guid="{1470883A-4ADB-4091-8AB5-175216B33F78}">
+        <File Id="vb_webform_codebehind.tpl" KeyPath="yes" Source="..\SampleTemplates\vb_webform_codebehind.tpl" />
+      </Component>
+      <Component Id="vb_webform_master.tpl" Guid="{E446D67C-DD3F-4F33-A989-0FF4CBD77320}">
+        <File Id="vb_webform_master.tpl" KeyPath="yes" Source="..\SampleTemplates\vb_webform_master.tpl" />
+      </Component>
+      <Component Id="vb_winform.tpl" Guid="{430175D5-282D-4793-A269-92BDECEE8C5D}">
+        <File Id="vb_winform.tpl" KeyPath="yes" Source="..\SampleTemplates\vb_winform.tpl" />
+      </Component>
+      <Component Id="vb_winform_codebehind.tpl" Guid="{63068E17-8CDC-4781-AD28-466EAB4BC59C}">
+        <File Id="vb_winform_codebehindtpl" KeyPath="yes" Source="..\SampleTemplates\vb_winform_codebehind.tpl" />
+      </Component>
+      <Component Id="vb_winform_resources.tpl" Guid="{04B12673-5426-4F5E-BE6E-8D0325FB12F6}">
+        <File Id="vb_winform_resources.tpl" KeyPath="yes" Source="..\SampleTemplates\vb_winform_resources.tpl" />
+      </Component>
+      <Component Id="vb_xaml.tpl" Guid="{A8E7D286-A3AF-40D8-8C87-263B496DD325}">
+        <File Id="vb_xaml.tpl" KeyPath="yes" Source="..\SampleTemplates\vb_xaml.tpl" />
+      </Component>
+      <Component Id="vb_xaml_codebehind.tpl" Guid="{1C203A98-79B3-4156-BC3F-F783D168865B}">
+        <File Id="vb_xaml_codebehind.tpl" KeyPath="yes" Source="..\SampleTemplates\vb_xaml_codebehind.tpl" />
+      </Component>
+      <Component Id="xf_java_add.tpl" Guid="{987A24D6-5684-48D2-8CE8-03A6E08E3ABF}">
+        <File Id="xf_java_add.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_java_add.tpl" />
+      </Component>
+      <Component Id="xf_java_can_delete.tpl" Guid="{B3834FD4-E07D-482F-B9FE-FEE38EA06DC7}">
+        <File Id="xf_java_can_delete.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_java_can_delete.tpl" />
+      </Component>
+      <Component Id="xf_java_delete.tpl" Guid="{F1C7D496-A77A-44AC-B5E1-16DDD93FE0C8}">
+        <File Id="xf_java_delete.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_java_delete.tpl" />
+      </Component>
+      <Component Id="xf_java_get.tpl" Guid="{F333CBA9-9CA3-4D57-A258-82175A053E8E}">
+        <File Id="xf_java_get.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_java_get.tpl" />
+      </Component>
+      <Component Id="xf_java_get_all.tpl" Guid="{A4C7E58E-CE38-41FB-A40B-50B3C243F4C1}">
+        <File Id="xf_java_get_all.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_java_get_all.tpl" />
+      </Component>
+      <Component Id="xf_java_update.tpl" Guid="{1047A1A1-6C26-44FA-98F3-3B78F88CF195}">
+        <File Id="xf_java_update.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_java_update.tpl" />
+      </Component>
+      <Component Id="xf_java_validate.tpl" Guid="{5A01CD30-089A-4492-BD58-09729A9C115E}">
+        <File Id="xf_java_validate.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_java_validate.tpl" />
+      </Component>
+      <Component Id="xf_net_add.tpl" Guid="{C806F587-DB60-49BF-B046-9E5F8A5D90A7}">
+        <File Id="xf_net_add.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_net_add.tpl" />
+      </Component>
+      <Component Id="xf_net_can_delete.tpl" Guid="{08F12B05-1788-49F9-85E7-517EF2F56809}">
+        <File Id="xf_net_can_delete.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_net_can_delete.tpl" />
+      </Component>
+      <Component Id="xf_net_delete.tpl" Guid="{A2D98A38-6D54-4DC3-8331-772000ACE933}">
+        <File Id="xf_net_delete.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_net_delete.tpl" />
+      </Component>
+      <Component Id="xf_net_get.tpl" Guid="{EDFF5987-9F6C-4BB3-B123-460425E89A27}">
+        <File Id="xf_net_get.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_net_get.tpl" />
+      </Component>
+      <Component Id="xf_net_get_all.tpl" Guid="{D7C27030-8FD7-4D81-8510-7540AF21C898}">
+        <File Id="xf_net_get_all.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_net_get_all.tpl" />
+      </Component>
+      <Component Id="xf_net_get_master_detail.tpl" Guid="{1B4E929F-B6A6-4203-B4C1-F354F496ECDF}">
+        <File Id="xf_net_get_master_detail.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_net_get_master_detail.tpl" />
+      </Component>
+      <Component Id="xf_net_select_all.tpl" Guid="{6B923E94-1E91-4655-A1E3-5DEBB7575116}">
+        <File Id="xf_net_select_all.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_net_select_all.tpl" />
+      </Component>
+      <Component Id="xf_net_update.tpl" Guid="{A52C1E61-51A2-4D39-B743-6DAB87266067}">
+        <File Id="xf_net_update.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_net_update.tpl" />
+      </Component>
+      <Component Id="xf_net_validate.tpl" Guid="{CD817816-CD19-4A75-9B7C-ECD80835D1C6}">
+        <File Id="xf_net_validate.tpl" KeyPath="yes" Source="..\SampleTemplates\xf_net_validate.tpl" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Templates Feature -->
+    <Feature Id="FeatureTemplates" Title="Sample Templates" Level="1">
+      <ComponentRef Id="cs_annotated_class.tpl" />
+      <ComponentRef Id="cs_asp_data_provider.tpl" />
+      <ComponentRef Id="cs_class.tpl" />
+      <ComponentRef Id="cs_mvvm_maint_cancelcommand.tpl" />
+      <ComponentRef Id="cs_mvvm_maint_manager.tpl" />
+      <ComponentRef Id="cs_mvvm_maint_savecommand.tpl" />
+      <ComponentRef Id="cs_mvvm_maint_view.tpl" />
+      <ComponentRef Id="cs_mvvm_maint_viewmodel.tpl" />
+      <ComponentRef Id="cs_mvvm_maint_view_code.tpl" />
+      <ComponentRef Id="cs_mvvm_model.tpl" />
+      <ComponentRef Id="cs_mvvm_model_manual.tpl" />
+      <ComponentRef Id="cs_webform.tpl" />
+      <ComponentRef Id="cs_webform_absolute.tpl" />
+      <ComponentRef Id="cs_webform_codebehind.tpl" />
+      <ComponentRef Id="cs_webform_master.tpl" />
+      <ComponentRef Id="cs_winform.tpl" />
+      <ComponentRef Id="cs_winform_codebehind.tpl" />
+      <ComponentRef Id="cs_winform_resources.tpl" />
+      <ComponentRef Id="cs_xaml.tpl" />
+      <ComponentRef Id="cs_xaml_codebehind.tpl" />
+      <ComponentRef Id="cs_xaml_ig.tpl" />
+      <ComponentRef Id="cs_xaml_ig_codebehind.tpl" />
+      <ComponentRef Id="DatabaseRoutines.tpl" />
+      <ComponentRef Id="DatabaseRoutinesBulkLoad.tpl" />
+      <ComponentRef Id="DatabaseRoutinesBulkLoadMapped.tpl" />
+      <ComponentRef Id="DatabaseRoutinesLoad.tpl" />
+      <ComponentRef Id="DatabaseRoutinesLoadMapped.tpl" />
+      <ComponentRef Id="DatabaseRoutinesTest.tpl" />
+      <ComponentRef Id="DatabaseTable.tpl" />
+      <ComponentRef Id="DatabaseTableBase.tpl" />
+      <ComponentRef Id="DatabaseTableConnection.tpl" />
+      <ComponentRef Id="DatabaseTableMapped.tpl" />
+      <ComponentRef Id="DatabaseTableTest.tpl" />
+      <ComponentRef Id="html_codegen.tpl" />
+      <ComponentRef Id="html_rps_structure_docs.tpl" />
+      <ComponentRef Id="json_from_record.tpl" />
+      <ComponentRef Id="oc_class_implementation.tpl" />
+      <ComponentRef Id="oc_class_interface.tpl" />
+      <ComponentRef Id="synnet_mvvm_data.tpl" />
+      <ComponentRef Id="synnet_mvvm_data_util.tpl" />
+      <ComponentRef Id="synnet_mvvm_global_resources.tpl" />
+      <ComponentRef Id="synnet_mvvm_relay_command.tpl" />
+      <ComponentRef Id="synnet_mvvm_view_list.tpl" />
+      <ComponentRef Id="synnet_mvvm_view_list_code.tpl" />
+      <ComponentRef Id="synnet_mvvm_view_maint.tpl" />
+      <ComponentRef Id="synnet_mvvm_view_maint_code.tpl" />
+      <ComponentRef Id="synnet_mvvm_view_statemanager.tpl" />
+      <ComponentRef Id="synnet_mvvm_vm.tpl" />
+      <ComponentRef Id="synnet_mvvm_vm_list.tpl" />
+      <ComponentRef Id="synnet_mvvm_vm_maint.tpl" />
+      <ComponentRef Id="synnet_mvvm_vm_tk.tpl" />
+      <ComponentRef Id="syn_collection.tpl" />
+      <ComponentRef Id="syn_collection_test.tpl" />
+      <ComponentRef Id="syn_csv_export.tpl" />
+      <ComponentRef Id="syn_data_class.tpl" />
+      <ComponentRef Id="syn_io.tpl" />
+      <ComponentRef Id="syn_io_replicate.tpl" />
+      <ComponentRef Id="syn_multi_data_class.tpl" />
+      <ComponentRef Id="syn_oplock.tpl" />
+      <ComponentRef Id="syn_winform.tpl" />
+      <ComponentRef Id="syn_xdl.tpl" />
+      <ComponentRef Id="syn_xml_doc.tpl" />
+      <ComponentRef Id="syn_xml_elem.tpl" />
+      <ComponentRef Id="syn_xml_export.tpl" />
+      <ComponentRef Id="syn_xml_export_test.tpl" />
+      <ComponentRef Id="syn_xml_file.tpl" />
+      <ComponentRef Id="tk_change.tpl" />
+      <ComponentRef Id="tk_drill.tpl" />
+      <ComponentRef Id="tk_input_window.tpl" />
+      <ComponentRef Id="tk_io.tpl" />
+      <ComponentRef Id="tk_lookup.tpl" />
+      <ComponentRef Id="tk_maint_simple.tpl" />
+      <ComponentRef Id="tk_maint_tab.tpl" />
+      <ComponentRef Id="tk_search.tpl" />
+      <ComponentRef Id="vb_class.tpl" />
+      <ComponentRef Id="vb_webform.tpl" />
+      <ComponentRef Id="vb_webform_absolute.tpl" />
+      <ComponentRef Id="vb_webform_codebehind.tpl" />
+      <ComponentRef Id="vb_webform_master.tpl" />
+      <ComponentRef Id="vb_winform.tpl" />
+      <ComponentRef Id="vb_winform_codebehind.tpl" />
+      <ComponentRef Id="vb_winform_resources.tpl" />
+      <ComponentRef Id="vb_xaml.tpl" />
+      <ComponentRef Id="vb_xaml_codebehind.tpl" />
+      <ComponentRef Id="xf_java_add.tpl" />
+      <ComponentRef Id="xf_java_can_delete.tpl" />
+      <ComponentRef Id="xf_java_delete.tpl" />
+      <ComponentRef Id="xf_java_get.tpl" />
+      <ComponentRef Id="xf_java_get_all.tpl" />
+      <ComponentRef Id="xf_java_update.tpl" />
+      <ComponentRef Id="xf_java_validate.tpl" />
+      <ComponentRef Id="xf_net_add.tpl" />
+      <ComponentRef Id="xf_net_can_delete.tpl" />
+      <ComponentRef Id="xf_net_delete.tpl" />
+      <ComponentRef Id="xf_net_get.tpl" />
+      <ComponentRef Id="xf_net_get_all.tpl" />
+      <ComponentRef Id="xf_net_get_master_detail.tpl" />
+      <ComponentRef Id="xf_net_select_all.tpl" />
+      <ComponentRef Id="xf_net_update.tpl" />
+      <ComponentRef Id="xf_net_validate.tpl" />
+    </Feature>
+
+    <!-- Sample Code Feature Files -->
+    <DirectoryRef Id="TemplatesFolder">
+      <Component Id="CamelCase.dbl" Guid="{A1C5ED6F-D50D-4473-8199-C7B19C5427B9}">
+        <File Id="CamelCase.dbl" KeyPath="yes" Source="..\SampleTemplates\CamelCase.dbl" />
+      </Component>
+      <Component Id="CanOpenFile.dbl" Guid="{B4B035DD-11AD-4FDD-9B5A-B5767E89F5A1}">
+        <File Id="CanOpenFile.dbl" KeyPath="yes" Source="..\SampleTemplates\CanOpenFile.dbl" />
+      </Component>
+      <Component Id="DecimalToMDYString.dbl" Guid="{7CB9A496-9DB2-4965-9383-CF4CBAC28DDD}">
+        <File Id="DecimalToMDYString.dbl" KeyPath="yes" Source="..\SampleTemplates\DecimalToMDYString.dbl" />
+      </Component>
+      <Component Id="DecimalToTimeString.dbl" Guid="{ED5893CF-9983-48FC-ABFD-E587C5AFA8C6}">
+        <File Id="DecimalToTimeString.dbl" KeyPath="yes" Source="..\SampleTemplates\DecimalToTimeString.dbl" />
+      </Component>
+      <Component Id="IsNumeric.dbl" Guid="{D6FBBC54-3C7B-4A2E-9903-E539D8A39FF0}">
+        <File Id="IsNumeric.dbl" KeyPath="yes" Source="..\SampleTemplates\IsNumeric.dbl" />
+      </Component>
+      <Component Id="IsWhitespace.dbl" Guid="{F2062E71-3FCD-455E-8096-C0F18D5CBD4D}">
+        <File Id="IsWhitespace.dbl" KeyPath="yes" Source="..\SampleTemplates\IsWhitespace.dbl" />
+      </Component>
+      <Component Id="LowerCase.dbl" Guid="{8D793F38-2868-4099-9D60-C140D958DBE2}">
+        <File Id="LowerCase.dbl" KeyPath="yes" Source="..\SampleTemplates\LowerCase.dbl" />
+      </Component>
+      <Component Id="MixedCase.dbl" Guid="{BE2A31CD-A558-441E-929C-3AC04A1B74BA}">
+        <File Id="MixedCase.dbl" KeyPath="yes" Source="..\SampleTemplates\MixedCase.dbl" />
+      </Component>
+      <Component Id="PascalCase.dbl" Guid="{F86C01F3-3AD6-4C8F-9FBD-AC24E830B2AB}">
+        <File Id="PascalCase.dbl" KeyPath="yes" Source="..\SampleTemplates\PascalCase.dbl" />
+      </Component>
+      <Component Id="QuotedString.dbl" Guid="{802AD99D-8454-43FB-967D-D6E6DF49A1AC}">
+        <File Id="QuotedString.dbl" KeyPath="yes" Source="..\SampleTemplates\QuotedString.dbl" />
+      </Component>
+      <Component Id="RemoveLeading.dbl" Guid="{14FC20E7-607C-4758-A050-091E1AE01580}">
+        <File Id="RemoveLeading.dbl" KeyPath="yes" Source="..\SampleTemplates\RemoveLeading.dbl" />
+      </Component>
+      <Component Id="ReplaceCharacter.dbl" Guid="{83D18717-0769-4033-BBB6-5C500A0DC0D0}">
+        <File Id="ReplaceCharacter.dbl" KeyPath="yes" Source="..\SampleTemplates\ReplaceCharacter.dbl" />
+      </Component>
+      <Component Id="UpperCase.dbl" Guid="{CA301D6C-24D8-4001-81F9-7A62BDE61324}">
+        <File Id="UpperCase.dbl" KeyPath="yes" Source="..\SampleTemplates\UpperCase.dbl" />
+      </Component>
+      <Component Id="XfCase.dbl" Guid="{ABA06A21-2EE7-4FC7-B751-EE0AD0ACFA6F}">
+        <File Id="XfCase.dbl" KeyPath="yes" Source="..\SampleTemplates\XfCase.dbl" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Sample Code Feature -->
+    <Feature Id="FeatureSampleCode" Title="Sample Code" Level="1">
+      <ComponentRef Id="CamelCase.dbl" />
+      <ComponentRef Id="CanOpenFile.dbl" />
+      <ComponentRef Id="DecimalToMDYString.dbl" />
+      <ComponentRef Id="DecimalToTimeString.dbl" />
+      <ComponentRef Id="IsNumeric.dbl" />
+      <ComponentRef Id="IsWhitespace.dbl" />
+      <ComponentRef Id="LowerCase.dbl" />
+      <ComponentRef Id="MixedCase.dbl" />
+      <ComponentRef Id="PascalCase.dbl" />
+      <ComponentRef Id="QuotedString.dbl" />
+      <ComponentRef Id="RemoveLeading.dbl" />
+      <ComponentRef Id="ReplaceCharacter.dbl" />
+      <ComponentRef Id="UpperCase.dbl" />
+      <ComponentRef Id="XfCase.dbl" />
+    </Feature>
+
+    <!-- Symphony Extensions Feature Files -->
+    <DirectoryRef Id="MAINFOLDER">
+      <Component Id="$(var.SymphonyCodeGenExtensions.TargetFileName)" Guid="{6C52BF4B-5EC4-4E85-A5A5-2009596548F2}">
+        <File Id="$(var.SymphonyCodeGenExtensions.TargetFileName)" KeyPath="yes" Source="$(var.SymphonyCodeGenExtensions.TargetPath)" Checksum="yes">
+          <netfx:NativeImage Id="$(var.SymphonyCodeGenExtensions.TargetFileName)" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Utility Programs Feature-->
+    <Feature Id="FeatureSymphonyExtensions" Title="Symphony Extensions" Level="1">
+      <ComponentRef Id="$(var.SymphonyCodeGenExtensions.TargetFileName)" />
+    </Feature>
+
+  </Product>
+
+</Wix>

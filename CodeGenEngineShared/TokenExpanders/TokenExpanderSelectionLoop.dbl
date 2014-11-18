@@ -1,0 +1,160 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TokenExpanderSelectionLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Expands field selection loop token nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class TokenExpander
+
+        fieldSelectionLoopTokenExpanders, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>
+
+        private method registerSelectionLoopTokens, void
+            endparams
+        proc
+			
+			fieldSelectionLoopTokenExpanders = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>()
+
+            fieldSelectionLoopTokenExpanders.Add("SELECTION_COUNT", expandSelectionCount)
+            fieldSelectionLoopTokenExpanders.Add("SELECTION_NUMBER", expandSelectionNumber)
+            fieldSelectionLoopTokenExpanders.Add("SELECTION_TEXT", expandSelectionText)
+			fieldSelectionLoopTokenExpanders.Add("SELECTION_VALUE", expandSelectionValue)
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="tkn"></param>
+        ;;;  <param name="file"></param>
+        ;;;  <param name="loops"></param>
+        ;;;  <param name="specific"></param>
+        ;;;  <returns></returns>
+        public static method ExpandFieldSelectionLoopToken, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<RpsStructure, RpsField, string, int, string> 
+            endparams
+        proc
+            lambda isSelectionLoop(node)
+            begin
+                mreturn node .is. SelectionLoopNode
+            end
+			data loop, @SelectionLoopNode, ^as(loops.First(isSelectionLoop), SelectionLoopNode)
+            mreturn specific(file.Context.CurrentStructure, loop.CurrentField, loop.CurrentSelection, loop.CurrentIndex)
+        endmethod
+
+        private static method expandSelectionCount, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field, seltxt, selidx)
+            begin
+                mreturn Convert.ToString(field.SelectionList.Count)
+            end
+            mreturn ExpandFieldSelectionLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandSelectionNumber, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field, seltxt, selidx)
+            begin
+                mreturn Convert.ToString(selidx + 1)
+            end
+            mreturn ExpandFieldSelectionLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandSelectionText, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field, seltxt, selidx)
+            begin
+                mreturn seltxt
+            end
+            mreturn ExpandFieldSelectionLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandSelectionValue, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field, seltxt, selidx)
+            begin
+                data selValue, string, ""
+                using (field.DataType) select
+                (RpsFieldDataType.Alpha, RpsFieldDataType.User),
+                    selValue = seltxt.Substring(0, field.Size)
+                (RpsFieldDataType.Decimal, RpsFieldDataType.Integer),
+                begin
+                    if (field.Enumerated) then
+                        selValue = Convert.ToString(field.EnumeratedBaseValue + (field.EnumeratedStepValue * (selidx + 1)))
+                    else
+                        selValue = Convert.ToString(selidx + 1)
+                end
+                endusing
+                mreturn selValue
+            end
+            mreturn ExpandFieldSelectionLoopToken(tkn, file, loops, doExpand)
+		endmethod
+
+	endclass
+
+endnamespace

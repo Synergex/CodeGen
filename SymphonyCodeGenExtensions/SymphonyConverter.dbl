@@ -1,0 +1,129 @@
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace Symphony.CodeGen.Extensions
+
+	public class SymphonyConverter implements IExpansionToken
+		
+		public property TokenName, String
+			method get
+			proc
+				mreturn "SYMPHONY_CONVERTER"
+			endmethod
+		endproperty
+		
+		public property Description, String
+			method get
+			proc
+				mreturn "SYMPHONY_CONVERTER"
+			endmethod
+		endproperty
+		
+		public property Validity, TokenValidity
+			method get
+			proc
+				mreturn TokenValidity.FieldLoop
+			endmethod
+		endproperty
+		
+		public property TokenCase, TokenCaseMode
+			method get
+			proc
+				mreturn TokenCaseMode.UppercaseOnly
+			endmethod
+		endproperty
+		
+		public method Expand, String
+			tkn, @Token
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode>
+			endparams
+		proc
+			lambda process(str, field)
+			begin
+				;;Default to using alphaConverter
+				data converterString, string, ""
+				
+				;;Based on the field definition, possibly select a different converter
+				using field.DataType select
+				
+				(RpsFieldDataType.Alpha),
+				begin
+					;TODO: needs to cope with alpha dates????
+					if (instr(1,field.UserText,"@SYMPHONY_YN;")||(instr(1,field.LongDescription,"@SYMPHONY_YN;"))) then
+						converterString = getConverterString("alphaYnConverter")
+					else
+						converterString = getConverterString("alphaConverter")
+				end
+				
+				(RpsFieldDataType.Decimal),
+				begin
+					;TODO: If Symphony supports date formats other than YYYYMMDD then this code needs extending
+					if (field.DataTypeSubclass==RpsFieldSubclass.DateYYYYMMDD) then
+						converterString = getConverterString("decimalDateConverter")
+					else
+					begin
+						if (field.Precision>0) then
+							converterString = getConverterString("impliedDecimalConverter")
+						else
+							converterString = getConverterString("decimalConverter")
+					end
+				end
+				
+				(RpsFieldDataType.Integer),
+				begin
+					converterString = getConverterString("intConverter")
+				end
+				
+				(RpsFieldDataType.User),
+				begin
+					;TODO: May need some more work?
+					converterString = getConverterString("alphaConverter")
+				end
+				
+				(RpsFieldDataType.Boolean),
+				begin
+					;TODO: not sure what to do here. A boolean RPS field is really an I4, but not sure what Symphony expects?
+					nop
+				end
+				
+				(RpsFieldDataType.Enum),
+				begin
+					;Can't currently happen because of CodeGen's %CheckStructure routine
+					nop
+				end
+				
+				(RpsFieldDataType.Binary),
+				begin
+					;Can't currently happen because of CodeGen's %CheckStructure routine
+					nop
+				end
+				
+				(RpsFieldDataType.StructField),
+				begin
+					;Can't currently happen because of CodeGen's %CheckStructure routine
+					nop
+				end
+					
+				endusing
+				
+				mreturn converterString
+			
+			end
+			mreturn TokenExpander.ExpandFieldLoopToken(tkn, file, loops, process)
+		endmethod
+		
+		;;return the convertion string
+		private method getConverterString, String
+			required in converterType, String
+			endparams
+		proc
+			mreturn ", Converter={StaticResource " + converterType + "}"
+		endmethod
+		
+	endclass
+
+endnamespace

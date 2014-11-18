@@ -1,0 +1,378 @@
+;; *****************************************************************************
+;; 
+;;  Title:       ExpressionEvaluatorTagLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Evaluates tag loop expression nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class ExpressionEvaluator
+
+        tagLoopExpressionEvaluators, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
+
+        private method registerTagLoopExpressions, void
+            endparams
+        proc
+			
+			tagLoopExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
+			
+			tagLoopExpressionEvaluators.Add("COMPARISON_EQ", evaluateTagComparisonEQ)
+            tagLoopExpressionEvaluators.Add("COMPARISON_GE", evaluateTagComparisonGE)
+            tagLoopExpressionEvaluators.Add("COMPARISON_GT", evaluateTagComparisonGT)
+            tagLoopExpressionEvaluators.Add("COMPARISON_LE", evaluateTagComparisonLE)
+            tagLoopExpressionEvaluators.Add("COMPARISON_LT", evaluateTagComparisonLT)
+            tagLoopExpressionEvaluators.Add("COMPARISON_NE", evaluateTagComparisonNE)
+            tagLoopExpressionEvaluators.Add("COMPARISON_NOT_EQ", evaluateTagComparisonNotEQ)
+            tagLoopExpressionEvaluators.Add("COMPARISON_NOT_GE", evaluateTagComparisonNotGE)
+            tagLoopExpressionEvaluators.Add("COMPARISON_NOT_GT", evaluateTagComparisonNotGT)
+            tagLoopExpressionEvaluators.Add("COMPARISON_NOT_LE", evaluateTagComparisonNotLE)
+            tagLoopExpressionEvaluators.Add("COMPARISON_NOT_LT", evaluateTagComparisonNotLT)
+            tagLoopExpressionEvaluators.Add("COMPARISON_NOT_NE", evaluateTagComparisonNotNE)
+            tagLoopExpressionEvaluators.Add("CONNECTOR_AND", evaluateTagAnd)
+            tagLoopExpressionEvaluators.Add("CONNECTOR_OR", evaluateTagOr)
+            tagLoopExpressionEvaluators.Add("CONNECTOR_NONE", evaluateTagNone)
+            tagLoopExpressionEvaluators.Add("CONNECTOR_NOT_AND", evaluateTagNotAnd)
+            tagLoopExpressionEvaluators.Add("CONNECTOR_NOT_OR", evaluateTagNotOr)
+            tagLoopExpressionEvaluators.Add("CONNECTOR_NOT_NONE", evaluateTagNotNone)
+            tagLoopExpressionEvaluators.Add("MULTIPLE_TAGS", evaluateTagMultipleTags)
+            tagLoopExpressionEvaluators.Add("SINGLE_TAG", evaluateTagSingleTag)
+		
+		endmethod
+		
+		;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; Tag loop expressions
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="tkn"></param>
+        ;;;  <param name="file"></param>
+        ;;;  <param name="loops"></param>
+        ;;;  <param name="specific"></param>
+        ;;;  <returns></returns>
+        public static method EvaluateTagLoopExpression, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<RpsStructure, RpsTag, int, boolean> 
+            endparams
+        proc
+            lambda isTagLoop(node)
+            begin
+                mreturn node .is. TagLoopNode
+            end
+			data loop, @TagLoopNode, ^as(loops.First(isTagLoop), TagLoopNode)
+            mreturn specific(file.Context.CurrentStructure, loop.CurrentTag, loop.CurrentIndex)
+        endmethod
+		
+		;; -------------------------------------------------------------------------------------------------------------------------------
+
+        private static method evaluateTagComparisonEQ, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator == RpsTagOperator.OpEQ)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonGE, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator == RpsTagOperator.OpGE)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonGT, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator == RpsTagOperator.OpGT)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonLE, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator == RpsTagOperator.OpLE)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonLT, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator == RpsTagOperator.OpLT)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonNE, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator == RpsTagOperator.OpNE)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonNotEQ, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator != RpsTagOperator.OpEQ)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonNotGE, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator != RpsTagOperator.OpGE)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonNotGT, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator != RpsTagOperator.OpGT)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonNotLE, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator != RpsTagOperator.OpLE)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonNotLT, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator != RpsTagOperator.OpLT)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagComparisonNotNE, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonOperator != RpsTagOperator.OpNE)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagAnd, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonConnector == RpsTagComparison.CompareAnd)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagOr, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonConnector == RpsTagComparison.CompareOr)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagNone, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonConnector == RpsTagComparison.None)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagNotAnd, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonConnector != RpsTagComparison.CompareAnd)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagNotOr, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonConnector != RpsTagComparison.CompareOr)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagNotNone, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (tag.ComparisonConnector != RpsTagComparison.None)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagMultipleTags, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (str.Tags.Count > 0)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+
+        private static method evaluateTagSingleTag, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda generated_lambda1(str, tag, index)
+            begin
+                mreturn (str.Tags.Count == 0)
+            end
+            mreturn EvaluateTagLoopExpression(tkn, file, loops, generated_lambda1)
+        endmethod
+	
+	endclass
+
+endnamespace
+

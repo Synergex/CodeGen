@@ -1,0 +1,215 @@
+;;*****************************************************************************
+;;
+;; Title:       SmcInfo.dbl
+;;
+;; Type:        Program
+;;
+;; Description: Display info from a Synergy Method Catalog XML export file
+;;
+;; Date:        5th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.MethodCatalogAPI
+
+main SmcInfo
+	
+	global common SmcInfoData
+		tt, int	;Terminal channel
+	endcommon
+	
+	record
+		ok              ,boolean, true
+		ClValues        ,@List<String>
+		smc				,@Smc
+	endrecord
+	
+proc
+	
+	open(tt=0,i,"tt:")
+	xcall flags(7004000,1)
+	xcall flags(20,0)
+
+	;---------------------------------------------------------------------------
+
+	if (!CommandLineParser.Parse("f",ClValues)) then
+	begin
+		call usage
+		ok = false
+	end
+	else
+	begin
+		if (!ClValues.Count) then
+		begin
+			writes(tt,"ERROR: No SMC export file found after the -f option!")
+			ok = false
+		end
+		else if (ClValues.Count>1) then
+		begin
+			writes(tt,"ERROR: Only one SMC export file can be specified after the -f option!")
+			ok = false
+		end
+		else
+		begin
+			;;OK, we got a file name
+			try
+			begin
+				smc = new Smc(ClValues[0])
+			end
+			catch (e, @Exception)
+			begin
+				writes(tt,"ERROR: " + e.Message)
+				ok = false
+			end
+			endtry
+		end
+	end
+	
+	;;One or all interfaces?
+	if (ok)
+	begin
+		if (CommandLineParser.Parse("i",ClValues)) then
+		begin
+			if (!ClValues.Count) then
+			begin
+				writes(tt,"ERROR: No interface name was found after the -i option!")
+				ok = false
+			end
+			else if (ClValues.Count>1) then
+			begin
+				writes(tt,"ERROR: Only one interface name can be specified after the -f option!")
+				ok = false
+			end
+			else
+			begin
+				data smcInterface, @SmcInterface
+				data done, boolean, false
+				foreach smcInterface in smc.Interfaces.GetEnumerator()
+				begin
+					if (smcInterface.name.eqs.ClValues[0])
+					begin
+						ShowInterface(smcInterface)
+						done = true
+						exitloop
+					end
+				end
+				if (!done)
+					writes(tt,"ERROR: Interface " + ClValues[0] + " was not found!")
+			end
+		end
+		else
+		begin
+			;;No interface specified, show them all
+			data smcInterface, @SmcInterface
+			foreach smcInterface in smc.Interfaces.GetEnumerator()
+				ShowInterface(smcInterface)
+		end
+	end
+	
+	close tt
+	stop
+	
+	;-------------------------------------------------------------------------------
+	;Display usage information
+	;
+usage,
+	writes(tt,"")
+	writes(tt,"Usage: SmcInfo -f <SmcXmlFile> [-i <InterfaceName>]")
+	writes(tt,"")
+	ok = false
+	
+	return
+	
+endmain
+
+;-------------------------------------------------------------------------------
+;Display an interface
+;
+subroutine ShowInterface
+	required in currentInterface, @SmcInterface
+	endparams
+	external common SmcInfoData
+		tt, int	;Terminal channel
+	endcommon
+proc
+	writes(tt,"")
+	writes(tt,"Interface: " + currentInterface.name)
+	writes(tt,"")
+	if (currentInterface.Methods.Count)
+	begin
+		data currentMethod, @SmcMethod
+		foreach currentMethod in currentInterface.Methods.GetEnumerator()
+			xcall ShowMethod(currentMethod)
+	end
+	xreturn
+endsubroutine
+
+subroutine ShowMethod
+	required in currentMethod, @SmcMethod
+	endparams
+	external common SmcInfoData
+		tt, int	;Terminal channel
+	endcommon
+proc
+	writes(tt,"    Method      : " + currentMethod.name)
+	using currentMethod.MethodType select
+	(MethodType.Subroutine),
+		writes(tt,"    Type        : Subroutine")
+	(MethodType.Function),
+		writes(tt,"    Type        : Function")
+	endusing
+	writes(tt,"    Return type : ")
+	writes(tt,"    Parameters  : " + %string(currentMethod.Parameters.Count))
+	writes(tt,"")
+	if (currentMethod.Parameters.Count)
+	begin
+		data currentParameter, @SmcParameter
+		foreach currentParameter in currentMethod.Parameters.GetEnumerator()
+			xcall ShowParameter(currentParameter)
+		writes(tt,"")
+	end
+	xreturn	
+endsubroutine
+
+subroutine ShowParameter
+	required in currentParameter, @SmcParameter
+	endparams
+	external common SmcInfoData
+		tt, int	;Terminal channel
+	endcommon
+proc
+	writes(tt,"        Parameter    : " + currentParameter.name)
+	xreturn
+endsubroutine
