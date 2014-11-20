@@ -950,16 +950,20 @@ namespace CodeGen.Engine
 
             string token = initialToken.Substring(0, initialToken.IndexOf(":"));
             string data = initialToken.Replace(token + ":", "");
-            string filespec;
+            string filespec = "";
             List<Token> tokens = new List<Token>();
 
             switch (token)
             {
                 case "FILE":
-                    filespec = expandLogicals(data);
                     try
                     {
-                        tokens = Tokenize(filespec);
+                        filespec = expandLogicals(data);
+                        if (File.Exists(filespec))
+                            tokens = Tokenize(filespec);
+                        else
+                            throw new ApplicationException("");
+
                     }
                     catch (Exception)
                     {
