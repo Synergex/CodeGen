@@ -40,6 +40,7 @@
 ;;
 ;;*****************************************************************************
 
+import Microsoft.Win32
 import System
 import System.Collections.ObjectModel
 import System.ComponentModel
@@ -66,23 +67,43 @@ namespace TemplateBrowser
 			
 			data fileSpec, String
 			
+			;;--------------------------------------------------
 			;;Load CodeGen sample templates
+
+			data templateFolder, String
+			data templateFolderFound, boolean, false
 			
-			data codeBase, string, Assembly.GetExecutingAssembly().CodeBase
-			data uri, @UriBuilder, new UriBuilder(codeBase)
-			data path, string, Uri.UnescapeDataString(uri.Path)
-			data binFolder, string, Path.GetDirectoryName(path)
-			
-			if ( binFolder.Contains("\Bin\Release") || binFolder.Contains("\Bin\Debug")) then
-				templateFolder = binFolder + "\..\..\SampleTemplates"
-			else
+			templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
+			if (!String.IsNullOrWhiteSpace(templateFolder)) then
+				templateFolderFound = true
+			else if (Environment.Is64BitProcess)
 			begin
-				templateFolder = Path.Combine(binFolder,"\Templates")
-			end				
+				templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","TemplatePath","")
+				if (!String.IsNullOrWhiteSpace(templateFolder))
+					templateFolderFound = true
+			end
+
+			if (!templateFolderFound)
+			begin
+				data codeBase, string, Assembly.GetExecutingAssembly().CodeBase
+				data uri, @UriBuilder, new UriBuilder(codeBase)
+				data path, string, Uri.UnescapeDataString(uri.Path)
+				data binFolder, string, Path.GetDirectoryName(path)
 				
-			foreach fileSpec in Directory.GetFiles(templateFolder,"*.tpl")
-				CodeGenTemplates.Add(new TemplateProxy(fileSpec))
+				if (binFolder.Contains("\Bin\Release")||binFolder.Contains("\Bin\Debug"))
+				begin
+					templateFolder = binFolder + "\..\..\SampleTemplates"
+					templateFolderFound = true
+				end
+			end
+
+			if (templateFolderFound)
+			begin
+				foreach fileSpec in Directory.GetFiles(templateFolder,"*.tpl")
+					CodeGenTemplates.Add(new TemplateProxy(fileSpec))
+			end
 			
+			;;--------------------------------------------------
 			;;Load Symphony Framework templates
 			
 			data symphonyTemplateFolder, String, Environment.GetEnvironmentVariable("SYMPHONYTPL")
@@ -92,10 +113,12 @@ namespace TemplateBrowser
 				SymphonyTemplates.Add(new TemplateProxy(fileSpec))
 			end
 			
+			;;--------------------------------------------------
 			;;Load user templates
 			
 			loadUserTemplates()
 			
+			;;--------------------------------------------------
 			;;Display the first user template
 			
 			if (UserTemplates.Count>0)
