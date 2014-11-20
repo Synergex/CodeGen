@@ -951,6 +951,7 @@ namespace CodeGen.Engine
             string token = initialToken.Substring(0, initialToken.IndexOf(":"));
             string data = initialToken.Replace(token + ":", "");
             string filespec;
+            List<Token> tokens = new List<Token>();
 
             switch (token)
             {
@@ -958,29 +959,39 @@ namespace CodeGen.Engine
                     filespec = expandLogicals(data);
                     try
                     {
-                        return Tokenize(filespec);
+                        tokens = Tokenize(filespec);
                     }
                     catch (Exception)
                     {
                         throw new ApplicationException(String.Format("Failed to read file {0} while processing a the token <{1}>", filespec, initialToken));
                     }
+                    break;
+
                 case "FILEIFEXIST":
-                    filespec = expandLogicals(data);
-                    if (File.Exists(filespec))
-                        return Tokenize(filespec);
+                    try
+                    {
+                        filespec = expandLogicals(data);
+                        if (File.Exists(filespec))
+                            tokens = Tokenize(filespec);
+                    }
+                    catch (Exception)
+                    {
+                        //That's OK, there was a problem expanding a logical, so we treat it as "file not found" for this token.
+                    }
                     break;
 
                 case "ENV":
                     if (Environment.GetEnvironmentVariable(data) == null)
                         throw new ApplicationException(String.Format("Token <ENV:{0}> requires that environment variable {1} is defined!", data, data));
-                    return Tokenize(Environment.GetEnvironmentVariable(data));
+                    tokens = Tokenize(Environment.GetEnvironmentVariable(data));
+                    break;
 
                 case "ENVIFEXIST":
                     if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(data)))
-                        return Tokenize(Environment.GetEnvironmentVariable(data));
+                        tokens = Tokenize(Environment.GetEnvironmentVariable(data));
                     break;
             }
-            return new List<Token>();
+            return tokens;
         }
 
         /// <summary>
@@ -1071,7 +1082,15 @@ namespace CodeGen.Engine
                     else if (nextToken.Preprocessor)
                     {
                         //It's a pre-processor token. Tokenize it's "content".
-                        result.AddRange(tokenizePreProcessorToken(nextTokenValue));
+                        try
+                        {
+                            result.AddRange(tokenizePreProcessorToken(nextTokenValue));
+                        }
+                        catch (ApplicationException ex)
+                        {
+                            reportError(ex.Message);
+                            return null;
+                        }
                     }
                     else
                     {
