@@ -1056,27 +1056,6 @@ namespace CodeGen.Engine
             int[] lineStarts = buildLineStarts(text);
             List<Token> result = new List<Token>();
 
-            //TODO: We need to deal with <OPTIONAL_USERTOKEN>TOKENNAME=tokenvalue</OPTIONAL_USERTOKEN> here.
-            /*
-             * If we encounter <OPTIONAL_USERTOKEN> we need to look in context.UserTokens for
-             * an existing user token named TOKENNAME (from the string above)
-             *    
-             * If it's found then life is good
-             *    
-             * If it's not found then we need to add a new user token:
-             *
-             *      context.UserTokens.Add(new UserToken("TOKENNAME","tokenvalue"))     (name and value from string above)
-             * 
-             * And we need to add the new token to the existing lookup tables:
-             * 
-             *      TokenMeta newMeta = new TokenMeta();
-             *       newMeta.Name = "TOKENNAME";                                         (name from string above)
-             *       newMeta.TypeOfToken = TokenType.User;
-             *       newMeta.Validity = TokenValidity.Anywhere;
-             *       addLookupToken(newMeta);
-             *
-             */
-
             for (int i = 0; i < text.Length; )
             {
                 PossibleToken nextToken = nextPossibleToken(i, text);
@@ -1121,9 +1100,32 @@ namespace CodeGen.Engine
                     {
                         //It's just a token (it's already been validated by nextPossibleToken)
                         string cannonicalExpressionValue = canonicalNameLookup[nextTokenValueUpper];
-                        result.Add(new Token(fileName, nextToken.StartIndex, nextToken.EndIndex, closer, cannonicalExpressionValue,
+
+                        Token newToken = new Token(fileName, nextToken.StartIndex, nextToken.EndIndex, closer, cannonicalExpressionValue,
                             typeLookup[nextTokenValueUpper], modifierLookup[nextTokenValue.TrimStart('/')],
-                            validityLookup[cannonicalExpressionValue], lineStarts));
+                            validityLookup[cannonicalExpressionValue], lineStarts);
+
+                        //Are we adding an <OPTIONAL_USERTOKEN>?
+                        if (newToken.TypeOfToken == TokenType.FileHeader && newToken.Closer && newToken.Value == "OPTIONAL_USERTOKEN")
+                        {
+                            //Before we add the closer for the optional user token, let's make sure the user token is present
+                            string[] parts = result[result.Count - 1].Value.Split('=');
+                            if (context.UserTokens.FirstOrDefault(s => s.Name == parts[0]) == null)
+                            {
+                                //No, it's not present, so we'll add it using the default value provided
+                                context.UserTokens.Add(new UserToken(parts[0], parts[1]));
+
+                                //And register it with Tokenizer
+                                TokenMeta newMeta = new TokenMeta();
+                                newMeta.Name = parts[0];
+                                newMeta.TypeOfToken = TokenType.User;
+                                newMeta.Validity = TokenValidity.Anywhere;
+                                addLookupToken(newMeta);
+                            }
+                        }
+
+                        result.Add(newToken);
+
                     }
 
                     i = nextToken.EndIndex + 1;
