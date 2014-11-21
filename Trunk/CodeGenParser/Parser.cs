@@ -143,7 +143,7 @@ namespace CodeGen.Engine
                                         if (topLevelNode.OutputFileNameTokens == null)
                                             topLevelNode.OutputFileNameTokens = nodesFromTokens(tokens, i + 1, endOfTag);
                                         else
-                                            reportParserError(ref errors, tkn, "Token <CODEGEN_FILENAME> can only be used once in a template file.");
+                                            reportParserError(ref errors, tkn, "Token <CODEGEN_FILENAME> can only be used once in a template file!");
                                         break;
                                     case "REQUIRES_USERTOKEN":
                                         if (topLevelNode.RequiredUserTokens == null)
@@ -153,7 +153,12 @@ namespace CodeGen.Engine
                                     case "OPTIONAL_USERTOKEN":
                                         if (topLevelNode.OptionalUserTokens == null)
                                             topLevelNode.OptionalUserTokens = new List<string>();
-                                        topLevelNode.OptionalUserTokens.Add(tokens[i + 1].Value.ToUpper());
+                                        string value = tokens[i + 1].Value.Trim();
+                                        //The value should be in the format USERTOKENNAME=DefaultValue
+                                        if (!value.Contains("=") || value.StartsWith("=") || value.EndsWith("="))
+                                            reportParserError(ref errors, tkn, "Token <OPTIONAL_USERTOKEN> contains an incorrectly formatted value!");
+                                        else
+                                            topLevelNode.OptionalUserTokens.Add(value);
                                         break;
                                     case "PROCESS_TEMPLATE":
                                         if (topLevelNode.ProcessTemplates == null)

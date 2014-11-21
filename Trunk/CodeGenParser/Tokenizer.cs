@@ -1056,6 +1056,27 @@ namespace CodeGen.Engine
             int[] lineStarts = buildLineStarts(text);
             List<Token> result = new List<Token>();
 
+            //TODO: We need to deal with <OPTIONAL_USERTOKEN>TOKENNAME=tokenvalue</OPTIONAL_USERTOKEN> here.
+            /*
+             * If we encounter <OPTIONAL_USERTOKEN> we need to look in context.UserTokens for
+             * an existing user token named TOKENNAME (from the string above)
+             *    
+             * If it's found then life is good
+             *    
+             * If it's not found then we need to add a new user token:
+             *
+             *      context.UserTokens.Add(new UserToken("TOKENNAME","tokenvalue"))     (name and value from string above)
+             * 
+             * And we need to add the new token to the existing lookup tables:
+             * 
+             *      TokenMeta newMeta = new TokenMeta();
+             *       newMeta.Name = "TOKENNAME";                                         (name from string above)
+             *       newMeta.TypeOfToken = TokenType.User;
+             *       newMeta.Validity = TokenValidity.Anywhere;
+             *       addLookupToken(newMeta);
+             *
+             */
+
             for (int i = 0; i < text.Length; )
             {
                 PossibleToken nextToken = nextPossibleToken(i, text);
