@@ -153,9 +153,10 @@ namespace CodeGen.Engine
                                     case "OPTIONAL_USERTOKEN":
                                         if (topLevelNode.OptionalUserTokens == null)
                                             topLevelNode.OptionalUserTokens = new List<string>();
-                                        string value = tokens[i + 1].Value.Trim();
+                                        string value = tokens[i + 1].Value;
                                         //The value should be in the format USERTOKENNAME=DefaultValue
-                                        if (!value.Contains("=") || value.StartsWith("=") || value.EndsWith("="))
+                                        //It could END with the =, indicating a default value of ""
+                                        if (!value.Contains("=") || value.StartsWith("="))
                                             reportParserError(ref errors, tkn, "Token <OPTIONAL_USERTOKEN> contains an incorrectly formatted value!");
                                         else
                                             topLevelNode.OptionalUserTokens.Add(value);
