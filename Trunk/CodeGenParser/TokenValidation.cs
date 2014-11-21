@@ -100,129 +100,57 @@ namespace CodeGen.Engine
 
         static bool isFieldLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.FirstOrDefault((node) => node is FieldLoopNode) != null));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //    return (loops.Last().OpenToken.Value == "FIELD_LOOP");
+            return (loops.Count() > 0 && loops.FirstOrDefault((node) => node is FieldLoopNode) != null);
         }
 
         static bool isSelectionLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.Last() is SelectionLoopNode));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //    return (loops.Last().OpenToken.Value == "SELECTION_LOOP");
+            return (loops.Count() > 0 && loops.Last() is SelectionLoopNode);
         }
 
         static bool isKeyLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.FirstOrDefault((node) => node is KeyLoopNode) != null));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //{
-            //    switch (loops.Last().OpenToken.Value)
-            //    {
-            //        case "KEY_LOOP":
-            //        case "ALTERNATE_KEY_LOOP":
-            //        case "PRIMARY_KEY":
-            //            return true;
-            //        default:
-            //            return false;
-            //    }
-            //}
+            return (loops.Count() > 0 && loops.FirstOrDefault((node) => node is KeyLoopNode) != null);
         }
 
         static bool isKeySegmentLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.Last() is SegmentLoopNode));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //{
-            //    switch (loops.Last().OpenToken.Value)
-            //    {
-            //        case "SEGMENT_LOOP":
-            //        case "SEGMENT_LOOP_FILTER":
-            //            return true;
-            //        default:
-            //            return false;
-            //    }
-            //}
+            return (loops.Count() > 0 && loops.Last() is SegmentLoopNode);
         }
 
         static bool isEnumLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.FirstOrDefault((node) => node is EnumLoopNode) != null));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //{
-            //    switch (loops.Last().OpenToken.Value)
-            //    {
-            //        case "ENUM_LOOP":
-            //        case "ENUM_LOOP_STRUCTURE":
-            //            return true;
-            //        default:
-            //            return false;
-            //    }
-            //}
+            return (loops.Count() > 0 && loops.FirstOrDefault((node) => node is EnumLoopNode) != null);
         }
 
         static bool isEnumMemberLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.Last() is EnumMemberLoopNode));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //    return (loops.Last().OpenToken.Value == "ENUM_MEMBER_LOOP");
+            return (loops.Count() > 0 && loops.Last() is EnumMemberLoopNode);
         }
 
         static bool isRelationLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.Last() is RelationLoopNode));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //    return (loops.Last().OpenToken.Value == "RELATION_LOOP");
+            return (loops.Count() > 0 && loops.Last() is RelationLoopNode);
         }
 
         static bool isButtonLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.Last() is ButtonLoopNode));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //    return (loops.Last().OpenToken.Value == "BUTTON_LOOP");
+            return (loops.Count() > 0 && loops.Last() is ButtonLoopNode);
         }
 
         static bool isFileLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.Last() is FileLoopNode));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //    return (loops.Last().OpenToken.Value == "FILE_LOOP");
+            return (loops.Count() > 0 && loops.Last() is FileLoopNode);
         }
 
         static bool isTagLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.Last() is TagLoopNode));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //    return (loops.Last().OpenToken.Value == "TAG_LOOP");
+            return (loops.Count() > 0 && loops.Last() is TagLoopNode);
         }
 
         static bool isStructureLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)
         {
-            return ((loops.Count() > 0) && (loops.Last() is StructureLoopNode));
-            //if (loops.Count() == 0)
-            //    return false;
-            //else
-            //    return (loops.Last().OpenToken.Value == "STRUCTURE_LOOP");
+            return (loops.Count() > 0 && loops.Last() is StructureLoopNode);
         }
 
         static bool isAnyLoopTokenValid(FileNode file, IEnumerable<LoopNode> loops)

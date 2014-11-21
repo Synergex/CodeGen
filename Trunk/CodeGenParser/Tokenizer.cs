@@ -76,6 +76,10 @@ namespace CodeGen.Engine
         private CodeGenContext context;
         private bool errorsReported = false;
 
+        //This is a collection of the expansion values for "pre-processor" type optional user tokens. These are
+        //optional user tokens who's value includes other tokens.
+        private Dictionary<string, List<Token>> optionalUserTokens = new Dictionary<string, List<Token>>();
+
         /// <summary>
         /// This constructor should be used if you're trying to do "real" tokenization. 
         /// Context is passed in so that the tokenizer is aware of user-defined tokens and custom extensions.
@@ -948,7 +952,7 @@ namespace CodeGen.Engine
             //  FILE:filespec
             //  FILEIFEXIST:filespec
 
-            string token = initialToken.Substring(0, initialToken.IndexOf(":"));
+            string token = initialToken.IndexOf(":") == -1 ? initialToken : initialToken.Substring(0, initialToken.IndexOf(":"));
             string data = initialToken.Replace(token + ":", "");
             string filespec = "";
             List<Token> tokens = new List<Token>();
@@ -967,7 +971,7 @@ namespace CodeGen.Engine
                     }
                     catch (Exception)
                     {
-                        throw new ApplicationException(String.Format("Failed to read file {0} while processing a the token <{1}>", filespec, initialToken));
+                        throw new ApplicationException(String.Format("Failed to read file {0} while processing token <{1}>", filespec, initialToken));
                     }
                     break;
 
@@ -994,6 +998,12 @@ namespace CodeGen.Engine
                     if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(data)))
                         tokens = Tokenize(Environment.GetEnvironmentVariable(data));
                     break;
+
+                default:
+                    {
+                        //If we get here then we're dealing with an <OPTIONAL_USERTOKEN> that has embedded tokens.
+                        return optionalUserTokens[token];
+                    }
             }
             return tokens;
         }
@@ -1105,23 +1115,75 @@ namespace CodeGen.Engine
                             typeLookup[nextTokenValueUpper], modifierLookup[nextTokenValue.TrimStart('/')],
                             validityLookup[cannonicalExpressionValue], lineStarts);
 
-                        //Are we adding an <OPTIONAL_USERTOKEN>?
-                        if (newToken.TypeOfToken == TokenType.FileHeader && newToken.Closer && newToken.Value == "OPTIONAL_USERTOKEN")
+                        //Are we adding an </OPTIONAL_USERTOKEN>?
+                        if (newToken.TypeOfToken == TokenType.FileHeader && newToken.Value == "OPTIONAL_USERTOKEN" && newToken.Closer)
                         {
-                            //Before we add the closer for the optional user token, let's make sure the user token is present
-                            string[] parts = result[result.Count - 1].Value.Split('=');
-                            if (context.UserTokens.FirstOrDefault(s => s.Name == parts[0]) == null)
+                            //In most cases the previous token should be a text token, and the one before that should be the
+                            //matching <OPTIONAL_USERTOKEN>. If this is not true then there are probably other tokens in the expression!
+                            if (result[result.Count - 2].TypeOfToken == TokenType.FileHeader && result[result.Count - 2].Value == "OPTIONAL_USERTOKEN" && result[result.Count - 1].TypeOfToken == TokenType.Text)
                             {
-                                //No, it's not present, so we'll add it using the default value provided
-                                context.UserTokens.Add(new UserToken(parts[0], parts[1]));
+                                //There is only a single text token between the <OPTIONAL_USERTOKEN> tags.
+                                //It should be a NAME=[VALUE] expression.
 
-                                //And register it with Tokenizer
-                                TokenMeta newMeta = new TokenMeta();
-                                newMeta.Name = parts[0];
-                                newMeta.TypeOfToken = TokenType.User;
-                                newMeta.Validity = TokenValidity.Anywhere;
-                                addLookupToken(newMeta);
+                                //Make sure the format looks OK
+                                string userTokenExpression = result[result.Count - 1].Value;
+                                if (!userTokenExpression.Contains("=") || userTokenExpression.Trim().StartsWith("="))
+                                {
+                                    reportError("Token <OPTIONAL_USERTOKEN> contains an incorrectly formatted value!");
+                                    return null;
+                                }
+
+                                //Split the expression into its name and value parts
+                                string[] parts = userTokenExpression.Split('=');
+                                parts[0] = parts[0].ToUpper();
+
+                                //Do we already have a user token with this name?
+                                if (context.UserTokens.FirstOrDefault((token) => token.Name == parts[0]) == null)
+                                {
+                                    //No, so we'll add it using the default value provided
+                                    context.UserTokens.Add(new UserToken(parts[0], parts[1]));
+
+                                    //And register it with Tokenizer
+                                    TokenMeta newMeta = new TokenMeta();
+                                    newMeta.Name = parts[0];
+                                    newMeta.TypeOfToken = TokenType.User;
+                                    newMeta.Validity = TokenValidity.Anywhere;
+                                    addLookupToken(newMeta);
+                                }
                             }
+                            else
+                            {
+                                //Find the index of the opening <OPTIONAL_USERTOKEN> token
+                                int index = (result.IndexOf(result.Last((token) => token.TypeOfToken == TokenType.FileHeader && token.Value == "OPTIONAL_USERTOKEN")));
+
+                                //Extract the subsequent tokens that represent the value for this token
+                                List<Token> valueTokens = result.Skip(index + 1).ToList();
+
+                                //Extract the user token name from the first node
+                                string tokenName = valueTokens[0].Value.Substring(0, valueTokens[0].Value.IndexOf("="));
+
+                                //Do we already have a user defined token with this name?
+                                if (context.UserTokens.FirstOrDefault((token) => token.Name == tokenName) == null)
+                                {
+                                    //No we don't. Remove the name and = from the first node
+                                    valueTokens[0].Value = valueTokens[0].Value.Remove(0, valueTokens[0].Value.IndexOf("=") + 1);
+
+                                    //If there is nothing left in the first text token then remove it
+                                    if (valueTokens[0].Value == String.Empty)
+                                        valueTokens.RemoveAt(0);
+
+                                    //Add the collection of tokens to the new dictionary
+                                    optionalUserTokens.Add(tokenName, valueTokens);
+
+                                    //Register with Tokenizer, but as a pre-processor type
+                                    TokenMeta newMeta = new TokenMeta();
+                                    newMeta.Name = tokenName;
+                                    newMeta.TypeOfToken = TokenType.PreProcessor;
+                                    newMeta.Validity = TokenValidity.Anywhere;
+                                    addLookupToken(newMeta);
+                                }
+                            }
+
                         }
 
                         result.Add(newToken);
@@ -1291,7 +1353,7 @@ namespace CodeGen.Engine
                             else
                             {
                                 if (isValidToken(nextToken))
-                                    return new PossibleToken(startedBracketIndex, i, closer, expression, false, false);
+                                    return new PossibleToken(startedBracketIndex, i, closer, expression, false, optionalUserTokens.ContainsKey(nextToken));
                                 else
                                 {
                                     //So we thought we had a token, but it turns out we don't!
