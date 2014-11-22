@@ -1264,6 +1264,7 @@ namespace CodeGen.Engine
             int startedBracketIndex = -1;
 
             //Character by character looking for a token
+
             for (int i = startIndex; i < text.Length; i++)
             {
                 //Did we find a newline?
@@ -1287,6 +1288,12 @@ namespace CodeGen.Engine
                     //We're looking for the newline at the end of a comment and didn't find it.
                     //Move on to the next character.
                     continue;
+                }
+                else if (startedBracket && text[i] == '<')
+                {
+                    //So it looks like the previous < we found wasn't the start of a token after all!
+                    startedBracketIndex = i;
+                    closer = false;
                 }
                 else if (!startedBracket)   //Did we already find an < earlier?
                 {
