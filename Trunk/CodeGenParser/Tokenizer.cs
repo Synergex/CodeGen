@@ -4,7 +4,7 @@
 //
 // Type:        Class
 //
-// Description: Transforms raw template file data into a list of tokens
+// Description: Transforms raw template data into a list of tokens
 //
 // Date:        30th August 2014
 //
@@ -48,16 +48,18 @@ using System.Linq;
 namespace CodeGen.Engine
 {
     /// <summary>
-    /// 
+    /// Transforms raw template data into a list of tokens.
     /// </summary>
     public class Tokenizer
     {
         //_typeLookup contains an entry for every supported non-expression token (expansion, loops, control, file header, etc.)
         //and defines the type of token (TokenType).
         private Dictionary<string, TokenType> typeLookup = new Dictionary<string, TokenType>();
+
         //_validityLookup contains an entry for every supported non-expression token (expansion, loops, control, file header, etc.)
         //and defines where in a template each is valid.
         private Dictionary<string, List<TokenValidity>> validityLookup = new Dictionary<string, List<TokenValidity>>();
+
         //_modifierLookup contains an entry for every supported expansion token variation
         private Dictionary<string, TokenModifier> modifierLookup = new Dictionary<string, TokenModifier>();
 
@@ -66,6 +68,7 @@ namespace CodeGen.Engine
 
         //_closerLookup is a collection of valid closer token names. It is used to determine if a token name beginning with / is valid
         private HashSet<string> closerLookup = new HashSet<string>();
+
         //_canonicalNameLookup seems lind of pointless. It seems to contain matching names for opener and closer tokens,
         //but the kay and value are always the same? I assume it isn't being used anywhere?
         private Dictionary<string, string> canonicalNameLookup = new Dictionary<string, string>();
@@ -84,13 +87,14 @@ namespace CodeGen.Engine
         /// This constructor should be used if you're trying to do "real" tokenization. 
         /// Context is passed in so that the tokenizer is aware of user-defined tokens and custom extensions.
         /// </summary>
-        /// <param name="aContext">Current code generator context.</param>
+        /// <param name="aContext">Code generator context.</param>
         public Tokenizer(CodeGenContext aContext)
             : this()
         {
             //For use later (error reporting during Tokenize)
             context = aContext;
 
+            //Add user defined tokens and custom extensions to the environment
             loadUserTokens();
             loadCustomExpanders();
             loadCustomEvaluators();
@@ -109,7 +113,8 @@ namespace CodeGen.Engine
             userTokenValidity = new List<TokenValidity>();
             userTokenValidity.Add(TokenValidity.Anywhere);
 
-            //Declare all of the expansion tokens that we support
+            //Declare the standard expansion tokens
+
             List<TokenMeta> metaLookup = new List<TokenMeta>
             {
                 new TokenMeta { Name = "CODEGEN_FILENAME", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
@@ -799,32 +804,29 @@ namespace CodeGen.Engine
                 return name;
         }
 
-        //TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
-        private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1)
-        {
-            return makeCased(aType, aValidity, new string[] { aPart1 });
-        }
-
-        //TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
-        private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2)
-        {
-            return makeCased(aType, aValidity, new string[] { aPart1, aPart2 });
-        }
-
-        //TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
-        private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3)
-        {
-            return makeCased(aType, aValidity, new string[] { aPart1, aPart2, aPart3 });
-        }
-
-        //TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
-        private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3, string aPart4)
-        {
-            return makeCased(aType, aValidity, new string[] { aPart1, aPart2, aPart3, aPart4 });
-        }
+        //TODO: These overloads are to support code conversion to Synergy .NET. They provide a workaround for a Synergy .NET compiler bug with param array arguments.
+        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1)
+        //{
+        //    return makeCased(aType, aValidity, new string[] { aPart1 });
+        //}
+        ////TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
+        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2)
+        //{
+        //    return makeCased(aType, aValidity, new string[] { aPart1, aPart2 });
+        //}
+        ////TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
+        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3)
+        //{
+        //    return makeCased(aType, aValidity, new string[] { aPart1, aPart2, aPart3 });
+        //}
+        ////TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
+        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3, string aPart4)
+        //{
+        //    return makeCased(aType, aValidity, new string[] { aPart1, aPart2, aPart3, aPart4 });
+        //}
 
         /// <summary>
-        /// This method makes a new TokenMeta object for a token that supports all case variation options.
+        /// Creates a TokenMeta object for an expansion token that supports all case variation options.
         /// </summary>
         /// <param name="aType">Token type</param>
         /// <param name="aValidity">Token validity</param>
@@ -834,6 +836,7 @@ namespace CodeGen.Engine
         {
             List<string> lowerCaseParts = aParts.Select(str => str.ToLower()).ToList();
             List<string> upperCaseParts = aParts.Select(str => str.ToUpper()).ToList();
+
             string upperCase = string.Join("_", lowerCaseParts.Select(metaUpper));
             string lowerCase = string.Join("_", lowerCaseParts.Select(metaLower));
             string mixedCase = string.Join("_", lowerCaseParts.Select(metaMixed));
@@ -844,16 +847,20 @@ namespace CodeGen.Engine
             TokenMeta result = new TokenMeta();
             result.TypeOfToken = aType;
             result.Name = string.Join("_", upperCaseParts);
+
             result.Modifiers = new Dictionary<string, TokenModifier>();
+
             result.Modifiers.Add(upperCase, TokenModifier.None);
             result.Modifiers.Add(lowerCase, TokenModifier.LowerCase);
             result.Modifiers.Add(pascalCase, TokenModifier.PascalCase);
+
             if (aParts.Length > 1)
             {
                 result.Modifiers.Add(xfCase, TokenModifier.XfCase);
                 result.Modifiers.Add(mixedCase, TokenModifier.MixedCase);
                 result.Modifiers.Add(camelCase, TokenModifier.CamelCase);
             }
+
             result.Validity = aValidity;
 
             return result;
@@ -876,30 +883,26 @@ namespace CodeGen.Engine
             return result;
         }
 
-        //TODO: These overloads are a workaround to a Synergy .NET compiler bug with params arguments
-
-        private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1)
-        {
-            return makeCasedLimited(aType, aValidity, new string[] { part1 });
-        }
-
-        private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2)
-        {
-            return makeCasedLimited(aType, aValidity, new string[] { part1, part2 });
-        }
-
-        private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3)
-        {
-            return makeCasedLimited(aType, aValidity, new string[] { part1, part2, part3 });
-        }
-
-        private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3, string part4)
-        {
-            return makeCasedLimited(aType, aValidity, new string[] { part1, part2, part3, part4 });
-        }
+        //TODO: These overloads are to support code conversion to Synergy .NET. They provide a workaround for a Synergy .NET compiler bug with param array arguments.
+        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1)
+        //{
+        //    return makeCasedLimited(aType, aValidity, new string[] { part1 });
+        //}
+        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2)
+        //{
+        //    return makeCasedLimited(aType, aValidity, new string[] { part1, part2 });
+        //}
+        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3)
+        //{
+        //    return makeCasedLimited(aType, aValidity, new string[] { part1, part2, part3 });
+        //}
+        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3, string part4)
+        //{
+        //    return makeCasedLimited(aType, aValidity, new string[] { part1, part2, part3, part4 });
+        //}
 
         /// <summary>
-        /// This method makes a new TokenMeta object for a token that supports only upper and lower case variation options.
+        /// Creates a TokenMeta object for an expansion token that supports only upper and lower case variations.
         /// </summary>
         /// <param name="aType">Token type</param>
         /// <param name="aValidity">Token validity</param>
@@ -947,10 +950,13 @@ namespace CodeGen.Engine
         private List<Token> tokenizePreProcessorToken(string initialToken)
         {
             //initialToken will contain one of:
+            //
             //  ENV:envvar
             //  ENVIFEXIST:data
             //  FILE:filespec
             //  FILEIFEXIST:filespec
+            //
+            //  Or the name of an optional user token that has embedded tokens in its value
 
             string token = initialToken.IndexOf(":") == -1 ? initialToken : initialToken.Substring(0, initialToken.IndexOf(":"));
             string data = initialToken.Replace(token + ":", "");
@@ -1000,10 +1006,12 @@ namespace CodeGen.Engine
                     break;
 
                 default:
-                    {
-                        //If we get here then we're dealing with an <OPTIONAL_USERTOKEN> that has embedded tokens.
-                        return optionalUserTokens[token];
-                    }
+                    //If we get here then we're dealing with an <OPTIONAL_USERTOKEN> that has
+                    //embedded tokens in its value. We already parsed out the values earlier,
+                    //so we just need to return them into the token stream.
+                    return optionalUserTokens[token];
+                    break;
+
             }
             return tokens;
         }
@@ -1029,20 +1037,24 @@ namespace CodeGen.Engine
         }
 
         /// <summary>
-        /// This is the main entry point to the functionality of this class. The method can be called
-        /// with a string that contains either a full file specification, or just one or more tokens.
-        /// If the passed value is found to be a file then the content of the file is read and
-        /// tokenized. If the passed value is not found to be a file spec then the value is tokenized. 
+        /// This is the main entry point to the functionality of this class. The method can
+        /// be called with a string that contains either a full file specification, or just
+        /// one or more tokens. If the passed value is found to be a file then the content
+        /// of the file is read and tokenized. If the passed value is not found to be a file
+        /// spec then the value is tokenized. 
         /// </summary>
-        /// <param name="fileSpecOrTemplateCode">Full path to a template file, or a string to be tokenized.</param>
+        /// <param name="fileSpecOrTemplateCode">
+        /// Full path to a template file, or a string to be tokenized.
+        /// </param>
         /// <returns>Collection of tokens</returns>
         public List<Token> Tokenize(string fileSpecOrTemplateCode)
         {
             string text;
             string fileName;
 
-            //If we were passed a file spec then we'll try to read data from it. Otherwise we were just passed text
-            //that will be injected into the template code stream, e.g. from an <ENV:text> token.
+            //If we were passed a file spec then we'll try to read data from it.
+            //Otherwise we were just passed text that will be injected into the
+            //template code stream, e.g. from an <ENV:text> token.
             if (File.Exists(fileSpecOrTemplateCode))
             {
                 //We have a file spec, read template code from the file
@@ -1079,21 +1091,21 @@ namespace CodeGen.Engine
                 else
                 {
                     //Remove the <> parts, and an uppercase copy without any leading /
-                    string nextTokenValue = text.Substring(nextToken.StartIndex + 1, (nextToken.EndIndex - 1) - (nextToken.StartIndex));
+                    string nextTokenValue = text.Substring(nextToken.StartsAtPosition + 1, (nextToken.EndsAtPosition - 1) - (nextToken.StartsAtPosition));
                     string nextTokenValueUpper = nextTokenValue.ToUpper().TrimStart('/');
 
                     //Is the token a closer?
                     bool closer = nextTokenValue.StartsWith("/");
 
                     //The next token isn't here, so we have just text. Add a Text token.
-                    if (nextToken.StartIndex != i)
-                        result.Add(new Token(fileName, i, nextToken.StartIndex - 1, false, text.Substring(i, nextToken.StartIndex - i), TokenType.Text, TokenModifier.None, null, lineStarts));
+                    if (nextToken.StartsAtPosition != i)
+                        result.Add(new Token(fileName, i, nextToken.StartsAtPosition - 1, false, text.Substring(i, nextToken.StartsAtPosition - i), TokenType.Text, TokenModifier.None, null, lineStarts));
 
-                    if (nextToken.Comment)
+                    if (nextToken.IsComment)
                     {
                         //It's a template file comment. Ignore it!
                     }
-                    else if (nextToken.Preprocessor)
+                    else if (nextToken.IsPreProcessor)
                     {
                         //It's a pre-processor token. Tokenize it's "content".
                         try
@@ -1111,19 +1123,21 @@ namespace CodeGen.Engine
                         //It's just a token (it's already been validated by nextPossibleToken)
                         string cannonicalExpressionValue = canonicalNameLookup[nextTokenValueUpper];
 
-                        Token newToken = new Token(fileName, nextToken.StartIndex, nextToken.EndIndex, closer, cannonicalExpressionValue,
+                        Token newToken = new Token(fileName, nextToken.StartsAtPosition, nextToken.EndsAtPosition, closer, cannonicalExpressionValue,
                             typeLookup[nextTokenValueUpper], modifierLookup[nextTokenValue.TrimStart('/')],
                             validityLookup[cannonicalExpressionValue], lineStarts);
 
                         //Are we adding an </OPTIONAL_USERTOKEN>?
                         if (newToken.TypeOfToken == TokenType.FileHeader && newToken.Value == "OPTIONAL_USERTOKEN" && newToken.Closer)
                         {
-                            //In most cases the previous token should be a text token, and the one before that should be the
-                            //matching <OPTIONAL_USERTOKEN>. If this is not true then there are probably other tokens in the expression!
+                            //In most cases the previous token should be a text token, and the
+                            // one before that should be the matching <OPTIONAL_USERTOKEN>.
+                            //If this is not true then there are probably other tokens in the
+                            //expression!
                             if (result[result.Count - 2].TypeOfToken == TokenType.FileHeader && result[result.Count - 2].Value == "OPTIONAL_USERTOKEN" && result[result.Count - 1].TypeOfToken == TokenType.Text)
                             {
-                                //There is only a single text token between the <OPTIONAL_USERTOKEN> tags.
-                                //It should be a NAME=[VALUE] expression.
+                                //There is only a single text token between the <OPTIONAL_USERTOKEN>
+                                //tags. It should be a NAME=[VALUE] expression.
 
                                 //Make sure the format looks OK
                                 string userTokenExpression = result[result.Count - 1].Value;
@@ -1190,9 +1204,9 @@ namespace CodeGen.Engine
 
                     }
 
-                    i = nextToken.EndIndex + 1;
+                    i = nextToken.EndsAtPosition + 1;
 
-                    if (nextToken.Expression)
+                    if (nextToken.IsExpression)
                     {
                         Tuple<int, int, List<TokenValidity>> nextExpression = nextExpressionToken(i, text);
                         if (nextExpression != null)
@@ -1208,7 +1222,7 @@ namespace CodeGen.Engine
         }
 
         /// <summary>
-        /// 
+        /// Returns an array of the offsets in the template file where new lines start.
         /// </summary>
         /// <param name="text"></param>
         /// <returns></returns>
@@ -1235,137 +1249,147 @@ namespace CodeGen.Engine
             return lineStarts.ToArray();
         }
 
+        /// <summary>
+        /// Represents a possible token in the template text.
+        /// </summary>
         private class PossibleToken
         {
-            public int StartIndex;
-            public int EndIndex;
-            public bool Closer;
-            public bool Expression;
-            public bool Comment;
-            public bool Preprocessor;
+            public int StartsAtPosition;
+            public int EndsAtPosition;
+            public bool IsCloser;
+            public bool IsExpression;
+            public bool IsComment;
+            public bool IsPreProcessor;
 
-            public PossibleToken(int aStartIndex, int aEndIndex, bool aCloser, bool aExpression, bool aComment, bool aPreprocessor)
+            public PossibleToken(int startIndex, int endIndex, bool closer, bool expression, bool comment, bool preProcessor)
             {
-                StartIndex = aStartIndex;
-                EndIndex = aEndIndex;
-                Closer = aCloser;
-                Expression = aExpression;
-                Comment = aComment;
-                Preprocessor = aPreprocessor;
+                StartsAtPosition = startIndex;
+                EndsAtPosition = endIndex;
+                IsCloser = closer;
+                IsExpression = expression;
+                IsComment = comment;
+                IsPreProcessor = preProcessor;
             }
         }
 
-        private PossibleToken nextPossibleToken(int startIndex, string text)
+        /// <summary>
+        /// Returns the next possible token in the template text.
+        /// </summary>
+        /// <param name="searchFrom">Position where to start looking for a possible token.</param>
+        /// <param name="templateText">Template text to search.</param>
+        /// <returns>PossibleToken instance, or null if no possible tokens found.</returns>
+        private PossibleToken nextPossibleToken(int searchFrom, string templateText)
         {
-            bool startedBracket = false;
-            bool closer = false;
-            bool comment = false;
-            bool expression = false;
-            int startedBracketIndex = -1;
+            bool foundPossibleToken = false;
+            bool isCloser = false;
+            bool isComment = false;
+            bool isExpression = false;
+            int possibleTokenStartsAt = -1;
 
             //Character by character looking for a token
 
-            for (int i = startIndex; i < text.Length; i++)
+            for (int i = searchFrom; i < templateText.Length; i++)
             {
                 //Did we find a newline?
-                bool newLine = ((text[i] == '\r' && text.Length > i + 1 && text[i + 1] == '\n') || text[i] == '\n');
+                bool foundNewLine = ((templateText[i] == '\r' && templateText.Length > i + 1 && templateText[i + 1] == '\n') || templateText[i] == '\n');
 
                 //Did we find the start of a template file comment (;//)?
-                if (text.Length > i + 2 && text[i] == ';' && text[i + 1] == '/' && text[i + 2] == '/')
+                if (templateText.Length > i + 2 && templateText[i] == ';' && templateText[i + 1] == '/' && templateText[i + 2] == '/')
                 {
-                    startedBracketIndex = i;
-                    comment = true;
+                    possibleTokenStartsAt = i;
+                    isComment = true;
                 }
-                else if (comment && newLine)
+                else if (isComment && foundNewLine)
                 {
                     //We found the END of a template file comment
-                    if (text[i] == '\r' && text.Length > i + 1 && text[i + 1] == '\n')
+                    if (templateText[i] == '\r' && templateText.Length > i + 1 && templateText[i + 1] == '\n')
                         i++;
-                    return new PossibleToken(startedBracketIndex, i, false, false, true, false);
+                    return new PossibleToken(possibleTokenStartsAt, i, false, false, true, false);
                 }
-                else if (comment)
+                else if (isComment)
                 {
                     //We're looking for the newline at the end of a comment and didn't find it.
                     //Move on to the next character.
                     continue;
                 }
-                else if (startedBracket && text[i] == '<')
+                else if (foundPossibleToken && templateText[i] == '<')
                 {
-                    //So it looks like the previous < we found wasn't the start of a token after all!
-                    startedBracketIndex = i;
-                    closer = false;
+                    //Looks like the previous < we found wasn't the start of a token after all!
+                    //Start over with the < that we just found
+                    possibleTokenStartsAt = i;
+                    isCloser = false;
                 }
-                else if (!startedBracket)   //Did we already find an < earlier?
+                else if (!foundPossibleToken)
                 {
-                    //No, do we have one now?
-                    if (text[i] == '<')
+                    //Still looking for the start of a possible token. Do we have one now?
+                    if (templateText[i] == '<')
                     {
-                        //Yes, this MIGHT be the start of a token
-                        closer = false;
-                        startedBracket = true;
-                        startedBracketIndex = i;
+                        //Yes, this could be the start of a token!
+                        isCloser = false;
+                        foundPossibleToken = true;
+                        possibleTokenStartsAt = i;
                     }
                 }
-                else //(if startedBracket)
+                else //(if foundPossibleToken)
                 {
-                    //We previously found < and are winding forward to figure out what it is
+                    //We previously found < and we're winding forward to figure out what it is
 
                     //Did we find the end of a possible token?
                     //Or a space MIGHT indicate an expression
 
-                    if (text[i] == '/' && i - startedBracketIndex == 1)
+                    if (templateText[i] == '/' && i - possibleTokenStartsAt == 1)
                     {
                         //It's a / and it's next to the <. so it's a possible closer token
-                        closer = true;
+                        isCloser = true;
                     }
-                    else if (char.IsControl(text[i]))
+                    else if (char.IsControl(templateText[i]))
                     {
                         //It's a control character, so the token we were looking at can't be a token
-                        startedBracket = false;
-                        startedBracketIndex = -1;
-                        expression = false;
+                        foundPossibleToken = false;
+                        possibleTokenStartsAt = -1;
+                        isExpression = false;
                     }
-                    else if (text[i] == '>' || text[i] == ' ')
+                    else if (templateText[i] == '>' || templateText[i] == ' ')
                     {
                         //So we found a > or a space after an <
 
                         //For it to be a POSSIBLE expression the previous two characters need to be IF
-                        if ((text[i] == ' ') && (i >= 2) && (text[i - 2] == 'I') && (text[i - 1] == 'F'))
-                            expression = true;
+                        if ((templateText[i] == ' ') && (i >= 2) && (templateText[i - 2] == 'I') && (templateText[i - 1] == 'F'))
+                            isExpression = true;
 
                         //Get the start and end indexes of the VALUE of the possible token (withoit the < > or " ")
-                        int realStartIndex = (startedBracketIndex + 1);
+                        int realStartIndex = (possibleTokenStartsAt + 1);
                         int realEndIndex = i - 1;
-                        if (closer)
+                        if (isCloser)
                             realStartIndex += 1;
 
                         //Make sure we aren't looking at a > or " " immediately after the <
                         if ((realEndIndex - realStartIndex + 1) > 0)
                         {
-                            string nextToken = text.Substring(realStartIndex, realEndIndex - realStartIndex + 1);
+                            string nextToken = templateText.Substring(realStartIndex, realEndIndex - realStartIndex + 1);
                             if (nextToken.Contains(':') && nextToken != ":")
                             {
                                 nextToken = nextToken.Split(':')[0];
                                 if (isPreProcessorToken(nextToken))
                                 {
-                                    return new PossibleToken(startedBracketIndex, i, closer, expression, false, true);
+                                    return new PossibleToken(possibleTokenStartsAt, i, isCloser, isExpression, false, true);
                                 }
                                 else
                                 {
                                     //So we thought we had a token, but it turns out we don't!
-                                    startedBracket = false;
-                                    startedBracketIndex = -1;
+                                    foundPossibleToken = false;
+                                    possibleTokenStartsAt = -1;
                                 }
                             }
                             else
                             {
                                 if (isValidToken(nextToken))
-                                    return new PossibleToken(startedBracketIndex, i, closer, expression, false, optionalUserTokens.ContainsKey(nextToken));
+                                    return new PossibleToken(possibleTokenStartsAt, i, isCloser, isExpression, false, optionalUserTokens.ContainsKey(nextToken));
                                 else
                                 {
                                     //So we thought we had a token, but it turns out we don't!
-                                    startedBracket = false;
-                                    startedBracketIndex = -1;
+                                    foundPossibleToken = false;
+                                    possibleTokenStartsAt = -1;
                                 }
                             }
                         }
@@ -1373,23 +1397,25 @@ namespace CodeGen.Engine
                         {
                             //The > or " " was right after the <
                             //Ignore the < and move on
-                            startedBracketIndex = -1;
-                            closer = false;
-                            expression = false;
-                            startedBracket = false;
+                            possibleTokenStartsAt = -1;
+                            isCloser = false;
+                            isExpression = false;
+                            foundPossibleToken = false;
                         }
                     }
                 }
             }
+
             //TODO: I think the intention was never to get here, but sometimes we do!
             return null;
+
         }
 
         /// <summary>
-        /// Determines if the content of a string represents the name of a token
+        /// Does a string represent the name of a known token?
         /// </summary>
         /// <param name="tokenValue">Value to test</param>
-        /// <returns>Returns true if the value is the name of a token</returns>
+        /// <returns>true if the value is the name of a token, otherwise false</returns>
         private bool isValidToken(string tokenValue)
         {
             if (tokenValue.StartsWith("/"))
@@ -1399,10 +1425,10 @@ namespace CodeGen.Engine
         }
 
         /// <summary>
-        /// Determines if the content of a string represents the name of a pre-processor token
+        /// Does a string represent the name of a known pre-processor token?
         /// </summary>
         /// <param name="tokenValue">Value to test</param>
-        /// <returns>Returns true if the value is the name of a pre-processor token</returns>
+        /// <returns>true if the value is the name of a pre-processor token, otherwise false</returns>
         private bool isPreProcessorToken(string tokenValue)
         {
             if (typeLookup.ContainsKey(tokenValue.ToUpper()))
