@@ -149,6 +149,8 @@ namespace CodeGen.Engine
         public void Visit(IfNode node)
         {
             _killTextSibling = false;
+
+            //Make sure we have an expression node to process
             if (node.Expression == null)
                 throw new ApplicationException("CODEGEN BUG: TreeExpander.Visit(IfNode) encountered an IfNode without an associated ExpressionNode. This indicates a Parser bug!");
 
@@ -194,31 +196,39 @@ namespace CodeGen.Engine
         }
 
         /// <summary>
-        /// Visit an ExpansionNode (replacement token) and write its associated value to the output stream.
+        /// Processes an expansion token, writing the resulting text value to the output stream.
         /// </summary>
         /// <param name="node">ExpansionMode to visit.</param>
         public void Visit(ExpansionNode node)
         {
             _killTextSibling = false;
+
+            //Use TokenExpander to expand the expansion token to it's text value
             string expandedText = _expander.ExpandToken(node.Value, _currentFileNode, _currentLoops);
 
+            //And add the text to the output stream
             _outputStream.Write(expandedText);
 
+            //Debug logging? Log the token expansion.
             if (_currentFileNode.Context.DebugLoggingEnabled)
                 _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("<{0}>", node.Value.Value), expandedText));
         }
 
         /// <summary>
-        /// Visit a TextNode and write its associated value to the output stream.
+        /// Processes a text token, writing the text to the output stream.
         /// </summary>
         /// <param name="node">TextNode to visit.</param>
         public void Visit(TextNode node)
         {
-            //Clean code moved into a static method so that it can be shared by TreeLogger.
+            //Apply the text processing rules that were established by TreePreExpander
             string cleanedOutput = CleanOutput(node, _killTextSibling ? (bool?)true : null);
+
             _killTextSibling = false;
+
+            //Write the text to the output stream
             _outputStream.Write(cleanedOutput);
 
+            //Debug logging? Log the text.
             if (_currentFileNode.Context.DebugLoggingEnabled)
             {
                 if (cleanedOutput.Length > 0)
