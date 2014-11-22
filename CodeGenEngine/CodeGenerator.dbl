@@ -82,10 +82,10 @@ namespace CodeGen.Engine
 			configureEnvironment()
 			
 			;;Load Symphony Framework extensions
-			loadSymphonyExtensions()
+			loadSymphonyExtensions(context)
 			
 			;;Load other extensions
-			loadExtensions()
+			loadExtensions(context)
 			
 			;;Report loaded extensions
 			if (context.DeveloperDebugLoggingEnabled)
@@ -170,15 +170,16 @@ namespace CodeGen.Engine
 			
 		endmethod
 		
-		private method loadSymphonyExtensions, void
+		public static method LoadSymphonyExtensions, void
+			required in currentContext, @CodeGenContext
 			endparams
 		proc
 			
 			data errStatus, Boolean, false
 			
 			;;Get task and taskset handles for convenience
-			data taskset, @CodeGenTaskSet, context.Taskset
-			data task, @CodeGenTask, context.CurrentTask
+			data taskset, @CodeGenTaskSet, currentContext.Taskset
+			data task, @CodeGenTask, currentContext.CurrentTask
 			
 			taskset.DevDebugLog("----------------------------------------------------------")
 			taskset.DevDebugLog("SYMPHONY FRAMEWORK EXTENSIONS")
@@ -254,7 +255,7 @@ namespace CodeGen.Engine
 				taskset.DevDebugLog(String.Format("Using {0}",extensionsAssembly))
 
 				;;Open the assembly and load extensions
-				if (!loadExtensionsFromAssembly(extensionsAssembly))
+				if (!loadExtensionsFromAssembly(extensionsAssembly,currentContext))
 					taskset.DevDebugLog("No extensions were found in the Symphony extensions assembly!")					
 			end
 			
@@ -262,12 +263,13 @@ namespace CodeGen.Engine
 			
 		endmethod
 		
-		private method loadExtensions, void
+		public static method LoadExtensions, void
+			required in currentContext, @CodeGenContext
 			endparams
 		proc
 			;;Get task and taskset handles for convenience
-			data taskset, @CodeGenTaskSet, context.Taskset
-			data task, @CodeGenTask, context.CurrentTask
+			data taskset, @CodeGenTaskSet, currentContext.Taskset
+			data task, @CodeGenTask, currentContext.CurrentTask
 			
 			taskset.DevDebugLog("----------------------------------------------------------")
 			taskset.DevDebugLog("OTHER EXTENSIONS")
@@ -296,7 +298,7 @@ namespace CodeGen.Engine
 			
 			foreach extensionAssembly in Directory.GetFiles(location,"custom*.dll")
 			begin
-				if (loadExtensionsFromAssembly(extensionAssembly))
+				if (loadExtensionsFromAssembly(extensionAssembly,currentContext))
 					extensionsFound = true
 			end
 			
@@ -307,7 +309,8 @@ namespace CodeGen.Engine
 			
 		endmethod
 		
-		private method loadProformaExtensions, boolean
+		public static method LoadProformaExtensions, boolean
+			required in currentContext, @CodeGenContext
 			endparams
 		proc
 			
@@ -315,8 +318,8 @@ namespace CodeGen.Engine
 			
 			;;-------------------------------------------------------------------------
 			;;Get task and taskset handles for convenience
-			data taskset, @CodeGenTaskSet, context.Taskset
-			data task, @CodeGenTask, context.CurrentTask
+			data taskset, @CodeGenTaskSet, currentContext.Taskset
+			data task, @CodeGenTask, currentContext.CurrentTask
 			
 			;;-------------------------------------------------------------------------
 			;;Do we have a custom assembly containing a BusinessCreft ProForma processor?
@@ -340,7 +343,7 @@ namespace CodeGen.Engine
 			else
 			begin
 				;;Open the assembly and load extensions
-				if (!loadExtensionsFromAssembly(extensionsAssembly))
+				if (!loadExtensionsFromAssembly(extensionsAssembly,currentContext))
 					errStatus = taskset.ErrorLog("No extensions were found in the proforma extensions assembly!")					
 			end
 			
@@ -348,16 +351,17 @@ namespace CodeGen.Engine
 			
 		endmethod
 		
-		private method loadExtensionsFromAssembly, boolean
+		private static method LoadExtensionsFromAssembly, boolean
 			required in extensionAssembly, string
+			required in ctx, @CodeGenContext
 			endparams
 		proc
 			data ok, boolean, true
 			data extensionsLoaded, int, 0
 			
 			;;Get task and taskset handles for convenience
-			data taskset, @CodeGenTaskSet, context.Taskset
-			data task, @CodeGenTask, context.CurrentTask
+			data taskset, @CodeGenTaskSet, ctx.Taskset
+			data task, @CodeGenTask, ctx.CurrentTask
 
 			;;Open the assembly
 			data asm, @Assembly
@@ -392,14 +396,14 @@ namespace CodeGen.Engine
 							if (interfaceType==^typeof(IExpansionToken)&&(discoveredType.GetConstructor(Type.EmptyTypes)!=^null)) then
 							begin
 								data expander, @IExpansionToken, (@IExpansionToken)Activator.CreateInstance(discoveredType)
-								context.CustomTokenExpanders.Add(Tuple.Create(expander.TokenName,expander.Description,expander.Validity,expander.TokenCase,(@Func<Token, FileNode, IEnumerable<LoopNode>, String>)expander.Expand))
+								ctx.CustomTokenExpanders.Add(Tuple.Create(expander.TokenName,expander.Description,expander.Validity,expander.TokenCase,(@Func<Token, FileNode, IEnumerable<LoopNode>, String>)expander.Expand))
 								extensionsLoaded += 1
 								exitloop
 							end
 							else if (interfaceType==^typeof(IExpressionToken)&&(discoveredType.GetConstructor(Type.EmptyTypes)!=^null))
 							begin
 								data evaluator, @IExpressionToken, (@IExpressionToken)Activator.CreateInstance(discoveredType)
-								context.CustomExpressionEvaluators.Add(Tuple.Create(evaluator.TokenName,evaluator.Description,evaluator.Validity,(@Func<Token, FileNode, IEnumerable<LoopNode>, Boolean>)evaluator.Evaluate))
+								ctx.CustomExpressionEvaluators.Add(Tuple.Create(evaluator.TokenName,evaluator.Description,evaluator.Validity,(@Func<Token, FileNode, IEnumerable<LoopNode>, Boolean>)evaluator.Evaluate))
 								extensionsLoaded += 1
 								exitloop
 							end
@@ -1127,7 +1131,7 @@ namespace CodeGen.Engine
 					data address, D_ADDR
 					
 					;;Try to load the Proforma extensions
-					if (!loadProformaExtensions()) then
+					if (!loadProformaExtensions(context)) then
 						errStatus = true
 					else
 					begin
