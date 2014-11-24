@@ -1010,7 +1010,6 @@ namespace CodeGen.Engine
                     //embedded tokens in its value. We already parsed out the values earlier,
                     //so we just need to return them into the token stream.
                     return optionalUserTokens[token];
-                    break;
 
             }
             return tokens;
