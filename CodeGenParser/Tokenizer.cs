@@ -253,7 +253,7 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "FIELD_MAXVALUE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop },
                 new TokenMeta { Name = "FIELD_MINVALUE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop },
                 makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, "FIELD", "NAME"),
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, "FIELD", "NETNAME"),
+                makeFieldNetName(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop),
                 new TokenMeta { Name = "FIELD_NOECHO_CHAR", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop },
                 new TokenMeta { Name = "FIELD_OCDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop },
                 new TokenMeta { Name = "FIELD_OCTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop },
@@ -879,6 +879,23 @@ namespace CodeGen.Engine
             result.Modifiers.Add("Field_sqlname", TokenModifier.XfCase);
             result.Modifiers.Add("FieldSqlName", TokenModifier.PascalCase);
             result.Modifiers.Add("fieldSqlName", TokenModifier.CamelCase);
+            result.Validity = aValidity;
+            return result;
+        }
+
+        private TokenMeta makeFieldNetName(TokenType aType, TokenValidity aValidity)
+        {
+            //Had to hard code this one because the token does not follow usual rules!!!
+            TokenMeta result = new TokenMeta();
+            result.TypeOfToken = aType;
+            result.Name = "FIELD_NETNAME";
+            result.Modifiers = new Dictionary<string, TokenModifier>();
+            result.Modifiers.Add("FIELD_NETNAME", TokenModifier.None);
+            result.Modifiers.Add("field_netname", TokenModifier.LowerCase);
+            result.Modifiers.Add("Field_Netname", TokenModifier.MixedCase);
+            result.Modifiers.Add("Field_netname", TokenModifier.XfCase);
+            result.Modifiers.Add("FieldNetName", TokenModifier.PascalCase);
+            result.Modifiers.Add("fieldNetName", TokenModifier.CamelCase);
             result.Validity = aValidity;
             return result;
         }
