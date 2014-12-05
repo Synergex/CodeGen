@@ -5,7 +5,7 @@ call "C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\vsvars32
 path=C:\Program Files (x86)\MSBuild\Synergex\dbl;%path%
 prompt CodeGen Trunk $p$g
 
-set RPSDAT=%DEVROOT%SampleRepository\rpsdat
+set RPSDAT=%DEVROOT%SampleRepository
 set RPSMFIL=%RPSDAT%\rpsmain.ism
 set RPSTFIL=%RPSDAT%\rpstext.ism
 set CODEGEN_SRC=%DEVROOT%CodeGenEngine

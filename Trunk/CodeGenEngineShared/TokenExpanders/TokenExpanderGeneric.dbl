@@ -79,11 +79,17 @@ namespace CodeGen.Engine
             genericTokenExpanders.Add("GUID1", expandGuid1)
             genericTokenExpanders.Add("GUID2", expandGuid2)
             genericTokenExpanders.Add("GUID3", expandGuid3)
-            genericTokenExpanders.Add("MONTH", expandMonth)
+			genericTokenExpanders.Add("HOST_DNS_NAME", expandHostDnsName)
+			genericTokenExpanders.Add("HOST_IP_ADDRESS", expandHostIpAddress)
+			genericTokenExpanders.Add("MONTH", expandMonth)
             genericTokenExpanders.Add("MONTHNAME", expandMonthName)
             genericTokenExpanders.Add("MONTHSHORTNAME", expandMonthShortName)
-            genericTokenExpanders.Add("NAMESPACE", expandNamespace)
-            genericTokenExpanders.Add("TEMPLATE", expandTemplate)
+			genericTokenExpanders.Add("NAMESPACE", expandNamespace)
+			genericTokenExpanders.Add("RANDOM_10",expandRandom10)
+			genericTokenExpanders.Add("RANDOM_100",expandRandom100)
+			genericTokenExpanders.Add("RANDOM_1000",expandRandom1000)
+			genericTokenExpanders.Add("RANDOM_INT",expandRandomInt)
+			genericTokenExpanders.Add("TEMPLATE", expandTemplate)
             genericTokenExpanders.Add("TIME", expandTime)
             genericTokenExpanders.Add("WEEKDAY", expandWeekday)
 			genericTokenExpanders.Add("YEAR", expandYear)
@@ -261,7 +267,59 @@ namespace CodeGen.Engine
             mreturn file.Context.Guid3
         endmethod
 
-        private static method expandMonth, string
+		private static method expandHostDnsName, string
+			tkn, @Token
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			data name, string
+			try
+			begin
+				name = System.Net.Dns.GetHostName().ToUpper()
+			end
+			catch (e, @System.Net.Sockets.SocketException)
+			begin
+				name = "LOCALHOST"
+			end
+			endtry
+			mreturn name
+		endmethod
+		
+		private static method expandHostIpAddress, string
+			tkn, @Token
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			data name, string, "LOCALHOST"
+			data address, string, "127.0.0.1"
+			;;Get the name of the local host system
+			try
+			begin
+				name = System.Net.Dns.GetHostName().ToUpper()
+			end
+			catch (e, @System.Net.Sockets.SocketException)
+			begin
+				nop
+			end
+			endtry
+			;;Try to resolve the name to an address
+			try
+			begin
+				data addresses, [#]@System.Net.IPAddress, System.Net.Dns.GetHostAddresses(name)
+				if (addresses.Length > 0)
+					address = addresses[0].ToString()
+			end
+			catch (e, @System.Net.Sockets.SocketException)
+			begin
+				nop
+			end
+			endtry
+			mreturn address
+		endmethod
+		
+		private static method expandMonth, string
             tkn, @Token 
             file, @FileNode 
             loops, @IEnumerable<LoopNode> 
@@ -302,16 +360,56 @@ namespace CodeGen.Engine
                 throw new ApplicationException(file.GetTokenErrorMessage(tkn, "requires a namespace is provided"))
         endmethod
 
-        private static method expandTemplate, string
-            tkn, @Token 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            endparams
-        proc
-            mreturn file.Context.CurrentTemplateBaseName
-        endmethod
-
-        private static method expandTime, string
+		private static method expandRandom10, string
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			data rnd, @Random, new Random((int)DateTime.Now.Ticks & 65535)
+			mreturn Convert.ToString(rnd.Next(1,10))
+		endmethod
+		
+		private static method expandRandom100, string
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			data rnd, @Random, new Random((int)DateTime.Now.Ticks & 65535)
+			mreturn Convert.ToString(rnd.Next(1,100))
+		endmethod
+		
+		private static method expandRandom1000, string
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			data rnd, @Random, new Random((int)DateTime.Now.Ticks & 65535)
+			mreturn Convert.ToString(rnd.Next(1,1000))
+		endmethod
+		
+		private static method expandRandomInt, string
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			data rnd, @Random, new Random((int)DateTime.Now.Ticks & 65535)
+			mreturn Convert.ToString(rnd.Next(1,Int32.MaxValue))
+		endmethod
+		
+		private static method expandTemplate, string
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			mreturn file.Context.CurrentTemplateBaseName
+		endmethod
+		
+		private static method expandTime, string
             tkn, @Token 
             file, @FileNode 
             loops, @IEnumerable<LoopNode> 
