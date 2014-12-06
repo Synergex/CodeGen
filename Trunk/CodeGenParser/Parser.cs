@@ -182,11 +182,6 @@ namespace CodeGen.Engine
                                                 break;
                                         }
                                         break;
-                                    case "REQUIRES_CUSTOM_TOKEN":
-                                        if (topLevelNode.RequiredCustomTokens == null)
-                                            topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
-                                        topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.Anywhere, tokens[i + 1].Value));
-                                        break;
                                     case "REQUIRES_CUSTOM_BUTTON_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
@@ -217,6 +212,16 @@ namespace CodeGen.Engine
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.KeyLoop, tokens[i + 1].Value));
                                         break;
+                                    case "REQUIRES_CUSTOM_LOOPUTIL_TOKEN":
+                                        if (topLevelNode.RequiredCustomTokens == null)
+                                            topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.AnyLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_NOTINLOOP_TOKEN":
+                                        if (topLevelNode.RequiredCustomTokens == null)
+                                            topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.AnyLoop, tokens[i + 1].Value));
+                                        break;
                                     case "REQUIRES_CUSTOM_RELATION_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
@@ -231,6 +236,21 @@ namespace CodeGen.Engine
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.FieldSelectionLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_STRUCTLOOP_TOKEN":
+                                        if (topLevelNode.RequiredCustomTokens == null)
+                                            topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.StructureLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_TAG_TOKEN":
+                                        if (topLevelNode.RequiredCustomTokens == null)
+                                            topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.TagLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_TOKEN":
+                                        if (topLevelNode.RequiredCustomTokens == null)
+                                            topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.Anywhere, tokens[i + 1].Value));
                                         break;
                                 }
 

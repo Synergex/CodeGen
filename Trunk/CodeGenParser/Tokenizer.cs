@@ -129,9 +129,13 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "REQUIRES_CUSTOM_FIELD_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "REQUIRES_CUSTOM_FILE_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "REQUIRES_CUSTOM_KEY_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_LOOPUTIL_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_NOTINLOOP_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "REQUIRES_CUSTOM_RELATION_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "REQUIRES_CUSTOM_SEGMENT_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "REQUIRES_CUSTOM_SELECTION_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_STRUCTLOOP_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_TAG_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "REQUIRES_CUSTOM_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
 
                 new TokenMeta { Name = "ENV", TypeOfToken = TokenType.PreProcessor, IsPaired = true, Validity = TokenValidity.Anywhere },
