@@ -193,6 +193,28 @@ namespace CodeGen.Engine
                 }
             }
 
+            //Check for required custom expression processors
+            if ((node.RequiredCustomExpressions != null) && (node.RequiredCustomExpressions.Count > 0))
+            {
+                foreach (Tuple<TokenValidity, string> requiredExpression in node.RequiredCustomExpressions)
+                {
+                    bool expressionFound = false;
+                    foreach (Tuple<string, string, TokenValidity, Func<Token, FileNode, IEnumerable<LoopNode>, bool>> customExpression in node.Context.CustomExpressionEvaluators)
+                    {
+                        if ((customExpression.Item3 == requiredExpression.Item1) && (customExpression.Item1 == requiredExpression.Item2))
+                        {
+                            expressionFound = true;
+                            break;
+                        }
+                    }
+                    if (!expressionFound)
+                    {
+                        string message = String.Format("Template {0} requires a custom {1} expression {2} which has not been loaded.", node.Context.CurrentTemplateBaseName, requiredExpression.Item1, requiredExpression.Item2);
+                        Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate));
+                    }
+                }
+            }
+
             //Check for required processing options
             if ((node.RequiredOptions != null) && (node.RequiredOptions.Count > 0))
             {

@@ -182,70 +182,140 @@ namespace CodeGen.Engine
                                                 break;
                                         }
                                         break;
+                                    case "REQUIRES_CUSTOM_BUTTON_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.ButtonLoop, tokens[i + 1].Value));
+                                        break;
                                     case "REQUIRES_CUSTOM_BUTTON_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.ButtonLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_ENUM_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.EnumLoop, tokens[i + 1].Value));
                                         break;
                                     case "REQUIRES_CUSTOM_ENUM_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.EnumLoop, tokens[i + 1].Value));
                                         break;
+                                    case "REQUIRES_CUSTOM_ENUM_MEMBER_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.EnumMemberLoop, tokens[i + 1].Value));
+                                        break;
                                     case "REQUIRES_CUSTOM_ENUM_MEMBER_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.EnumMemberLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_FIELD_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.FieldLoop, tokens[i + 1].Value));
                                         break;
                                     case "REQUIRES_CUSTOM_FIELD_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.FieldLoop, tokens[i + 1].Value));
                                         break;
+                                    case "REQUIRES_CUSTOM_FILE_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.FileLoop, tokens[i + 1].Value));
+                                        break;
                                     case "REQUIRES_CUSTOM_FILE_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.FileLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_KEY_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.KeyLoop, tokens[i + 1].Value));
                                         break;
                                     case "REQUIRES_CUSTOM_KEY_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.KeyLoop, tokens[i + 1].Value));
                                         break;
+                                    case "REQUIRES_CUSTOM_LOOPUTIL_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.AnyLoop, tokens[i + 1].Value));
+                                        break;
                                     case "REQUIRES_CUSTOM_LOOPUTIL_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.AnyLoop, tokens[i + 1].Value));
                                         break;
+                                    case "REQUIRES_CUSTOM_NOTINLOOP_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.NotInLoop, tokens[i + 1].Value));
+                                        break;
                                     case "REQUIRES_CUSTOM_NOTINLOOP_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
-                                        topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.AnyLoop, tokens[i + 1].Value));
+                                        topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.NotInLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_RELATION_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.RelationLoop, tokens[i + 1].Value));
                                         break;
                                     case "REQUIRES_CUSTOM_RELATION_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.RelationLoop, tokens[i + 1].Value));
                                         break;
+                                    case "REQUIRES_CUSTOM_SEGMENT_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.KeySegmentLoop, tokens[i + 1].Value));
+                                        break;
                                     case "REQUIRES_CUSTOM_SEGMENT_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.KeySegmentLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_SELECTION_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.FieldSelectionLoop, tokens[i + 1].Value));
                                         break;
                                     case "REQUIRES_CUSTOM_SELECTION_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.FieldSelectionLoop, tokens[i + 1].Value));
                                         break;
+                                    case "REQUIRES_CUSTOM_STRUCTLOOP_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.StructureLoop, tokens[i + 1].Value));
+                                        break;
                                     case "REQUIRES_CUSTOM_STRUCTLOOP_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.StructureLoop, tokens[i + 1].Value));
                                         break;
+                                    case "REQUIRES_CUSTOM_TAG_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.TagLoop, tokens[i + 1].Value));
+                                        break;
                                     case "REQUIRES_CUSTOM_TAG_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
                                             topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>();
                                         topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.TagLoop, tokens[i + 1].Value));
+                                        break;
+                                    case "REQUIRES_CUSTOM_EXPRESSION":
+                                        if (topLevelNode.RequiredCustomExpressions == null)
+                                            topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>();
+                                        topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.Anywhere, tokens[i + 1].Value));
                                         break;
                                     case "REQUIRES_CUSTOM_TOKEN":
                                         if (topLevelNode.RequiredCustomTokens == null)
