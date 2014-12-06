@@ -1,15 +1,27 @@
 @echo off
+rem
+rem This script configures a command-line environment to run the version of CodeGen that
+rem is currently in the Bin\Release folder. Running this script will override any version
+rem thet might be installed on the system.
+rem
 
-call "C:\Program Files\Synergex\SynergyDE\dbl\dblvars64.bat" > nul
-call "C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\vsvars32.bat" > nul
+call "%ProgramFiles(x86)%\Microsoft Visual Studio 12.0\Common7\Tools\vsvars32.bat"
+call "%SYNERGYDE64%dbl\dblvars64.bat" > nul
 
-PATH=%~dp0Bin\Release;C:\Program Files (x86)\MSBuild\Synergex\dbl;C:\Program Files (x86)\WiX Toolset v3.9\bin;%PATH%
+set CODEGEN_ROOT=%~dp0
 
-set CODEGEN_TPLDIR=%~dp0SampleTemplates
-set CODEGEN_OUTDIR=%~dp0OutputFiles
-set RPSMFIL=%~dp0SampleRepository\rpsmain.ism
-set RPSTFIL=%~dp0SampleRepository\rpstext.ism
+set CODEGEN_TPLDIR=%CODEGEN_ROOT%SampleTemplates
+set CODEGEN_OUTDIR=%CODEGEN_ROOT%OutputFiles
+set CODEGEN_EXTDIR=%CODEGEN_ROOT%Bin\Release
+set CODEGEN_AUTHOR=Your Name
+set CODEGEN_COMPANY=Your Company Name
 
-prompt CodeGen Trunk (Release) $p$g
+set RPSDAT=%CODEGEN_ROOT%SampleRepository
+set RPSMFIL=%CODEGEN_ROOT%SampleRepository\rpsmain.ism
+set RPSTFIL=%CODEGEN_ROOT%SampleRepository\rpstext.ism
 
-cd /d %~dp0OutputFiles
+PATH=%CODEGEN_ROOT%Bin\Release;%ProgramFiles(x86)%\MSBuild\Synergex\dbl;%ProgramFiles(x86)%\WiX Toolset v3.9\bin;%PATH%
+
+prompt Release$g 
+
+cd /d %CODEGEN_OUTDIR%
