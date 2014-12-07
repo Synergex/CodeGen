@@ -60,13 +60,29 @@ namespace CodeGen.Engine
         proc
 			
 			genericExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
-			
+
+			;;Greneric Expressions
+						
 			genericExpressionEvaluators.Add("COUNTER_1", evaluateCounter1)
             genericExpressionEvaluators.Add("COUNTER_2", evaluateCounter2)
-            genericExpressionEvaluators.Add("NOT_COUNTER_1", evaluateNotCounter1)
-            genericExpressionEvaluators.Add("NOT_COUNTER_2", evaluateNotCounter2)
+			genericExpressionEvaluators.Add("DEBUG_LOGGING", evaluateVerboseLogging)
+			genericExpressionEvaluators.Add("FIELD_PREFIX", evaluateFieldPrefix)
+			genericExpressionEvaluators.Add("FIELD_SUBSET", evaluateFieldSubset)
+			genericExpressionEvaluators.Add("MULTIPLE_STRUCTURES", evaluateMultipleStructures)
+			genericExpressionEvaluators.Add("NAMESPACE", evaluateNamespace)
+			genericExpressionEvaluators.Add("NOT_COUNTER_1", evaluateNotCounter1)
+			genericExpressionEvaluators.Add("NOT_COUNTER_2", evaluateNotCounter2)
+			genericExpressionEvaluators.Add("VERBOSE_LOGGING", evaluateVerboseLogging)
+			
+			;;Structure expressions
+			
+			genericExpressionEvaluators.Add("STRUCTURE_FILES", evaluateStructureFiles)
+			genericExpressionEvaluators.Add("STRUCTURE_KEYS", evaluateStructureKeys)
 			genericExpressionEvaluators.Add("STRUCTURE_LDESC", evaluateStructureLongDesc)
-
+			genericExpressionEvaluators.Add("STRUCTURE_RELATIONS", evaluateStructureRelations)
+			genericExpressionEvaluators.Add("STRUCTURE_TAGS", evaluateStructureTags)
+			genericExpressionEvaluators.Add("STRUCTURE_UTEXT", evaluateStructureUserText)
+			
 		endmethod
 
         ;; -------------------------------------------------------------------------------------------------------------------------------
@@ -77,7 +93,7 @@ namespace CodeGen.Engine
             file, @FileNode 
             loops, @IEnumerable<LoopNode> 
             endparams
-        proc
+		proc
             mreturn (file.Context.Counter1 != 0)
         endmethod
 
@@ -90,23 +106,77 @@ namespace CodeGen.Engine
             mreturn (file.Context.Counter2 != 0)
         endmethod
 
-        private static method evaluateNotCounter1, boolean
-            tkn, @Token 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            endparams
-        proc
-            mreturn (file.Context.Counter1 == 0)
-        endmethod
-
-        private static method evaluateNotCounter2, boolean
-            tkn, @Token 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            endparams
-        proc
-            mreturn (file.Context.Counter2 == 0)
-        endmethod
+		private static method evaluateDebugLogging, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			mreturn (file.Context.DebugLoggingEnabled)
+		endmethod
+		
+		private static method evaluateFieldPrefix, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			mreturn (!string.IsNullOrWhiteSpace(file.Context.CurrentTask.FieldPrefix))
+		endmethod
+		
+		private static method evaluateFieldSubset, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			mreturn (!string.IsNullOrWhiteSpace(file.Context.CurrentTask.Subset) || (file.Context.CurrentTask.SubsetFields.Count > 0))
+		endmethod
+		
+		private static method evaluateMultipleStructures, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			mreturn (file.Context.MultiStructureMode)
+		endmethod
+		
+		private static method evaluateNamespace, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			mreturn (!String.IsNullOrWhiteSpace(file.Context.Namespace))
+		endmethod
+		
+		private static method evaluateNotCounter1, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			mreturn (file.Context.Counter1 == 0)
+		endmethod
+		
+		private static method evaluateNotCounter2, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			mreturn (file.Context.Counter2 == 0)
+		endmethod
+		
+		private static method evaluateVerboseLogging, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			mreturn (file.Context.VerboseLoggingEnabled)
+		endmethod
 		
 		;; -------------------------------------------------------------------------------------------------------------------------------
         ;; Structure expressions
@@ -121,6 +191,32 @@ namespace CodeGen.Engine
             mreturn specific(file.Context.CurrentStructure)
         endmethod
 
+		private static method evaluateStructureFiles, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str)
+			begin
+				mreturn (str.Files.Count > 0)
+			end
+			mreturn evaluateStructureExpression(tkn, file, loops, doEvaluate)
+		endmethod
+		
+		private static method evaluateStructureKeys, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str)
+			begin
+				mreturn (str.Keys.Count > 0)
+			end
+			mreturn evaluateStructureExpression(tkn, file, loops, doEvaluate)
+		endmethod
+		
         private static method evaluateStructureLongDesc, boolean
             tkn, @Token 
             file, @FileNode 
@@ -134,7 +230,46 @@ namespace CodeGen.Engine
 			mreturn evaluateStructureExpression(tkn, file, loops, doEvaluate)
 		endmethod
 
-        ;; -------------------------------------------------------------------------------------------------------------------------------
+		private static method evaluateStructureRelations, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str)
+			begin
+				mreturn (str.Relations.Count > 0)
+			end
+			mreturn evaluateStructureExpression(tkn, file, loops, doEvaluate)
+		endmethod
+		
+		private static method evaluateStructureTags, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str)
+			begin
+				mreturn (str.Tags.Count > 0)
+			end
+			mreturn evaluateStructureExpression(tkn, file, loops, doEvaluate)
+		endmethod
+		
+		private static method evaluateStructureUserText, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str)
+			begin
+				mreturn (!String.IsNullOrWhiteSpace(str.UserText))
+			end
+			mreturn evaluateStructureExpression(tkn, file, loops, doEvaluate)
+		endmethod
+		
+		;; -------------------------------------------------------------------------------------------------------------------------------
         ;; User-defined token expressions
 
         private static method evaluateUserToken, boolean

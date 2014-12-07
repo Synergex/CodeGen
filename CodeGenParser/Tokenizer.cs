@@ -546,6 +546,7 @@ namespace CodeGen.Engine
             expressions.Add("DATE_YYYYPP", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("DATEORTIME", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("DATETODAY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DEBUG_LOGGING", TokenValidity.Anywhere);
             expressions.Add("DECIMAL", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("DEFAULT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("DESCENDING", TokenValidity.KeyLoop);
@@ -565,6 +566,8 @@ namespace CodeGen.Engine
             expressions.Add("ENUMERATED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("EXPLICIT_VALUE", TokenValidity.EnumMemberLoop);
             expressions.Add("FIELD_POSITION", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("FIELD_PREFIX", TokenValidity.Anywhere);
+            expressions.Add("FIELD_SUBSET", TokenValidity.Anywhere);
             expressions.Add("FIRST", TokenValidity.FieldLoop | TokenValidity.FieldSelectionLoop | TokenValidity.ButtonLoop | TokenValidity.EnumLoop | TokenValidity.EnumMemberLoop | TokenValidity.FileLoop | TokenValidity.KeyLoop | TokenValidity.TagLoop);
             expressions.Add("FORMAT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("GENERICBUTTON", TokenValidity.ButtonLoop);
@@ -596,7 +599,9 @@ namespace CodeGen.Engine
             expressions.Add("METHOD", TokenValidity.ButtonLoop);
             expressions.Add("MORE", TokenValidity.AnyLoop);
             expressions.Add("MULTIPLE_SEGMENTS", TokenValidity.KeyLoop);
+            expressions.Add("MULTIPLE_STRUCTURES", TokenValidity.Anywhere);
             expressions.Add("MULTIPLE_TAGS", TokenValidity.TagLoop);
+            expressions.Add("NAMESPACE", TokenValidity.Anywhere);
             expressions.Add("NEGATIVE_ALLOWED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("NEGATIVE_ORZERO", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("NEGATIVE_REQUIRED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
@@ -731,6 +736,12 @@ namespace CodeGen.Engine
             expressions.Add("STATICRFA", TokenValidity.FileLoop);
             expressions.Add("STORED_GRFA", TokenValidity.FileLoop);
             expressions.Add("STRUCTFIELD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("STRUCTURE_FILES", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_KEYS", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_LDESC", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_RELATIONS", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_TAGS", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_UTEXT", TokenValidity.Anywhere);
             expressions.Add("TERABYTE", TokenValidity.FileLoop);
             expressions.Add("TEXTBOX", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("TIME", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
@@ -746,9 +757,9 @@ namespace CodeGen.Engine
             expressions.Add("USERTEXT", TokenValidity.FieldLoop | TokenValidity.FileLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("USERTIMESTAMP", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("USERTOKEN_", TokenValidity.Anywhere);
+            expressions.Add("VERBOSE_LOGGING", TokenValidity.Anywhere);
             expressions.Add("VIEW_LENGTH", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("WEB", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
-            expressions.Add("STRUCTURE_LDESC", TokenValidity.Anywhere);
 
             expressionLookup = expressionLookupHelper(expressions);
 
