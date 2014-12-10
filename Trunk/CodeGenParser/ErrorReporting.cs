@@ -4,7 +4,9 @@
 //
 // Type:        Class
 //
-// Description: Tree visitor that logs the structure of the tree to a file
+// Description: Tree visitor that validates the structure of a a tree of nodes
+//              and determines whether any specific requirements are in place
+//              for code generation from the tree to be successful.
 //
 // Date:        30th August 2014
 //
@@ -140,15 +142,29 @@ namespace CodeGen.Engine
         }
 
         /// <summary>
-        /// 
+        /// This is the main entry point used by CodeGenerator to validate a tree.
         /// </summary>
-        /// <param name="node"></param>
+        /// <param name="node">FileNode representing the tree to be validated</param>
         public void Visit(FileNode node)
         {
             //Analyze the structure of the tree
             currentFileNode = node;
             Visit(node.Body);
 
+            //Does anythng in the tree require repository structure processing?
+            if ((node.RequiresRepository) && (node.Context.Structures.Count == 0))
+            {
+                string message = String.Format("Template {0} requires a repository structure and no structure was specified.", node.Context.CurrentTemplateBaseName);
+                Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate));
+            }
+
+            //Does anything in the tree require that a namespace is specified?
+            if (node.RequiresNamespace && String.IsNullOrWhiteSpace(node.Context.CurrentTask.Namespace) && String.IsNullOrWhiteSpace(node.Context.Namespace))
+            {
+                string message = String.Format("Template {0} requires a namespace and no namespace was specified.", node.Context.CurrentTemplateBaseName);
+                Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate));
+            }
+            
             //Check for required user-defined tokens
             if ((node.RequiredUserTokens != null) && node.RequiredUserTokens.Count > 0)
             {
