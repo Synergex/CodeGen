@@ -125,6 +125,12 @@ namespace CodeGen.Engine
             state.Push(ParserState.None);
             state.Push(ParserState.LookingForFile);
 
+            //Are there any tokens that require repository processing?
+            topLevelNode.RequiresRepository = tokens.Any(t => t.RequiresRepository == true);
+
+            //Are there any tokens that require a namespace?
+            topLevelNode.RequiresNamespace = tokens.Any(t => t.RequiresNamespace == true);
+
             //Work through the collection of tokens that we got from tokenizer
             for (int i = 0; i < tokens.Count; i++)
             {
