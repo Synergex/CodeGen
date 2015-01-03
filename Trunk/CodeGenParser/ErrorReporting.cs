@@ -273,6 +273,13 @@ namespace CodeGen.Engine
                                 Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate));
                             }
                             break;
+                        case "MS":
+                            if (!node.Context.CurrentTask.MultipleStructures)
+                            {
+                                string message = String.Format("Template {0} requires that the 'multiple structures' option (-ms) is used.", node.Context.CurrentTemplateBaseName);
+                                Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate));
+                            }
+                            break;
                         case "PREFIX":
                             if (String.IsNullOrWhiteSpace(node.Context.CurrentTask.FieldPrefix))
                             {

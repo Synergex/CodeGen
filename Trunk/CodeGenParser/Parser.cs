@@ -48,30 +48,30 @@ using System.Linq;
 namespace CodeGen.Engine
 {
     /// <summary>
-    /// 
+    /// The current processing state of the parser
     /// </summary>
     public enum ParserState
     {
         /// <summary>
-        /// 
+        /// Nothing special, just processing.
         /// </summary>
         None,
         /// <summary>
-        /// 
+        /// Processing a loop structure.
         /// </summary>
-        InLoop,
+        ProcessingLoop,
         /// <summary>
-        /// 
+        /// Processing an expression, looking for a possible else expression.
         /// </summary>
-        LookingForElse,
+        LookingForElseToken,
         /// <summary>
-        /// 
+        /// Looking for a matching closer token.
         /// </summary>
-        LookingForCloser,
+        LookingForCloserToken,
         /// <summary>
-        /// 
+        /// Looking for file header tokens.
         /// </summary>
-        LookingForFile
+        LookingForFileHeaderToken
     }
 
     /// <summary>
@@ -123,7 +123,7 @@ namespace CodeGen.Engine
             //Initialize the state stack
             Stack<ParserState> state = new Stack<ParserState>();
             state.Push(ParserState.None);
-            state.Push(ParserState.LookingForFile);
+            state.Push(ParserState.LookingForFileHeaderToken);
 
             //Are there any tokens that require repository processing?
             topLevelNode.RequiresRepository = tokens.Any(t => t.RequiresRepository == true);
@@ -137,7 +137,7 @@ namespace CodeGen.Engine
                 Token tkn = tokens[i];
                 switch (state.Peek())
                 {
-                    case ParserState.LookingForFile:
+                    case ParserState.LookingForFileHeaderToken:
                         if (tkn.TypeOfToken == TokenType.FileHeader)
                         {
                             int endOfTag = getTagContentBounds(tokens, i + 1);
@@ -179,6 +179,7 @@ namespace CodeGen.Engine
                                             case "FR":
                                             case "FT":
                                             case "FW":
+                                            case "MS":
                                             case "PREFIX":
                                             case "SUBSET":
                                                 topLevelNode.RequiredOptions.Add(optionValue);
@@ -345,9 +346,9 @@ namespace CodeGen.Engine
                             state.Pop();
                         }
                         break;
-                    case ParserState.InLoop:
-                    case ParserState.LookingForElse:
-                    case ParserState.LookingForCloser:
+                    case ParserState.ProcessingLoop:
+                    case ParserState.LookingForElseToken:
+                    case ParserState.LookingForCloserToken:
                     case ParserState.None:
                         int endIndex = process(topLevelNode.Body, tokens, i, state, ref errors, null);
                         if (endIndex != -1)
@@ -413,7 +414,7 @@ namespace CodeGen.Engine
                                 if (endOfElse != -1)
                                 {
                                     i = endOfElse;
-                                    if (state.Count > 0 && state.First() == ParserState.LookingForElse)
+                                    if (state.Count > 0 && state.First() == ParserState.LookingForElseToken)
                                         return i;
                                 }
 
@@ -589,7 +590,7 @@ namespace CodeGen.Engine
                             break;
 
                         default:
-                            state.Push(ParserState.LookingForElse);
+                            state.Push(ParserState.LookingForElseToken);
                             try
                             {
                                 int endOfProcessed = process(ctrlNode.Body, tokens, i, state, ref errors, ctrlNode);
