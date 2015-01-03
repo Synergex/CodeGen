@@ -54,8 +54,8 @@ namespace CodeGen.Engine
     /// </summary>
     public class TreeLogger : ITreeNodeVisitor
     {
-        private FileNode _currentFileNode;
-        private List<LoopNode> _currentLoops = new List<LoopNode>();
+        private FileNode currentFileNode;
+        private List<LoopNode> currentLoops = new List<LoopNode>();
         private StreamWriter sw;
         private String logFile;
         private string indentText = "";
@@ -93,7 +93,7 @@ namespace CodeGen.Engine
             //Write the structure of the tree to a file
             using (sw = File.CreateText(logFile))
             {
-                _currentFileNode = node;
+                currentFileNode = node;
                 Visit(node.Body);
 
                 sw.Close();
@@ -116,13 +116,13 @@ namespace CodeGen.Engine
         {
             logToken(String.Format("<{0}>",node.OpenToken.Value));
 
-            _currentLoops.Add(node);
+            currentLoops.Add(node);
 
             indent();
             Visit(node.Body);
             unindent();
 
-            _currentLoops.Remove(node);
+            currentLoops.Remove(node);
 
             logToken(String.Format("</{0}>", node.OpenToken.Value));
         }
