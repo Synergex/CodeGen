@@ -22,6 +22,4 @@ set RPSTFIL=%CODEGEN_ROOT%SampleRepository\rpstext.ism
 
 PATH=%CODEGEN_ROOT%Bin\Release;%ProgramFiles(x86)%\MSBuild\Synergex\dbl;%ProgramFiles(x86)%\WiX Toolset v3.9\bin;%PATH%
 
-prompt Release$g 
-
 cd /d %CODEGEN_OUTDIR%
