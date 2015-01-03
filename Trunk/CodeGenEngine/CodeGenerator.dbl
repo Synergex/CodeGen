@@ -1450,7 +1450,11 @@ namespace CodeGen.Engine
 					begin
 						data treeError, @Tuple<String, int, int, String>
 						foreach treeError in errorReporting.Errors
-							errStatus = task.ErrorLog(String.Format("{0} at line {1} position {2} in {3}", treeError.Item1, treeError.Item2, treeError.Item3, Path.GetFileName(treeError.Item4)))
+						begin
+							errStatus = task.ErrorLog(treeError.Item1)
+							;Don't show line and column info, it's not accurate!
+							;errStatus = task.ErrorLog(String.Format("{0} at line {1} position {2} in {3}", treeError.Item1, treeError.Item2, treeError.Item3, Path.GetFileName(treeError.Item4)))
+						end
 						nextloop
 					end
 					
@@ -1467,52 +1471,62 @@ namespace CodeGen.Engine
 						
 					task.DebugLog(" - Tree expansion phase beginning", false, true)
 
-					;;Are we processing multiple structures at the same time?
-					if (context.MultiStructureMode) then
+					;;Do we have any repository structures?
+					if (context.Structures.Count) then
 					begin
-						;;Process the template once for all structures
-
-						;;Check each structure, flatten arrays and groups, etc.
-						context.CurrentTask.DebugLog("")
-						data ix, int
-						for ix from 0 thru context.Structures.Count-1
+						;;Are we processing multiple structures at the same time?
+						if (context.MultiStructureMode) then
 						begin
-							errStatus = !RepositoryTools.CheckStructure(context,context.Structures[ix])
-							if (errStatus)
-								exitloop
-						end
-
-						if (!errStatus)
-						begin
-							;;Set the initial context to the first structure. This isn't required for <STRUCTURE_LOOP> but will ensure that
-							;;the default context is <STRUCTURE#1> if <STRUCTURE_LOOP> is not used.
-							context.CurrentStructure = context.Structures[0]
-
-							;;Generate the code
-							errStatus = expandTreeToCode(tree)
-						end
-					end
-					else
-					begin
-						;;Process the template once per structure
-						data ix, int
-						for ix from 0 thru context.Structures.Count-1
-						begin
-							;;Check the structure, flatten arrays and groups, etc.
-							if (!RepositoryTools.CheckStructure(context,context.Structures[ix])) then
-								errStatus = true
-							else
+							;;Process the template once for all structures
+							
+							;;Check each structure, flatten arrays and groups, etc.
+							context.CurrentTask.DebugLog("")
+							data ix, int
+							for ix from 0 thru context.Structures.Count-1
 							begin
-								;;Set structure context
-								context.CurrentStructure = context.Structures[ix]
+								errStatus = !RepositoryTools.CheckStructure(context,context.Structures[ix])
+								if (errStatus)
+									exitloop
+							end
+							
+							if (!errStatus)
+							begin
+								;;Set the initial context to the first structure. This isn't required for <STRUCTURE_LOOP> but will ensure that
+								;;the default context is <STRUCTURE#1> if <STRUCTURE_LOOP> is not used.
+								context.CurrentStructure = context.Structures[0]
 								
 								;;Generate the code
 								errStatus = expandTreeToCode(tree)
 							end
-							;;Bail structure loop on failure?
-							if ((errStatus) && (!taskset.ContinueAfterError))
-								exitloop
 						end
+						else
+						begin
+							;;Process the template once per structure
+							data ix, int
+							for ix from 0 thru context.Structures.Count-1
+							begin
+								;;Check the structure, flatten arrays and groups, etc.
+								if (!RepositoryTools.CheckStructure(context,context.Structures[ix])) then
+									errStatus = true
+								else
+								begin
+									;;Set structure context
+									context.CurrentStructure = context.Structures[ix]
+									
+									;;Generate the code
+									errStatus = expandTreeToCode(tree)
+								end
+								;;Bail structure loop on failure?
+								if ((errStatus) && (!taskset.ContinueAfterError))
+									exitloop
+							end
+						end
+					end
+					else
+					begin
+						;;No structures, just generate the code
+						context.CurrentStructure = ^null
+						errStatus = expandTreeToCode(tree)
 					end
 					
 					;;Bail template loop on failure?
@@ -1539,7 +1553,7 @@ namespace CodeGen.Engine
 			
 			data task, @CodeGenTask, context.CurrentTask
 			
-			if (!context.MultiStructureMode)
+			if ((context.CurrentStructure!=^null) && (!context.MultiStructureMode))
 				task.VerboseLog(String.Format(" - Processing structure {0}",context.CurrentStructure.Name))
 			
 			;;Create a stream for the TreeExpander to write the generated code to
