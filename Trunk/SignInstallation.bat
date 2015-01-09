@@ -1,21 +1,54 @@
 @echo off
 setlocal
 
-if "%1"=="" goto usage
+cls
+echo.
+echo ------------------------------
+echo CodeGen Code Signing Procedure
+echo ------------------------------
+echo.
 
-set DEVROOT=%~dp0
-pushd "%DEVROOT%"
+set FILE_TO_SIGN=%~dp0Bin\Release\CodeGen.msi
 
-set FILETOSIGN="Bin\Release\CodeGen.msi"
-set CERTIFICATE="C:\Users\Steve\Documents\PSG_Code_Signing_Certificate_And_Private_Key_2015_01_08.pfx"
-set TIMESTAMPURL=http://timestamp.entrust.net/TSS/AuthenticodeTS
-set DESCRITPION="CodeGen Installation"
+if not exist "%FILE_TO_SIGN%" (
+  echo.
+  echo ERROR: File %FILE_TO_SIGN% was not found!
+  goto done
+)
 
-signtool sign /f %CERTIFICATE% /p %1 /t %TIMESTAMPURL% /v %FILETOSIGN%
-popd
-goto done
+if not defined CODE_SIGN_CERT (
+  echo.
+  echo ERROR: No code signing certificate is defined. Set environment varaible CODE_SIGN_CERT!
+  goto done
+)
 
-:usage
-echo Usage: SignInstallation <password>
+if not exist "%CODE_SIGN_CERT%" (
+  echo.
+  echo ERROR: Code signing certificate %CODE_SIGN_CERT% was not found!
+  goto done
+)
+
+for %%F in ("%FILE_TO_SIGN%")   do echo Signing file         : %%~nxF
+for %%F in ("%CODE_SIGN_CERT%") do echo With certificate     : %%~nxF
+
+set /p PASSWORD="                       Certificate password : "
+echo [%PASSWORD%]
+if "%PASSWORD%" == "" (
+  echo.
+  echo ERROR: Certificate password is required!
+  goto done
+)
+
+echo.
+
+set TIMESTAMP_URL=http://timestamp.entrust.net/TSS/AuthenticodeTS
+
+signtool sign /f "%CODE_SIGN_CERT%" /p %PASSWORD% /t %TIMESTAMP_URL% /v "%FILE_TO_SIGN%"
+
+if "%ERRORLEVEL%"=="0" (
+  echo.
+  echo SUCCESS!
+)
 
 :done
+echo.
