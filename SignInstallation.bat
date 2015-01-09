@@ -1,23 +1,21 @@
-rem @echo off
-
-if "%1x" == "x" goto usage
-
+@echo off
 setlocal
+
+if "%1"=="" goto usage
+
 set DEVROOT=%~dp0
 pushd "%DEVROOT%"
 
-if not exist SignFile.bat goto missing_script
+set FILETOSIGN="Bin\Release\CodeGen.msi"
+set CERTIFICATE="C:\Users\Steve\Documents\PSG_Code_Signing_Certificate_And_Private_Key_2015_01_08.pfx"
+set TIMESTAMPURL=http://timestamp.entrust.net/TSS/AuthenticodeTS
+set DESCRITPION="CodeGen Installation"
 
-call SignFile Bin\Release\CodeGen.msi K: %1 "CodeGen Installation" "http://codegen.codeplex.com"
-
-:missing_script
-echo Script SignFile.bat is missing!
-
-:done
-
+signtool sign /f %CERTIFICATE% /p %1 /t %TIMESTAMPURL% /v %FILETOSIGN%
 popd
-endlocal
-exit
+goto done
 
 :usage
-usage: SignInstallation <password>
+echo Usage: SignInstallation <password>
+
+:done
