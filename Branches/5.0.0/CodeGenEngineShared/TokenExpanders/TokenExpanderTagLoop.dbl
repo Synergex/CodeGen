@@ -1,0 +1,396 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TokenExpanderTagLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Expands tag loop token nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class TokenExpander
+
+        tagLoopTokenExpanders, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>
+
+        private method registerTagLoopTokens, void
+            endparams
+        proc
+			
+			tagLoopTokenExpanders = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>()
+			
+			tagLoopTokenExpanders.Add("TAGLOOP_CONNECTOR_C", expandTagConnectorC)
+            tagLoopTokenExpanders.Add("TAGLOOP_CONNECTOR_DBL", expandTagConnectorDbl)
+            tagLoopTokenExpanders.Add("TAGLOOP_FIELD_ALTNAME", expandTagFieldAltName)
+            tagLoopTokenExpanders.Add("TAGLOOP_FIELD_BASENAME", expandTagFieldBaseName)
+            tagLoopTokenExpanders.Add("TAGLOOP_FIELD_NAME", expandTagFieldName)
+            tagLoopTokenExpanders.Add("TAGLOOP_FIELD_ODBCNAME", expandTagFieldOdbcName)
+            tagLoopTokenExpanders.Add("TAGLOOP_FIELD_ORIGINALNAME", expandTagFieldOrigName)
+            tagLoopTokenExpanders.Add("TAGLOOP_FIELD_SQLNAME", expandTagFieldSqlName)
+            tagLoopTokenExpanders.Add("TAGLOOP_OPERATOR_C", expandTagOperatorC)
+            tagLoopTokenExpanders.Add("TAGLOOP_OPERATOR_DBL", expandTagOperatorDbl)
+            tagLoopTokenExpanders.Add("TAGLOOP_SEQUENCE", expandTagSequence)
+            tagLoopTokenExpanders.Add("TAGLOOP_TAG_NAME", expandTagName)
+			tagLoopTokenExpanders.Add("TAGLOOP_TAG_VALUE", expandTagValue)
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="tkn"></param>
+        ;;;  <param name="file"></param>
+        ;;;  <param name="loops"></param>
+        ;;;  <param name="specific"></param>
+        ;;;  <returns></returns>
+        public static method ExpandTagLoopToken, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<RpsStructure, RpsTag, int, string> 
+            endparams
+        proc
+            lambda isTagLoop(node)
+            begin
+                mreturn node .is. TagLoopNode
+            end
+			data loop, @TagLoopNode, ^as(loops.First(isTagLoop), TagLoopNode)
+            mreturn specific(file.Context.CurrentStructure, loop.CurrentTag, loop.CurrentIndex)
+        endmethod
+
+        private static method expandTagConnectorC, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                using (tag.ComparisonConnector) select
+                (RpsTagComparison.CompareAnd),
+                    mreturn "&&"
+                (RpsTagComparison.CompareOr),
+                    mreturn "||"
+                (RpsTagComparison.None),
+                    mreturn ""
+                (),
+                    mreturn ""
+                endusing
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagConnectorDbl, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                using (tag.ComparisonConnector) select
+                (RpsTagComparison.CompareAnd),
+                    mreturn ".AND."
+                (RpsTagComparison.CompareOr),
+                    mreturn ".OR."
+                (RpsTagComparison.None),
+                    mreturn ""
+                (),
+                    mreturn ""
+                endusing
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagFieldAltName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                data value, string, ""
+                data field, @RpsField
+                foreach field in str.Fields
+                begin
+                    if (field.Name == tag.Field)
+                    begin
+                        value = field.AlternateName
+                        exitloop
+                    end
+                end
+                mreturn value
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagFieldBaseName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                data value, string, ""
+                data field, @RpsField
+                foreach field in str.Fields
+                begin
+                    if (field.Name == tag.Field)
+                    begin
+                        value = field.BaseName
+                        exitloop
+                    end
+                end
+                mreturn value
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagFieldName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                ;; TODO: The ChangeResultCase here might cause issues, because it'll happen again soon after!
+                data name, string, ChangeResultCase(tag.Field, tkn.Modifier)
+                if (!String.IsNullOrWhiteSpace(file.Context.CurrentTask.FieldPrefix))
+                begin
+                    name = file.Context.CurrentTask.FieldPrefix + name
+                    if (name.Contains("."))
+                        name = name.Replace(".", "." + file.Context.CurrentTask.FieldPrefix)
+                end
+                mreturn name
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagFieldOdbcName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                data value, string, ""
+                data field, @RpsField
+                foreach field in str.Fields
+                begin
+                    if (field.Name == tag.Field)
+                    begin
+                        value = field.OdbcName
+                        exitloop
+                    end
+                end
+                mreturn value
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagFieldOrigName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                data value, string, ""
+                data field, @RpsField
+                foreach field in str.Fields
+                begin
+                    if (field.Name == tag.Field)
+                    begin
+                        value = field.OriginalName
+                        exitloop
+                    end
+                end
+                mreturn value
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagFieldSqlName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                data value, string, ""
+                data field, @RpsField
+                foreach field in str.Fields
+                begin
+                    if (field.Name == tag.Field)
+                    begin
+                        value = field.SqlName
+                        exitloop
+                    end
+                end
+                mreturn value
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagOperatorC, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                data value, string, ""
+                using (tag.ComparisonOperator) select
+                (RpsTagOperator.OpEQ),
+                    value = "=="
+                (RpsTagOperator.OpGE),
+                    value = ">="
+                (RpsTagOperator.OpGT),
+                    value = ">"
+                (RpsTagOperator.OpLE),
+                    value = "<="
+                (RpsTagOperator.OpLT),
+                    value = "<"
+                (RpsTagOperator.OpNE),
+                    value = "!="
+                endusing
+                mreturn value
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagOperatorDbl, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                data value, string, ""
+                using (tag.ComparisonOperator) select
+                (RpsTagOperator.OpEQ),
+                    value = ".EQ."
+                (RpsTagOperator.OpGE),
+                    value = ".GE."
+                (RpsTagOperator.OpGT),
+                    value = ".GT."
+                (RpsTagOperator.OpLE),
+                    value = ".LE."
+                (RpsTagOperator.OpLT),
+                    value = ".LT."
+                (RpsTagOperator.OpNE),
+                    value = ".NE."
+                endusing
+                mreturn value
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagSequence, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                mreturn tag.SequenceNumber.ToString()
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                mreturn tag.Name
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandTagValue, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                data value, string, ""
+                data field, @RpsField
+                foreach field in str.Fields
+                begin
+                    if (field.Name == tag.Field)
+                    begin
+                        using (field.DataType) select
+                        (RpsFieldDataType.Alpha, RpsFieldDataType.User),
+                            value = String.Format("""{0}""", tag.ComparisonValue)
+                        (),
+                            value = tag.ComparisonValue
+                        endusing
+                        exitloop
+                    end
+                end
+                mreturn value
+            end
+            mreturn ExpandTagLoopToken(tkn, file, loops, doExpand)
+        endmethod
+	
+	endclass
+
+endnamespace
+

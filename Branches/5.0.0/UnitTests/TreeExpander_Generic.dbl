@@ -1,0 +1,223 @@
+
+import System
+import Microsoft.VisualStudio.TestTools.UnitTesting
+import CodeGen.Engine
+
+.array 0
+
+namespace UnitTests
+	
+	public partial class TreeExpanderTests
+		
+.region "Generic Tokens"
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_Generic001, void
+		proc
+			data errmsg, string,string.Empty
+			data message, String
+			data success, boolean
+			template = "<NAMESPACE>"
+			expected = ""
+			try
+			begin
+				runTest()
+				success = false
+				message = "Should have failed, no namespace was provided!"
+			end
+			catch (e, @Exception)
+			begin
+				success = (e.Message == "Teplate  line 1 <NAMESPACE> requires a namespace is provided.")
+				if (!success)
+					message = string.Format("Wrong line number was reported in exception {0}. Expected line number 1.",e.Message)
+			end
+			endtry
+			Assert.IsTrue(success,message)
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_HostDnsName001, void
+		proc
+			template = "<HOST_DNS_NAME>"
+			expected = System.Net.Dns.GetHostName().ToUpper()
+			runTest()
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_HostDnsName002, void
+		proc
+			template = "<host_dns_name>"
+			expected = System.Net.Dns.GetHostName().ToLower()
+			runTest()
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_HostIpAddress001, void
+		proc
+			data name, string, "LOCALHOST"
+			data address, string, "127.0.0.1"
+			try
+			begin
+				name = System.Net.Dns.GetHostName().ToUpper()
+			end
+			catch (e, @System.Net.Sockets.SocketException)
+			begin
+				nop
+			end
+			endtry
+			try
+			begin
+				data addresses, [#]@System.Net.IPAddress, System.Net.Dns.GetHostAddresses(name)
+				if (addresses.Length > 0)
+					address = addresses[0].ToString()
+			end
+			catch (e, @System.Net.Sockets.SocketException)
+			begin
+				nop
+			end
+			endtry
+			template = "<HOST_IP_ADDRESS>"
+			expected = address
+			runTest()
+		endmethod
+		
+.endregion
+		
+.region "Counters"
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_Counter001, void
+		proc
+			template = "<COUNTER_1_INCREMENT><COUNTER_1_INCREMENT><COUNTER_1_INCREMENT><COUNTER_1_DECREMENT><COUNTER_1_VALUE>"
+			expected = "2"
+			runTest()
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_Counter002, void
+		proc
+			template = "<COUNTER_1_INCREMENT><COUNTER_1_INCREMENT><COUNTER_1_DECREMENT><COUNTER_1_DECREMENT><IF COUNTER_1><COUNTER_1_VALUE></IF>"
+			expected = ""
+			runTest()
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_Counter003, void
+		proc
+			;<FIELD_LOOP>
+			;<COUNTER_1_INCREMENT>
+			;<COUNTER_1_VALUE>
+			;</FIELD_LOOP>
+			template = "<FIELD_LOOP>"+crlf+"<COUNTER_1_INCREMENT>"+crlf+"<COUNTER_1_VALUE>"+crlf+"</FIELD_LOOP>"+crlf
+			
+			;1
+			;2
+			;3
+			;4
+			;5
+			;6
+			;7
+			;8
+			;9
+			;10
+			expected = "1"+crlf+"2"+crlf+"3"+crlf+"4"+crlf+"5"+crlf+"6"+crlf+"7"+crlf+"8"+crlf+"9"+crlf+"10"+crlf
+			
+			runTest()
+			
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_Counter004, void
+		proc
+			; <FIELD_LOOP>
+			; <COUNTER_1_INCREMENT>
+			; <COUNTER_1_VALUE>
+			; </FIELD_LOOP>
+			template = " <FIELD_LOOP>"+crlf+" <COUNTER_1_INCREMENT>"+crlf+" <COUNTER_1_VALUE>"+crlf+" </FIELD_LOOP>"+crlf
+			
+			;1
+			;2
+			;3
+			;4
+			;5
+			;6
+			;7
+			;8
+			;9
+			;10
+			expected = " 1"+crlf+" 2"+crlf+" 3"+crlf+" 4"+crlf+" 5"+crlf+" 6"+crlf+" 7"+crlf+" 8"+crlf+" 9"+crlf+" 10"+crlf
+			
+			runTest()
+			
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_Counter005, void
+		proc
+			;	<FIELD_LOOP>
+			;	<COUNTER_1_INCREMENT>
+			;	<COUNTER_1_VALUE>
+			;	</FIELD_LOOP>
+			template = tab+"<FIELD_LOOP>"+crlf+tab+"<COUNTER_1_INCREMENT>"+crlf+tab+"<COUNTER_1_VALUE>"+crlf+tab+"</FIELD_LOOP>"+crlf
+			
+			;	1
+			;	2
+			;	3
+			;	4
+			;	5
+			;	6
+			;	7
+			;	8
+			;	9
+			;	10
+			expected = tab+"1"+crlf+tab+"2"+crlf+tab+"3"+crlf+tab+"4"+crlf+tab+"5"+crlf+tab+"6"+crlf+tab+"7"+crlf+tab+"8"+crlf+tab+"9"+crlf+tab+"10"+crlf
+			
+			runTest()
+			
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_Counter006, void
+		proc
+			; <COUNTER_1_INCREMENT>
+			; sometext
+			template = " <COUNTER_1_INCREMENT>"+crlf+" sometext"
+			
+			; sometext
+			expected = " sometext"
+			
+			runTest()
+			
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Generic")}
+		public method TreeExpander_Counter007, void
+		proc
+			;	<COUNTER_1_INCREMENT>
+			;	sometext
+			template = tab+"<COUNTER_1_INCREMENT>"+crlf+tab+"sometext"
+			
+			; sometext
+			expected = tab+"sometext"
+			
+			runTest()
+			
+		endmethod
+		
+.endregion
+		
+		
+	endclass
+	
+endnamespace

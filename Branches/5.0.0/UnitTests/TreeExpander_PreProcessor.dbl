@@ -1,0 +1,182 @@
+
+import System
+import Microsoft.VisualStudio.TestTools.UnitTesting
+import CodeGen.Engine
+
+.array 0
+
+namespace UnitTests
+	
+	public partial class TreeExpanderTests
+		
+.region "<FILE:LOGICAL:file.ext>"
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_File001, void
+		proc
+			xcall delet("TEMP:i_dont_exist.txt")
+			template = "----------"+crlf+"<FILE:TEMP:i_dont_exist.txt>"+crlf+"----------"
+			runTestExpectFail("Failed to read file E:\TEMP\i_dont_exist.txt while processing token <FILE:TEMP:i_dont_exist.txt>")
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_File002, void
+		proc
+			data ch, i4, 0
+			open(ch,o:s,"TEMP:i_exist.txt")
+			writes(ch,"DATA") ; There WILL be a CRLF in the file
+			close ch
+			template = "<FILE:TEMP:i_exist.txt>"
+			expected = "DATA"+crlf
+			runTest()
+			xcall delet("TEMP:i_exist.txt")
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_File003, void
+		proc
+			data ch, i4, 0
+			open(ch,o:s,"TEMP:i_exist.txt")
+			writes(ch,"2") ; There WILL be a CRLF in the file
+			close ch
+			template = "1<FILE:TEMP:i_exist.txt>3"
+			expected = "12"+crlf+"3"
+			runTest()
+			xcall delet("TEMP:i_exist.txt")
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_File004, void
+		proc
+			data ch, i4, 0
+			open(ch,o:s,"TEMP:i_exist.txt")
+			writes(ch,"2") ; There WILL be a CRLF in the file
+			close ch
+			template = "1"+crlf+"<FILE:TEMP:i_exist.txt>"+crlf+"3"
+			expected = "1"+crlf+"2"+crlf+crlf+"3"
+			runTest()
+			xcall delet("TEMP:i_exist.txt")
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_File005, void
+		proc
+			data ch, i4, 0
+			open(ch,o:s,"TEMP:i_exist.txt")
+			display(ch,"DATA") ; There will NOT be a CRLF in the file
+			close ch
+			template = "<FILE:TEMP:i_exist.txt>"
+			expected = "DATA"
+			runTest()
+			xcall delet("TEMP:i_exist.txt")
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_File006, void
+		proc
+			data ch, i4, 0
+			open(ch,o:s,"TEMP:i_exist.txt")
+			display(ch,"2") ; There will NOT be a CRLF in the file
+			close ch
+			template = "1<FILE:TEMP:i_exist.txt>3"
+			expected = "123"
+			runTest()
+			xcall delet("TEMP:i_exist.txt")
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_File007, void
+		proc
+			data ch, i4, 0
+			open(ch,o:s,"TEMP:i_exist.txt")
+			display(ch,"2") ; There will NOT be a CRLF in the file
+			close ch
+			template = "1"+crlf+"<FILE:TEMP:i_exist.txt>"+crlf+"3"
+			expected = "1"+crlf+"2"+crlf+"3"
+			runTest()
+			xcall delet("TEMP:i_exist.txt")
+		endmethod
+		
+.endregion
+
+.region "<FILEIFEXIST:LOGICAL:file.ext>"
+
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_FileIfExist001, void
+		proc
+			;----------
+			;<FILEIFEXIST:NOTEXIST:file.ext>
+			;----------
+			template = "----------"+crlf+"<FILEIFEXIST:NOTEXIST:file.ext>"+crlf+"----------"
+			
+			;----------
+			;----------
+			expected = "----------"+crlf+"----------"
+			
+			runTest()
+			
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_FileIfExist002, void
+		proc
+			data ch, i4, 0
+			open(ch,o:s,"TEMP:file.ext")
+			writes(ch,"Hello World!")
+			close ch
+
+			;----------
+			;<FILEIFEXIST:NOTEXIST:file.ext>
+			;----------
+			template = "------------"+crlf+"<FILEIFEXIST:TEMP:file.ext>"+crlf+"------------"
+			
+			;------------
+			;Hello World!
+			;------------
+			expected = "------------"+crlf+"Hello World!"+crlf+"------------"
+			
+			runTest()
+
+			xcall delet("TEMP:file.ext")
+			
+		endmethod
+
+.endregion
+
+.region "<ENVIFEXIST:ENVVAR>"
+
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_EnvIfExist001, void
+		proc
+			template = "***<ENVIFEXIST:NOTEXIST>***"
+			expected = "******"
+			runTest()
+		endmethod
+		
+		{TestMethod}
+		{TestCategory("TreeExpander - Pre-Processor")}
+		public method TreeExpander_EnvIfExist002, void
+		proc			
+			data sts, i4
+			xcall setlog("DOESEXIST","I Exist!",sts)
+			template = "***<ENVIFEXIST:DOESEXIST>***"
+			expected = "***I Exist!***"
+			runTest()
+			xcall setlog("DOESEXIST","",sts)
+		endmethod
+
+.endregion
+
+	endclass
+	
+endnamespace

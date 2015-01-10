@@ -1,0 +1,299 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TreeNodes.dbl
+;; 
+;;  Type:        Classes
+;; 
+;;  Description: Classes that define various types of tree nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Jeff Greene, Synergex Development
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import CodeGen.RepositoryAPI
+import System
+import System.Collections.Generic
+import System.IO
+
+.array 0
+
+namespace CodeGen.Engine
+
+    ;;;  <summary>
+    ;;;  Defines the requirements for all tree node classes.
+    ;;;  </summary>
+    public interface ITreeNode
+
+        method Accept, void
+            visitor, @ITreeNodeVisitor 
+            endparams
+        endmethod
+	
+	endinterface
+
+    ;;;  <summary>
+    ;;;  An abstract class that describes a control node. Control nodes are nodes
+    ;;;  associated with tokens that implement logic within a template but are not
+    ;;;  expanded to produce output. Examples are loop and expression tokens.
+    ;;;  </summary>
+    public abstract class ControlNode implements ITreeNode
+
+		public OpenToken	,@Token
+		public Body			,@List<ITreeNode>
+		public CloseToken	,@Token
+		
+        public abstract method Accept, void
+            visitor, @ITreeNodeVisitor 
+            endparams
+        proc
+        endmethod
+
+    endclass
+
+    ;;;  <summary>
+    ;;;  A tree node that represents a loop.
+    ;;;  </summary>
+    public class LoopNode extends ControlNode
+
+        public CurrentIndex, int
+        public MaxIndex, int
+
+        public override method Accept, void
+            visitor, @ITreeNodeVisitor 
+            endparams
+        proc
+            visitor.Visit(this)
+        endmethod
+
+        public override method ToString, string
+            endparams
+        proc
+            mreturn String.Format("LoopNode: <{0}>", OpenToken.Value)
+        endmethod
+    endclass
+
+    public class FieldLoopNode extends LoopNode
+
+        public CurrentField, @RpsField
+    endclass
+
+    public class SelectionLoopNode extends LoopNode
+
+        public CurrentField, @RpsField
+        public CurrentSelection, String
+    endclass
+
+    public class KeyLoopNode extends LoopNode
+
+        public CurrentKey, @RpsKey
+    endclass
+
+    public class SegmentLoopNode extends LoopNode
+
+        public CurrentKey, @RpsKey
+        public CurrentSegment, @RpsKeySegment
+		public CurrentField, @RpsField
+		public AssociatedField, @RpsField
+    endclass
+
+    public class EnumLoopNode extends LoopNode
+
+        public CurrentEnumeration, @RpsEnum
+    endclass
+
+    public class EnumMemberLoopNode extends LoopNode
+
+        public CurrentEnumeration, @RpsEnum
+        public CurrentMember, @RpsEnumMember
+    endclass
+
+    public class RelationLoopNode extends LoopNode
+
+        public CurrentRelation, @RpsRelation
+    endclass
+
+    public class ButtonLoopNode extends LoopNode
+
+        public CurrentButton, @WscButton
+    endclass
+
+    public class FileLoopNode extends LoopNode
+
+        public CurrentFile, @RpsFile
+    endclass
+
+    public class TagLoopNode extends LoopNode
+
+        public CurrentTag, @RpsTag
+    endclass
+
+	public class StructureLoopNode extends LoopNode
+	
+	endclass
+
+    ;;;  <summary>
+    ;;;  A tree node that represents the type of an expression. For example,
+    ;;;  in the expression <IF PROMPT> an ExpressionNode would represent the
+    ;;;  PROMPT portion.
+    ;;;  </summary>
+    public class ExpressionNode implements ITreeNode
+
+        public Value, @Token
+
+        public method Accept, void
+            visitor, @ITreeNodeVisitor 
+            endparams
+        proc
+            visitor.Visit(this)
+        endmethod
+    endclass
+
+    ;;;  <summary>
+    ;;;  A tree node that represents an IF expression.
+    ;;;  </summary>
+    public class IfNode extends ControlNode
+
+        public Expression, @ExpressionNode
+        public Else, @ElseNode
+
+        public override method Accept, void
+            visitor, @ITreeNodeVisitor 
+            endparams
+        proc
+            visitor.Visit(this)
+        endmethod
+
+        public override method ToString, string
+            endparams
+        proc
+            mreturn String.Format("IfNode: <IF {0}>", Expression.Value.Value)
+        endmethod
+    endclass
+
+    ;;;  <summary>
+    ;;;  A tree node that represents an ELSE expression.
+    ;;;  </summary>
+    public class ElseNode extends ControlNode
+
+        public override method Accept, void
+            visitor, @ITreeNodeVisitor 
+            endparams
+        proc
+            visitor.Visit(this)
+        endmethod
+    endclass
+
+    ;;;  <summary>
+    ;;;  A tree node that represents an expandable token.
+    ;;;  </summary>
+    public class ExpansionNode implements ITreeNode
+
+        public Value, @Token
+
+        public method Accept, void
+            visitor, @ITreeNodeVisitor 
+            endparams
+        proc
+            visitor.Visit(this)
+        endmethod
+
+        public override method ToString, string
+            endparams
+        proc
+            mreturn string.Format("Token: <{0}>", Value.Value)
+        endmethod
+    endclass
+
+    ;;;  <summary>
+    ;;;  A tree node that represents an area of raw text in a template token.
+    ;;;  The text in a TextNode does not contain any tokens.
+    ;;;  </summary>
+    public class TextNode implements ITreeNode
+
+        public FirstLineNotInResult, boolean
+        public LastLineNotInResult, boolean
+        public Value, @Token
+
+        public method Accept, void
+            visitor, @ITreeNodeVisitor 
+            endparams
+        proc
+            visitor.Visit(this)
+        endmethod
+
+        public override method ToString, string
+            endparams
+        proc
+			mreturn string.Format("{0}: {1}", Value.TypeOfToken, Value)
+        endmethod
+    endclass
+
+    ;;;  <summary>
+    ;;;  A FileNode represents the root of the tree of nodes that represents a template file.
+    ;;;  </summary>
+    public class FileNode implements ITreeNode
+
+        public Body, @List<ITreeNode>
+        public OutputFileNameTokens, @List<ITreeNode>
+        public OutputFileName, string
+        public RequiredUserTokens, @List<string>
+		public RequiredCustomTokens, @List<Tuple<TokenValidity, string>>
+		public RequiredCustomExpressions, @List<Tuple<TokenValidity, string>>
+		public RequiredOptions, @List<string>
+        public ProcessTemplates, @List<string>
+        public ProvideFiles, @List<string>
+		public RequiresRepository, boolean, false
+		public RequiresNamespace, boolean, false
+		
+		;; Taskset level code generation data
+        public Context, @CodeGenContext
+
+        public method Accept, void
+            visitor, @ITreeNodeVisitor 
+            endparams
+        proc
+            visitor.Visit(this)
+        endmethod
+
+        public method GetTokenErrorMessage, string
+            tkn, @Token 
+            issue, String 
+            endparams
+        proc
+            mreturn String.Format("Teplate {0} line {1} <{2}> {3}.", Context.CurrentTemplateBaseName, tkn.StartLineNumber, tkn.Value, issue)
+		endmethod
+
+    endclass
+
+endnamespace
+

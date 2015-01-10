@@ -1,0 +1,1891 @@
+﻿//*****************************************************************************
+//
+// Title:       Tokenizer.cs
+//
+// Type:        Class
+//
+// Description: Transforms raw template data into a list of tokens
+//
+// Date:        30th August 2014
+//
+// Author:      Jeff Greene, Synergex Development
+//              http://www.synergex.com
+//
+//*****************************************************************************
+//
+// Copyright (c) 2014, Synergex International, Inc.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice,
+//   this list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+//*****************************************************************************
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace CodeGen.Engine
+{
+    /// <summary>
+    /// Transforms raw template data into a list of tokens.
+    /// </summary>
+    public class Tokenizer
+    {
+        //typeLookup contains an entry for every supported non-expression token (expansion, loops, control, file header, etc.)
+        //and defines the type of token (TokenType).
+        private Dictionary<string, TokenType> typeLookup = new Dictionary<string, TokenType>();
+
+        //requiresRps contains an entry for each token that relies on a repository structure being processed
+        private Dictionary<string, bool> requiresRps = new Dictionary<string, bool>();
+
+        //requiresNamespace contains an entry for each token that relies on a namespace being specified
+        private Dictionary<string, bool> requiresNamespace = new Dictionary<string, bool>();
+
+        //validityLookup contains an entry for every supported non-expression token (expansion, loops, control, file header, etc.)
+        //and defines where in a template each is valid.
+        private Dictionary<string, List<TokenValidity>> validityLookup = new Dictionary<string, List<TokenValidity>>();
+
+        //modifierLookup contains an entry for every supported expansion token variation
+        private Dictionary<string, TokenModifier> modifierLookup = new Dictionary<string, TokenModifier>();
+
+        //expressionLookup has an entry for every supported expression token, and defines where in a template each is valid
+        private Dictionary<String, List<TokenValidity>> expressionLookup = new Dictionary<string, List<TokenValidity>>();
+
+        //closerLookup is a collection of valid closer token names. It is used to determine if a token name beginning with / is valid
+        private HashSet<string> closerLookup = new HashSet<string>();
+
+        //canonicalNameLookup seems lind of pointless. It seems to contain matching names for opener and closer tokens,
+        //but the kay and value are always the same? I assume it isn't being used anywhere?
+        private Dictionary<string, string> canonicalNameLookup = new Dictionary<string, string>();
+
+        private List<TokenValidity> customValidity;
+        private List<TokenValidity> userTokenValidity;
+
+        private CodeGenContext context;
+        private bool errorsReported = false;
+
+        //This is a collection of the expansion values for "pre-processor" type optional user tokens. These are
+        //optional user tokens who's value includes other tokens.
+        private Dictionary<string, List<Token>> optionalUserTokens = new Dictionary<string, List<Token>>();
+
+        /// <summary>
+        /// This constructor should be used if you're trying to do "real" tokenization. 
+        /// Context is passed in so that the tokenizer is aware of user-defined tokens and custom extensions.
+        /// </summary>
+        /// <param name="aContext">Code generator context.</param>
+        public Tokenizer(CodeGenContext aContext)
+            : this()
+        {
+            //For use later (error reporting during Tokenize)
+            context = aContext;
+
+            //Add user defined tokens and custom extensions to the environment
+            loadUserTokens();
+            loadCustomExpanders();
+            loadCustomEvaluators();
+        }
+
+        /// <summary>
+        /// This constructor is only used unit tests that are testing the tokenization of template code
+        /// that does not require the tokenization of user-defined tokens, or custom tokens or expressions.
+        /// If user-token or custom extension processing is required then use the other constructor.
+        /// </summary>
+        public Tokenizer()
+        {
+            customValidity = new List<TokenValidity>();
+            customValidity.Add(TokenValidity.FieldLoop);
+
+            userTokenValidity = new List<TokenValidity>();
+            userTokenValidity.Add(TokenValidity.Anywhere);
+
+            //Declare the standard expansion tokens
+
+            List<TokenMeta> metaLookup = new List<TokenMeta>
+            {
+                new TokenMeta { Name = "CODEGEN_FILENAME", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "PROCESS_TEMPLATE", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "PROVIDE_FILE", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_USERTOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "OPTIONAL_USERTOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_OPTION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+
+                new TokenMeta { Name = "REQUIRES_CUSTOM_BUTTON_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_BUTTON_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_ENUM_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_ENUM_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_ENUM_MEMBER_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_ENUM_MEMBER_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_FIELD_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_FIELD_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_FILE_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_FILE_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_KEY_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_KEY_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_LOOPUTIL_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_LOOPUTIL_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_NOTINLOOP_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_NOTINLOOP_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_RELATION_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_RELATION_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_SEGMENT_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_SEGMENT_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_SELECTION_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_SELECTION_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_STRUCTLOOP_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_STRUCTLOOP_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_TAG_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_TAG_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_EXPRESSION", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "REQUIRES_CUSTOM_TOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+
+                new TokenMeta { Name = "ENV", TypeOfToken = TokenType.PreProcessor, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "ENVIFEXIST", TypeOfToken = TokenType.PreProcessor, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "FILE", TypeOfToken = TokenType.PreProcessor, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "FILEIFEXIST", TypeOfToken = TokenType.PreProcessor, IsPaired = true, Validity = TokenValidity.Anywhere },
+
+                new TokenMeta { Name = "STRUCTURE_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "FIELD_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop|TokenValidity.StructureLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop|TokenValidity.StructureLoop, RequiresRepository = true },
+                new TokenMeta { Name = "ALTERNATE_KEY_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop|TokenValidity.StructureLoop, RequiresRepository = true },
+                new TokenMeta { Name = "PRIMARY_KEY", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop|TokenValidity.StructureLoop, RequiresRepository = true },
+                new TokenMeta { Name = "ENUM_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop|TokenValidity.StructureLoop, RequiresRepository = true },
+                new TokenMeta { Name = "ENUM_LOOP_STRUCTURE", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop|TokenValidity.StructureLoop, RequiresRepository = true },
+                new TokenMeta { Name = "RELATION_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop|TokenValidity.StructureLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FILE_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop|TokenValidity.StructureLoop, RequiresRepository = true },
+                new TokenMeta { Name = "TAG_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop|TokenValidity.StructureLoop, RequiresRepository = true },
+                new TokenMeta { Name = "BUTTON_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.NotInLoop },
+
+                new TokenMeta { Name = "SELECTION_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.FieldLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SEGMENT_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SEGMENT_LOOP_FILTER", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIRST_SEGMENT", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SECOND_SEGMENT", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "ENUM_MEMBER_LOOP", TypeOfToken = TokenType.Loop, IsPaired = true, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "AUTHOR", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "CODEGEN_VERSION", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "COMPANY", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "DATE", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "DATE1", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "DAY", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "FIELD_PREFIX", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },    
+                new TokenMeta { Name = "GUID1", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "GUID2", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "GUID3", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                makeCasedLimited(TokenType.Generic, TokenValidity.Anywhere, false, "HOST","DNS","NAME"),
+                new TokenMeta { Name = "HOST_IP_ADDRESS", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                makeCasedLimited(TokenType.Generic, TokenValidity.Anywhere, false, "MACHINE","NAME"),
+                new TokenMeta { Name = "MONTH", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "MONTHNAME", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "MONTHSHORTNAME", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "NAMESPACE", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresNamespace = true },
+                new TokenMeta { Name = "OS_IDENTIFIER", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere},
+                new TokenMeta { Name = "OS_PLATFORM", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere},
+                new TokenMeta { Name = "OS_SERVICE_PACK", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere},
+                new TokenMeta { Name = "OS_VERSION", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere},
+                new TokenMeta { Name = "RANDOM_10", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "RANDOM_100", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "RANDOM_1000", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "RANDOM_INT", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                makeCasedLimited(TokenType.Generic, TokenValidity.Anywhere, false, "TEMPLATE"),
+                new TokenMeta { Name = "TIME", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "WEEKDAY", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+                new TokenMeta { Name = "YEAR", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+
+                new TokenMeta { Name = "DATA_FIELDS_LIST", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "DISPLAY_FIELD", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },    
+                new TokenMeta { Name = "FILE_ADDRESSING", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "CHANGE", "TRACKING"),
+                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "COMPRESSION"),
+                new TokenMeta { Name = "FILE_DENSITY", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "FILE_DESC", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },    
+                new TokenMeta { Name = "FILE_NAME", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "FILE_NAME_NOEXT", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "FILE_PAGESIZE", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "RECTYPE"),
+                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "STATIC", "RFA"),
+                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "STORED", "GRFA"),
+                new TokenMeta { Name = "FILE_TYPE", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "FILE_UTEXT", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                makeCased(TokenType.StructureInfo, TokenValidity.Anywhere, true, "MAPPED", "FILE"),
+                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "MAPPED", "STRUCTURE"),
+                makeCased(TokenType.StructureInfo, TokenValidity.Anywhere, true, "PRIMARY", "KEY", "FIELD"),
+
+                new TokenMeta { Name = "STRUCTURE_CHILDREN", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "STRUCTURE_DESC", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "STRUCTURE_FIELDS", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "STRUCTURE_KEYS", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "STRUCTURE_LDESC", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                makeCased(TokenType.StructureInfo, TokenValidity.Anywhere, true, "STRUCTURE", "NAME"),
+                makeCased(TokenType.StructureInfo, TokenValidity.Anywhere, true, "STRUCTURE", "NOALIAS"),
+                new TokenMeta { Name = "STRUCTURE_SIZE", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+                new TokenMeta { Name = "STRUCTURE_UTEXT", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
+
+                new TokenMeta { Name = ",", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop },
+                new TokenMeta { Name = "+", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop },
+                new TokenMeta { Name = ":", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop },
+                new TokenMeta { Name = "&&", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop },
+                new TokenMeta { Name = ".AND.", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop },
+                new TokenMeta { Name = "AND", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop },
+                new TokenMeta { Name = "||", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop },
+                new TokenMeta { Name = ".OR.", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop },
+                new TokenMeta { Name = "OR", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop },
+
+                new TokenMeta { Name = "FIELD#", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD#_ZERO", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD#LOGICAL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD#LOGICAL_ZERO", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ALTNAME"),
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ARRIVEM"),
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "BASENAME"),
+                new TokenMeta { Name = "FIELD_BREAK_MODE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "CHANGEM"),
+                new TokenMeta { Name = "FIELD_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_CSCONVERT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_CSDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_CSTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_DEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_DESC", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_DIMENSION1_INDEX", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_DIMENSION2_INDEX", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_DIMENSION3_INDEX", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_DIMENSION4_INDEX", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "DRILLM"),
+                new TokenMeta { Name = "FIELD_DRILL_PIXEL_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_ELEMENT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_ELEMENT0", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_ENUMLENGTH", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_ENUMWIDTH", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_FORMATNAME", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_HEADING", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_HELPID", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "HYPERM"),
+                new TokenMeta { Name = "FIELD_INFOLINE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_INPUT_LENGTH", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_LDESC", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "LEAVEM"),
+                new TokenMeta { Name = "FIELD_MAXVALUE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_MINVALUE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NAME"),
+                makeFieldNetName(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop),
+                new TokenMeta { Name = "FIELD_NOECHO_CHAR", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_OCDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_OCTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ODBCNAME"),
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ORIGINAL", "NAME"),
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "PATH"),
+                makeCasedLimited(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "PATH", "CONV"),
+                new TokenMeta { Name = "FIELD_PIXEL_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_PIXEL_ROW", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_PIXEL_WIDTH", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_POSITION", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_POSITION_ZERO", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_PRECISION", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_PRECISION2", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_PROMPT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_RANGE_MAX", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_RANGE_MIN", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_REGEX", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_ROW", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_SELECTIONS", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_SELECTIONS1", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_SELLENGTH", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SELWND"),
+                new TokenMeta { Name = "FIELD_SELWND_ORIGINAL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_SIZE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_SNDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_SNTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SPEC"),
+                makeFieldSqlName(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop),
+                new TokenMeta { Name = "FIELD_SQLTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_TEMPLATE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_TKSCRIPT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "TYPE"),
+                new TokenMeta { Name = "FIELD_TYPE_NAME", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_UTEXT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_VBDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FIELD_VBTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "MAPPED", "FIELD"),
+                makeCasedLimited(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "MAPPED", "PATH"),
+                makeCasedLimited(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "MAPPED", "PATH", "CONV"),
+                new TokenMeta { Name = "PROMPT_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "PROMPT_PIXEL_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "PROMPT_PIXEL_ROW", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "PROMPT_PIXEL_WIDTH", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "PROMPT_ROW", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "SELECTION_COUNT", TypeOfToken = TokenType.FieldSelectionLoop, IsPaired = false, Validity = TokenValidity.FieldSelectionLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SELECTION_NUMBER", TypeOfToken = TokenType.FieldSelectionLoop, IsPaired = false, Validity = TokenValidity.FieldSelectionLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SELECTION_TEXT", TypeOfToken = TokenType.FieldSelectionLoop, IsPaired = false, Validity = TokenValidity.FieldSelectionLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SELECTION_VALUE", TypeOfToken = TokenType.FieldSelectionLoop, IsPaired = false, Validity = TokenValidity.FieldSelectionLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "KEY_CHANGES", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_DENSITY", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_DESCRIPTION", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_DUPLICATES", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_DUPLICATES_AT", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_LENGTH", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                makeCased(TokenType.KeyLoop, TokenValidity.KeyLoop, true, "KEY", "NAME"),
+                makeCasedLimited(TokenType.KeyLoop, TokenValidity.KeyLoop, true, "KEY", "NULLTYPE"),
+                new TokenMeta { Name = "KEY_NULLVALUE", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_NUMBER", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_ORDER", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_SEGMENTS", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+                new TokenMeta { Name = "KEY_UNIQUE", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "SEGMENT_CSTYPE", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SEGMENT_DESC", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SEGMENT_IDXTYPE", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SEGMENT_KIND", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SEGMENT_LENGTH", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                new TokenMeta { Name = "SEGMENT_LITVAL", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCased(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "MAPPEDNAME"),
+                makeCased(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "NAME"),
+                new TokenMeta { Name = "SEGMENT_NUMBER", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "ORDER"),
+                new TokenMeta { Name = "SEGMENT_POSITION", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "SEQUENCE"),
+                new TokenMeta { Name = "SEGMENT_SNTYPE", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "SPEC"),
+                new TokenMeta { Name = "SEGMENT_STRUCTURE", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+                makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "TYPE"),
+                new TokenMeta { Name = "SEGMENT_VBTYPE", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "ENUM_COUNT", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
+                new TokenMeta { Name = "ENUM_DESCRIPTION", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
+                new TokenMeta { Name = "ENUM_LONG_DESCRIPTION", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
+                new TokenMeta { Name = "ENUM_MEMBER_COUNT", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
+                makeCased(TokenType.EnumLoop, TokenValidity.EnumLoop, true, "ENUM", "NAME"),
+                new TokenMeta { Name = "ENUM_NUMBER", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
+
+                makeCased(TokenType.EnumMemberLoop, TokenValidity.EnumMemberLoop, true, "ENUM", "MEMBER", "NAME"),
+                new TokenMeta { Name = "ENUM_MEMBER_EXPLICIT_VALUE", TypeOfToken = TokenType.EnumMemberLoop, IsPaired = false, Validity = TokenValidity.EnumMemberLoop, RequiresRepository = true },
+                new TokenMeta { Name = "ENUM_MEMBER_IMPLICIT_VALUE", TypeOfToken = TokenType.EnumMemberLoop, IsPaired = false, Validity = TokenValidity.EnumMemberLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "RELATION_NUMBER", TypeOfToken = TokenType.RelationLoop, IsPaired = false, Validity = TokenValidity.RelationLoop, RequiresRepository = true },
+                new TokenMeta { Name = "RELATION_NAME", TypeOfToken = TokenType.RelationLoop, IsPaired = false, Validity = TokenValidity.RelationLoop, RequiresRepository = true },
+                new TokenMeta { Name = "RELATION_FROMKEY", TypeOfToken = TokenType.RelationLoop, IsPaired = false, Validity = TokenValidity.RelationLoop, RequiresRepository = true },
+                new TokenMeta { Name = "RELATION_TOKEY", TypeOfToken = TokenType.RelationLoop, IsPaired = false, Validity = TokenValidity.RelationLoop, RequiresRepository = true },
+                new TokenMeta { Name = "RELATION_TOSTRUCTURE", TypeOfToken = TokenType.RelationLoop, IsPaired = false, Validity = TokenValidity.RelationLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "BUTTON_CAPTION", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+                new TokenMeta { Name = "BUTTON_COLPX", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+                new TokenMeta { Name = "BUTTON_ELB", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+                new TokenMeta { Name = "BUTTON_IMAGE", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+                new TokenMeta { Name = "BUTTON_METHOD", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+                new TokenMeta { Name = "BUTTON_NAME", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+                new TokenMeta { Name = "BUTTON_NUMBER", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+                new TokenMeta { Name = "BUTTON_QUICKSELECT", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+                new TokenMeta { Name = "BUTTON_ROWPX", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+                new TokenMeta { Name = "BUTTON_WIDTHPX", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
+
+                new TokenMeta { Name = "FLOOP_ADDRESSING", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
+                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "COMPRESSION"),
+                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP","CHANGE","TRACKING"),
+                new TokenMeta { Name = "FLOOP_DESC", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FLOOP_DENSITY", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FLOOP_NAME", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FLOOP_NAME_NOEXT", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FLOOP_PAGESIZE", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
+                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "RECTYPE"),
+                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "STATIC", "RFA"),
+                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "STORED", "GRFA"),
+                new TokenMeta { Name = "FLOOP_TYPE", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
+                new TokenMeta { Name = "FLOOP_UTEXT", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "TAGLOOP_CONNECTOR_C", TypeOfToken = TokenType.TagLoop, IsPaired = false, Validity = TokenValidity.TagLoop, RequiresRepository = true },
+                makeCasedLimited(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "CONNECTOR", "DBL"),
+                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "ALTNAME"),
+                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "BASENAME"),
+                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "NAME"),
+                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "ODBCNAME"),
+                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "ORIGINALNAME"),
+                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "SQLNAME"),
+                makeCasedLimited(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "OPERATOR", "DBL"),
+                new TokenMeta { Name = "TAGLOOP_OPERATOR_C", TypeOfToken = TokenType.TagLoop, IsPaired = false, Validity = TokenValidity.TagLoop, RequiresRepository = true },
+                new TokenMeta { Name = "TAGLOOP_SEQUENCE", TypeOfToken = TokenType.TagLoop, IsPaired = false, Validity = TokenValidity.TagLoop, RequiresRepository = true },
+                new TokenMeta { Name = "TAGLOOP_TAG_NAME", TypeOfToken = TokenType.TagLoop, IsPaired = false, Validity = TokenValidity.TagLoop, RequiresRepository = true },
+                new TokenMeta { Name = "TAGLOOP_TAG_VALUE", TypeOfToken = TokenType.TagLoop, IsPaired = false, Validity = TokenValidity.TagLoop, RequiresRepository = true },
+
+                new TokenMeta { Name = "WINDOW_HEIGHT", TypeOfToken = TokenType.Window, IsPaired = false, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "WINDOW_HEIGHTPX", TypeOfToken = TokenType.Window, IsPaired = false, Validity = TokenValidity.Anywhere },
+                makeCased(TokenType.Window, TokenValidity.Anywhere, false, "WINDOW", "NAME"),
+                new TokenMeta { Name = "WINDOW_WIDTH", TypeOfToken = TokenType.Window, IsPaired = false, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "WINDOW_WIDTHPX", TypeOfToken = TokenType.Window, IsPaired = false, Validity = TokenValidity.Anywhere },
+
+                new TokenMeta { Name = "COUNTER_1_INCREMENT", TypeOfToken = TokenType.CounterInstruction, IsPaired = false, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "COUNTER_1_DECREMENT", TypeOfToken = TokenType.CounterInstruction, IsPaired = false, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "COUNTER_1_RESET", TypeOfToken = TokenType.CounterInstruction, IsPaired = false, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "COUNTER_1_VALUE", TypeOfToken = TokenType.Counter, IsPaired = false, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "COUNTER_2_INCREMENT", TypeOfToken = TokenType.CounterInstruction, IsPaired = false, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "COUNTER_2_DECREMENT", TypeOfToken = TokenType.CounterInstruction, IsPaired = false, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "COUNTER_2_RESET", TypeOfToken = TokenType.CounterInstruction, IsPaired = false, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "COUNTER_2_VALUE", TypeOfToken = TokenType.Counter, IsPaired = false, Validity = TokenValidity.Anywhere },
+
+                new TokenMeta { Name = "IF", TypeOfToken = TokenType.Control, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "ELSE", TypeOfToken = TokenType.Control, IsPaired = true, Validity = TokenValidity.Anywhere },
+
+                new TokenMeta { Name = "STRUCTURE#1", TypeOfToken = TokenType.NotInLoop, IsPaired = false, Validity = TokenValidity.NotInLoop, RequiresRepository = true},
+                new TokenMeta { Name = "STRUCTURE#2", TypeOfToken = TokenType.NotInLoop, IsPaired = false, Validity = TokenValidity.NotInLoop, RequiresRepository = true},
+                new TokenMeta { Name = "STRUCTURE#3", TypeOfToken = TokenType.NotInLoop, IsPaired = false, Validity = TokenValidity.NotInLoop, RequiresRepository = true},
+                new TokenMeta { Name = "STRUCTURE#4", TypeOfToken = TokenType.NotInLoop, IsPaired = false, Validity = TokenValidity.NotInLoop, RequiresRepository = true},
+                new TokenMeta { Name = "STRUCTURE#5", TypeOfToken = TokenType.NotInLoop, IsPaired = false, Validity = TokenValidity.NotInLoop, RequiresRepository = true}
+            };
+
+            //Now process each of the replacement tokens that we have defined, adding them to our various lookup collections
+
+            foreach (TokenMeta tokenMeta in metaLookup)
+            {
+                addLookupToken(tokenMeta);
+            }
+
+            //This lambda processes the Dictionary of expression tokens declared below into the _expresionLookup collection.
+            //It is required because the declaration of expressions can a include bitwise OR of multiple valid TokenValidity
+            //settings. The lambda parses those out into a List<TokenVisibility> for ease of use elsewhere.
+
+            Func<Dictionary<string, TokenValidity>, Dictionary<string, List<TokenValidity>>> expressionLookupHelper = (initial) =>
+            {
+                Dictionary<string, List<TokenValidity>> result = new Dictionary<string, List<TokenValidity>>();
+
+                foreach (KeyValuePair<string, TokenValidity> exprTpl in initial)
+                {
+                    List<TokenValidity> expressionTypes = new List<TokenValidity>();
+                    foreach (Enum enumValue in Enum.GetValues(exprTpl.Value.GetType()))
+                        if (exprTpl.Value.HasFlag(enumValue))
+                            expressionTypes.Add((TokenValidity)enumValue);
+
+                    result.Add(exprTpl.Key, expressionTypes);
+                }
+                return result;
+            };
+
+            //Declare all of the expression tokens that we support. Multiple TokenValidity options can
+            //be specified by bitwair ORing the values together. See the notes on the expressionLookupHelper
+            //lambda above.
+
+            Dictionary<string, TokenValidity> expressions = new Dictionary<string, TokenValidity>();
+
+            expressions.Add("ALLOW_LIST", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ALPHA", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ALTERNATE_NAME", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ARRAY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ARRAY1", TokenValidity.FieldLoop);
+            expressions.Add("ARRAY2", TokenValidity.FieldLoop);
+            expressions.Add("ARRAY3", TokenValidity.FieldLoop);
+            expressions.Add("ARRAY4", TokenValidity.FieldLoop);
+            expressions.Add("ARRIVE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ASCENDING", TokenValidity.KeyLoop);
+            expressions.Add("ASCII", TokenValidity.FileLoop);
+            expressions.Add("AUTO_SEQUENCE", TokenValidity.KeyLoop);
+            expressions.Add("AUTO_TIMESTAMP", TokenValidity.KeyLoop);
+            expressions.Add("BINARY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("BOLD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("BOOLEAN", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("BREAK", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("BREAK_ALWAYS", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("BREAK_CHANGE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("BREAK_RETURN", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("BZERO", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("CANCEL_BUTTON", TokenValidity.ButtonLoop);
+            expressions.Add("CANCELBUTTON", TokenValidity.ButtonLoop);
+            expressions.Add("CAPTION", TokenValidity.ButtonLoop);
+            expressions.Add("CHANGE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("CHANGE_TRACKING", TokenValidity.FileLoop);
+            expressions.Add("CHANGES", TokenValidity.KeyLoop);
+            expressions.Add("CHECKBOX", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("COERCEBOOLEAN", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("COMBOBOX", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("COMPARISON_EQ", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_GE", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_GT", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_LE", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_LT", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_NE", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_NOT_EQ", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_NOT_GE", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_NOT_GT", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_NOT_LE", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_NOT_LT", TokenValidity.TagLoop);
+            expressions.Add("COMPARISON_NOT_NE", TokenValidity.TagLoop);
+            expressions.Add("CONNECTOR_AND", TokenValidity.TagLoop);
+            expressions.Add("CONNECTOR_NONE", TokenValidity.TagLoop);
+            expressions.Add("CONNECTOR_NOT_AND", TokenValidity.TagLoop);
+            expressions.Add("CONNECTOR_NOT_NONE", TokenValidity.TagLoop);
+            expressions.Add("CONNECTOR_NOT_OR", TokenValidity.TagLoop);
+            expressions.Add("CONNECTOR_OR", TokenValidity.TagLoop);
+            expressions.Add("COUNTER_1", TokenValidity.Anywhere);
+            expressions.Add("COUNTER_2", TokenValidity.Anywhere);
+            expressions.Add("CUSTOM_", TokenValidity.FieldLoop);
+            expressions.Add("CUSTOM_NOT_", TokenValidity.FieldLoop);
+            expressions.Add("DATE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_JULIAN", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_NOT_JULIAN", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_NOT_NULLABLE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_NOT_PERIOD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_NOT_YMD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_NOT_YYYYMMDD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_NULLABLE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_PERIOD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_YMD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_YYJJJ", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_YYMMDD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_YYPP", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_YYYYJJJ", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_YYYYMMDD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATE_YYYYPP", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATEORTIME", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DATETODAY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DEBUG_LOGGING", TokenValidity.Anywhere);
+            expressions.Add("DECIMAL", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DEFAULT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DESCENDING", TokenValidity.KeyLoop);
+            expressions.Add("DESCRIPTION", TokenValidity.FieldLoop | TokenValidity.EnumLoop | TokenValidity.FileLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DISABLED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DISPLAY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DISPLAY_LENGTH", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DRILL", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("DUPLICATES", TokenValidity.KeyLoop);
+            expressions.Add("DUPLICATESATFRONT", TokenValidity.KeyLoop);
+            expressions.Add("DUPLICATESATEND", TokenValidity.KeyLoop);
+            expressions.Add("ECHO", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("EDITFORMAT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ELB", TokenValidity.ButtonLoop);
+            expressions.Add("ENABLED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ENUM", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ENUMERATED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("EXPLICIT_VALUE", TokenValidity.EnumMemberLoop);
+            expressions.Add("FIELD_POSITION", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("FIELD_PREFIX", TokenValidity.Anywhere);
+            expressions.Add("FIELD_SUBSET", TokenValidity.Anywhere);
+            expressions.Add("FIRST", TokenValidity.FieldLoop | TokenValidity.FieldSelectionLoop | TokenValidity.ButtonLoop | TokenValidity.EnumLoop | TokenValidity.EnumMemberLoop | TokenValidity.FileLoop | TokenValidity.KeyLoop | TokenValidity.TagLoop);
+            expressions.Add("FORMAT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("GENERICBUTTON", TokenValidity.ButtonLoop);
+            expressions.Add("GROUP_EXPAND", TokenValidity.FieldLoop);
+            expressions.Add("GROUP_NO_EXPAND", TokenValidity.FieldLoop);
+            expressions.Add("HEADING", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("HELPID", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("HYPERLINK", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("I1", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("I124", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("I2", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("I4", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("I8", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("IMAGE", TokenValidity.ButtonLoop);
+            expressions.Add("INCREMENT", TokenValidity.KeySegmentLoop);
+            expressions.Add("INFOLINE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop | TokenValidity.FieldSelectionLoop);
+            expressions.Add("INPUT_CENTER", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("INPUT_LEFT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("INPUT_RIGHT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("INTEGER", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ISAM", TokenValidity.FileLoop);
+            expressions.Add("LANGUAGE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("LAST", TokenValidity.FieldLoop | TokenValidity.FieldSelectionLoop | TokenValidity.TagLoop);
+            expressions.Add("LEAVE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("LONG_DESCRIPTION", TokenValidity.EnumLoop);
+            expressions.Add("LONGDESC", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("MAPPED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("MAPPEDSTR", TokenValidity.FieldLoop);
+            expressions.Add("METHOD", TokenValidity.ButtonLoop);
+            expressions.Add("MORE", TokenValidity.AnyLoop);
+            expressions.Add("MULTIPLE_SEGMENTS", TokenValidity.KeyLoop);
+            expressions.Add("MULTIPLE_STRUCTURES", TokenValidity.Anywhere);
+            expressions.Add("MULTIPLE_TAGS", TokenValidity.TagLoop);
+            expressions.Add("NAMESPACE", TokenValidity.Anywhere);
+            expressions.Add("NEGATIVE_ALLOWED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NEGATIVE_ORZERO", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NEGATIVE_REQUIRED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOALLOW_LIST", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOALTERNATE_NAME", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOARRIVE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOBREAK", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOCHANGE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOCHANGE_TRACKING", TokenValidity.FileLoop);
+            expressions.Add("NOCHANGES", TokenValidity.KeyLoop);
+            expressions.Add("NOCHECKBOX", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOCOERCEBOOLEAN", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NODEFAULT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NODESCRIPTION", TokenValidity.FieldLoop | TokenValidity.FileLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NODISPLAY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NODISPLAY_LENGTH", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NODRILL", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NODUPLICATES", TokenValidity.KeyLoop);
+            expressions.Add("NOECHO", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOEDITFORMAT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOEXPLICIT_VALUE", TokenValidity.EnumMemberLoop);
+            expressions.Add("NOFORMAT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOHELPID", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOHYPERLINK", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOINCREMENT", TokenValidity.KeySegmentLoop);
+            expressions.Add("NOINFOLINE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOLANGUAGE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOLEAVE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOLONGDESC", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOMORE", TokenValidity.AnyLoop);
+            expressions.Add("NONEGATIVE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOPAINTCHAR", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOPRECISION", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOPROMPT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NORANGE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NORECORDCOMPRESSION", TokenValidity.FileLoop);
+            expressions.Add("NOREPORT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOSELECTIONS", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOSELWND", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOSTORED_GRFA", TokenValidity.FileLoop);
+            expressions.Add("NOT_COUNTER_1", TokenValidity.Anywhere);
+            expressions.Add("NOT_COUNTER_2", TokenValidity.Anywhere);
+            expressions.Add("NOT_USERTOKEN_", TokenValidity.Anywhere);
+            expressions.Add("NOTALPHA", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTARRAY", TokenValidity.FieldLoop);
+            expressions.Add("NOTASCII", TokenValidity.FileLoop);
+            expressions.Add("NOTBINARY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTBOOLEAN", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTBZERO", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTDATE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTDATEORTIME", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTDATETODAY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTDECIMAL", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTENUM", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTENUMERATED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTIMEOUT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTINTEGER", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTISAM", TokenValidity.FileLoop);
+            expressions.Add("NOTNUMERIC", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTOOLKIT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTOVERLAY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTPKSEGMENT", TokenValidity.FieldLoop);
+            expressions.Add("NOTRADIOBUTTONS", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTRECORDTYPEFIXED", TokenValidity.FileLoop);
+            expressions.Add("NOTRECORDTYPEMULTIPLE", TokenValidity.FileLoop);
+            expressions.Add("NOTRECORDTYPEVARIABLE", TokenValidity.FileLoop);
+            expressions.Add("NOTRELATIVE", TokenValidity.FileLoop);
+            expressions.Add("NOTSTATICRFA", TokenValidity.FileLoop);
+            expressions.Add("NOTSTRUCTFIELD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTTERABYTE", TokenValidity.FileLoop);
+            expressions.Add("NOTTIME", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTUPPERCASE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTUSER", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOTUSERDEFINED", TokenValidity.FileLoop);
+            expressions.Add("NOTUSERTIMESTAMP", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOUSERTEXT", TokenValidity.FieldLoop | TokenValidity.FileLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOVIEW_LENGTH", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NOWEB", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("NULLKEY", TokenValidity.KeyLoop);
+            expressions.Add("NULLVALUE", TokenValidity.KeyLoop);
+            expressions.Add("NUMERIC", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("OCNATIVE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("OCOBJECT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("OKBUTTON", TokenValidity.ButtonLoop);
+            expressions.Add("OPTIONAL", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("OVERLAY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("PAGESIZE1024", TokenValidity.FileLoop);
+            expressions.Add("PAGESIZE16384", TokenValidity.FileLoop);
+            expressions.Add("PAGESIZE2048", TokenValidity.FileLoop);
+            expressions.Add("PAGESIZE32768", TokenValidity.FileLoop);
+            expressions.Add("PAGESIZE4096", TokenValidity.FileLoop);
+            expressions.Add("PAGESIZE8192", TokenValidity.FileLoop);
+            expressions.Add("PAGESIZE512", TokenValidity.FileLoop);
+            expressions.Add("PAINTCHAR", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("PKSEGMENT", TokenValidity.FieldLoop);
+            expressions.Add("PRECISION", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("PROMPT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("PROMPT_POSITION", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("QUICKSELECT", TokenValidity.ButtonLoop);
+            expressions.Add("RADIOBUTTONS", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("RANGE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("READONLY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("READWRITE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("RECORDCOMPRESSION", TokenValidity.FileLoop);
+            expressions.Add("RECORDTYPEFIXED", TokenValidity.FileLoop);
+            expressions.Add("RECORDTYPEMULTIPLE", TokenValidity.FileLoop);
+            expressions.Add("RECORDTYPEVARIABLE", TokenValidity.FileLoop);
+            expressions.Add("RELATIVE", TokenValidity.FileLoop);
+            expressions.Add("REPORT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("REPORT_CENTER", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("REPORT_LEFT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("REPORT_RIGHT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("REQUIRED", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("REVERSE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_ALPHA", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_ASCENDING", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_AUTO_SEQUENCE", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_AUTO_TIMESTAMP", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_DECIMAL", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_DESCENDING", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_NOCASE", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_SIGNED", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_TYPE_EXTERNAL", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_TYPE_FIELD", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_TYPE_LITERAL", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_TYPE_RECNUM", TokenValidity.KeySegmentLoop);
+            expressions.Add("SEG_UNSIGNED", TokenValidity.KeySegmentLoop);
+            expressions.Add("SELECTIONS", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("SELWND", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("SINGLE_SEGMENT", TokenValidity.KeyLoop);
+            expressions.Add("SINGLE_TAG", TokenValidity.TagLoop);
+            expressions.Add("STATICRFA", TokenValidity.FileLoop);
+            expressions.Add("STORED_GRFA", TokenValidity.FileLoop);
+            expressions.Add("STRUCTFIELD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("STRUCTURE_FILES", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_KEYS", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_LDESC", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_RELATIONS", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_TAGS", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_UTEXT", TokenValidity.Anywhere);
+            expressions.Add("TERABYTE", TokenValidity.FileLoop);
+            expressions.Add("TEXTBOX", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("TIME", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("TIME_HHMM", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("TIME_HHMMSS", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("TIMENOW", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("TIMEOUT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("TOOLKIT", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("UNDERLINE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("UPPERCASE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("USER", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("USERDEFINED", TokenValidity.FileLoop);
+            expressions.Add("USERTEXT", TokenValidity.FieldLoop | TokenValidity.FileLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("USERTIMESTAMP", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("USERTOKEN_", TokenValidity.Anywhere);
+            expressions.Add("VERBOSE_LOGGING", TokenValidity.Anywhere);
+            expressions.Add("VIEW_LENGTH", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("WEB", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+
+            expressionLookup = expressionLookupHelper(expressions);
+
+        }
+
+        /// <summary>
+        /// This method takes the declaration of an expansion token and registers the token into
+        /// the lookup tables that are used to process supported token variations and validate the
+        /// location of tokens.
+        /// </summary>
+        /// <param name="meta">Token metadata object</param>
+        private void addLookupToken(TokenMeta meta)
+        {
+            if (meta.Modifiers.Count == 0)
+                modifierLookup.Add(meta.Name, TokenModifier.None);
+            else
+            {
+                foreach (KeyValuePair<string, TokenModifier> modifier in meta.Modifiers)
+                {
+                    modifierLookup.Add(modifier.Key, modifier.Value);
+
+                    //TODO: What is this doing? Ask Jeff why PascalCase needs special processing
+                    if (modifier.Value == TokenModifier.PascalCase)
+                    {
+                        string upperName = modifier.Key.ToUpper();
+                        if (upperName != meta.Name)
+                        {
+                            typeLookup.Add(upperName, meta.TypeOfToken);
+                            canonicalNameLookup.Add(upperName, meta.Name);
+                        }
+                    }
+                }
+            }
+
+            validityLookup.Add(meta.Name, meta.SeperatedValidity);
+            typeLookup.Add(meta.Name, meta.TypeOfToken);
+            requiresRps.Add(meta.Name,meta.RequiresRepository);
+            requiresNamespace.Add(meta.Name, meta.RequiresNamespace);
+            canonicalNameLookup.Add(meta.Name, meta.Name);
+
+            //If this is a paired token then add the closer to the closer lookup table
+            if (meta.IsPaired)
+            {
+                closerLookup.Add(meta.Name);
+            }
+        }
+
+        private string metaUpper(string name)
+        {
+            return name.ToUpper();
+        }
+
+        private string metaLower(string name)
+        {
+            return name;
+        }
+
+        private string metaMixed(string name)
+        {
+            return name.First().ToString().ToUpper() + String.Join("", name.Skip(1));
+        }
+
+        private string metaXf(string name, int index)
+        {
+            if (index == 0)
+                return name.First().ToString().ToUpper() + String.Join("", name.Skip(1));
+            else
+                return name;
+        }
+
+        private string metaPascal(string name)
+        {
+            return name.First().ToString().ToUpper() + String.Join("", name.Skip(1));
+        }
+
+        private string metaCamel(string name, int index)
+        {
+            if (index > 0)
+                return name.First().ToString().ToUpper() + String.Join("", name.Skip(1));
+            else
+                return name;
+        }
+
+        //TODO: These overloads are to support code conversion to Synergy .NET. They provide a workaround for a Synergy .NET compiler bug with param array arguments.
+        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1)
+        //{
+        //    return makeCased(aType, aValidity, new string[] { aPart1 });
+        //}
+        ////TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
+        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2)
+        //{
+        //    return makeCased(aType, aValidity, new string[] { aPart1, aPart2 });
+        //}
+        ////TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
+        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3)
+        //{
+        //    return makeCased(aType, aValidity, new string[] { aPart1, aPart2, aPart3 });
+        //}
+        ////TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
+        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3, string aPart4)
+        //{
+        //    return makeCased(aType, aValidity, new string[] { aPart1, aPart2, aPart3, aPart4 });
+        //}
+
+        /// <summary>
+        /// Creates a TokenMeta object for an expansion token that supports all case variation options.
+        /// </summary>
+        /// <param name="aType">Token type</param>
+        /// <param name="aValidity">Token validity</param>
+        /// <param name="aRequiresRps">Requires repository information</param>
+        /// <param name="aParts">Parts of token name (e.g. "FIELD_NAME" should be passed as "FIELD", "NAME")</param>
+        /// <returns>TokenMeta object</returns>
+        private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, bool aRequiresRps, params string[] aParts)
+        {
+            List<string> lowerCaseParts = aParts.Select(str => str.ToLower()).ToList();
+            List<string> upperCaseParts = aParts.Select(str => str.ToUpper()).ToList();
+
+            string upperCase = string.Join("_", lowerCaseParts.Select(metaUpper));
+            string lowerCase = string.Join("_", lowerCaseParts.Select(metaLower));
+            string mixedCase = string.Join("_", lowerCaseParts.Select(metaMixed));
+            string xfCase = string.Join("_", lowerCaseParts.Select(metaXf));
+            string pascalCase = string.Join("", lowerCaseParts.Select(metaPascal));
+            string camelCase = string.Join("", lowerCaseParts.Select(metaCamel));
+
+            TokenMeta result = new TokenMeta();
+            result.TypeOfToken = aType;
+            result.Name = string.Join("_", upperCaseParts);
+
+            result.Modifiers = new Dictionary<string, TokenModifier>();
+
+            result.Modifiers.Add(upperCase, TokenModifier.None);
+            result.Modifiers.Add(lowerCase, TokenModifier.LowerCase);
+            result.Modifiers.Add(pascalCase, TokenModifier.PascalCase);
+
+            if (aParts.Length > 1)
+            {
+                result.Modifiers.Add(xfCase, TokenModifier.XfCase);
+                result.Modifiers.Add(mixedCase, TokenModifier.MixedCase);
+                result.Modifiers.Add(camelCase, TokenModifier.CamelCase);
+            }
+
+            result.Validity = aValidity;
+
+            result.RequiresRepository = aRequiresRps;
+
+            return result;
+        }
+
+        private TokenMeta makeFieldSqlName(TokenType aType, TokenValidity aValidity)
+        {
+            //Had to hard code this one because the token does not follow usual rules!!!
+            TokenMeta result = new TokenMeta();
+            result.TypeOfToken = aType;
+            result.Name = "FIELD_SQLNAME";
+            result.Modifiers = new Dictionary<string, TokenModifier>();
+            result.Modifiers.Add("FIELD_SQLNAME", TokenModifier.None);
+            result.Modifiers.Add("field_sqlname", TokenModifier.LowerCase);
+            result.Modifiers.Add("Field_Sqlname", TokenModifier.MixedCase);
+            result.Modifiers.Add("Field_sqlname", TokenModifier.XfCase);
+            result.Modifiers.Add("FieldSqlName", TokenModifier.PascalCase);
+            result.Modifiers.Add("fieldSqlName", TokenModifier.CamelCase);
+            result.Validity = aValidity;
+            result.RequiresRepository = true;
+            return result;
+        }
+
+        private TokenMeta makeFieldNetName(TokenType aType, TokenValidity aValidity)
+        {
+            //Had to hard code this one because the token does not follow usual rules!!!
+            TokenMeta result = new TokenMeta();
+            result.TypeOfToken = aType;
+            result.Name = "FIELD_NETNAME";
+            result.Modifiers = new Dictionary<string, TokenModifier>();
+            result.Modifiers.Add("FIELD_NETNAME", TokenModifier.None);
+            result.Modifiers.Add("field_netname", TokenModifier.LowerCase);
+            result.Modifiers.Add("Field_Netname", TokenModifier.MixedCase);
+            result.Modifiers.Add("Field_netname", TokenModifier.XfCase);
+            result.Modifiers.Add("FieldNetName", TokenModifier.PascalCase);
+            result.Modifiers.Add("fieldNetName", TokenModifier.CamelCase);
+            result.Validity = aValidity;
+            result.RequiresRepository = true;
+            return result;
+        }
+
+        //TODO: These overloads are to support code conversion to Synergy .NET. They provide a workaround for a Synergy .NET compiler bug with param array arguments.
+        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1)
+        //{
+        //    return makeCasedLimited(aType, aValidity, new string[] { part1 });
+        //}
+        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2)
+        //{
+        //    return makeCasedLimited(aType, aValidity, new string[] { part1, part2 });
+        //}
+        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3)
+        //{
+        //    return makeCasedLimited(aType, aValidity, new string[] { part1, part2, part3 });
+        //}
+        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3, string part4)
+        //{
+        //    return makeCasedLimited(aType, aValidity, new string[] { part1, part2, part3, part4 });
+        //}
+
+        /// <summary>
+        /// Creates a TokenMeta object for an expansion token that supports only upper and lower case variations.
+        /// </summary>
+        /// <param name="aType">Token type</param>
+        /// <param name="aValidity">Token validity</param>
+        /// <param name="aRequiresRps">Requires repository information</param>
+        /// <param name="aParts">Parts of token name (e.g. "FIELD_NAME" should be passed as "FIELD", "NAME")</param>
+        /// <returns>TokenMeta object</returns>
+        private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, bool aRequiresRps, params string[] aParts)
+        {
+            List<string> lowerCaseParts = aParts.Select(str => str.ToLower()).ToList();
+            List<string> upperCaseParts = aParts.Select(str => str.ToUpper()).ToList();
+            string upperCase = string.Join("_", lowerCaseParts.Select(metaUpper));
+            string lowerCase = string.Join("_", lowerCaseParts.Select(metaLower));
+
+            TokenMeta result = new TokenMeta();
+            result.TypeOfToken = aType;
+            result.Name = string.Join("_", upperCaseParts);
+            result.Modifiers = new Dictionary<string, TokenModifier>();
+            result.Modifiers.Add(upperCase, TokenModifier.None);
+            result.Modifiers.Add(lowerCase, TokenModifier.LowerCase);
+            result.Validity = aValidity;
+            result.RequiresRepository = aRequiresRps;
+            return result;
+        }
+
+        /// <summary>
+        /// Expands Synergy logical names in a path specification.
+        /// </summary>
+        /// <param name="path">Path that may or may not contain Synergy logical name specifications.</param>
+        /// <returns>Path with logical name specifications expanded</returns>
+        private string expandLogicals(String path)
+        {
+            string newPath = path;
+            if (FileTools.ExpandLogicalName(ref newPath))
+                return newPath;
+            else
+                throw new ApplicationException(String.Format("Failed to expand logical names in {0}", path));
+        }
+
+        /// <summary>
+        /// This method is used to process pre-processor tokens, the resulting value of which could contain
+        /// other tokens. First the "value" associated with the token is obtained (from a file or environment
+        /// variable) and then that value is tokenized. The resulting tokens become part of the overall
+        /// token stream for the template file.
+        /// </summary>
+        /// <param name="initialToken">Value of pre-processor token (e.g. FILE:name.ext)</param>
+        /// <returns>Collection of tokens</returns>
+        private List<Token> tokenizePreProcessorToken(string initialToken)
+        {
+            //initialToken will contain one of:
+            //
+            //  ENV:envvar
+            //  ENVIFEXIST:data
+            //  FILE:filespec
+            //  FILEIFEXIST:filespec
+            //
+            //  Or the name of an optional user token that has embedded tokens in its value
+
+            string token = initialToken.IndexOf(":") == -1 ? initialToken : initialToken.Substring(0, initialToken.IndexOf(":"));
+            string data = initialToken.Replace(token + ":", "");
+            string filespec = "";
+            List<Token> tokens = new List<Token>();
+
+            switch (token)
+            {
+                case "FILE":
+                    try
+                    {
+                        filespec = expandLogicals(data);
+                        if (File.Exists(filespec))
+                            tokens = Tokenize(filespec);
+                        else
+                            throw new ApplicationException("");
+
+                    }
+                    catch (Exception)
+                    {
+                        throw new ApplicationException(String.Format("Failed to read file {0} while processing token <{1}>", filespec, initialToken));
+                    }
+                    break;
+
+                case "FILEIFEXIST":
+                    try
+                    {
+                        filespec = expandLogicals(data);
+                        if (File.Exists(filespec))
+                            tokens = Tokenize(filespec);
+                    }
+                    catch (Exception)
+                    {
+                        //That's OK, there was a problem expanding a logical, so we treat it as "file not found" for this token.
+                    }
+                    break;
+
+                case "ENV":
+                    if (Environment.GetEnvironmentVariable(data) == null)
+                        throw new ApplicationException(String.Format("Token <ENV:{0}> requires that environment variable {1} is defined!", data, data));
+                    tokens = Tokenize(Environment.GetEnvironmentVariable(data));
+                    break;
+
+                case "ENVIFEXIST":
+                    if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(data)))
+                        tokens = Tokenize(Environment.GetEnvironmentVariable(data));
+                    break;
+
+                default:
+                    //If we get here then we're dealing with an <OPTIONAL_USERTOKEN> that has
+                    //embedded tokens in its value. We already parsed out the values earlier,
+                    //so we just need to return them into the token stream.
+                    return optionalUserTokens[token];
+
+            }
+            return tokens;
+        }
+
+        /// <summary>
+        /// This is the Tokenize method that is used by GodeGenerator
+        /// </summary>
+        /// <param name="tokens"></param>
+        /// <returns></returns>
+        public bool TokenizeCurrentTemplate(out List<Token> tokens)
+        {
+            tokens = Tokenize(context.CurrentTemplate);
+            return (!errorsReported);
+        }
+
+        private void reportError(string message)
+        {
+            if (context != null)
+                context.CurrentTask.ErrorLog(message);
+            else
+                throw new ApplicationException(message);
+            errorsReported = true;
+        }
+
+        /// <summary>
+        /// This is the main entry point to the functionality of this class. The method can
+        /// be called with a string that contains either a full file specification, or just
+        /// one or more tokens. If the passed value is found to be a file then the content
+        /// of the file is read and tokenized. If the passed value is not found to be a file
+        /// spec then the value is tokenized. 
+        /// </summary>
+        /// <param name="fileSpecOrTemplateCode">
+        /// Full path to a template file, or a string to be tokenized.
+        /// </param>
+        /// <returns>Collection of tokens</returns>
+        public List<Token> Tokenize(string fileSpecOrTemplateCode)
+        {
+            string text;
+            string fileName;
+
+            //If we were passed a file spec then we'll try to read data from it.
+            //Otherwise we were just passed text that will be injected into the
+            //template code stream, e.g. from an <ENV:text> token.
+            if (File.Exists(fileSpecOrTemplateCode))
+            {
+                //We have a file spec, read template code from the file
+                try
+                {
+                    text = File.ReadAllText(fileSpecOrTemplateCode);
+                    fileName = fileSpecOrTemplateCode;
+                }
+                catch (Exception ex)
+                {
+                    reportError(String.Format("Failed to read file {0}. Error was {1}", fileSpecOrTemplateCode, ex.Message));
+                    return null;
+                }
+            }
+            else
+            {
+                text = fileSpecOrTemplateCode;
+                fileName = "";
+            }
+
+            int[] lineStarts = buildLineStarts(text);
+            List<Token> result = new List<Token>();
+
+            for (int i = 0; i < text.Length; )
+            {
+                PossibleToken nextToken = nextPossibleToken(i, text);
+
+                if (nextToken == null)
+                {
+                    //There was no next token, so add the remaining data as a final Text token
+                    result.Add(new Token(fileName, i, text.Length, false, text.Substring(i), TokenType.Text, TokenModifier.None, null, lineStarts, false, false));
+                    break;
+                }
+                else
+                {
+                    //Remove the <> parts, and an uppercase copy without any leading /
+                    string nextTokenValue = text.Substring(nextToken.StartsAtPosition + 1, (nextToken.EndsAtPosition - 1) - (nextToken.StartsAtPosition));
+                    string nextTokenValueUpper = nextTokenValue.ToUpper().TrimStart('/');
+
+                    //Is the token a closer?
+                    bool closer = nextTokenValue.StartsWith("/");
+
+                    //The next token isn't here, so we have just text. Add a Text token.
+                    if (nextToken.StartsAtPosition != i)
+                        result.Add(new Token(fileName, i, nextToken.StartsAtPosition - 1, false, text.Substring(i, nextToken.StartsAtPosition - i), TokenType.Text, TokenModifier.None, null, lineStarts, false, false));
+
+                    if (nextToken.IsComment)
+                    {
+                        //It's a template file comment. Ignore it!
+                    }
+                    else if (nextToken.IsPreProcessor)
+                    {
+                        //It's a pre-processor token. Tokenize it's "content".
+                        try
+                        {
+                            result.AddRange(tokenizePreProcessorToken(nextTokenValue));
+                        }
+                        catch (ApplicationException ex)
+                        {
+                            reportError(ex.Message);
+                            return null;
+                        }
+                    }
+                    else
+                    {
+                        //It's just a token (it's already been validated by nextPossibleToken)
+                        string cannonicalExpressionValue = canonicalNameLookup[nextTokenValueUpper];
+
+                        Token newToken = new Token(fileName, nextToken.StartsAtPosition, nextToken.EndsAtPosition, closer, cannonicalExpressionValue,
+                            typeLookup[nextTokenValueUpper], modifierLookup[nextTokenValue.TrimStart('/')],
+                            validityLookup[cannonicalExpressionValue], lineStarts, requiresRps[cannonicalExpressionValue], requiresNamespace[cannonicalExpressionValue]);
+
+                        //Are we adding an </OPTIONAL_USERTOKEN>?
+                        if (newToken.TypeOfToken == TokenType.FileHeader && newToken.Value == "OPTIONAL_USERTOKEN" && newToken.Closer)
+                        {
+                            //In most cases the previous token should be a text token, and the
+                            // one before that should be the matching <OPTIONAL_USERTOKEN>.
+                            //If this is not true then there are probably other tokens in the
+                            //expression!
+                            if (result[result.Count - 2].TypeOfToken == TokenType.FileHeader && result[result.Count - 2].Value == "OPTIONAL_USERTOKEN" && result[result.Count - 1].TypeOfToken == TokenType.Text)
+                            {
+                                //There is only a single text token between the <OPTIONAL_USERTOKEN>
+                                //tags. It should be a NAME=[VALUE] expression.
+
+                                //Make sure the format looks OK
+                                string userTokenExpression = result[result.Count - 1].Value;
+                                if (!userTokenExpression.Contains("=") || userTokenExpression.Trim().StartsWith("="))
+                                {
+                                    reportError("Token <OPTIONAL_USERTOKEN> contains an incorrectly formatted value!");
+                                    return null;
+                                }
+
+                                //Split the expression into its name and value parts
+                                string[] parts = userTokenExpression.Split('=');
+                                parts[0] = parts[0].ToUpper();
+
+                                //Do we already have a user token with this name?
+                                if (context.UserTokens.FirstOrDefault((token) => token.Name == parts[0]) == null)
+                                {
+                                    //No, so we'll add it using the default value provided
+                                    context.UserTokens.Add(new UserToken(parts[0], parts[1]));
+
+                                    //And register it with Tokenizer
+                                    TokenMeta newMeta = new TokenMeta();
+                                    newMeta.Name = parts[0];
+                                    newMeta.TypeOfToken = TokenType.User;
+                                    newMeta.Validity = TokenValidity.Anywhere;
+                                    addLookupToken(newMeta);
+                                }
+                            }
+                            else
+                            {
+                                //Find the index of the opening <OPTIONAL_USERTOKEN> token
+                                int index = (result.IndexOf(result.Last((token) => token.TypeOfToken == TokenType.FileHeader && token.Value == "OPTIONAL_USERTOKEN")));
+
+                                //Extract the subsequent tokens that represent the value for this token
+                                List<Token> valueTokens = result.Skip(index + 1).ToList();
+
+                                //Extract the user token name from the first node
+                                string tokenName = valueTokens[0].Value.Substring(0, valueTokens[0].Value.IndexOf("="));
+
+                                //Do we already have a user defined token with this name?
+                                if (context.UserTokens.FirstOrDefault((token) => token.Name == tokenName) == null)
+                                {
+                                    //No we don't. Remove the name and = from the first node
+                                    valueTokens[0].Value = valueTokens[0].Value.Remove(0, valueTokens[0].Value.IndexOf("=") + 1);
+
+                                    //If there is nothing left in the first text token then remove it
+                                    if (valueTokens[0].Value == String.Empty)
+                                        valueTokens.RemoveAt(0);
+
+                                    //Add the collection of tokens to the new dictionary
+                                    optionalUserTokens.Add(tokenName, valueTokens);
+
+                                    //Register with Tokenizer, but as a pre-processor type
+                                    TokenMeta newMeta = new TokenMeta();
+                                    newMeta.Name = tokenName;
+                                    newMeta.TypeOfToken = TokenType.PreProcessor;
+                                    newMeta.Validity = TokenValidity.Anywhere;
+                                    addLookupToken(newMeta);
+                                }
+                            }
+
+                        }
+
+                        result.Add(newToken);
+
+                    }
+
+                    i = nextToken.EndsAtPosition + 1;
+
+                    if (nextToken.IsExpression)
+                    {
+                        Tuple<int, int, List<TokenValidity>> nextExpression = nextExpressionToken(i, text);
+                        if (nextExpression != null)
+                        {
+                            string expressionValue = text.Substring(nextExpression.Item1, nextExpression.Item2 - nextExpression.Item1);
+
+                            //TODO: Does this expression require repository structure processing?
+                            bool requiresRps = false;
+                            
+                            result.Add(new Token(fileName, nextExpression.Item1, nextExpression.Item2, false, expressionValue, TokenType.Expression, TokenModifier.None, nextExpression.Item3, lineStarts, requiresRps, false));
+                            i = nextExpression.Item2 + 1;
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Returns an array of the offsets in the template file where new lines start.
+        /// </summary>
+        /// <param name="text"></param>
+        /// <returns></returns>
+        private static int[] buildLineStarts(string text)
+        {
+            List<int> lineStarts = new List<int>();
+            lineStarts.Add(0);
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                if ((text[i] == '\r' && text.Length > i + 1 && text[i + 1] == '\n') || text[i] == '\n')
+                {
+                    if (text[i] == '\n')
+                    {
+                        lineStarts.Add(i + 1);
+                    }
+                    else
+                    {
+                        lineStarts.Add(i + 2);
+                        i++;
+                    }
+                }
+            }
+            return lineStarts.ToArray();
+        }
+
+        /// <summary>
+        /// Represents a possible token in the template text.
+        /// </summary>
+        private class PossibleToken
+        {
+            public int StartsAtPosition;
+            public int EndsAtPosition;
+            public bool IsCloser;
+            public bool IsExpression;
+            public bool IsComment;
+            public bool IsPreProcessor;
+
+            public PossibleToken(int startIndex, int endIndex, bool closer, bool expression, bool comment, bool preProcessor)
+            {
+                StartsAtPosition = startIndex;
+                EndsAtPosition = endIndex;
+                IsCloser = closer;
+                IsExpression = expression;
+                IsComment = comment;
+                IsPreProcessor = preProcessor;
+            }
+        }
+
+        /// <summary>
+        /// Returns the next possible token in the template text.
+        /// </summary>
+        /// <param name="searchFrom">Position where to start looking for a possible token.</param>
+        /// <param name="templateText">Template text to search.</param>
+        /// <returns>PossibleToken instance, or null if no possible tokens found.</returns>
+        private PossibleToken nextPossibleToken(int searchFrom, string templateText)
+        {
+            bool foundPossibleToken = false;
+            bool isCloser = false;
+            bool isComment = false;
+            bool isExpression = false;
+            int possibleTokenStartsAt = -1;
+
+            //Character by character looking for a token
+
+            for (int i = searchFrom; i < templateText.Length; i++)
+            {
+                //Did we find a newline?
+                bool foundNewLine = ((templateText[i] == '\r' && templateText.Length > i + 1 && templateText[i + 1] == '\n') || templateText[i] == '\n');
+
+                //Did we find the start of a template file comment (;//)?
+                if (templateText.Length > i + 2 && templateText[i] == ';' && templateText[i + 1] == '/' && templateText[i + 2] == '/')
+                {
+                    possibleTokenStartsAt = i;
+                    isComment = true;
+                }
+                else if (isComment && foundNewLine)
+                {
+                    //We found the END of a template file comment
+                    if (templateText[i] == '\r' && templateText.Length > i + 1 && templateText[i + 1] == '\n')
+                        i++;
+                    return new PossibleToken(possibleTokenStartsAt, i, false, false, true, false);
+                }
+                else if (isComment)
+                {
+                    //We're looking for the newline at the end of a comment and didn't find it.
+                    //Move on to the next character.
+                    continue;
+                }
+                else if (foundPossibleToken && templateText[i] == '<')
+                {
+                    //Looks like the previous < we found wasn't the start of a token after all!
+                    //Start over with the < that we just found
+                    possibleTokenStartsAt = i;
+                    isCloser = false;
+                }
+                else if (!foundPossibleToken)
+                {
+                    //Still looking for the start of a possible token. Do we have one now?
+                    if (templateText[i] == '<')
+                    {
+                        //Yes, this could be the start of a token!
+                        isCloser = false;
+                        foundPossibleToken = true;
+                        possibleTokenStartsAt = i;
+                    }
+                }
+                else //(if foundPossibleToken)
+                {
+                    //We previously found < and we're winding forward to figure out what it is
+
+                    //Did we find the end of a possible token?
+                    //Or a space MIGHT indicate an expression
+
+                    if (templateText[i] == '/' && i - possibleTokenStartsAt == 1)
+                    {
+                        //It's a / and it's next to the <. so it's a possible closer token
+                        isCloser = true;
+                    }
+                    else if (char.IsControl(templateText[i]))
+                    {
+                        //It's a control character, so the token we were looking at can't be a token
+                        foundPossibleToken = false;
+                        possibleTokenStartsAt = -1;
+                        isExpression = false;
+                    }
+                    else if (templateText[i] == '>' || templateText[i] == ' ')
+                    {
+                        //So we found a > or a space after an <
+
+                        //For it to be a POSSIBLE expression the previous two characters need to be IF
+                        if ((templateText[i] == ' ') && (i >= 2) && (templateText[i - 2] == 'I') && (templateText[i - 1] == 'F'))
+                            isExpression = true;
+
+                        //Get the start and end indexes of the VALUE of the possible token (withoit the < > or " ")
+                        int realStartIndex = (possibleTokenStartsAt + 1);
+                        int realEndIndex = i - 1;
+                        if (isCloser)
+                            realStartIndex += 1;
+
+                        //Make sure we aren't looking at a > or " " immediately after the <
+                        if ((realEndIndex - realStartIndex + 1) > 0)
+                        {
+                            string nextToken = templateText.Substring(realStartIndex, realEndIndex - realStartIndex + 1);
+                            if (nextToken.Contains(':') && nextToken != ":")
+                            {
+                                nextToken = nextToken.Split(':')[0];
+                                if (isPreProcessorToken(nextToken))
+                                {
+                                    return new PossibleToken(possibleTokenStartsAt, i, isCloser, isExpression, false, true);
+                                }
+                                else
+                                {
+                                    //So we thought we had a token, but it turns out we don't!
+                                    foundPossibleToken = false;
+                                    possibleTokenStartsAt = -1;
+                                }
+                            }
+                            else
+                            {
+                                if (isValidToken(nextToken))
+                                    return new PossibleToken(possibleTokenStartsAt, i, isCloser, isExpression, false, optionalUserTokens.ContainsKey(nextToken));
+                                else
+                                {
+                                    //So we thought we had a token, but it turns out we don't!
+                                    foundPossibleToken = false;
+                                    possibleTokenStartsAt = -1;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            //The > or " " was right after the <
+                            //Ignore the < and move on
+                            possibleTokenStartsAt = -1;
+                            isCloser = false;
+                            isExpression = false;
+                            foundPossibleToken = false;
+                        }
+                    }
+                }
+            }
+
+            //TODO: I think the intention was never to get here, but sometimes we do!
+            return null;
+
+        }
+
+        /// <summary>
+        /// Does a string represent the name of a known token?
+        /// </summary>
+        /// <param name="tokenValue">Value to test</param>
+        /// <returns>true if the value is the name of a token, otherwise false</returns>
+        private bool isValidToken(string tokenValue)
+        {
+            if (tokenValue.StartsWith("/"))
+                return closerLookup.Contains(tokenValue.ToUpper());
+            else
+                return modifierLookup.ContainsKey(tokenValue);
+        }
+
+        /// <summary>
+        /// Does a string represent the name of a known pre-processor token?
+        /// </summary>
+        /// <param name="tokenValue">Value to test</param>
+        /// <returns>true if the value is the name of a pre-processor token, otherwise false</returns>
+        private bool isPreProcessorToken(string tokenValue)
+        {
+            if (typeLookup.ContainsKey(tokenValue.ToUpper()))
+                return (typeLookup[tokenValue.ToUpper()] == TokenType.PreProcessor);
+            else
+                return false;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="startIndex"></param>
+        /// <param name="text"></param>
+        /// <returns></returns>
+        private Tuple<int, int, List<TokenValidity>> nextExpressionToken(int startIndex, string text)
+        {
+            bool startedToken = false;
+            int startedTokenIndex = -1;
+            for (int i = startIndex; i < text.Length; i++)
+            {
+                if (!startedToken)
+                {
+                    if (char.IsLetter(text[i]))
+                    {
+                        startedToken = true;
+                        startedTokenIndex = i;
+                    }
+                }
+                else
+                {
+                    if (char.IsLetterOrDigit(text[i]) || text[i] == '_')
+                    {
+                        continue;
+                    }
+                    else if (text[i] == ' ' || text[i] == '>')
+                    {
+                        List<TokenValidity> expressionType;
+
+                        string expstring = text.Substring(startedTokenIndex, i - startedTokenIndex);
+
+                        if (expressionLookup.TryGetValue(expstring, out expressionType))
+                        {
+                            return Tuple.Create(startedTokenIndex, i, expressionType);
+                        }
+                        else if (expstring.ToUpper().StartsWith("CUSTOM_"))
+                        {
+                            return Tuple.Create(startedTokenIndex, i, customValidity);
+                        }
+                        else if ((expstring.ToUpper().StartsWith("USERTOKEN_")) || (expstring.ToUpper().StartsWith("NOT_USERTOKEN_")))
+                        {
+                            return Tuple.Create(startedTokenIndex, i, userTokenValidity);
+                        }
+                        else
+                        {
+                            //Invalid expression
+                            reportError(String.Format("Invalid expression <IF {0}> at offset {1}!", expstring, startedTokenIndex - 4, ""));
+                            break;
+                        }
+                    }
+                    else if (char.IsControl(text[i]))
+                        break;
+                    else
+                    {
+                        startedToken = false;
+                        startedTokenIndex = -1;
+                    }
+                }
+            }
+            return null;
+        }
+
+
+        /// <summary>
+        /// Writes the current collection of tokens to a file for debugging purposes.
+        /// </summary>
+        /// <param name="tokens">Collection of tokens.</param>
+        /// <param name="fileSpec">File to write tokens to.</param>
+        /// <returns>Returns true if the file was successfully created</returns>
+        public static bool WriteTokensToFile(List<Token> tokens, string fileSpec)
+        {
+            try
+            {
+                using (StreamWriter file = File.CreateText(fileSpec))
+                {
+                    foreach (Token tkn in tokens)
+                    {
+                        file.WriteLine(tkn.ToString());
+                    }
+                    file.Close();
+                }
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private void loadUserTokens()
+        {
+            //Plug in user-defined tokens
+            if ((context.UserTokens != null) && (context.UserTokens.Count > 0))
+            {
+                foreach (UserToken userToken in context.UserTokens)
+                {
+                    TokenMeta newMeta = new TokenMeta();
+                    newMeta.Name = userToken.Name;
+                    newMeta.TypeOfToken = TokenType.User;
+                    newMeta.Validity = TokenValidity.Anywhere;
+                    addLookupToken(newMeta);
+                }
+            }
+        }
+
+        private void loadCustomExpanders()
+        {
+            //Plug in custom token expanders
+            if (context.CustomTokenExpanders != null && context.CustomTokenExpanders.Count > 0)
+            {
+                foreach (Tuple<String, String, TokenValidity, TokenCaseMode, Func<Token, FileNode, IEnumerable<LoopNode>, String>> customexpander in context.CustomTokenExpanders)
+                {
+                    switch (customexpander.Item3)
+                    {
+                        case TokenValidity.Anywhere:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.Generic, TokenValidity.Anywhere, false, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.Generic, TokenValidity.Anywhere, false, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.Generic, Validity = TokenValidity.Anywhere, RequiresRepository = false });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.NotInLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.AnyLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.LoopUtility, TokenValidity.AnyLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.LoopUtility, TokenValidity.AnyLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.LoopUtility, Validity = TokenValidity.AnyLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.FieldLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.FieldLoop, TokenValidity.FieldLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.FieldLoop, Validity = TokenValidity.FieldLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.FieldSelectionLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.FieldSelectionLoop, TokenValidity.FieldSelectionLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.FieldSelectionLoop, TokenValidity.FieldSelectionLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.FieldSelectionLoop, Validity = TokenValidity.FieldSelectionLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.KeyLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.KeyLoop, TokenValidity.KeyLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.KeyLoop, TokenValidity.KeyLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.KeyLoop, Validity = TokenValidity.KeyLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.KeySegmentLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.KeySegmentLoop, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.EnumLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.EnumLoop, TokenValidity.EnumLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.EnumLoop, TokenValidity.EnumLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.EnumLoop, Validity = TokenValidity.EnumLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.EnumMemberLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.EnumMemberLoop, TokenValidity.EnumMemberLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.EnumMemberLoop, TokenValidity.EnumMemberLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.EnumMemberLoop, Validity = TokenValidity.EnumMemberLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.RelationLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.RelationLoop, TokenValidity.RelationLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.RelationLoop, TokenValidity.RelationLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.RelationLoop, Validity = TokenValidity.RelationLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.TagLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.TagLoop, TokenValidity.TagLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.TagLoop, Validity = TokenValidity.TagLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.StructureLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.StructureLoop, TokenValidity.StructureLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.StructureLoop, TokenValidity.StructureLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.StructureLoop, Validity = TokenValidity.StructureLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.ButtonLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.ButtonLoop, TokenValidity.ButtonLoop, false, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.ButtonLoop, TokenValidity.ButtonLoop, false, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.ButtonLoop, Validity = TokenValidity.ButtonLoop, RequiresRepository = false });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+
+                        case TokenValidity.FileLoop:
+                            switch (customexpander.Item4)
+                            {
+                                case TokenCaseMode.AllCasingOptions:
+                                    addLookupToken(makeCased(TokenType.FileLoop, TokenValidity.FileLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseAndLowerCase:
+                                    addLookupToken(makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, customexpander.Item1.Split('_')));
+                                    break;
+                                case TokenCaseMode.UppercaseOnly:
+                                    addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.FileLoop, Validity = TokenValidity.FileLoop, RequiresRepository = true });
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+                    }
+                }
+            }
+        }
+
+        private void loadCustomEvaluators()
+        {
+            //Plug in custom expression evaluators
+            if (context.CustomExpressionEvaluators != null && context.CustomExpressionEvaluators.Count > 0)
+            {
+                foreach (Tuple<string, string, TokenValidity, Func<Token, FileNode, IEnumerable<LoopNode>, bool>> extension in context.CustomExpressionEvaluators)
+                {
+                    List<TokenValidity> expressionTypes = new List<TokenValidity>();
+                    foreach (Enum enumValue in Enum.GetValues(extension.Item3.GetType()))
+                    {
+                        if (extension.Item3.HasFlag(enumValue))
+                        {
+                            expressionTypes.Add((TokenValidity)enumValue);
+                        }
+                    }
+                    expressionLookup.Add(extension.Item1, expressionTypes);
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,345 @@
+;;*****************************************************************************
+;;
+;; Title:       MainWindowViewModel.dbl
+;;
+;; Type:        Class
+;;
+;; Description: ViewModel for MainWindow
+;;
+;; Date:        30th July 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import Microsoft.Win32
+import System
+import System.Collections.ObjectModel
+import System.ComponentModel
+import System.IO
+import System.Reflection
+import System.Windows
+import System.Windows.Input
+
+namespace TemplateBrowser
+	
+	public class MainWindowViewModel extends ViewModelBase
+		
+		private templateFolder, String
+		
+.region "Constructors"
+		
+		public method MainWindowViewModel
+			endparams
+		proc
+			
+			CodeGenTemplates = new ObservableCollection<TemplateProxy>()
+			SymphonyTemplates = new ObservableCollection<TemplateProxy>()
+			UserTemplates = new ObservableCollection<TemplateProxy>()
+			
+			data fileSpec, String
+			
+			;;--------------------------------------------------
+			;;Load CodeGen sample templates
+
+			data templateFolder, String
+			data templateFolderFound, boolean, false
+			
+			templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
+			if (!String.IsNullOrWhiteSpace(templateFolder)) then
+				templateFolderFound = true
+			else if (Environment.Is64BitProcess)
+			begin
+				templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","TemplatePath","")
+				if (!String.IsNullOrWhiteSpace(templateFolder))
+					templateFolderFound = true
+			end
+
+			if (!templateFolderFound)
+			begin
+				data codeBase, string, Assembly.GetExecutingAssembly().CodeBase
+				data uri, @UriBuilder, new UriBuilder(codeBase)
+				data path, string, Uri.UnescapeDataString(uri.Path)
+				data binFolder, string, Path.GetDirectoryName(path)
+				
+				if (binFolder.Contains("\Bin\Release")||binFolder.Contains("\Bin\Debug"))
+				begin
+					templateFolder = binFolder + "\..\..\SampleTemplates"
+					templateFolderFound = true
+				end
+			end
+
+			if (templateFolderFound)
+			begin
+				foreach fileSpec in Directory.GetFiles(templateFolder,"*.tpl")
+					CodeGenTemplates.Add(new TemplateProxy(fileSpec))
+			end
+			
+			;;--------------------------------------------------
+			;;Load Symphony Framework templates
+			
+			data symphonyTemplateFolder, String, Environment.GetEnvironmentVariable("SYMPHONYTPL")
+			if (symphonyTemplateFolder!=^null)
+			begin
+				foreach fileSpec in Directory.GetFiles(symphonyTemplateFolder,"*.tpl")
+				SymphonyTemplates.Add(new TemplateProxy(fileSpec))
+			end
+			
+			;;--------------------------------------------------
+			;;Load user templates
+			
+			loadUserTemplates()
+			
+			;;--------------------------------------------------
+			;;Display the first user template
+			
+			if (UserTemplates.Count>0)
+				SelectedTemplate = UserTemplates[0]
+			
+		endmethod
+		
+.endregion
+		
+.region "Main bindable properties"
+		
+		private mCodeGenTemplates, @ObservableCollection<TemplateProxy>
+		
+		public property CodeGenTemplates, @ObservableCollection<TemplateProxy>
+			method get
+			proc
+				mreturn mCodeGenTemplates
+			endmethod
+			method set
+			proc
+				mCodeGenTemplates = value
+			endmethod
+		endproperty
+		
+		private mSymphonyTemplates, @ObservableCollection<TemplateProxy>
+		
+		public property SymphonyTemplates, @ObservableCollection<TemplateProxy>
+			method get
+			proc
+				mreturn mSymphonyTemplates
+			endmethod
+			method set
+			proc
+				mSymphonyTemplates = value
+			endmethod
+		endproperty
+		
+		private mUserTemplates, @ObservableCollection<TemplateProxy>
+		
+		public property UserTemplates, @ObservableCollection<TemplateProxy>
+			method get
+			proc
+				mreturn mUserTemplates
+			endmethod
+			method set
+			proc
+				mUserTemplates = value
+			endmethod
+		endproperty
+		
+		private mSelectedTemplate, @TemplateProxy
+		
+		public property SelectedTemplate, @TemplateProxy
+			method get
+			proc
+				mreturn mSelectedTemplate
+			endmethod
+			method set
+			proc
+				mSelectedTemplate = value
+				NotifyPropertyChanged("SelectedTemplate")
+				if (mSelectedTemplate.OriginalContent==^null)
+				begin
+					try
+					begin
+						mSelectedTemplate.OriginalContent = File.ReadAllText(SelectedTemplate.FullPath)
+					end
+					catch (e, @Exception)
+					begin
+						mSelectedTemplate.OriginalContent = "Failed to read template file. Error was " + e.Message
+					end
+					finally
+					begin
+						mSelectedTemplate.Content = mSelectedTemplate.OriginalContent
+					end
+					endtry
+				end
+			endmethod
+		endproperty
+		
+		private mTabSetEnabled, boolean, true
+		
+		public property TabSetEnabled, boolean
+			method get
+			proc
+				mreturn mTabSetEnabled
+			endmethod
+			method set
+			proc
+				mTabSetEnabled = value
+				NotifyPropertyChanged("TabSetEnabled")
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "SaveCommand"
+		
+		private mSaveCommand, @ICommand
+		
+		public property SaveCommand, @ICommand
+			method get
+			proc
+				if (mSaveCommand==^null)
+					mSaveCommand = new RelayCommand(doSave,canSave)
+				mreturn mSaveCommand
+			endmethod
+		endproperty
+		
+		private method canSave, Boolean
+			required in param, @Object
+			endparams
+		proc
+			data canSave, boolean
+			canSave = ((SelectedTemplate!=^null)&&SelectedTemplate.DataHasChanged)
+			TabSetEnabled = !canSave
+			mreturn canSave
+		endmethod
+		
+		private method doSave, void
+			required in param, @Object
+			endparams
+		proc
+			SelectedTemplate.Save()
+		endmethod
+		
+.endregion
+		
+.region "UndoCommand"
+		
+		private mUndoCommand, @ICommand
+		
+		public property UndoCommand, @ICommand
+			method get
+			proc
+				if (mUndoCommand==^null)
+					mUndoCommand = new RelayCommand(doUndo,canUndo)
+				mreturn mUndoCommand
+			endmethod
+		endproperty
+		
+		private method canUndo, Boolean
+			required in param, @Object
+			endparams
+		proc
+			mreturn ((SelectedTemplate!=^null)&&SelectedTemplate.DataHasChanged)
+		endmethod
+		
+		private method doUndo, void
+			required in param, @Object
+			endparams
+		proc
+			SelectedTemplate.DiscardChanges()
+		endmethod
+		
+.endregion
+		
+.region "OptionsCommand"
+		
+		private mOptionsCommand, @ICommand
+		
+		public property OptionsCommand, @ICommand
+			method get
+			proc
+				if (mOptionsCommand==^null)
+					mOptionsCommand = new RelayCommand(doOptions)
+				mreturn mOptionsCommand
+			endmethod
+		endproperty
+		
+		private method doOptions, void
+			required in param, @Object
+			endparams
+		proc
+			data dialog, @OptionsDialog, new OptionsDialog()
+			dialog.ShowDialog()
+			loadUserTemplates()
+		endmethod
+		
+.endregion
+		
+.region "ExitCommand"
+		
+		private mExitCommand, @ICommand
+		
+		public property ExitCommand, @ICommand
+			method get
+			proc
+				if (mExitCommand==^null)
+					mExitCommand = new RelayCommand(doExit)
+				mreturn mExitCommand
+			endmethod
+		endproperty
+		
+		private method doExit, void
+			required in param, @Object
+			endparams
+		proc
+			Application.Current.Shutdown()
+		endmethod
+		
+.endregion
+		
+.region "Helper methods"
+		
+		private method loadUserTemplates, void
+			endparams
+		proc
+			UserTemplates.Clear()
+			data fileSpec, String
+			data userTemplatesFolder, String, Properties.Settings.Default.UserTemplateFolder
+			if (!string.IsNullOrWhiteSpace(userTemplatesFolder)&&Directory.Exists(userTemplatesFolder))
+			begin
+				foreach fileSpec in Directory.GetFiles(userTemplatesFolder,"*.tpl")
+				UserTemplates.Add(new TemplateProxy(fileSpec))
+			end
+			
+		endmethod
+		
+.endregion
+		
+	endclass
+	
+endnamespace

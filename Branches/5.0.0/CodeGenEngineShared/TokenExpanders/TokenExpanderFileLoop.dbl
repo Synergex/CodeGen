@@ -1,0 +1,313 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TokenExpanderFileLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Expands file loop token nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class TokenExpander
+
+        fileLoopTokenExpanders, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>
+
+        private method registerFileLoopTokens, void
+            endparams
+		proc
+
+			fileLoopTokenExpanders = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>()
+
+            fileLoopTokenExpanders.Add("FLOOP_ADDRESSING", expandFloopAddressing)
+            fileLoopTokenExpanders.Add("FLOOP_CHANGE_TRACKING", expandFloopChangeTracking)
+            fileLoopTokenExpanders.Add("FLOOP_COMPRESSION", expandFloopCompression)
+            fileLoopTokenExpanders.Add("FLOOP_DENSITY", expandFloopDensity)
+            fileLoopTokenExpanders.Add("FLOOP_DESC", expandFloopDesc)
+            fileLoopTokenExpanders.Add("FLOOP_NAME", expandFloopName)
+            fileLoopTokenExpanders.Add("FLOOP_NAME_NOEXT", expandFloopNameNoExt)
+            fileLoopTokenExpanders.Add("FLOOP_PAGESIZE", expandFloopPageSize)
+            fileLoopTokenExpanders.Add("FLOOP_RECTYPE", expandFloopRecType)
+            fileLoopTokenExpanders.Add("FLOOP_STATIC_RFA", expandFloopStaticRfa)
+            fileLoopTokenExpanders.Add("FLOOP_STORED_GRFA", expandFloopStoredGrfa)
+            fileLoopTokenExpanders.Add("FLOOP_TYPE", expandFloopType)
+			fileLoopTokenExpanders.Add("FLOOP_UTEXT", expandFloopUserText)
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="tkn"></param>
+        ;;;  <param name="file"></param>
+        ;;;  <param name="loops"></param>
+        ;;;  <param name="specific"></param>
+        ;;;  <returns></returns>
+        public static method ExpandFileLoopToken, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<RpsFile, string> 
+            endparams
+        proc
+            lambda isFileLoop(node)
+            begin
+                mreturn node .is. FileLoopNode
+            end
+			data loop, @FileLoopNode, ^as(loops.First(isFileLoop), FileLoopNode)
+            mreturn specific(loop.CurrentFile)
+        endmethod
+
+        private static method expandFloopAddressing, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                data value, string, ""
+                using (currentFile.Addressing) select
+                (RpsFileAddressing.Addressing32Bit),
+                    value = "32"
+                (RpsFileAddressing.Addressing40Bit),
+                    value = "40"
+                endusing
+                mreturn value
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopChangeTracking, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                mreturn currentFile.ChangeTracking ? "YES" : " NO"
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopCompression, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                mreturn currentFile.RecordCompression ? "YES" : "NO"
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopDensity, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                mreturn currentFile.Density.ToString()
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopDesc, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                mreturn currentFile.Description
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopName, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                mreturn currentFile.FileSpec
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopNameNoExt, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                data value, string, currentFile.FileSpec
+                ;; Remove the file extension
+                if (value.Contains("."))
+                    value = value.Substring(0, value.LastIndexOf("."))
+                mreturn value
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopPageSize, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                data value, string, ""
+                using (currentFile.PageSize) select
+                (RpsFilePageSize.PageSize512),
+                    value = "512"
+                (RpsFilePageSize.PageSize1024),
+                    value = "1024"
+                (RpsFilePageSize.PageSize2048),
+                    value = "2048"
+                (RpsFilePageSize.PageSize4096),
+                    value = "4096"
+                (RpsFilePageSize.PageSize8192),
+                    value = "8192"
+                (RpsFilePageSize.PageSize16384),
+                    value = "16384"
+                (RpsFilePageSize.PageSize32768),
+                    value = "32768"
+                (),
+                    value = "4096"
+                endusing
+                mreturn value
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopRecType, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                data value, string, ""
+                using (currentFile.RecordType) select
+                (RpsRecordType.FixedLength),
+                    value = "FIXED"
+                (RpsRecordType.MultipleFixedLength),
+                    value = "MULTIPLE"
+                (RpsRecordType.VariableLength),
+                    value = "VARIABLE"
+                endusing
+                mreturn value
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopStaticRfa, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                mreturn currentFile.StaticRFA ? "YES" : "NO"
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopStoredGrfa, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                mreturn currentFile.StoredGRFA ? "YES" : "NO"
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopType, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                mreturn currentFile.FileType
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+        endmethod
+
+        private static method expandFloopUserText, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(currentFile)
+            begin
+                mreturn currentFile.UserText
+            end
+            mreturn ExpandFileLoopToken(tkn, file, loops, doExpand)
+		endmethod
+
+	endclass
+
+endnamespace

@@ -1,0 +1,294 @@
+;;*****************************************************************************
+;;
+;; Title:       ProfileManager.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Manages RpsBrowser profiles.
+;;
+;; Date:        21st August 2012
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.IO
+import System.Text
+import RpsBrowser.Tools
+
+namespace RpsBrowser.Profiles
+
+	public class ProfileManager
+		
+        private mProfileFolder, String
+        private mProfiles, @List<Profile>
+		
+		public method ProfileManager
+			endparams
+		proc
+            data di, @DirectoryInfo, new DirectoryInfo(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData))
+            
+            mProfileFolder = String.Format("{0}\{1}\{2}",di.FullName,AssemblyInfo.Company,AssemblyInfo.Product)
+            if (!Directory.Exists(mProfileFolder))
+				Directory.CreateDirectory(mProfileFolder)
+            loadProfiles()
+		endmethod
+
+        public property ProfileFolder, String
+            method get
+            proc
+                mreturn mProfileFolder
+            endmethod
+            method set
+            proc
+                mProfileFolder = value
+            endmethod
+        endproperty
+        
+
+        public property Profiles, @List<Profile>
+            method get
+            proc
+                mreturn mProfiles
+            endmethod
+            method set
+            proc
+                mProfiles = value
+            endmethod
+        endproperty
+        
+		public method ShowProfileManager, void
+			endparams
+		proc
+			data dlg, @ProfilesDialog, new ProfilesDialog(this)
+			dlg.ShowDialog()
+		endmethod
+		
+        public method ShowProfileManager, void
+            required in aProfileName, String
+            endparams
+        proc
+            data dlg, @ProfilesDialog, new ProfilesDialog(this,aProfileName)
+            dlg.ShowDialog()
+        endmethod
+        
+        public method ProfileExists	,Boolean
+			required in aProfileName,String
+			endparams
+        proc
+            mreturn File.Exists(String.Format("{0}\{1}.profile",mProfileFolder,aProfileName))
+		endmethod
+
+		public method ActivateProfile, Boolean
+			required in aProfileName,String
+            endparams
+        proc
+            data ok, Boolean, false
+            ;;Locate the profile in the collection
+            data p, @Profile
+            foreach p in mProfiles
+            begin
+                if (p.Name.Equals(aProfileName))
+                begin
+                    ok = setProfileLogicals(p)
+                    exitloop
+                end
+            end
+            mreturn ok
+		endmethod
+	
+        public method ValidateProfiles, Boolean
+            required out aMessages, @List<String>
+            endparams
+        proc
+            data ok, Boolean, true
+            aMessages = new List<String>()
+            data p, @Profile
+            foreach p in mProfiles
+            begin
+                if (String.IsNullOrWhiteSpace(p.RpsMainFile)) then
+                begin
+                    aMessages.Add(string.Format("Profile {0} has no repository main file specified.",p.Name))
+                    ok = false
+                end
+                else if (!File.Exists(p.RpsMainFile))
+                begin
+                    aMessages.Add(string.Format("Profile {0} repository main file does not exist.",p.Name))
+                    ok = false
+                end
+                if (String.IsNullOrWhiteSpace(p.RpsTextFile)) then
+                begin
+                    aMessages.Add(string.Format("Profile {0} has no repository text file specified.",p.Name))
+                    ok = false
+                end
+                else if (!File.Exists(p.RpsTextFile))
+                begin
+                    aMessages.Add(string.Format("Profile {0} repository text file does not exist.",p.Name))
+                    ok = false
+                end
+                data l, @Profile.Logical
+                foreach l in p.Logicals
+                begin
+                    if (String.IsNullOrWhiteSpace(l.LogicalName)||String.IsNullOrWhiteSpace(l.Value))
+                    begin
+                        aMessages.Add(string.Format("Profile {0} has one or more logical names without a name or value.",p.Name))
+                        ok = false
+                        exitloop
+                    end
+                end
+            end
+            mreturn ok
+        endmethod
+
+        public method SaveAllProfiles, Boolean
+            endparams
+        proc
+            data ok, Boolean, true
+            data p, @Profile
+            foreach p in mProfiles
+                if (!saveProfile(p))
+                    ok = false
+            mreturn ok
+        endmethod
+
+        public method DeleteProfile, Boolean
+            required in aProfile, @Profile
+            endparams
+        proc
+            data ok, Boolean, true
+            try
+            begin
+                ;;Remove the profile from the profiles collection
+                mProfiles.Remove(aProfile)
+                ;;And delete it from disk
+                data fileSpec, String, string.Format("{0}\{1}.profile",mProfileFolder,aProfile.Name)
+                File.Delete(fileSpec)
+            end
+            catch (e, @Exception)
+            begin
+                ok = false
+            end
+            endtry
+            mreturn ok
+        endmethod
+
+        private method loadProfiles, void
+            endparams
+        proc
+            mProfiles = new List<Profile>()
+            data di, @DirectoryInfo, new DirectoryInfo(mProfileFolder)
+            data fi, @FileInfo
+            foreach fi in di.EnumerateFiles("*.profile")
+                mProfiles.Add(loadProfile(fi.FullName))
+        endmethod
+        
+        private method loadProfile, @Profile
+            required in aFileSpec, String
+            endparams
+        proc
+            data xs, @System.Xml.Serialization.XmlSerializer, new System.Xml.Serialization.XmlSerializer(^typeof(Profile))
+            disposable data fs, @System.IO.FileStream, new System.IO.FileStream(aFileSpec,System.IO.FileMode.Open)
+            data xr, @System.Xml.XmlReader, new System.Xml.XmlTextReader(fs)
+            data p, @Profile, (Profile)xs.Deserialize(xr)
+            p.Name = Path.GetFileNameWithoutExtension(aFileSpec)
+            mreturn p
+        endmethod
+        
+        private method saveProfile, Boolean
+            required in aProfile, @Profile
+            endparams
+        proc
+            data ok, Boolean, true
+            data sw, @System.IO.StreamWriter
+            try
+            begin
+                data xs, @System.Xml.Serialization.XmlSerializer, new System.Xml.Serialization.XmlSerializer(aProfile.GetType())
+                data fileSpec, String, string.Format("{0}\{1}.profile",mProfileFolder,aProfile.Name)
+                sw = System.IO.File.CreateText(fileSpec)
+                xs.Serialize(sw,aProfile)
+            end
+            catch (e, @Exception)
+            begin
+                ok = false
+            end
+            finally
+            begin
+                if (sw!=^null)
+                begin
+                    try
+                    begin
+                        sw.Close()
+                        sw.Dispose()
+                    end
+                    catch (e, @Exception)
+                    begin
+                        nop
+                    end
+                    endtry
+                end    
+            end
+            endtry
+            mreturn ok
+        endmethod
+        
+        private method setProfileLogicals, Boolean
+            required in aProfile, @Profile
+            endparams
+        proc
+            data ok, Boolean
+            data sts, int
+
+            ;;Make sure we have a repository
+            if ( !String.IsNullOrWhiteSpace(aProfile.RpsMainFile)
+            & && !String.IsNullOrWhiteSpace(aProfile.RpsTextFile)
+            & && File.Exists(aProfile.RpsMainFile)
+            & && File.Exists(aProfile.RpsTextFile))
+            begin
+                ;;Set repository logicals
+                setlog("RPSMFIL",aProfile.RpsMainFile,sts)
+                setlog("RPSTFIL",aProfile.RpsTextFile,sts)
+                
+                ;;Set data logicals with setlog
+                data logical, @Profile.Logical
+                foreach logical in aProfile.Logicals
+                    if (!String.IsNullOrWhiteSpace(logical.LogicalName)&&!String.IsNullOrWhiteSpace(logical.Value))
+                        setlog(logical.LogicalName,logical.value,sts)
+                ok = true
+            end
+            mreturn ok
+        endmethod
+
+	endclass
+
+endnamespace
+

@@ -1,0 +1,246 @@
+;;*****************************************************************************
+;;
+;; Title:       CreateFile.dbl
+;;
+;; Type:        Program
+;;
+;; Description: Create data files from repository definitions.
+;;
+;; Date:        3rd April 2007
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections.Generic
+import CodeGen.Engine
+
+namespace CreateFile
+	
+	;;; <summary>
+	;;; The main entry point for the application.
+	;;; </summary>
+	main CreateFile
+	
+		.define APP_NAME        "CreateFile"
+		.define APP_VERSION     "V2.0"
+	
+		.include "RPSLIB:ddinfo.def"
+	
+		record
+			tt					,i4			;;Terminal channel
+			ok                  ,i4			;;OK to continue
+			filename            ,String     ;File to process
+			strname             ,String     ;Structure to process
+			filespec            ,String     ;File to create
+			filecreated         ,String     ;File created
+			errtxt              ,String     ;Error text
+			replace             ,boolean    ;Replace existing files?
+			rpsopen             ,d1         ;Is the repository open?
+			clvalues			,@List<String>
+		endrecord
+		
+		structure struct
+			,a30
+		endstructure
+		
+	proc
+		
+		ok=TRUE
+
+		open(tt=0,i,"tt:")
+		xcall flags(7004000,1)
+		xcall flags(20,0)
+		
+		;---------------------------------------------------------------------------
+		;Are we being asked for usage information?
+		
+		if (CommandLineParser.Parse("h"))
+		begin
+			call usage
+			ok = false
+		end
+		
+		;---------------------------------------------------------------------------
+		;Do we have a file name?
+		
+		if (ok)
+		begin
+			filename = ""
+			if (CommandLineParser.Parse("f",clvalues))
+			begin
+				if (clvalues.Count) then
+					filename = clvalues[0]
+				else
+				begin
+					writes(tt,"No file name found after the -f option, use -h for help!")
+					ok=FALSE
+				end
+			end
+		end
+		
+		;---------------------------------------------------------------------------
+		;Do we have a structure name?
+		
+		if (ok)
+		begin
+			strname = ""
+			if (CommandLineParser.Parse("s",clvalues))
+			begin
+				if (clvalues.Count) then
+					strname = clvalues[0]
+			else
+				begin
+					writes(tt,"No structure name found after the -s option, use -h for help!")
+					ok=FALSE
+				end
+			end
+		end
+
+		;---------------------------------------------------------------------------
+		;Make sure we have a file name or a structure name
+		
+		if (ok)
+		begin
+			if (!filename.Length&&!strname.Length)
+			begin
+				writes(tt,"You must specify a file (-f) or structure (-s), use -h for help!")
+				ok=FALSE
+			end
+		end
+		
+		;---------------------------------------------------------------------------
+		;Make sure we don't have both file and structure names
+		
+		if (ok)
+		begin
+			if (filename.Length&&strname.Length)
+			begin
+				writes(tt,"Options -f and -s can't be used together, use -h for help!")
+				ok=FALSE
+			end
+		end
+		
+		;---------------------------------------------------------------------------
+		;Check for a filespec option
+		
+		if (ok)
+		begin
+			filespec = ""
+			if (CommandLineParser.Parse("out",clvalues))
+			begin
+				if (clvalues.Count) then
+					filespec = clvalues[0]
+				else
+				begin
+					writes(tt,"No file specification found after the -out option, use -h for help!")
+					ok=FALSE
+				end
+			end
+		end
+		
+		;---------------------------------------------------------------------------
+		;Check for "replace existing files" option
+		
+		if (ok)
+			replace = CommandLineParser.Parse("r ")
+		
+		;---------------------------------------------------------------------------
+		;Open the repository
+		
+		if (ok)
+		begin
+			xcall dd_init(dcs)
+			if (dcs.error) then
+			begin
+				writes(tt,"Failed to open repository!")
+				ok=FALSE
+			end
+			else
+				rpsopen=TRUE
+		end
+		
+		;---------------------------------------------------------------------------
+		;Create the file
+		
+		if (ok)
+		begin
+			data success, boolean
+
+			if (filename.Length) then
+				success = CreateFileFromRpsFile(dcs,filename,replace,filespec,filecreated,errtxt)
+			else
+				success = CreateFileFromRpsStruct(dcs,strname,replace,filespec,filecreated,errtxt)
+
+			if (success) then
+				writes(tt,filecreated + " -> " + errtxt)
+			else
+				writes(tt,errtxt)
+		end
+		
+		;---------------------------------------------------------------------------
+		;Clean up and exit
+		
+		if (rpsopen)
+			xcall dd_exit(dcs)
+			
+		close tt
+		stop
+		
+	usage,
+		
+		writes(tt,"")
+		writes(tt,APP_NAME + " " + APP_VERSION)
+		
+		;Limit for text    -------------------------------------------------------------------------------
+		writes(tt,"")
+		writes(tt,"  CreateFile -f <fname> | -s <sname> [-out <filespec>] [-r] [-h]")
+		writes(tt,"")
+		writes(tt,"    -f <fname>")
+		writes(tt,"          Name of repository file definition to process")
+		writes(tt,"")
+		writes(tt,"    -s <sname>")
+		writes(tt,"          Name of repository structure definition to process")
+		writes(tt,"")
+		writes(tt,"    -out <filespec>")
+		writes(tt,"          File spec of file to create, overriding repository file spec")
+		writes(tt,"")
+		writes(tt,"    -r    Replace existing files. The default is not to replace existing files")
+		writes(tt,"")
+		writes(tt,"    -h    Display this usage information")
+		writes(tt,"")
+		
+		return
+		
+	endmain
+
+endnamespace
+

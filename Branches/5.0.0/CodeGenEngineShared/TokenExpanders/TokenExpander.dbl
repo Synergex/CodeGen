@@ -1,0 +1,285 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TokenExpander.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Expands token nodes to produce a replacement string
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class TokenExpander
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="context"></param>
+        public method TokenExpander
+            context, @CodeGenContext 
+            endparams
+        proc
+            registerButtonLoopTokens()
+            registerEnumLoopTokens()
+            registerEnumMemberLoopTokens()
+            registerFieldLoopTokens()
+            registerFileLoopTokens()
+            registerGenericTokens()
+            registerKeyLoopTokens()
+            registerLoopUtilityTokens()
+            registerNotInLoopTokens()
+            registerRelationLoopTokens()
+            registerSegmentLoopTokens()
+            registerSelectionLoopTokens()
+            registerStructureTokens()
+            registerStructureLoopTokens()
+            registerTagLoopTokens()
+            registerUserTokens(context)
+            registerWindowLoopTokens()
+            registerCustomExpanders(context)
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="tkn"></param>
+        ;;;  <param name="file"></param>
+        ;;;  <param name="loops"></param>
+        ;;;  <returns></returns>
+        public method ExpandToken, string
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+
+			lambda doNoExpanderMessage()
+            begin
+                mreturn string.Format("CODEGEN BUG: No expander method was found for {0} token <{1}>. Define a new expander method in TokenExpander.", tkn.TypeOfToken.ToString(), tkn.Value)
+            end
+			data noExpanderMessage, @Func<string>, doNoExpanderMessage
+
+			lambda doExpandExpressionMessage()
+            begin
+                mreturn string.Format("CODEGEN BUG: An invalid request was received to EXPAND (not evaluate) {0} <IF {1}>.", tkn.TypeOfToken.ToString(), tkn.Value)
+            end
+			data expandExpressionMessage, @Func<string>, doExpandExpressionMessage
+			
+			lambda doFindAndRunExpander(expanders)
+            begin
+                if (expanders.ContainsKey(tkn.Value)) then
+                    mreturn ChangeResultCase(expanders[tkn.Value](tkn, file, loops), tkn.Modifier)
+                else
+                    throw new ApplicationException(noExpanderMessage())
+            end
+			data findAndRunExpander, @Func<Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>, string>, doFindAndRunExpander
+			
+			;; Main dispatcher for expansion token replacement
+			
+			using (tkn.TypeOfToken) select
+
+			(TokenType.Generic, TokenType.Counter, TokenType.CounterInstruction),
+                mreturn findAndRunExpander(genericTokenExpanders)
+			
+			(TokenType.StructureInfo),
+                mreturn findAndRunExpander(structureTokenExpanders)
+			
+			(TokenType.NotInLoop),
+                mreturn findAndRunExpander(notInLoopTokenExpanders)
+			
+			(TokenType.FieldLoop),
+                mreturn findAndRunExpander(fieldLoopTokenExpanders)
+			
+			(TokenType.FieldSelectionLoop),
+                mreturn findAndRunExpander(fieldSelectionLoopTokenExpanders)
+			
+			(TokenType.KeyLoop),
+                mreturn findAndRunExpander(keyLoopTokenExpanders)
+			
+			(TokenType.KeySegmentLoop),
+				mreturn findAndRunExpander(keySegmentLoopTokenExpanders)
+			
+			(TokenType.EnumLoop),
+                mreturn findAndRunExpander(enumLoopTokenExpanders)
+			
+			(TokenType.EnumMemberLoop),
+                mreturn findAndRunExpander(enumMemberLoopTokenExpanders)
+			
+			(TokenType.RelationLoop),
+                mreturn findAndRunExpander(relationLoopTokenExpanders)
+			
+			(TokenType.ButtonLoop),
+                mreturn findAndRunExpander(buttonLoopTokenExpanders)
+			
+			(TokenType.TagLoop),
+                mreturn findAndRunExpander(tagLoopTokenExpanders)
+			
+			(TokenType.FileLoop),
+                mreturn findAndRunExpander(fileLoopTokenExpanders)
+			
+			(TokenType.LoopUtility),
+                mreturn findAndRunExpander(loopUtilityTokenExpanders)
+			
+			(TokenType.Window),
+                mreturn findAndRunExpander(windowTokenExpanders)
+			
+			(TokenType.User),
+                mreturn findAndRunExpander(userTokenExpanders)
+			
+			(TokenType.StructureLoop),
+                mreturn findAndRunExpander(structureLoopTokenExpanders)
+			
+			(),
+            begin
+                if (tkn.TypeOfToken == TokenType.Expression) then
+                    throw new ApplicationException(expandExpressionMessage())
+                else
+                    throw new ApplicationException(noExpanderMessage())
+            end
+			
+			endusing
+		
+		endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="value"></param>
+        ;;;  <param name="modifier"></param>
+        ;;;  <returns></returns>
+        public static method ChangeResultCase, string
+            value, string 
+            modifier, TokenModifier 
+            endparams
+        proc
+            using modifier select
+			
+			(TokenModifier.CamelCase),
+                mreturn StringTools.CamelCase(value)
+			
+			(TokenModifier.LowerCase),
+                mreturn value.ToLower()
+			
+			(TokenModifier.MixedCase),
+                mreturn StringTools.MixedCase(value)
+			
+			(TokenModifier.None),
+                mreturn value
+			
+			(TokenModifier.PascalCase),
+                mreturn StringTools.PascalCase(value)
+			
+			(TokenModifier.XfCase),
+                mreturn StringTools.XfCase(value)
+			
+			(),
+                mreturn value
+			
+			endusing
+		endmethod
+
+        private method registerCustomExpanders, void
+            context, @CodeGenContext 
+            endparams
+        proc
+            ;; Plug in any custom token expanders
+            if ((context.CustomTokenExpanders != ^null) && (context.CustomTokenExpanders.Count > 0))
+            begin
+                data customExpander, @Tuple<String, String, TokenValidity, TokenCaseMode, Func<Token, FileNode, IEnumerable<LoopNode>, String>>
+				
+				foreach customExpander in context.CustomTokenExpanders
+                begin
+                    using (customExpander.Item3) select
+					
+					(TokenValidity.Anywhere),
+                        genericTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.NotInLoop),
+                        notInLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.AnyLoop),
+                        loopUtilityTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.FieldLoop),
+                        fieldLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.FieldSelectionLoop),
+                        fieldSelectionLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.KeyLoop),
+                        keyLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.KeySegmentLoop),
+                        keySegmentLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.EnumLoop),
+                        enumLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.EnumMemberLoop),
+                        enumMemberLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.RelationLoop),
+                        relationLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.TagLoop),
+                        tagLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.StructureLoop),
+                        structureTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.ButtonLoop),
+                        buttonLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					(TokenValidity.FileLoop),
+                        fileLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+					
+					endusing
+                end
+            end
+        endmethod
+	
+	endclass
+
+endnamespace
+

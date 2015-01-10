@@ -1,0 +1,2530 @@
+;; *****************************************************************************
+;; 
+;;  Title:       ExpressionEvaluatorFieldLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Evaluates field loop expression nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+import CodeGen.RepositoryAPI
+import System.IO
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class ExpressionEvaluator
+
+        fieldLoopExpressionEvaluators, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
+
+        private method registerFieldLoopExpressions, void
+            endparams
+        proc
+			
+			fieldLoopExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
+
+            fieldLoopExpressionEvaluators.Add("ALLOW_LIST", evaluateFieldAllowList)
+            fieldLoopExpressionEvaluators.Add("ALPHA", evaluateFieldAlpha)
+            fieldLoopExpressionEvaluators.Add("ALTERNATE_NAME", evaluateFieldAlternateName)
+            fieldLoopExpressionEvaluators.Add("ARRAY", evaluateFieldArray)
+            fieldLoopExpressionEvaluators.Add("ARRAY1", evaluateFieldArray1)
+            fieldLoopExpressionEvaluators.Add("ARRAY2", evaluateFieldArray2)
+            fieldLoopExpressionEvaluators.Add("ARRAY3", evaluateFieldArray3)
+            fieldLoopExpressionEvaluators.Add("ARRAY4", evaluateFieldArray4)
+            fieldLoopExpressionEvaluators.Add("ARRIVE", evaluateFieldArrive)
+            fieldLoopExpressionEvaluators.Add("BINARY", evaluateFieldBinary)
+            fieldLoopExpressionEvaluators.Add("BOLD", evaluateFieldBold)
+            fieldLoopExpressionEvaluators.Add("BOOLEAN", evaluateFieldBoolean)
+            fieldLoopExpressionEvaluators.Add("BREAK", evaluateFieldBreak)
+            fieldLoopExpressionEvaluators.Add("BREAK_ALWAYS", evaluateFieldBreakAlways)
+            fieldLoopExpressionEvaluators.Add("BREAK_CHANGE", evaluateFieldBreakChange)
+            fieldLoopExpressionEvaluators.Add("BREAK_RETURN", evaluateFieldBreakReturn)
+            fieldLoopExpressionEvaluators.Add("BZERO", evaluateFieldBzero)
+            fieldLoopExpressionEvaluators.Add("CHANGE", evaluateFieldChange)
+            fieldLoopExpressionEvaluators.Add("CHECKBOX", evaluateFieldCheckBox)
+            fieldLoopExpressionEvaluators.Add("COERCEBOOLEAN", evaluateFieldCoerceBoolean)
+            fieldLoopExpressionEvaluators.Add("COMBOBOX", evaluateFieldComboBox)
+            fieldLoopExpressionEvaluators.Add("DATE", evaluateFieldDate)
+            fieldLoopExpressionEvaluators.Add("DATE_JULIAN", evaluateFieldDateJulian)
+            fieldLoopExpressionEvaluators.Add("DATE_NOT_JULIAN", evaluateFieldDateNotJulian)
+            fieldLoopExpressionEvaluators.Add("DATE_NOT_NULLABLE", evaluateFieldDateNotNullable)
+            fieldLoopExpressionEvaluators.Add("DATE_NOT_PERIOD", evaluateFieldDateNotPeriod)
+            fieldLoopExpressionEvaluators.Add("DATE_NOT_YMD", evaluateFieldDateNotYMD)
+            fieldLoopExpressionEvaluators.Add("DATE_NOT_YYYYMMDD", evaluateFieldDateNotYYYYMMDD)
+            fieldLoopExpressionEvaluators.Add("DATE_NULLABLE", evaluateFieldDateNullable)
+            fieldLoopExpressionEvaluators.Add("DATE_PERIOD", evaluateFieldDatePeriod)
+            fieldLoopExpressionEvaluators.Add("DATE_YMD", evaluateFieldDateYMD)
+            fieldLoopExpressionEvaluators.Add("DATE_YYJJJ", evaluateFieldDayeYYJJJ)
+            fieldLoopExpressionEvaluators.Add("DATE_YYMMDD", evaluateFieldDateYYMMDD)
+            fieldLoopExpressionEvaluators.Add("DATE_YYPP", evaluateFieldDateYYPP)
+            fieldLoopExpressionEvaluators.Add("DATE_YYYYJJJ", evaluateFieldDateYYYYJJJ)
+            fieldLoopExpressionEvaluators.Add("DATE_YYYYMMDD", evaluateFieldDateYYYYMMDD)
+            fieldLoopExpressionEvaluators.Add("DATE_YYYYPP", evaluateFieldYYYYPP)
+            fieldLoopExpressionEvaluators.Add("DATEORTIME", evaluateFieldDateOrTime)
+            fieldLoopExpressionEvaluators.Add("DATETODAY", evaluateFieldDateToday)
+            fieldLoopExpressionEvaluators.Add("DECIMAL", evaluateFieldDecimal)
+            fieldLoopExpressionEvaluators.Add("DEFAULT", evaluateFieldDefault)
+            fieldLoopExpressionEvaluators.Add("DESCRIPTION", evaluateFieldDescription)
+            fieldLoopExpressionEvaluators.Add("DISABLED", evaluateFieldDisabled)
+            fieldLoopExpressionEvaluators.Add("DISPLAY", evaluateFieldDisplay)
+            fieldLoopExpressionEvaluators.Add("DISPLAY_LENGTH", evaluateFieldDisplayLength)
+            fieldLoopExpressionEvaluators.Add("DRILL", evaluateFieldDrill)
+            fieldLoopExpressionEvaluators.Add("ECHO", evaluateFieldEcho)
+            fieldLoopExpressionEvaluators.Add("EDITFORMAT", evaluateFieldEditFormat)
+            fieldLoopExpressionEvaluators.Add("ENABLED", evaluateFieldEnabled)
+            fieldLoopExpressionEvaluators.Add("ENUM", evaluateFieldEnum)
+            fieldLoopExpressionEvaluators.Add("ENUMERATED", evaluateFieldEnumerated)
+            fieldLoopExpressionEvaluators.Add("FIELD_POSITION", evaluateFieldPosition)
+            fieldLoopExpressionEvaluators.Add("FORMAT", evaluateFieldFormat)
+            fieldLoopExpressionEvaluators.Add("GROUP_EXPAND", evaluateFieldGroupExpand)
+            fieldLoopExpressionEvaluators.Add("GROUP_NO_EXPAND", evaluateFieldGroupNoExpand)
+            fieldLoopExpressionEvaluators.Add("HEADING", evaluateFieldHeading)
+            fieldLoopExpressionEvaluators.Add("HELPID", evaluateFieldHelpID)
+            fieldLoopExpressionEvaluators.Add("HYPERLINK", evaluateFieldHyperlink)
+            fieldLoopExpressionEvaluators.Add("I1", evaluateFieldI1)
+            fieldLoopExpressionEvaluators.Add("I124", evaluateFieldI123)
+            fieldLoopExpressionEvaluators.Add("I2", evaluateFieldI2)
+            fieldLoopExpressionEvaluators.Add("I4", evaluateFieldI4)
+            fieldLoopExpressionEvaluators.Add("I8", evaluateFieldI8)
+            fieldLoopExpressionEvaluators.Add("INFOLINE", evaluateFieldInfoLine)
+            fieldLoopExpressionEvaluators.Add("INPUT_CENTER", evaluateFieldInputCenter)
+            fieldLoopExpressionEvaluators.Add("INPUT_LEFT", evaluateFieldInputLeft)
+            fieldLoopExpressionEvaluators.Add("INPUT_RIGHT", evaluateFieldInputRight)
+            fieldLoopExpressionEvaluators.Add("INTEGER", evaluateFieldInteger)
+            fieldLoopExpressionEvaluators.Add("LANGUAGE", evaluateFieldLanguage)
+            fieldLoopExpressionEvaluators.Add("LEAVE", evaluateFieldLeave)
+            fieldLoopExpressionEvaluators.Add("LONGDESC", evaluateFieldLongDescription)
+            fieldLoopExpressionEvaluators.Add("MAPPED", evaluateFieldMapped)
+            fieldLoopExpressionEvaluators.Add("MAPPEDSTR", evaluateFieldMappedStr)
+            fieldLoopExpressionEvaluators.Add("NEGATIVE_ALLOWED", evaluateFieldNegativeAllowed)
+            fieldLoopExpressionEvaluators.Add("NEGATIVE_ORZERO", evaluateFieldNegativeOrZero)
+            fieldLoopExpressionEvaluators.Add("NEGATIVE_REQUIRED", evaluateFieldNegativeRequired)
+            fieldLoopExpressionEvaluators.Add("NOALLOW_LIST", evaluateFieldNoAllowList)
+            fieldLoopExpressionEvaluators.Add("NOALTERNATE_NAME", evaluateFieldNoAlternateName)
+            fieldLoopExpressionEvaluators.Add("NOARRIVE", evaluateFieldNoArrive)
+            fieldLoopExpressionEvaluators.Add("NOBREAK", evaluateFieldNoBreak)
+            fieldLoopExpressionEvaluators.Add("NOCHANGE", evaluateFieldNoChange)
+            fieldLoopExpressionEvaluators.Add("NOCHECKBOX", evaluateFieldNoCheckBox)
+            fieldLoopExpressionEvaluators.Add("NOCOERCEBOOLEAN", evaluateFieldNoCoerceBoolean)
+            fieldLoopExpressionEvaluators.Add("NODEFAULT", evaluateFieldNoDefault)
+            fieldLoopExpressionEvaluators.Add("NODESCRIPTION", evaluateFieldNoDescription)
+            fieldLoopExpressionEvaluators.Add("NODISPLAY", evaluateFieldNoDisplay)
+            fieldLoopExpressionEvaluators.Add("NODISPLAY_LENGTH", evaluateFieldNoDisplayLength)
+            fieldLoopExpressionEvaluators.Add("NODRILL", evaluateFieldNoDrill)
+            fieldLoopExpressionEvaluators.Add("NOECHO", evaluateFieldNoEcho)
+            fieldLoopExpressionEvaluators.Add("NOEDITFORMAT", evaluateFieldNoEditFormat)
+            fieldLoopExpressionEvaluators.Add("NOFORMAT", evaluateFieldNoFormat)
+            fieldLoopExpressionEvaluators.Add("NOHELPID", evaluateFieldNoHelpID)
+            fieldLoopExpressionEvaluators.Add("NOHYPERLINK", evaluateFieldNoHyperlink)
+            fieldLoopExpressionEvaluators.Add("NOINFOLINE", evaluateFieldNoInfoLine)
+            fieldLoopExpressionEvaluators.Add("NOLANGUAGE", evaluateFieldNoLanguage)
+            fieldLoopExpressionEvaluators.Add("NOLEAVE", evaluateFieldNoLeave)
+            fieldLoopExpressionEvaluators.Add("NOLONGDESC", evaluateFieldNoLongDescription)
+            fieldLoopExpressionEvaluators.Add("NONEGATIVE", evaluateFieldNoNegative)
+            fieldLoopExpressionEvaluators.Add("NOPAINTCHAR", evaluateFieldNoPaintChar)
+            fieldLoopExpressionEvaluators.Add("NOPRECISION", evaluateFieldNoPrecision)
+            fieldLoopExpressionEvaluators.Add("NOPROMPT", evaluateFieldNoPrompt)
+            fieldLoopExpressionEvaluators.Add("NORANGE", evaluateFieldNoRange)
+            fieldLoopExpressionEvaluators.Add("NOREPORT", evaluateFieldNoReport)
+            fieldLoopExpressionEvaluators.Add("NOSELECTIONS", evaluateFieldNoSelections)
+            fieldLoopExpressionEvaluators.Add("NOSELWND", evaluateFieldNoSelWnd)
+            fieldLoopExpressionEvaluators.Add("NOTALPHA", evaluateFieldNotAlpha)
+            fieldLoopExpressionEvaluators.Add("NOTARRAY", evaluateFieldNotArray)
+            fieldLoopExpressionEvaluators.Add("NOTBINARY", evaluateFieldNotBinary)
+            fieldLoopExpressionEvaluators.Add("NOTBOOLEAN", evaluateFieldNotBoolean)
+            fieldLoopExpressionEvaluators.Add("NOTBZERO", evaluateFieldNotBzero)
+            fieldLoopExpressionEvaluators.Add("NOTDATE", evaluateFieldNotDate)
+            fieldLoopExpressionEvaluators.Add("NOTDATEORTIME", evaluateFieldNotDateOrTime)
+            fieldLoopExpressionEvaluators.Add("NOTDATETODAY", evaluateFieldNotDateToday)
+            fieldLoopExpressionEvaluators.Add("NOTDECIMAL", evaluateFieldNotDecimal)
+            fieldLoopExpressionEvaluators.Add("NOTENUM", evaluateFieldNotEnum)
+            fieldLoopExpressionEvaluators.Add("NOTENUMERATED", evaluateFieldNotEnumerated)
+            fieldLoopExpressionEvaluators.Add("NOTIMEOUT", evaluateFieldNoTimeout)
+            fieldLoopExpressionEvaluators.Add("NOTINTEGER", evaluateFieldNotInteger)
+            fieldLoopExpressionEvaluators.Add("NOTNUMERIC", evaluateFieldNotNumeric)
+            fieldLoopExpressionEvaluators.Add("NOTOOLKIT", evaluateFieldNoToolkit)
+            fieldLoopExpressionEvaluators.Add("NOTOVERLAY", evaluateFieldNotOverlay)
+            fieldLoopExpressionEvaluators.Add("NOTPKSEGMENT", evaluateFieldNotPkSegment)
+            fieldLoopExpressionEvaluators.Add("NOTRADIOBUTTONS", evaluateFieldNotRadioButtons)
+            fieldLoopExpressionEvaluators.Add("NOTSTRUCTFIELD", evaluateFieldNotStructField)
+            fieldLoopExpressionEvaluators.Add("NOTTIME", evaluateFieldNotTime)
+            fieldLoopExpressionEvaluators.Add("NOTUPPERCASE", evaluateFieldNotUppercase)
+            fieldLoopExpressionEvaluators.Add("NOTUSER", evaluateFieldNotUser)
+            fieldLoopExpressionEvaluators.Add("NOTUSERTIMESTAMP", evaluateFieldNotUserTimeStamp)
+            fieldLoopExpressionEvaluators.Add("NOUSERTEXT", evaluateFieldNoUserText)
+            fieldLoopExpressionEvaluators.Add("NOVIEW_LENGTH", evaluateFieldNoViewLength)
+            fieldLoopExpressionEvaluators.Add("NOWEB", evaluateFieldNoWeb)
+            fieldLoopExpressionEvaluators.Add("NUMERIC", evaluateFieldNumeric)
+            fieldLoopExpressionEvaluators.Add("OCNATIVE", evaluateFieldOcNative)
+            fieldLoopExpressionEvaluators.Add("OCOBJECT", evaluateFieldOcObject)
+            fieldLoopExpressionEvaluators.Add("OPTIONAL", evaluateFieldOptional)
+            fieldLoopExpressionEvaluators.Add("OVERLAY", evaluateFieldOverlay)
+            fieldLoopExpressionEvaluators.Add("PAINTCHAR", evaluateFieldPaintChar)
+            fieldLoopExpressionEvaluators.Add("PKSEGMENT", evaluateFieldPkSegment)
+            fieldLoopExpressionEvaluators.Add("PRECISION", evaluateFieldPrecision)
+            fieldLoopExpressionEvaluators.Add("PROMPT", evaluateFieldPrompt)
+            fieldLoopExpressionEvaluators.Add("PROMPT_POSITION", evaluateFieldPromptPosition)
+            fieldLoopExpressionEvaluators.Add("RADIOBUTTONS", evaluateFieldRadioButtons)
+            fieldLoopExpressionEvaluators.Add("RANGE", evaluateFieldRange)
+            fieldLoopExpressionEvaluators.Add("READONLY", evaluateFieldReadOnly)
+            fieldLoopExpressionEvaluators.Add("READWRITE", evaluateFieldReadWrite)
+            fieldLoopExpressionEvaluators.Add("REPORT", evaluateFieldReport)
+            fieldLoopExpressionEvaluators.Add("REPORT_CENTER", evaluateFieldReportCenter)
+            fieldLoopExpressionEvaluators.Add("REPORT_LEFT", evaluateFieldReportLeft)
+            fieldLoopExpressionEvaluators.Add("REPORT_RIGHT", evaluateFieldReportRight)
+            fieldLoopExpressionEvaluators.Add("REQUIRED", evaluateFieldRequired)
+            fieldLoopExpressionEvaluators.Add("REVERSE", evaluateFieldReverse)
+            fieldLoopExpressionEvaluators.Add("SELECTIONS", evaluateFieldSelections)
+            fieldLoopExpressionEvaluators.Add("SELWND", evaluateFieldSelWnd)
+            fieldLoopExpressionEvaluators.Add("STRUCTFIELD", evaluateFieldStructField)
+            fieldLoopExpressionEvaluators.Add("TEXTBOX", evaluateFieldTextBox)
+            fieldLoopExpressionEvaluators.Add("TIME", evaluateFieldTime)
+            fieldLoopExpressionEvaluators.Add("TIME_HHMM", evaluateFieldTimeHHMM)
+            fieldLoopExpressionEvaluators.Add("TIME_HHMMSS", evaluateFieldTimeHHMMSS)
+            fieldLoopExpressionEvaluators.Add("TIMENOW", evaluateFieldTimeNow)
+            fieldLoopExpressionEvaluators.Add("TIMEOUT", evaluateFieldTimeout)
+            fieldLoopExpressionEvaluators.Add("TOOLKIT", evaluateFieldToolkit)
+            fieldLoopExpressionEvaluators.Add("UNDERLINE", evaluateFieldUnderline)
+            fieldLoopExpressionEvaluators.Add("UPPERCASE", evaluateFieldUppercase)
+            fieldLoopExpressionEvaluators.Add("USER", evaluateFieldUser)
+            fieldLoopExpressionEvaluators.Add("USERTEXT", evaluateFieldUserText)
+            fieldLoopExpressionEvaluators.Add("USERTIMESTAMP", evaluateFieldUserTimeStamp)
+            fieldLoopExpressionEvaluators.Add("VIEW_LENGTH", evaluateFieldViewLength)
+			fieldLoopExpressionEvaluators.Add("WEB", evaluateFieldWeb)
+
+		endmethod
+
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+		;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="tkn"></param>
+        ;;;  <param name="file"></param>
+        ;;;  <param name="loops"></param>
+        ;;;  <param name="specific"></param>
+        ;;;  <returns></returns>
+        public static method EvaluateFieldLoopExpression, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<RpsStructure, RpsField, int, boolean> 
+            endparams
+        proc
+			
+			lambda isFieldOrSegmentLoop(node)
+            begin
+                mreturn (node .is. FieldLoopNode || node .is. SegmentLoopNode)
+            end
+			data loop, @LoopNode, loops.First(isFieldOrSegmentLoop)
+
+            data str, @RpsStructure, ^null
+            data field, @RpsField, ^null
+            data index, int
+			
+			if (loop .is. FieldLoopNode) then
+            begin
+                str = file.Context.CurrentStructure
+                field = ((@FieldLoopNode)loop).CurrentField
+                index = ((@FieldLoopNode)loop).CurrentIndex
+            end
+            else
+            begin
+                str = file.Context.CurrentStructure
+                data segment, @RpsKeySegment, ((@SegmentLoopNode)loop).CurrentSegment
+                lambda generated_lambda2(fld)
+                begin
+                    mreturn (fld.Name == segment.Field)
+                end
+                field = str.Fields.First(generated_lambda2)
+                index = ((@SegmentLoopNode)loop).CurrentIndex
+            end
+			
+			mreturn specific(str, field, index)
+		
+		endmethod
+		
+		;; -------------------------------------------------------------------------------------------------------------------------------
+
+        private static method evaluateFieldAllowList, boolean
+            tkn, @Token
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.AllowList.Count > 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldAlpha, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType == RpsFieldDataType.Alpha)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldAlternateName, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.AlternateName != field.Name)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldArray, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn field.WasArrayElement
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldArray1, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.WasArrayElement && (field.OriginalElement[1] == 0)) && (field.OriginalElement[2] == 0)) && (field.OriginalElement[3] == 0))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldArray2, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.WasArrayElement && (field.OriginalElement[1] != 0)) && (field.OriginalElement[2] == 0)) && (field.OriginalElement[3] == 0))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldArray3, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.WasArrayElement && (field.OriginalElement[1] != 0)) && (field.OriginalElement[2] != 0)) && (field.OriginalElement[3] == 0))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldArray4, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.WasArrayElement && (field.OriginalElement[1] != 0)) && (field.OriginalElement[2] != 0)) && (field.OriginalElement[3] != 0))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldArrive, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.ArriveMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldBinary, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType == RpsFieldDataType.Binary)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldBold, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.RenditionHighlight)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldBoolean, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType == RpsFieldDataType.Boolean)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldBreak, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.BreakMode != RpsFieldBreak.None)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldBreakAlways, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.BreakMode == RpsFieldBreak.Always)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldBreakChange, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.BreakMode == RpsFieldBreak.Change)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldBreakReturn, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.BreakMode == RpsFieldBreak.OnReturn)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldBzero, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.BlankIfZero)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldChange, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.ChangeMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldCheckBox, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ViewAs == RpsFieldViewAs.CheckBox)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldCoerceBoolean, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.CoercedType == RpsFieldCoercedType.CtBoolean)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldComboBox, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.ViewAs == RpsFieldViewAs.Field) && (field.SelectionList.Count > 0))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDate, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") || (field.TypeName == "NULLABLEDATETIME"))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateJulian, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && ((field.DataTypeSubclass == RpsFieldSubclass.DateYYJJJ) || (field.DataTypeSubclass == RpsFieldSubclass.DateYYYYJJJ)))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateNotJulian, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && ((field.DataTypeSubclass != RpsFieldSubclass.DateYYJJJ) && (field.DataTypeSubclass != RpsFieldSubclass.DateYYYYJJJ)))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateNotNullable, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.TypeName == "DATE")
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateNotPeriod, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && ((field.DataTypeSubclass != RpsFieldSubclass.DateYYPP) && (field.DataTypeSubclass != RpsFieldSubclass.DateYYYYPP)))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateNotYMD, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.TypeName == "DATE") && (field.DataTypeSubclass != RpsFieldSubclass.DateYYMMDD)) && (field.DataTypeSubclass != RpsFieldSubclass.DateYYYYMMDD))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateNotYYYYMMDD, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && (field.DataTypeSubclass != RpsFieldSubclass.DateYYYYMMDD))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateNullable, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.TypeName == "NULLABLEDATETIME")
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDatePeriod, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && ((field.DataTypeSubclass == RpsFieldSubclass.DateYYPP) || (field.DataTypeSubclass == RpsFieldSubclass.DateYYYYPP)))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateYMD, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && ((field.DataTypeSubclass == RpsFieldSubclass.DateYYYYMMDD) || (field.DataTypeSubclass == RpsFieldSubclass.DateYYMMDD)))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDayeYYJJJ, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && (field.DataTypeSubclass == RpsFieldSubclass.DateYYJJJ))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateYYMMDD, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && (field.DataTypeSubclass == RpsFieldSubclass.DateYYMMDD))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateYYPP, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && (field.DataTypeSubclass == RpsFieldSubclass.DateYYPP))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateYYYYJJJ, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && (field.DataTypeSubclass == RpsFieldSubclass.DateYYYYJJJ))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateYYYYMMDD, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && (field.DataTypeSubclass == RpsFieldSubclass.DateYYYYMMDD))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldYYYYPP, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "DATE") && (field.DataTypeSubclass == RpsFieldSubclass.DateYYYYPP))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateOrTime, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.TypeName == "DATE") || (field.TypeName == "NULLABLEDATETIME")) || (field.TypeName == "TIME"))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDateToday, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DateDefaultToday)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDecimal, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((((field.DataType == RpsFieldDataType.Decimal) && (field.TypeName != "DATE")) && (field.TypeName != "NULLABLEDATETIME")) && (field.TypeName != "TIME"))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDefault, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.DefaultValue))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDescription, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.Description))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDisabled, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.Disabled)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDisplay, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.DisplayMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDisplayLength, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DisplayLength > 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldDrill, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.DrillMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldEcho, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.NoEcho)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldEditFormat, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.EditFormatMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldEnabled, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.Disabled)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldEnum, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType == RpsFieldDataType.Enum)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldEnumerated, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.Enumerated)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldPosition, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.FieldPositionMode != RpsPositionMode.None) && (field.FieldRow > 0)) && (field.FieldColumn > 0))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldFormat, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.FormatName))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldGroupExpand, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!file.Context.CurrentTask.GroupNoExpand)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldGroupNoExpand, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (file.Context.CurrentTask.GroupNoExpand)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldHeading, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.ReportHeading))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldHelpID, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.HelpIdentifier))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldHyperlink, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.HyperlinkMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldI1, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.DataType == RpsFieldDataType.Integer) && (field.Size == 1))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldI123, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.DataType == RpsFieldDataType.Integer) && (field.Size <= 4))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldI2, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.DataType == RpsFieldDataType.Integer) && (field.Size == 2))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldI4, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.DataType == RpsFieldDataType.Integer) && (field.Size == 4))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldI8, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.DataType == RpsFieldDataType.Integer) && (field.Size == 8))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldInfoLine, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.InfoLineText))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldInputCenter, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.InputJustification == RpsJustification.Center)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldInputLeft, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.InputJustification == RpsJustification.Left)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldInputRight, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.InputJustification == RpsJustification.Right)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldInteger, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType == RpsFieldDataType.Integer)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldLanguage, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.ExcludedByLanguage)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldLeave, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.LeaveMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldLongDescription, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.LongDescription))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldMapped, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.MappedField))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldMappedStr, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(str.MappedStructure))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNegativeAllowed, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.NegativeAllowed != RpsFieldNegatives.None)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNegativeOrZero, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.NegativeAllowed == RpsFieldNegatives.OrZero)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNegativeRequired, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.NegativeAllowed == RpsFieldNegatives.Only)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoAllowList, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.AllowList.Count == 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoAlternateName, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.AlternateName == field.Name)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoArrive, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.ArriveMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoBreak, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.BreakMode == RpsFieldBreak.None)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoChange, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.ChangeMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoCheckBox, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ViewAs != RpsFieldViewAs.CheckBox)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoCoerceBoolean, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.CoercedType != RpsFieldCoercedType.CtBoolean)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoDefault, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.DefaultValue))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoDescription, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.Description))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoDisplay, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.DisplayMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoDisplayLength, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DisplayLength == 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoDrill, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.DrillMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoEcho, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.NoEcho)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoEditFormat, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.EditFormatMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoFormat, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.FormatName))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoHelpID, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.HelpIdentifier))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoHyperlink, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.HyperlinkMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoInfoLine, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.InfoLineText))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoLanguage, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ExcludedByLanguage)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoLeave, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.LeaveMethod))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoLongDescription, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.LongDescription))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoNegative, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.NegativeAllowed == RpsFieldNegatives.None)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoPaintChar, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.PaintCharacterSpecified)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoPrecision, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.Precision == 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoPrompt, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.Prompt))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoRange, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.NumericRangeExists)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoReport, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ExcludedByReportWriter)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoSelections, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.SelectionList.Count == 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoSelWnd, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.SelectionWindowName))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotAlpha, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType != RpsFieldDataType.Alpha)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotArray, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.WasArrayElement)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotBinary, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType != RpsFieldDataType.Binary)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotBoolean, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType != RpsFieldDataType.Boolean)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotBzero, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.BlankIfZero)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotDate, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName != "DATE") && (field.TypeName != "NULLABLEDATETIME"))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotDateOrTime, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.TypeName != "DATE") && (field.TypeName != "NULLABLEDATETIME")) && (field.TypeName != "TIME"))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotDateToday, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.DateDefaultToday)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotDecimal, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType != RpsFieldDataType.Decimal) || ((field.DataType == RpsFieldDataType.Decimal) && (((field.TypeName == "DATE") || (field.TypeName == "NULLABLEDATETIME")) || (field.TypeName == "TIME")))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotEnum, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType != RpsFieldDataType.Enum)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotEnumerated, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.Enumerated)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoTimeout, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.InputTimeoutMode == RpsFieldTimeout.None)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotInteger, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType != RpsFieldDataType.Integer)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotNumeric, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.DataType != RpsFieldDataType.Decimal) && (field.DataType != RpsFieldDataType.Integer))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoToolkit, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ExcludedByToolkit)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotOverlay, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((!field.IsGroup && String.IsNullOrWhiteSpace(field.OverlaysField)) || (field.IsGroup && (field.GroupType != RpsFieldGroup.Overlay)))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotPkSegment, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                data isPkSegment, boolean, false
+                begin
+                    data segment, @RpsKeySegment
+                    foreach segment in str.Keys[0].Segments
+                    begin
+                        if (segment.Field == field.Name)
+                        begin
+                            isPkSegment = true
+                            exitloop
+                        end
+                    end
+                end
+                mreturn !isPkSegment
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotRadioButtons, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ViewAs != RpsFieldViewAs.RadioButtons)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotStructField, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType != RpsFieldDataType.StructField)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotTime, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.TypeName != "TIME")
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotUppercase, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.Uppercase)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotUser, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType != RpsFieldDataType.User)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNotUserTimeStamp, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!(((field.DataType == RpsFieldDataType.User) && (field.DataTypeSubclass == RpsFieldSubclass.UserDate)) && (field.UserFieldType == "^CLASS^=YYYYMMDDHHMISSUUUUUU")))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoUserText, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (String.IsNullOrWhiteSpace(field.UserText))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoViewLength, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ViewLength == 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNoWeb, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ExcludedByWeb)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldNumeric, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.DataType == RpsFieldDataType.Decimal) || (field.DataType == RpsFieldDataType.Integer))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldOcNative, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.OcObject)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldOcObject, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.OcObject)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldOptional, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.Required)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldOverlay, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((!String.IsNullOrWhiteSpace(field.OverlaysField)) || (field.IsGroup && (field.GroupType == RpsFieldGroup.Overlay)))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldPaintChar, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.PaintCharacterSpecified)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldPkSegment, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                data isPkSegment, boolean, false
+                begin
+                    data segment, @RpsKeySegment
+                    foreach segment in str.Keys[0].Segments
+                    begin
+                        if (segment.Field == field.Name)
+                        begin
+                            isPkSegment = true
+                            exitloop
+                        end
+                    end
+                end
+                mreturn isPkSegment
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldPrecision, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.Precision > 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldPrompt, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.Prompt))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldPromptPosition, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.PromptPositionMode != RpsPositionMode.None) && (field.PromptRow > 0)) && (field.PromptColumn > 0))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldRadioButtons, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ViewAs == RpsFieldViewAs.RadioButtons)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldRange, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.NumericRangeExists)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldReadOnly, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ReadOnly)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldReadWrite, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.ReadOnly)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldReport, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.ExcludedByReportWriter)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldReportCenter, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ReportJustification == RpsJustification.Center)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldReportLeft, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ReportJustification == RpsJustification.Left)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldReportRight, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ReportJustification == RpsJustification.Right)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldRequired, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.Required)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldReverse, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.RenditionReverse)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldSelections, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.SelectionList.Count > 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldSelWnd, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.SelectionWindowName))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldStructField, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType == RpsFieldDataType.StructField)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldTextBox, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.ViewAs == RpsFieldViewAs.Field) && (field.SelectionList.Count == 0))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldTime, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.TypeName == "TIME")
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldTimeHHMM, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "TIME") && (field.DataTypeSubclass == RpsFieldSubclass.TimeHHMM))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldTimeHHMMSS, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn ((field.TypeName == "TIME") && (field.DataTypeSubclass == RpsFieldSubclass.TimeHHMMSS))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldTimeNow, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.TimeDefaultNow)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldTimeout, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.InputTimeoutMode != RpsFieldTimeout.None)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldToolkit, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.ExcludedByToolkit)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldUnderline, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.RenditionUnderline)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldUppercase, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.Uppercase)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldUser, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.DataType == RpsFieldDataType.User)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldUserText, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!String.IsNullOrWhiteSpace(field.UserText))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldUserTimeStamp, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (((field.DataType == RpsFieldDataType.User) && (field.DataTypeSubclass == RpsFieldSubclass.UserDate)) && (field.UserFieldType == "^CLASS^=YYYYMMDDHHMISSUUUUUU"))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldViewLength, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.ViewLength > 0)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldWeb, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (!field.ExcludedByWeb)
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+        endmethod
+		
+		;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; Custom field loop expressions
+
+        private static method evaluateFieldCustom, boolean
+            tkn, @Token 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+			
+			lambda doEvaluate(str, field, index)
+            begin
+                ;; Extract the search text from the token
+                data searchText, string, tkn.Value.ToUpper().Replace("CUSTOM_NOT_", "").Replace("CUSTOM_", "")
+				
+				;; Make sure we have search text
+                if (String.IsNullOrWhiteSpace(searchText))
+                    throw new ApplicationException(String.Format("Invalid custom field expression token {0} at line {1} in template {2}", tkn.Value, tkn.StartLineNumber, file.Context.CurrentTemplateBaseName))
+				
+				;; Is it there?
+                data found, boolean, ((field.UserText.ToUpper().Contains(searchText)) || (field.LongDescription.ToUpper().Contains(searchText)))
+				
+				;; Return the result
+                mreturn tkn.Value.StartsWith("CUSTOM_NOT_") ? !found : found
+            end
+			
+			;; We get here for any field loop expression <IF CUSTOM_xxx> or <IF_CUSTOM_NOT_xxx> and we are
+            ;; looking for text to be or not to be present in the current fields user text or long description.
+            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+		
+		endmethod
+	
+	endclass
+
+endnamespace
+
