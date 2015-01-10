@@ -15,6 +15,6 @@ set CODEGEN_OUTDIR=%DEVROOT%OutputFiles
 set CODEGEN_AUTHOR=Steve Ives
 set CODEGEN_COMPANY=Synergex Professional Services Group
 
-devenv CodeGen.sln
+devenv "CodeGen 5.0.0.sln"
 
 exit
