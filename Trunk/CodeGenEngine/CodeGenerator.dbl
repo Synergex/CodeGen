@@ -47,6 +47,7 @@ import System.Collections.Generic
 import System.Collections.ObjectModel
 import System.IO
 import System.Reflection
+import System.Text
 import CodeGen.Engine
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
@@ -361,7 +362,6 @@ namespace CodeGen.Engine
 			
 			;;Get task and taskset handles for convenience
 			data taskset, @CodeGenTaskSet, ctx.Taskset
-			data task, @CodeGenTask, ctx.CurrentTask
 
 			;;Open the assembly
 			data asm, @Assembly
@@ -371,7 +371,7 @@ namespace CodeGen.Engine
 			end
 			catch (e, @Exception)
 			begin
-				task.Warning(String.Format("Potential extensions assembly {0} couldn't be activated.",Path.GetFileName(extensionAssembly)))
+				taskset.Warning(String.Format("Failed to activate extensions assembly {0}",Path.GetFileName(extensionAssembly)))
 				ok = false
 			end
 			endtry
@@ -384,7 +384,40 @@ namespace CodeGen.Engine
 				;;IExpansionToken or IExpressionToken and record them in the extension collections.
 				
 				data discoveredType, @Type
-				foreach discoveredType in asm.GetTypes()
+				data discoveredTypes, [#]@Type
+				
+				try
+				begin
+					discoveredTypes = asm.GetTypes()
+				end
+				catch (ex, @ReflectionTypeLoadException)
+				begin
+
+					data sb, @StringBuilder, new StringBuilder()
+					data exSub, @Exception
+					foreach exSub in ex.LoaderExceptions
+					begin
+						sb.AppendLine(exSub.Message)
+;						data exFileNotFound, @FileNotFoundException, ^as(exSub,FileNotFoundException)
+;						if (exFileNotFound != ^null)
+;						begin               
+;							if(!String.IsNullOrEmpty(exFileNotFound.FusionLog))
+;							begin
+;								sb.AppendLine("Fusion Log:")
+;								sb.AppendLine(exFileNotFound.FusionLog)
+;							end
+;						end
+						sb.AppendLine()
+					end
+					taskset.Warning(String.Format("Failed to load extensions from assembly {0}. Error was {1}.",Path.GetFileName(extensionAssembly),sb.ToString()))
+					ok = false
+				end
+				endtry
+
+				if (!ok)
+					exit
+
+				foreach discoveredType in discoveredTypes
 				begin
 					data discoveredInterfaces, [#]@Type, discoveredType.GetInterfaces()
 					if (discoveredInterfaces.Length)
@@ -1450,11 +1483,7 @@ namespace CodeGen.Engine
 					begin
 						data treeError, @Tuple<String, int, int, String>
 						foreach treeError in errorReporting.Errors
-						begin
-							errStatus = task.ErrorLog(treeError.Item1)
-							;Don't show line and column info, it's not accurate!
-							;errStatus = task.ErrorLog(String.Format("{0} at line {1} position {2} in {3}", treeError.Item1, treeError.Item2, treeError.Item3, Path.GetFileName(treeError.Item4)))
-						end
+							errStatus = task.ErrorLog(String.Format("{0} at line {1} position {2} in {3}", treeError.Item1, treeError.Item2, treeError.Item3, Path.GetFileName(treeError.Item4)))
 						nextloop
 					end
 					
@@ -1471,62 +1500,52 @@ namespace CodeGen.Engine
 						
 					task.DebugLog(" - Tree expansion phase beginning", false, true)
 
-					;;Do we have any repository structures?
-					if (context.Structures.Count) then
+					;;Are we processing multiple structures at the same time?
+					if (context.MultiStructureMode) then
 					begin
-						;;Are we processing multiple structures at the same time?
-						if (context.MultiStructureMode) then
+						;;Process the template once for all structures
+
+						;;Check each structure, flatten arrays and groups, etc.
+						context.CurrentTask.DebugLog("")
+						data ix, int
+						for ix from 0 thru context.Structures.Count-1
 						begin
-							;;Process the template once for all structures
-							
-							;;Check each structure, flatten arrays and groups, etc.
-							context.CurrentTask.DebugLog("")
-							data ix, int
-							for ix from 0 thru context.Structures.Count-1
-							begin
-								errStatus = !RepositoryTools.CheckStructure(context,context.Structures[ix])
-								if (errStatus)
-									exitloop
-							end
-							
-							if (!errStatus)
-							begin
-								;;Set the initial context to the first structure. This isn't required for <STRUCTURE_LOOP> but will ensure that
-								;;the default context is <STRUCTURE#1> if <STRUCTURE_LOOP> is not used.
-								context.CurrentStructure = context.Structures[0]
-								
-								;;Generate the code
-								errStatus = expandTreeToCode(tree)
-							end
+							errStatus = !RepositoryTools.CheckStructure(context,context.Structures[ix])
+							if (errStatus)
+								exitloop
 						end
-						else
+
+						if (!errStatus)
 						begin
-							;;Process the template once per structure
-							data ix, int
-							for ix from 0 thru context.Structures.Count-1
-							begin
-								;;Check the structure, flatten arrays and groups, etc.
-								if (!RepositoryTools.CheckStructure(context,context.Structures[ix])) then
-									errStatus = true
-								else
-								begin
-									;;Set structure context
-									context.CurrentStructure = context.Structures[ix]
-									
-									;;Generate the code
-									errStatus = expandTreeToCode(tree)
-								end
-								;;Bail structure loop on failure?
-								if ((errStatus) && (!taskset.ContinueAfterError))
-									exitloop
-							end
+							;;Set the initial context to the first structure. This isn't required for <STRUCTURE_LOOP> but will ensure that
+							;;the default context is <STRUCTURE#1> if <STRUCTURE_LOOP> is not used.
+							context.CurrentStructure = context.Structures[0]
+
+							;;Generate the code
+							errStatus = expandTreeToCode(tree)
 						end
 					end
 					else
 					begin
-						;;No structures, just generate the code
-						context.CurrentStructure = ^null
-						errStatus = expandTreeToCode(tree)
+						;;Process the template once per structure
+						data ix, int
+						for ix from 0 thru context.Structures.Count-1
+						begin
+							;;Check the structure, flatten arrays and groups, etc.
+							if (!RepositoryTools.CheckStructure(context,context.Structures[ix])) then
+								errStatus = true
+							else
+							begin
+								;;Set structure context
+								context.CurrentStructure = context.Structures[ix]
+								
+								;;Generate the code
+								errStatus = expandTreeToCode(tree)
+							end
+							;;Bail structure loop on failure?
+							if ((errStatus) && (!taskset.ContinueAfterError))
+								exitloop
+						end
 					end
 					
 					;;Bail template loop on failure?
@@ -1553,7 +1572,7 @@ namespace CodeGen.Engine
 			
 			data task, @CodeGenTask, context.CurrentTask
 			
-			if ((context.CurrentStructure!=^null) && (!context.MultiStructureMode))
+			if (!context.MultiStructureMode)
 				task.VerboseLog(String.Format(" - Processing structure {0}",context.CurrentStructure.Name))
 			
 			;;Create a stream for the TreeExpander to write the generated code to
