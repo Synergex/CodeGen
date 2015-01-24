@@ -3,7 +3,7 @@
 rem
 rem This script configures a command-line environment to run the version of CodeGen that
 rem is currently in the Bin\Release folder. Running this script will override any version
-rem thet might be installed on the system.
+rem that might be installed on the system.
 rem
 
 call "%ProgramFiles(x86)%\Microsoft Visual Studio 12.0\Common7\Tools\vsvars32.bat"
