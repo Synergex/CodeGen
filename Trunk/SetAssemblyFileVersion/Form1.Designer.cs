@@ -1,0 +1,158 @@
+﻿namespace SetAssemblyFileVersion
+{
+    partial class Form1
+    {
+        /// <summary>
+        /// Required designer variable.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
+
+        /// <summary>
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Windows Form Designer generated code
+
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.lblRootFolder = new System.Windows.Forms.Label();
+            this.txtRootFolder = new System.Windows.Forms.TextBox();
+            this.btnFolderLookup = new System.Windows.Forms.Button();
+            this.folderBrowserDialog1 = new System.Windows.Forms.FolderBrowserDialog();
+            this.btnGo = new System.Windows.Forms.Button();
+            this.lstFiles = new System.Windows.Forms.ListBox();
+            this.chkIncludeSubFolders = new System.Windows.Forms.CheckBox();
+            this.lblNewVersionNumbers = new System.Windows.Forms.Label();
+            this.txtNewVersionNumbers = new System.Windows.Forms.TextBox();
+            this.SuspendLayout();
+            // 
+            // lblRootFolder
+            // 
+            this.lblRootFolder.AutoSize = true;
+            this.lblRootFolder.Location = new System.Drawing.Point(23, 26);
+            this.lblRootFolder.Name = "lblRootFolder";
+            this.lblRootFolder.Size = new System.Drawing.Size(62, 13);
+            this.lblRootFolder.TabIndex = 0;
+            this.lblRootFolder.Text = "Root Folder";
+            // 
+            // txtRootFolder
+            // 
+            this.txtRootFolder.Location = new System.Drawing.Point(91, 23);
+            this.txtRootFolder.Name = "txtRootFolder";
+            this.txtRootFolder.ReadOnly = true;
+            this.txtRootFolder.Size = new System.Drawing.Size(579, 20);
+            this.txtRootFolder.TabIndex = 1;
+            this.txtRootFolder.TextChanged += new System.EventHandler(this.txtRootFolder_TextChanged);
+            // 
+            // btnFolderLookup
+            // 
+            this.btnFolderLookup.Location = new System.Drawing.Point(676, 21);
+            this.btnFolderLookup.Name = "btnFolderLookup";
+            this.btnFolderLookup.Size = new System.Drawing.Size(41, 23);
+            this.btnFolderLookup.TabIndex = 1;
+            this.btnFolderLookup.Text = "...";
+            this.btnFolderLookup.UseVisualStyleBackColor = true;
+            this.btnFolderLookup.Click += new System.EventHandler(this.btnFolderLookup_Click);
+            // 
+            // btnGo
+            // 
+            this.btnGo.Enabled = false;
+            this.btnGo.Location = new System.Drawing.Point(642, 318);
+            this.btnGo.Name = "btnGo";
+            this.btnGo.Size = new System.Drawing.Size(75, 23);
+            this.btnGo.TabIndex = 4;
+            this.btnGo.Text = "&Go";
+            this.btnGo.UseVisualStyleBackColor = true;
+            this.btnGo.Click += new System.EventHandler(this.btnGo_Click);
+            // 
+            // lstFiles
+            // 
+            this.lstFiles.FormattingEnabled = true;
+            this.lstFiles.Location = new System.Drawing.Point(91, 87);
+            this.lstFiles.Name = "lstFiles";
+            this.lstFiles.Size = new System.Drawing.Size(626, 225);
+            this.lstFiles.TabIndex = 4;
+            this.lstFiles.TabStop = false;
+            // 
+            // chkIncludeSubFolders
+            // 
+            this.chkIncludeSubFolders.AutoSize = true;
+            this.chkIncludeSubFolders.Checked = true;
+            this.chkIncludeSubFolders.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkIncludeSubFolders.Location = new System.Drawing.Point(555, 49);
+            this.chkIncludeSubFolders.Name = "chkIncludeSubFolders";
+            this.chkIncludeSubFolders.Size = new System.Drawing.Size(115, 17);
+            this.chkIncludeSubFolders.TabIndex = 3;
+            this.chkIncludeSubFolders.Text = "Include sub-folders";
+            this.chkIncludeSubFolders.UseVisualStyleBackColor = true;
+            this.chkIncludeSubFolders.CheckedChanged += new System.EventHandler(this.chkIncludeSubFolders_CheckedChanged);
+            // 
+            // lblNewVersionNumbers
+            // 
+            this.lblNewVersionNumbers.AutoSize = true;
+            this.lblNewVersionNumbers.Location = new System.Drawing.Point(91, 50);
+            this.lblNewVersionNumbers.Name = "lblNewVersionNumbers";
+            this.lblNewVersionNumbers.Size = new System.Drawing.Size(109, 13);
+            this.lblNewVersionNumbers.TabIndex = 6;
+            this.lblNewVersionNumbers.Text = "New version numbers";
+            // 
+            // txtNewVersionNumbers
+            // 
+            this.txtNewVersionNumbers.Location = new System.Drawing.Point(206, 47);
+            this.txtNewVersionNumbers.Name = "txtNewVersionNumbers";
+            this.txtNewVersionNumbers.Size = new System.Drawing.Size(55, 20);
+            this.txtNewVersionNumbers.TabIndex = 2;
+            this.txtNewVersionNumbers.Text = "0.0.0.0";
+            // 
+            // Form1
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.ClientSize = new System.Drawing.Size(729, 354);
+            this.Controls.Add(this.txtNewVersionNumbers);
+            this.Controls.Add(this.lblNewVersionNumbers);
+            this.Controls.Add(this.chkIncludeSubFolders);
+            this.Controls.Add(this.lstFiles);
+            this.Controls.Add(this.btnGo);
+            this.Controls.Add(this.btnFolderLookup);
+            this.Controls.Add(this.txtRootFolder);
+            this.Controls.Add(this.lblRootFolder);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.Name = "Form1";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+            this.Text = "Update Assembly File Version Utility";
+            this.Load += new System.EventHandler(this.Form1_Load);
+            this.ResumeLayout(false);
+            this.PerformLayout();
+
+        }
+
+        #endregion
+
+        private System.Windows.Forms.Label lblRootFolder;
+        private System.Windows.Forms.TextBox txtRootFolder;
+        private System.Windows.Forms.Button btnFolderLookup;
+        private System.Windows.Forms.FolderBrowserDialog folderBrowserDialog1;
+        private System.Windows.Forms.Button btnGo;
+        private System.Windows.Forms.ListBox lstFiles;
+        private System.Windows.Forms.CheckBox chkIncludeSubFolders;
+        private System.Windows.Forms.Label lblNewVersionNumbers;
+        private System.Windows.Forms.TextBox txtNewVersionNumbers;
+    }
+}
+
