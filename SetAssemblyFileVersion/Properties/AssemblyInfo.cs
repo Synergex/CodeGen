@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("CodeGenParser")]
+[assembly: AssemblyTitle("SetAssemblyFileVersion")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Synergex International Corporation")]
 [assembly: AssemblyProduct("CodeGen")]
-[assembly: AssemblyCopyright("© Copyright Synergex International Corporation, 2012")]
+[assembly: AssemblyCopyright("© Copyright Synergex International Corporation, 2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("13ad46b3-da5f-411a-b394-375c5eaff9e3")]
+[assembly: Guid("610ce62e-c3cc-48e7-9d00-5802b17f185e")]
 
 // Version information for an assembly consists of the following four values:
 //
