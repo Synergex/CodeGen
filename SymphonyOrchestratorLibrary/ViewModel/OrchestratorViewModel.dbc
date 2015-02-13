@@ -1,0 +1,1110 @@
+.array 0
+;;**********************************************************************
+;;
+;; Title:       OrchestratorViewModel.dbc
+;;
+;; Type:        Class
+;;
+;; Description: Orchestrator view model
+;;
+;; Author:      Richard C. Morris, Synergex Professional Services Group
+;;
+;; Copyright (c) 2012, Synergex International, Inc. All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+import System
+import System.Collections.Generic
+import System.Text
+
+import CodeGen.Engine
+import System.ComponentModel
+import System.Windows
+import System.Collections.Specialized
+import Symphony.Conductor.Content
+
+import System.Collections.ObjectModel
+
+import Symphony.Conductor.ViewModel
+
+import Symphony.Conductor.Commands
+
+import Symphony.Conductor.Types
+
+import Symphony.Orchestrator.Library.Model
+
+import Symphony.Orchestrator.Library.AppLogic
+
+namespace Symphony.Orchestrator.Library.ViewModel
+	
+	public class OrchestratorViewModel extends BaseViewModel
+		
+.region "private controlers"
+		
+		private mCommander		,@Commanding
+		private mXML			,@XMLProcessing
+		
+		private allowAppExit	,boolean	,true
+		
+.endregion
+		
+.region "Constructor"
+		
+		public method OrchestratorViewModel
+			in req sender				,@System.Windows.FrameworkElement
+			in req injector				,@ISymphonyOrchestratorInjector
+			endparams
+			parent(sender)
+			
+		proc
+			
+			mDialogVM = new DialogControlViewModel(sender)
+			mDialogVM.Title = "Symphony Orchestrator"
+			mDialogVM.Icon = DialogIcon.Question
+			mDialogVM.Message = "Save project data?"
+			mDialogVM.Style = DialogStyle.YesNo
+			addhandler(mDialogVM.DialogProcessed, doProcessDialogEvent)
+			
+			addhandler(this.AfterNavigateState, postNavigateState)
+			mCommander = new Commanding()
+			mCommander.ProjectFileInjector = injector
+			addhandler(mCommander.ProcessNotification, commandProcessUpdate)
+			mXML = new XMLProcessing()
+			
+			CodeGenCommandsIndex = -1
+			
+			mDefaultValues = new Orchestrator_defaults_Data()
+			
+			mCommandExecutionResults = new AsyncObservableCollection<Execution_results_Data>()
+			
+			DoBuildCommand.ExecuteState = false
+			DeleteCodegenCommand.ExecuteState = false
+			
+			mCodeGenCommands = new ObservableCollection<Codegen_command_Data>()
+			
+			addhandler(mCodeGenCommands.CollectionChanged, checkCollectionChanged)
+			
+			loadXMLFile()
+				
+			if (Orchestrator.Library.Model.ApplicationStatic.OriginalRootFolder != mDefaultValues.Project_relative_path_root)
+				updateRootFolder(Orchestrator.Library.Model.ApplicationStatic.OriginalRootFolder, mDefaultValues.Project_relative_path_root)
+			
+		endmethod
+.endregion
+		
+.region "Event handlers"
+		
+		public delegate ApplicationClosingEventHandler, void
+			
+		enddelegate
+		
+		public event ApplicaitonClosing	,@ApplicationClosingEventHandler
+.endregion
+		
+.region "private event handlers"
+		
+		private method checkCollectionChanged	,void
+			sender								,@Object
+			eArgs								,@NotifyCollectionChangedEventArgs 
+			endparams
+		proc
+			DoBuildCommand.ExecuteState = (mCodeGenCommands.Count > 0)
+			DeleteCodegenCommand.ExecuteState = (mCodeGenCommands.Count > 0)
+		endmethod
+		
+		private method postNavigateState	,void
+			eArgs							,@NavigateFromStateEventArgs
+			endparams
+		proc
+			if (eArgs.OldStateName == "ErrorState")
+			begin
+				;;we had an error, so jsut close down!
+				raiseevent(ApplicaitonClosing)
+			end
+		endmethod
+		
+.endregion
+		
+.region "Commands"
+		
+		private mExitApplicationCommand	,@GenericCommand
+		
+		public property ExitApplicationCommand, @GenericCommand
+			method get
+			proc
+				if (mExitApplicationCommand == ^null)
+				begin
+					mExitApplicationCommand = new GenericCommand("EXITAPP")
+					lambda doCommand(sender, param)
+					begin
+						using this.CurrentStateName select
+						("DefaultEntryState"),
+						begin
+							StateCompleted()
+						end
+						("WorkingViewState"),
+						begin
+							StateCompleted()
+						end
+						("InputViewState"),
+						begin
+							;;ask to save
+							MoveToState("ConfirmState")
+						end
+						endusing
+					end
+					addhandler(mExitApplicationCommand.CommandExecuted, doCommand)
+				end
+				mreturn mExitApplicationCommand
+			endmethod
+		endproperty
+		
+		private mSaveCommand	,@GenericCommand
+		
+		public property SaveCommand, @GenericCommand
+			method get
+			proc
+				if (mSaveCommand == ^null)
+				begin
+					mSaveCommand = new GenericCommand("SAVE")
+					lambda doCommand(sender, param)
+					begin
+						mCommander.ProjectFileInjector.CheckOutFile(Symphony.Orchestrator.Library.Model.ApplicationStatic.ProjectFileName)
+						mCommander.ProjectFileInjector.CheckOutFile(Symphony.Orchestrator.Library.Model.ApplicationStatic.DefaultFileName)
+						
+						if (!mXML.SaveXMLFile(mCodeGenCommands, mDefaultValues))
+						begin
+							allowAppExit = false
+							MoveToState("ErrorState")
+						end
+						if (allowAppExit)
+						begin
+							;;save project details
+							mCommander.ProjectFileInjector.AddToProjectHierarchy(
+							&	Symphony.Orchestrator.Library.Model.ApplicationStatic.ProjectFileName,
+							&	true, "None")
+							
+							;;save defaults
+							mCommander.ProjectFileInjector.AddToProjectHierarchy(
+							&	Symphony.Orchestrator.Library.Model.ApplicationStatic.DefaultFileName,
+							&	true, "None")
+						end
+					end 
+					addhandler(mSaveCommand.CommandExecuted, doCommand)
+				end
+				mreturn mSaveCommand
+			endmethod
+		endproperty
+		
+		
+		private mAddCodegenCommand	,@GenericCommand
+		
+		public property AddCodegenCommand, @GenericCommand
+			method get
+			proc
+				if (mAddCodegenCommand == ^null)
+				begin
+					mAddCodegenCommand = new GenericCommand("ADDCODEGEN")
+					lambda doCommand(sender, param)
+					begin
+						data cmd	,@Codegen_command_Data	,new Codegen_command_Data()
+						cmd.InitialValidateData()
+						
+						;;set some defaults
+						if (mDefaultValues.Rps_main_file .nes. "    ")
+							cmd.Rps_main_file = mDefaultValues.Rps_main_file
+						if (mDefaultValues.Rps_text_file .nes. "    ")
+							cmd.Rps_text_file = mDefaultValues.Rps_text_file
+						if (mDefaultValues.Template_folder .nes. "    ")
+							cmd.Template_name = mDefaultValues.Template_folder
+						if (mDefaultValues.Output_folder .nes. "    ")
+							cmd.Output_folder = mDefaultValues.Output_folder
+						cmd.Replace_file = mDefaultValues.Replace_file
+						if (mDefaultValues.Namespace .nes. "    ")
+						begin
+							if (mDefaultValues.Add_folder_to_namespace) then
+							begin
+								data projFolder	,a255	,Symphony.Orchestrator.Model.ApplicationStatic.ProjectFolderName
+								data outFolder	,a255	,mDefaultValues.Output_folder
+								data folderName	,a255
+								data result		,String
+								
+								if (%atrim(%atrim(outFolder) - %atrim(projFolder)) .nes. "  ") then
+								begin
+									result = %atrim(mDefaultValues.Namespace) + "." + %atrim(%atrim(outFolder) - %atrim(projFolder))
+									cmd.Namespace = result.Replace("\", "")
+								end
+								else
+								begin
+									cmd.Namespace = mDefaultValues.Namespace
+								end
+							end
+							else
+							begin
+								cmd.Namespace = mDefaultValues.Namespace
+							end
+							
+						end
+						cmd.Character_width = mDefaultValues.Character_width
+						cmd.Prefix = mDefaultValues.Prefix
+						
+						addhandler(cmd.IsDataModifiedChanged, codegenChangesMade)
+						addhandler(cmd.PropertyChanged, commandPropertyChanged)
+						mCodeGenCommands.Add(cmd)
+						CodeGenCommandsIndex = mCodeGenCommands.Count - 1
+					end
+					addhandler(mAddCodegenCommand.CommandExecuted, doCommand)
+				end
+				mreturn mAddCodegenCommand
+			endmethod
+		endproperty
+		
+		private method codegenChangesMade, void
+			endparams
+		proc
+			RaisePropertyChanged("SingleCodeGenCommand")
+		endmethod
+		
+		private mDeleteCodegenCommand	,@GenericCommand
+		
+		public property DeleteCodegenCommand, @GenericCommand
+			method get
+			proc
+				if (mDeleteCodegenCommand == ^null)
+				begin
+					mDeleteCodegenCommand = new GenericCommand("ADDCODEGEN")
+					lambda doCommand(sender, param)
+					begin
+						mCodeGenCommands.Remove(mSingleCodeGenCommand)
+					end
+					addhandler(mDeleteCodegenCommand.CommandExecuted, doCommand)
+				end
+				mreturn mDeleteCodegenCommand
+			endmethod
+		endproperty
+		
+		private mFindFileCommand	,@GenericCommand
+		
+		public property FindFileCommand, @GenericCommand
+			method get
+			proc
+				if (mFindFileCommand == ^null)
+				begin
+					mFindFileCommand = new GenericCommand("FINDFILE")
+					addhandler(mFindFileCommand.CommandExecuted, doFindFile)
+				end
+				mreturn mFindFileCommand
+			endmethod
+		endproperty
+		
+		private mFindFolderCommand	,@GenericCommand
+		
+		public property FindFolderCommand, @GenericCommand
+			method get
+			proc
+				if (mFindFolderCommand == ^null)
+				begin
+					mFindFolderCommand = new GenericCommand("FINDFILE")
+					addhandler(mFindFolderCommand.CommandExecuted, doFindFolder)
+				end
+				mreturn mFindFolderCommand
+			endmethod
+		endproperty
+		
+		private method doFindFile	,void
+			sender					,@Object
+			param					,String
+			endparams
+			
+			record
+				folder		,a255
+				logLength	,i4
+			endrecord
+		proc
+			data dlg = new Microsoft.Win32.OpenFileDialog()
+			using param select
+			("FindTemplateDrillState"),
+			begin
+				dlg.InitialDirectory = mSingleCodeGenCommand.Template_name - %atrim(mSingleCodeGenCommand.Template_file_name)
+				dlg.FileName = mSingleCodeGenCommand.Template_file_name
+				dlg.DefaultExt = ".tpl"
+				dlg.Filter = "Template fles|*.tpl"
+				dlg.Title = "Symphony Orchestrator - Find template file."
+			end
+			("FindRPSMAINDrillState"),
+			begin
+				dlg.InitialDirectory = mSingleCodeGenCommand.Rps_main_file - mSingleCodeGenCommand.Rps_main_file_name
+				dlg.FileName = mSingleCodeGenCommand.Rps_main_file_name
+				dlg.DefaultExt = ".ism"
+				dlg.Filter = "Indexed fles|*.ism|All files|*.*"
+				dlg.Title = "Symphony Orchestrator - Repository main file."
+			end
+			("FindRPSTEXTDrillState"),
+			begin
+				dlg.InitialDirectory = mSingleCodeGenCommand.Rps_main_file - mSingleCodeGenCommand.Rps_text_file_name
+				dlg.FileName = mSingleCodeGenCommand.Rps_main_file_name
+				dlg.DefaultExt = ".ism"
+				dlg.Filter = "Indexed fles|*.ism|All files|*.*"
+				dlg.Title = "Symphony Orchestrator - Repository text file."
+			end
+			("FindDEFRPSMAINDrillState"),
+			begin
+				dlg.InitialDirectory = System.IO.Path.GetFileName(mDefaultValues.Rps_main_file)
+				dlg.FileName = mDefaultValues.Rps_main_file
+				dlg.DefaultExt = ".ism"
+				dlg.Filter = "Indexed fles|*.ism|All files|*.*"
+				dlg.Title = "Symphony Orchestrator - Default Repository main file."
+			end
+			("FindDEFRPSTEXTDrillState"),
+			begin
+				dlg.InitialDirectory = System.IO.Path.GetFileName(mDefaultValues.Rps_text_file)
+				dlg.FileName = mDefaultValues.Rps_text_file
+				dlg.DefaultExt = ".ism"
+				dlg.Filter = "Indexed fles|*.ism|All files|*.*"
+				dlg.Title = "Symphony Orchestrator - Default Repository text file."
+			end
+			("FindCommandScriptDrillState"),
+			begin
+				data file			,a255	,System.IO.Path.GetFileName(mDefaultValues.Command_script_name)
+				data folderInternal	,a255	,mDefaultValues.Command_script_name - file
+				dlg.InitialDirectory = %atrim(folderInternal)
+				dlg.FileName = %atrim(file)
+				dlg.DefaultExt = ".input"
+				dlg.Filter = "codeGen Input fles|*.input|All files|*.*"
+				dlg.CheckFileExists = false
+				dlg.CheckPathExists = true
+				dlg.Title = "Symphony Orchestrator - Command script name."
+			end
+			("FindWSCDrillState"),
+			begin
+				if (mSingleCodeGenCommand.Wsc_file != "                              ")
+				begin
+					data file			,a255	,System.IO.Path.GetFileName(mSingleCodeGenCommand.Wsc_file)
+					data folderInternal	,a255	,System.IO.Path.GetDirectoryName(mSingleCodeGenCommand.Wsc_file)
+					dlg.InitialDirectory = %atrim(folderInternal)
+					dlg.FileName = %atrim(file)
+				end
+				
+				dlg.DefaultExt = ".wsc"
+				dlg.Filter = "Script fles|*.wsc|All files|*.*"
+				dlg.CheckFileExists = false
+				dlg.CheckPathExists = true
+				dlg.Title = "Symphony Orchestrator - Window script file."
+			end
+			("FindWSCSELECTDrillState"),
+			begin
+				if (mSingleCodeGenCommand.Wsc_selection_file != "                              ")
+				begin
+					data file			,a255	,System.IO.Path.GetFileName(mSingleCodeGenCommand.Wsc_selection_file)
+					data folderInternal	,a255	,System.IO.Path.GetDirectoryName(mSingleCodeGenCommand.Wsc_selection_file)
+					dlg.InitialDirectory = %atrim(folderInternal)
+					dlg.FileName = %atrim(file)
+				end
+				
+				dlg.DefaultExt = ".wsc"
+				dlg.Filter = "Script fles|*.wsc|All files|*.*"
+				dlg.CheckFileExists = false
+				dlg.CheckPathExists = true
+				dlg.Title = "Symphony Orchestrator - Window script file."
+			end
+			("FindUSERTOKENDrillState"),
+			begin
+				if (^size(mSingleCodeGenCommand.User_token_file))
+				begin
+					data file			,a255	,System.IO.Path.GetFileName(mSingleCodeGenCommand.User_token_file)
+					data folderInternal	,a255	,System.IO.Path.GetDirectoryName(mSingleCodeGenCommand.User_token_file)
+					dlg.InitialDirectory = %atrim(folderInternal)
+					dlg.FileName = %atrim(file)
+				end
+				
+				dlg.DefaultExt = ".tkn"
+				dlg.Filter = "TKN fles|*.tnk|All files|*.*"
+				dlg.CheckFileExists = false
+				dlg.CheckPathExists = true
+				dlg.Title = "Symphony Orchestrator - User token file."
+			end
+			("FindCUSTOMMAPDrillState"),
+			begin
+				if (^size(mDefaultValues.Custom_data_mapping))
+				begin
+					data file			,a255	,System.IO.Path.GetFileName(mDefaultValues.Custom_data_mapping)
+					data folderInternal	,a255	,System.IO.Path.GetDirectoryName(mDefaultValues.Custom_data_mapping)
+					dlg.InitialDirectory = %atrim(folderInternal)
+					dlg.FileName = %atrim(file)
+				end
+				
+				dlg.DefaultExt = ".xml"
+				dlg.Filter = "XML fles|*.xml|All files|*.*"
+				dlg.CheckFileExists = false
+				dlg.CheckPathExists = true
+				dlg.Title = "Symphony Orchestrator - Custom command file."
+			end
+			endusing
+			
+			;; show save file dialog box
+			data result = dlg.ShowDialog()
+			
+			if (result == true)
+			begin
+				using param select
+				("FindTemplateDrillState"),
+				begin
+					mSingleCodeGenCommand.Template_name = dlg.FileName
+					mSingleCodeGenCommand.Template_file_name = dlg.SafeFileName
+					mDefaultValues.Template_folder = mSingleCodeGenCommand.Template_name - mSingleCodeGenCommand.Template_file_name
+				end
+				("FindRPSMAINDrillState"),
+				begin
+					mSingleCodeGenCommand.Rps_main_file = dlg.FileName
+					mDefaultValues.Rps_main_file = dlg.FileName
+				end
+				("FindRPSTEXTDrillState"),
+				begin
+					mSingleCodeGenCommand.Rps_text_file = dlg.FileName
+					mDefaultValues.Rps_text_file = dlg.FileName
+				end
+				("FindDEFRPSMAINDrillState"),
+				begin
+					mDefaultValues.Rps_main_file = dlg.FileName
+				end
+				("FindDEFRPSTEXTDrillState"),
+				begin
+					mDefaultValues.Rps_text_file = dlg.FileName
+				end
+				("FindCommandScriptDrillState"),
+				begin
+					mDefaultValues.Command_script_name = dlg.FileName
+				end
+				("FindWSCDrillState"),
+				begin
+					mSingleCodeGenCommand.Wsc_file = dlg.FileName
+				end
+				("FindWSCSELECTDrillState"),
+				begin
+					mSingleCodeGenCommand.Wsc_selection_file = dlg.FileName
+				end
+				("FindUSERTOKENDrillState"),
+				begin
+					mSingleCodeGenCommand.User_token_file = dlg.FileName
+				end
+				("FindCUSTOMMAPDrillState"),
+				begin
+					mDefaultValues.Custom_data_mapping = dlg.FileName
+				end
+				endusing
+			end
+			
+		endmethod
+		
+		private method doFindFolder	,void
+			sender					,@Object
+			param					,String
+			endparams
+			
+			record
+				folder		,a255
+				logLength	,i4
+			endrecord
+		proc
+			data dlg = new  System.Windows.Forms.FolderBrowserDialog()
+			
+			dlg.ShowNewFolderButton = false
+			
+			using param select
+			("findoutputdrillstate"),
+			begin				
+				dlg.SelectedPath = mSingleCodeGenCommand.Output_folder
+			end
+			("finddeftemplatedrillstate"),
+			begin
+				dlg.SelectedPath = mdefaultvalues.template_folder
+			end
+			("finddefoutputdrillstate"),
+			begin
+				dlg.SelectedPath = mdefaultvalues.output_folder
+			end
+			endusing
+			
+			;; show save file dialog box
+			data result = dlg.ShowDialog()
+			
+			if (result == System.Windows.Forms.DialogResult.OK)
+			begin
+				using param select
+				("FindOutputDrillState"),
+				begin
+					mSingleCodeGenCommand.Output_folder = dlg.SelectedPath
+					mDefaultValues.Output_folder =  dlg.SelectedPath
+				end
+				("FindDEFTemplateDrillState"),
+				begin
+					mDefaultValues.Template_folder = dlg.SelectedPath
+				end
+				("FindDEFOutputDrillState"),
+				begin
+					mDefaultValues.Output_folder = dlg.SelectedPath
+				end
+				endusing
+			end
+			
+		endmethod
+		
+		private mDoBuildCommand	,@GenericCommand
+		
+		public property DoBuildCommand, @GenericCommand
+			method get
+			proc
+				if (mDoBuildCommand == ^null)
+				begin
+					mDoBuildCommand = new GenericCommand("DOBUILD")
+					addhandler(mDoBuildCommand.CommandExecuted, executeBuildCommand)
+				end
+				mreturn mDoBuildCommand
+			endmethod
+		endproperty
+		
+		private method executeBuildCommand	,void
+			sender							,@Object
+			param							,String
+			endparams
+		proc
+			mCommandExecutionResults.ClearCollection()
+			
+			MoveToState("WorkingViewState")
+			
+;			;;first save the details
+;			mCommander.ProjectFileInjector.CheckOutFile(Symphony.Orchestrator.Library.Model.ApplicationStatic.ProjectFileName)
+;			mCommander.ProjectFileInjector.CheckOutFile(Symphony.Orchestrator.Library.Model.ApplicationStatic.DefaultFileName)
+;			
+;			if (!mXML.SaveXMLFile(mCodeGenCommands, mDefaultValues)) then;
+;			begin
+;				StateAborted()
+;				MoveToState("ErrorState")
+;			end
+;			else
+;			begin
+;				;;save project details
+;				mCommander.ProjectFileInjector.AddToProjectHierarchy(
+;				&	Symphony.Orchestrator.Library.Model.ApplicationStatic.ProjectFileName,
+;				&	true, "None")
+;				
+;				;;save defaults
+;				mCommander.ProjectFileInjector.AddToProjectHierarchy(
+;				&	Symphony.Orchestrator.Library.Model.ApplicationStatic.DefaultFileName,
+;				&	true, "None")
+			if (param == "SELECTED") then
+				mCommander.ExecuteCommandSetOnThread(true, mDefaultValues, mCodeGenCommands, mCommandExecutionResults)
+			else
+				mCommander.ExecuteCommandSetOnThread(false, mDefaultValues, mCodeGenCommands, mCommandExecutionResults)
+;			end
+			
+		endmethod
+		
+		private method commandProcessUpdate, void
+			in req pState								,ProcessState
+			in req pString								,String
+			endparams
+		proc
+			using pState select
+			(ProcessState.Updating),
+			begin
+				ProcessingFileName = pString
+			end
+			(ProcessState.Completed),
+			begin
+				ProcessingFileNameActive = false
+			end
+			(ProcessState.ErrorEncountered),
+			begin
+				ProcessingFileNameActive = false
+			end
+			(ProcessState.Starting),
+			begin
+				ProcessingFileNameActive = true
+			end
+			endusing
+			
+		endmethod
+		
+.endregion
+		
+.region "applciaiton save/restore"
+		
+		private method loadXMLFile, void
+			endparams
+		proc
+			if (System.IO.File.Exists(Symphony.Orchestrator.Model.ApplicationStatic.ProjectFileName) == false)
+			begin
+				;;must have a project file to continue!!
+				
+				data dlg = new Microsoft.Win32.OpenFileDialog()
+				dlg.InitialDirectory =  Symphony.Orchestrator.Model.ApplicationStatic.ProjectFolderName
+				data folder	,a255	,Symphony.Orchestrator.Model.ApplicationStatic.ProjectFolderName
+				data file	,a255	,Symphony.Orchestrator.Model.ApplicationStatic.ProjectFileName
+				dlg.Multiselect = false
+				dlg.FileName = %atrim(file) - %atrim(folder)
+				dlg.DefaultExt = ".symproj"
+				dlg.Filter = "Symphony project fles|*.symproj"
+				dlg.CheckFileExists = false
+				dlg.CheckPathExists = true
+				dlg.Title = "Symphony Orchestrator - find project file"
+				dlg.ValidateNames = true
+				
+				;; show save file dialog box
+				data result = dlg.ShowDialog()
+				
+				if (result == false)
+					Application.Current.Shutdown()
+				
+				Symphony.Orchestrator.Model.ApplicationStatic.ProjectFileName = dlg.FileName
+			end
+			
+			RaisePropertyChanged("ProjectFileName")
+			
+			mXML.LoadXMLFile(Symphony.Orchestrator.Model.ApplicationStatic.ProjectFileName, mCodeGenCommands, mDefaultValues)
+			
+			if (mCodeGenCommands.Count > 0)
+			begin
+				data item	,@Codegen_command_Data
+				foreach item in mCodeGenCommands
+				begin
+					addhandler(item.IsDataModifiedChanged, codegenChangesMade)
+					addhandler(item.PropertyChanged, commandPropertyChanged)
+				end
+				
+				CodeGenCommandsIndex = 0
+			end
+			
+		endmethod
+		
+		private method  commandPropertyChanged, void
+			sender	,@Object
+			eArga	,@propertychangedeventargs
+			endparams
+			
+			.include 'codegen_command' repository, record = "holdCGC"
+		proc
+			if (mSingleCodeGenCommand != ^null)
+			begin
+				using eArga.PropertyName select
+				("Template_name"),
+				begin
+					;;we use this becuase there is currently no other way to force a field to validate!!
+					holdCGC = SingleCodeGenCommand.SynergyRecord
+					SingleCodeGenCommand.Namespace = "."
+					SingleCodeGenCommand.Namespace = holdCGC.namespace
+					SingleCodeGenCommand.User_tokens_entered = 9
+					SingleCodeGenCommand.User_tokens_entered = holdCGC.user_tokens_entered
+					SingleCodeGenCommand.Prefix = "."
+					SingleCodeGenCommand.Prefix = holdCGC.prefix
+				end
+				("Output_folder"),
+				begin
+					if (mDefaultValues.Add_folder_to_namespace && !mSingleCodeGenCommand.No_override_namespace)
+					begin
+						data projFolder	,a255	,Symphony.Orchestrator.Model.ApplicationStatic.ProjectFolderName
+						data outFolder	,a255	,mSingleCodeGenCommand.Output_folder
+						data result		,String	,""
+						data nsToAdd	,String	,%atrim(%atrim(outFolder) - %atrim(projFolder))
+						if (%atrim(%atrim(outFolder) - %atrim(projFolder)) .nes. "  " && %atrim(nsToAdd) .nes. %atrim(outFolder) ) then
+						begin
+							result = %atrim(mDefaultValues.Namespace) + "." + %atrim(nsToAdd)
+							SingleCodeGenCommand.Namespace = result.Replace("\", "")
+						end
+						else
+						begin
+							SingleCodeGenCommand.Namespace = mDefaultValues.Namespace
+						end
+					end
+				end
+				endusing
+				;;move to the defaults
+				mDefaultValues.Rps_main_file = mSingleCodeGenCommand.Rps_main_file
+				mDefaultValues.Rps_text_file = mSingleCodeGenCommand.Rps_text_file
+				mDefaultValues.Template_folder = mSingleCodeGenCommand.Template_name - mSingleCodeGenCommand.Template_file_name
+				mDefaultValues.Output_folder = mSingleCodeGenCommand.Output_folder
+				mDefaultValues.Replace_file = mSingleCodeGenCommand.Replace_file
+				if (!mDefaultValues.Add_folder_to_namespace)
+					mDefaultValues.Namespace = mSingleCodeGenCommand.Namespace
+				mDefaultValues.Character_width = mSingleCodeGenCommand.Character_width
+				mDefaultValues.Prefix = mSingleCodeGenCommand.Prefix
+			end
+		endmethod
+		
+.endregion
+		
+.region "Main object exposers"
+		
+		;;collection of commands
+		private mCodeGenCommands	,@ObservableCollection<Codegen_command_Data>
+		
+		public property CodeGenCommands, @ObservableCollection<Codegen_command_Data>
+			method get
+			proc
+				mreturn mCodeGenCommands
+			endmethod
+		endproperty
+		
+		private mCodeGenCommandsIndex	,int
+		
+		public property CodeGenCommandsIndex, int
+			method get
+			proc
+				mreturn mCodeGenCommandsIndex
+			endmethod
+			method set
+			proc
+				mCodeGenCommandsIndex = value
+				RaisePropertyChanged("ItemSelected")
+				DeleteCodegenCommand.ExecuteState = (mCodeGenCommandsIndex > -1 )
+				RaisePropertyChanged("CodeGenCommandsIndex")
+			endmethod
+		endproperty
+		
+		;current item
+		private mSingleCodeGenCommand	,@Codegen_command_Data
+		
+		public property SingleCodeGenCommand, @Codegen_command_Data
+			method get
+			proc
+				mreturn mSingleCodeGenCommand
+			endmethod
+			method set
+			proc
+				mSingleCodeGenCommand = value
+				;;we need this to ensure synchronized controls listen for changes!!
+				;;the underlying object does not raise any changed event when we just assign the object!!
+				RaisePropertyChanged("SingleCodeGenCommand")
+				
+			endmethod
+		endproperty
+		
+		public property ItemSelected, boolean
+			method get
+			proc
+				if (CodeGenCommandsIndex == -1) then
+					mreturn false
+				else
+					mreturn true
+			endmethod
+		endproperty
+		
+		private mCommandExecutionResults	,@AsyncObservableCollection<Execution_results_Data>
+		
+		public property CommandExecutionResults, @AsyncObservableCollection<Execution_results_Data>
+			method get
+			proc
+				mreturn mCommandExecutionResults
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "application/user defaults"
+		
+		private mDefaultValues	,@Orchestrator_defaults_Data
+		
+		public property DefaultValues, @Orchestrator_defaults_Data
+			method get
+			proc
+				mreturn mDefaultValues
+			endmethod
+			method set
+			proc
+				mDefaultValues = value
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "application values"
+		
+		public property ProjectFileName, String
+			method get
+			proc
+				mreturn Symphony.Orchestrator.Model.ApplicationStatic.ProjectFileName
+			endmethod
+		endproperty
+		
+		public property ProductVersion, String
+			method get
+			proc
+				mreturn System.Diagnostics.FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).ProductVersion
+			endmethod
+		endproperty
+		
+		public property LibraryVersion, String
+			method get
+			proc
+				mreturn Symphony.Conductor.Initializer.ProductVersion
+			endmethod
+		endproperty
+		
+		private mProcessingFileName	,String
+		
+		public property ProcessingFileName, String
+			method get
+			proc
+				mreturn mProcessingFileName
+			endmethod
+			method set
+			proc
+				mProcessingFileName = value
+				RaisePropertyChanged("ProcessingFileName")
+			endmethod
+		endproperty
+		
+		private mProcessingFileNameActive	,boolean
+		
+		public property ProcessingFileNameActive, boolean
+			method get
+			proc
+				mreturn mProcessingFileNameActive
+			endmethod
+			method set
+			proc
+				mProcessingFileNameActive = value
+				RaisePropertyChanged("ProcessingFileNameActive")
+			endmethod
+		endproperty
+		
+.endregion
+		
+		
+.region "selection commands"
+		
+		private mSelectToBuildCommand	,@GenericCommand
+		
+		public property SelectToBuildCommand, @GenericCommand
+			method get
+			proc
+				if (mSelectToBuildCommand == ^null)
+				begin
+					mSelectToBuildCommand = new GenericCommand("SELECT")
+					addhandler(mSelectToBuildCommand.CommandExecuted, doSelectToBuildCommand_event)
+				end
+				
+				mreturn mSelectToBuildCommand
+				
+			endmethod
+		endproperty
+		
+		private method doSelectToBuildCommand_event	,void
+			sender									,@Object
+			param									,String
+			endparams
+		proc
+			data flagToSet	,boolean
+			using param select
+			("CLEAR"),
+				flagToSet = false
+			("SET"),
+				flagToSet = true
+			endusing
+			
+			data ii	,int
+			for ii from 0 thru CodeGenCommands.Count - 1
+			begin
+				((Codegen_command_Data)CodeGenCommands[ii]).Select_to_build = flagToSet
+			end
+			
+		endmethod
+		
+		
+.endregion
+		
+.region "Root folder logic"
+		
+		private mChangeRootFolderCommand	,@GenericCommand
+		
+		public property ChangeRootFolderCommand, @GenericCommand
+			method get
+			proc
+				if (mChangeRootFolderCommand == ^null)
+				begin
+					mChangeRootFolderCommand = new GenericCommand("CHANGEROOT")
+					mChangeRootFolderCommand.CommandExecuted += doChangeRootFolderCommand_Event
+				end
+				mreturn mChangeRootFolderCommand
+			endmethod
+		endproperty
+		
+		private method doChangeRootFolderCommand_Event	,void
+			sender										,@Object
+			param										,String
+			endparams
+		proc
+			data currentPath	,String	,mDefaultValues.Project_relative_path_root
+			
+			data dlg = new  System.Windows.Forms.FolderBrowserDialog()
+			
+			dlg.ShowNewFolderButton = false
+			dlg.SelectedPath = mDefaultValues.Project_relative_path_root
+			
+			;; show save file dialog box
+			data result = dlg.ShowDialog()
+			
+			if (result == System.Windows.Forms.DialogResult.OK)
+			begin
+				;;first change the "default" settings
+				data newPath		,String	,dlg.SelectedPath
+				
+				if (!string.IsNullOrEmpty(currentPath))
+				begin
+					
+					updateRootFolder(currentPath, newPath)
+					
+				end
+				
+				;;now set the default value
+				mDefaultValues.Project_relative_path_root = %atrim(newPath)
+				
+			end
+			
+		endmethod
+		
+		private method updateRootFolder	,void
+			in req currentPath			,String
+			in req newPath				,String
+			endparams
+		proc
+			data oldFile		,String
+			
+			if (%instr(1, mDefaultValues.Rps_main_file, %atrim(currentPath)))
+			begin
+				oldFile = mDefaultValues.Rps_main_file - %atrim(currentPath)
+				mDefaultValues.Rps_main_file = %atrim(newPath) + oldFile
+			end
+			
+			if (%instr(1, mDefaultValues.Rps_text_file, %atrim(currentPath)))
+			begin
+				oldFile = mDefaultValues.Rps_text_file - %atrim(currentPath)
+				mDefaultValues.Rps_text_file = %atrim(newPath) + oldFile
+			end
+			
+			if (%instr(1, mDefaultValues.Template_folder, %atrim(currentPath)))
+			begin
+				oldFile = mDefaultValues.Template_folder - %atrim(currentPath)
+				mDefaultValues.Template_folder = %atrim(newPath) + oldFile
+			end
+			
+			if (%instr(1, mDefaultValues.Output_folder, %atrim(currentPath)))
+			begin
+				oldFile = mDefaultValues.Output_folder - %atrim(currentPath)
+				mDefaultValues.Output_folder = %atrim(newPath) + oldFile
+			end
+			
+			if (%instr(1, mDefaultValues.Output_folder, %atrim(currentPath)))
+			begin
+				oldFile = mDefaultValues.Output_folder - %atrim(currentPath)
+				mDefaultValues.Output_folder = %atrim(newPath) + oldFile
+			end
+			
+			;;we go through all commands and set/change folder values
+			
+			data item	,@Codegen_command_Data
+			foreach item in mCodeGenCommands
+			begin
+				if (%instr(1, item.Rps_main_file, %atrim(currentPath)))
+				begin
+					oldFile = item.Rps_main_file - %atrim(currentPath)
+					item.Rps_main_file = %atrim(newPath) + oldFile
+				end
+				if (%instr(1, item.Rps_text_file, %atrim(currentPath)))
+				begin
+					oldFile = item.Rps_text_file - %atrim(currentPath)
+					item.Rps_text_file = %atrim(newPath) + oldFile
+				end
+				if (%instr(1, item.Template_name, %atrim(currentPath)))
+				begin
+					oldFile = item.Template_name - %atrim(currentPath)
+					item.Template_name = %atrim(newPath) + oldFile
+				end
+				if (%instr(1, item.Output_folder, %atrim(currentPath)))
+				begin
+					oldFile = item.Output_folder - %atrim(currentPath)
+					item.Output_folder = %atrim(newPath) + oldFile
+				end
+				
+			end
+			
+			
+		endmethod
+		
+.endregion
+		
+.region "Dialog to save project info"
+		
+		private mDialogVM	,@DialogControlViewModel
+		
+		public property DialogVM, @DialogControlViewModel
+			method get
+			proc
+				mreturn mDialogVM
+			endmethod
+			method set
+			proc
+				mDialogVM = value
+			endmethod
+		endproperty
+		
+		private method doProcessDialogEvent, void
+			in req result					,DialogResult 
+			endparams
+		proc
+			using result select
+			(DialogResult.No),
+				raiseevent(ApplicaitonClosing)
+			(DialogResult.Yes),
+			begin
+				mCommander.ProjectFileInjector.CheckOutFile(Symphony.Orchestrator.Library.Model.ApplicationStatic.ProjectFileName)
+				mCommander.ProjectFileInjector.CheckOutFile(Symphony.Orchestrator.Library.Model.ApplicationStatic.DefaultFileName)
+				
+				if (!mXML.SaveXMLFile(mCodeGenCommands, mDefaultValues))
+				begin
+					allowAppExit = false
+					MoveToState("ErrorState")
+				end
+				if (allowAppExit)
+				begin
+					;;save project details
+					mCommander.ProjectFileInjector.AddToProjectHierarchy(
+					&	Symphony.Orchestrator.Library.Model.ApplicationStatic.ProjectFileName,
+					&	true, "None")
+					
+					;;save defaults
+					mCommander.ProjectFileInjector.AddToProjectHierarchy(
+					&	Symphony.Orchestrator.Library.Model.ApplicationStatic.DefaultFileName,
+					&	true, "None")
+					raiseevent(ApplicaitonClosing)
+				end
+			end
+			endusing
+		endmethod
+		
+.endregion
+		
+	endclass
+	
+endnamespace
