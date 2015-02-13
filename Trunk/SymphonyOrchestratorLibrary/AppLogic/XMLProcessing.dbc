@@ -1,0 +1,93 @@
+import System
+import System.Collections.Generic
+import System.Text
+
+import Symphony.Conductor.Types
+
+import Symphony.Orchestrator.Library.Model
+
+import System.Collections.ObjectModel
+
+import CodeGen.Engine
+
+namespace Symphony.Orchestrator.Library.AppLogic
+
+	public class XMLProcessing
+	
+		public method XMLProcessing
+			endparams
+		proc
+			
+		endmethod
+
+		public method SaveXMLFile	,boolean
+			in req commands			,@ObservableCollection<Codegen_command_Data>
+			in req defaults			,@Orchestrator_defaults_Data
+			endparams
+		proc
+			try
+			begin
+				data xmlOutCommand	,@Codegen_command_AsXML	,new Codegen_command_AsXML(Symphony.Orchestrator.Model.ApplicationStatic.ProjectFileName)
+				xmlOutCommand.WriteCollectionToXML(commands)
+				data xmlOutDefaults	,@Orchestrator_defaults_AsXML	,new Orchestrator_defaults_AsXML(Symphony.Orchestrator.Model.ApplicationStatic.DefaultFileName)
+				xmlOutDefaults.WriteToXML(defaults)
+			end
+			catch (e, @Exception)
+			begin
+				mreturn false
+			end
+			endtry
+			mreturn true
+		endmethod
+
+		public method LoadXMLFile, void
+			in req fileName			,String
+			in req commands			,@ObservableCollection<Codegen_command_Data>
+			inout req defaults			,@Orchestrator_defaults_Data
+			endparams
+		proc
+			;;let's see if we have anything to load!
+			data xmlCommand	,@Codegen_command_AsXML	,new Codegen_command_AsXML(fileName)
+			data lstCommand	,@List<Codegen_command_Data>	,xmlCommand.LoadFromXML()
+			
+			data itemCommand	,@Codegen_command_Data
+			foreach itemCommand in lstCommand
+			begin
+				itemCommand.InitialValidateData()
+				commands.Add(itemCommand)
+			end
+			
+			;;let's load any stored defaults
+			data xmlDefaults	,@Orchestrator_defaults_AsXML	,new Orchestrator_defaults_AsXML(%atrim(fileName) + "Defaults")
+			data lstDefaults	,@List<Orchestrator_defaults_Data>	,xmlDefaults.LoadFromXML()
+			
+			if (lstDefaults.Count == 0) then
+			begin
+				;;no defaults, set up some
+				defaults.Rps_main_file = Symphony.Orchestrator.Model.ApplicationStatic.RPSMainFile
+				defaults.Rps_text_file = Symphony.Orchestrator.Model.ApplicationStatic.RPSTextFile
+				defaults.Template_folder = Symphony.Orchestrator.Model.ApplicationStatic.TPLFolder
+				defaults.Output_folder = Symphony.Orchestrator.Model.ApplicationStatic.ProjectFolderName
+				defaults.Use_project_folder_as_root = 1
+				defaults.Project_relative_path_root = Symphony.Orchestrator.Model.ApplicationStatic.ProjectFolderName
+				defaults.Namespace = Symphony.Orchestrator.Model.ApplicationStatic.NameSpace
+				defaults.Prefix = "m"
+				defaults.Replace_file = 1
+				defaults.Add_folder_to_namespace = 1
+			end
+			else
+			begin
+				Orchestrator.Library.Model.ApplicationStatic.OriginalRootFolder = lstDefaults[0].Project_relative_path_root
+				;;default exist
+				defaults = lstDefaults[0]
+				if (defaults.Use_project_folder_as_root == 1)
+				begin
+					defaults.Project_relative_path_root = Symphony.Orchestrator.Model.ApplicationStatic.ProjectFolderName
+				end
+			end
+			
+		endmethod
+
+	endclass
+
+endnamespace

@@ -1,0 +1,214 @@
+import System.Diagnostics
+.array 0
+
+import System
+import System.Collections.Generic
+import System.Text
+
+
+namespace Symphony.Orchestrator.Library.Model
+
+	public static class ApplicationStatic
+	
+		private static mProjectFileName	,String	
+
+		public static property ProjectFileName, String
+			method get
+			proc
+				mreturn mProjectFileName
+			endmethod
+			method set
+			proc
+				mProjectFileName = value
+				mDefaultFileName = value + "Defaults"
+			endmethod
+		endproperty
+		
+		public static property ProjectFolderName, String
+			method get
+			proc
+				data folderName	,String	,""
+				if (System.IO.File.Exists(mProjectFileName)) then
+					folderName = System.IO.FileInfo(mProjectFileName).DirectoryName
+				else
+				begin
+					data lstPos	,i4	,0
+					data stPos	,i4	,1
+					repeat
+					begin
+						if (!%instr(stPos, mProjectFileName, "\")) then
+						begin
+							if (lstPos)
+							begin
+								folderName = mProjectFileName(1,lstPos)
+							end
+							exitloop
+						end
+						else
+						begin
+							lstPos = stPos
+							stPos +=1
+						end
+					end
+				end
+				mreturn folderName
+			endmethod
+		endproperty
+
+		private static mDefaultFileName	,String	
+		
+		public static property DefaultFileName, String
+			method get
+			proc
+				mreturn mDefaultFileName
+			endmethod
+		endproperty
+		
+		private static mRPSMainFile	,String
+
+		public static property RPSMainFile, String
+			method get
+			proc
+				data result	,a255
+				if (string.IsNullOrEmpty(mRPSMainFile)) then
+				begin
+					data length	,i4
+					getlog("RPSMFIL", result, length)
+					result = RemoveAndResolveLogical(result)
+					mRPSMainFile = result
+				end
+				else
+				begin
+					result = mRPSMainFile
+				end
+				mreturn result
+			endmethod
+			method set
+			proc
+				mRPSMainFile = value
+			endmethod
+		endproperty
+	
+		private static mRPSTextFile	,String
+		
+		public static property RPSTextFile, String
+			method get
+			proc
+				data result	,a255
+				if (string.IsNullOrEmpty(mRPSTextFile)) then
+				begin
+					data length	,i4
+					getlog("RPSTFIL", result, length)
+					result = RemoveAndResolveLogical(result)
+					mRPSTextFile = result
+				end
+				else
+				begin
+					result = mRPSTextFile
+				end
+				mreturn result
+			endmethod
+			method set
+			proc
+				mRPSTextFile = value
+			endmethod
+		endproperty
+		
+		private static mTPLFolder	,String
+			
+		public static property TPLFolder, String
+			method get
+			proc
+				data result	,a255
+				if (string.IsNullOrEmpty(mTPLFolder)) then
+				begin
+					data length	,i4
+					getlog("SYMPHONYTPL", result, length)
+					result = RemoveAndResolveLogical(result)
+					mTPLFolder = result
+				end
+				else
+				begin
+					result = mTPLFolder
+				end
+				mreturn result
+			endmethod
+			method set
+			proc
+				mTPLFolder = value
+			endmethod
+		endproperty
+
+		private static mNameSpace	,String
+		
+		public static property NameSpace, String
+			method get
+			proc
+				data result	,a255
+				if (string.IsNullOrEmpty(mTPLFolder)) then
+				begin
+					data length	,i4
+					getlog("SYNDEFNS", result, length)
+					mNameSpace = result
+				end
+				else
+				begin
+					result = mNameSpace
+				end
+				mreturn result
+			endmethod
+			method set
+			proc
+				mNameSpace = value
+			endmethod
+		endproperty
+		
+		public static method RemoveAndResolveLogical	,String
+			in req filePath								,String
+			endparams
+			record
+				resolvedFilePath	,String
+				pos					,i4
+				logical				,String
+				translation			,a255
+				length				,i4
+			endrecord
+		proc
+			resolvedFilePath = filePath
+			pos = %instr(1, resolvedFilePath, ":")
+			if (pos && !%instr(1, resolvedFilePath, "\"))
+			begin
+				logical = resolvedFilePath(1:pos - 1)
+				getlog(logical, translation, length)
+				if (!length) then
+				begin
+					;;logical is not valid
+					clear resolvedFilePath
+				end
+				else
+				begin
+					;;got a valid logical, expand and add the file name
+					resolvedFilePath = string.Concat(%atrim(translation), "\", %atrim(filePath(pos + 1, ^size(filePath))))
+				end
+			end
+
+			mreturn resolvedFilePath
+		endmethod
+
+		private static mOriginalRootFolder	,String
+
+		public static property OriginalRootFolder, String
+			method get
+			proc
+				mreturn mOriginalRootFolder
+			endmethod
+			method set
+			proc
+				mOriginalRootFolder = value
+			endmethod
+		endproperty
+		
+
+	endclass
+
+endnamespace
