@@ -124,6 +124,7 @@ namespace CodeGen.Engine
             List<TokenMeta> metaLookup = new List<TokenMeta>
             {
                 new TokenMeta { Name = "CODEGEN_FILENAME", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
+                new TokenMeta { Name = "CODEGEN_FOLDER", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "PROCESS_TEMPLATE", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "PROVIDE_FILE", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "REQUIRES_USERTOKEN", TypeOfToken = TokenType.FileHeader, IsPaired = true, Validity = TokenValidity.Anywhere },
