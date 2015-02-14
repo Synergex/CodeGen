@@ -151,6 +151,12 @@ namespace CodeGen.Engine
                                         else
                                             reportParserError(ref errors, tkn, "Token <CODEGEN_FILENAME> can only be used once in a template file!");
                                         break;
+                                    case "CODEGEN_FOLDER":
+                                        if (topLevelNode.OutputFolder == null)
+                                            topLevelNode.OutputFolder = tokens[i + 1].Value;
+                                        else
+                                            reportParserError(ref errors, tkn, "Token <CODEGEN_FOLDER> can only be used once in a template file!");
+                                        break;
                                     case "REQUIRES_USERTOKEN":
                                         if (topLevelNode.RequiredUserTokens == null)
                                             topLevelNode.RequiredUserTokens = new List<string>();
