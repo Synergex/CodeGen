@@ -83,8 +83,8 @@ namespace CodeGen.Engine
         /// Parser wrapper used by CodeGenerator class. This method writes error messages to the current
         /// CodeGenTask as well as returning a fail status.
         /// </summary>
-        /// <param name="tokens">Collection of tokens to be parsed.</param>
         /// <param name="context">Current CodeGen context (for provisioning of user tokens, extensions, etc.)</param>
+        /// <param name="tokens">Collection of tokens to be parsed.</param>
         /// <param name="file">Returned tree of tokens represented by a FileNode object.</param>
         /// <returns>Returns true if the parse was successful, otherwise false and reports errors via context.CurrentTask.Messages.</returns>
         public static bool Parse(CodeGen.Engine.CodeGenContext context, List<Token> tokens, ref FileNode file)
@@ -95,6 +95,9 @@ namespace CodeGen.Engine
 
             if ((errors == null) || (errors.Count == 0))
             {
+                //Associate the provided context with the file node
+                file.Context = context;
+
                 errors = null;
                 return true;
             }
@@ -153,7 +156,7 @@ namespace CodeGen.Engine
                                         break;
                                     case "CODEGEN_FOLDER":
                                         if (topLevelNode.OutputFolder == null)
-                                            topLevelNode.OutputFolder = tokens[i + 1].Value;
+                                                topLevelNode.OutputFolder = tokens[i + 1].Value;
                                         else
                                             reportParserError(ref errors, tkn, "Token <CODEGEN_FOLDER> can only be used once in a template file!");
                                         break;
