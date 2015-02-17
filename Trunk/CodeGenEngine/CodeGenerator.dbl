@@ -1474,9 +1474,20 @@ namespace CodeGen.Engine
 					;;Write the initial tree to a log file?
 					if (taskset.LogTokenizerResults)
 						writeTreeToLogFile(tree,"PARSER_OUTPUT")
-						
-					;;Bind context data. We need to do this here because ErrorReporting needs information about user-defined tokens
-					tree.Context = context
+
+					;;If the template file specifies an output folder, report it
+					if (!String.IsNullOrWhiteSpace(tree.OutputFolder))
+					begin
+						if (task.AllowTemplateFolder) then
+						begin
+							task.VerboseLog(String.Format(" - Template specifies output subfolder '{0}'",tree.OutputFolder))
+						end
+						else
+						begin
+							task.Warning(string.Format("Template specified output folder '{0}' will not be used because option -tf has not been specified",tree.OutputFolder))
+							tree.OutputFolder = ^null
+						end
+					end
 					
 					;;Walk the tree for errors
 					task.DebugLog(" - Tree validation phase beginning")
@@ -1895,7 +1906,9 @@ namespace CodeGen.Engine
 				task.Log("")
 				data fileSpec, String
 				foreach fileSpec in task.FilesGenerated
+				begin
 					task.Log(" - " + Path.GetFileName(fileSpec))
+				end
 			end
 
 		endmethod
