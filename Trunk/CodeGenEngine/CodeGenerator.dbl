@@ -174,93 +174,34 @@ namespace CodeGen.Engine
 		public static method LoadSymphonyExtensions, void
 			required in currentContext, @CodeGenContext
 			endparams
+
 		proc
-			
-			data errStatus, Boolean, false
-			
-			;;Get task and taskset handles for convenience
+			;;Get a taskset handle for convenience
 			data taskset, @CodeGenTaskSet, currentContext.Taskset
-			data task, @CodeGenTask, currentContext.CurrentTask
 			
 			taskset.DevDebugLog("----------------------------------------------------------")
 			taskset.DevDebugLog("SYMPHONY FRAMEWORK EXTENSIONS")
 			
-			;;Report whether we're running 32-bit or 64-bit
-			if (Environment.Is64BitProcess) then
-				taskset.DevDebugLog("Process is 64-bit")
-			else
-				taskset.DevDebugLog("Process is 32-bit")
-			
-			;;Look for extensions in the registry
-			
-			data symphonyLocation,   String, (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","CodeGenExtensionPath","")
-			data extensionsAssembly, String, (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\SymphonyFramework","CodeGenExtensionLibrary","")
-			data extensionsFound, boolean, false
-			
-			if (!String.IsNullOrWhiteSpace(symphonyLocation)&&!String.IsNullOrWhiteSpace(extensionsAssembly))
-			begin
-				extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
-				if (File.Exists(extensionsAssembly)) then
-				begin
-					taskset.DevDebugLog("Extensions definition found in registry and assembly found")
-					extensionsFound = true
-				end
-				else
-				begin
-					taskset.DevDebugLog("Extensions definition found in registry but assembly not found")
-				end
-			end
-			
-			;;If we didn't find extensions, and we're 64-bit, let's try looking in the 32-bit registry
-			
-			if (!extensionsFound&&Environment.Is64BitProcess)
-			begin
-				symphonyLocation   = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\SymphonyFramework","CodeGenExtensionPath","")
-				extensionsAssembly = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\SymphonyFramework","CodeGenExtensionLibrary","")
-				
-				if (!String.IsNullOrWhiteSpace(symphonyLocation)&&!String.IsNullOrWhiteSpace(extensionsAssembly))
-				begin
-					extensionsAssembly = Path.Combine(symphonyLocation,extensionsAssembly)
-					if (File.Exists(extensionsAssembly)) then
-					begin
-						taskset.DevDebugLog("Extensions definition found in 32-bit registry and assembly found")
-						extensionsFound = true
-					end
-					else
-					begin
-						taskset.DevDebugLog("Extensions definition found in 32-bit registry but assembly not found")
-					end
-				end
-			end
-			
-			;;If we still didn't find extensions then look in the same folder as CodeGen
-			if (!extensionsFound)
-			begin
-				data codeBaseUri, @UriBuilder, new UriBuilder(Assembly.GetExecutingAssembly().CodeBase)
-				symphonyLocation = Path.GetDirectoryName(Uri.UnescapeDataString(codeBaseUri.Path))
-				extensionsAssembly = Path.Combine(symphonyLocation,"SymphonyCodeGenExtensions.dll")
-				if (File.Exists(extensionsAssembly)) then
-				begin
-					taskset.DevDebugLog("Extensions found on disk")
-					extensionsFound = true
-				end
-				else
-				begin
-					taskset.DevDebugLog("Extensions not found on disk")
-				end
-			end
-			
-			if (extensionsFound)
+			;;Look for the extensions assembly in the same folder as CodeGen
+			data codeBaseUri, @UriBuilder, new UriBuilder(Assembly.GetExecutingAssembly().CodeBase)
+			data symphonyLocation, string, Path.GetDirectoryName(Uri.UnescapeDataString(codeBaseUri.Path))
+			data extensionsAssembly, string, Path.Combine(symphonyLocation,"SymphonyCodeGenExtensions.dll")
+
+			if (File.Exists(extensionsAssembly)) then
 			begin
 				;;Report the extensions assembly we're going to use
-				taskset.DevDebugLog(String.Format("Using {0}",extensionsAssembly))
-
+				taskset.DevDebugLog(String.Format("Found Symphony Framework extensions assembly {0}",extensionsAssembly))	
+		
 				;;Open the assembly and load extensions
 				if (!loadExtensionsFromAssembly(extensionsAssembly,currentContext))
-					taskset.DevDebugLog("No extensions were found in the Symphony extensions assembly!")					
+					taskset.DevDebugLog("No extension classes were found in the extensions assembly!")					
+			end
+			else
+			begin
+				taskset.DevDebugLog("No Symphony Framework extensions assembly was found!")
 			end
 			
-			taskset.DevDebugLog("Finished loading Symphony extensions")
+			taskset.DevDebugLog("Finished loading Symphony Framework extensions.")
 			
 		endmethod
 		
