@@ -49,6 +49,15 @@ namespace SetAssemblyFileVersion
                     }
                 }
 
+                //If the file is read-only, make it writable
+                FileAttributes attributes = File.GetAttributes(fileName);
+                if ((attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                {
+                    // Make the file RW
+                    attributes = attributes & ~FileAttributes.ReadOnly;
+                    File.SetAttributes(fileName, attributes);
+                }
+
 			    //Re-write the file
 			    File.WriteAllLines(fileName,sourceLines);
                 filesWritten += 1;
@@ -57,6 +66,12 @@ namespace SetAssemblyFileVersion
             MessageBox.Show(this, String.Format("{0} files updated.", filesWritten));
 
         }
+
+        private static FileAttributes RemoveAttribute(FileAttributes attributes, FileAttributes attributesToRemove)
+        {
+            return attributes & ~FileAttributes.ReadOnly;
+        }
+
 
         private void btnFolderLookup_Click(object sender, EventArgs e)
         {
