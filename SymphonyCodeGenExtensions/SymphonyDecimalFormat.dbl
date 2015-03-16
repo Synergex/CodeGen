@@ -1,0 +1,142 @@
+;;*****************************************************************************
+;;
+;; Title:       SymphonyDecimalFormat.dbl
+;;
+;; Type:        CodeGen Extension Class
+;;
+;; Description: Custom field loop token <SYMPHONY_DECIMAL_FORMAT>
+;;
+;; Author:      Richard C. Morris, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2012, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace Symphony.CodeGen.Extensions
+	
+	public class SymphonyDecimalFormat implements IExpansionToken
+		
+		private const rpsFormatString	,a*	,"<SYMPHONY_DECIMAL_FORMAT="
+		private const rpsPlacesString	,a*	,"<SYMPHONY_DECIMAL_PLACES="
+		
+		public property TokenName, String
+			method get
+			proc
+				mreturn "SYMPHONY_DECIMAL_FORMAT"
+			endmethod
+		endproperty
+		
+		public property Description, String
+			method get
+			proc
+				mreturn "SYMPHONY_DECIMAL_FORMAT"
+			endmethod
+		endproperty
+		
+		public property Validity, TokenValidity
+			method get
+			proc
+				mreturn TokenValidity.FieldLoop
+			endmethod
+		endproperty
+		
+		public property TokenCase, TokenCaseMode
+			method get
+			proc
+				mreturn TokenCaseMode.UppercaseOnly
+			endmethod
+		endproperty
+		
+		public method Expand, String
+			tkn, @Token
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode>
+			endparams
+		proc
+			lambda process(str, field)
+			begin
+				data startPos	,i4
+				data endPos		,i4
+				data tokenValue	,a30
+				data tokenLength	,i4
+				data formatString		,a11	,'#0.00000000'
+				data formatStringBlank	,a11	,'##.########'
+				
+				
+				tokenLength = %trim(rpsFormatString)
+				startPos = %instr(1, field.LongDescription, rpsFormatString)
+				if (startPos) then
+				begin
+					startPos += tokenLength
+					endPos = %instr(startPos, field.LongDescription,">")
+					tokenValue = field.LongDescription(startPos , endpos - 1)
+					mreturn ",StringFormat=" + %atrim(tokenValue) + " "
+				end
+				else
+				begin
+					if (field.DataType == RpsFieldDataType.Decimal && field.Precision) then
+					begin
+						data numDec	,d2
+						startPos = %instr(1, field.LongDescription, rpsPlacesString)
+						if (startPos) then
+						begin
+							startPos += %trim(rpsPlacesString)
+							endPos = %instr(startPos, field.LongDescription,">")
+							numDec = field.LongDescription(startPos , endpos - 1)
+						end
+						else
+						begin
+							numDec = field.Precision
+						end
+						if (field.BlankIfZero == true) then
+						begin
+							mreturn ",StringFormat=" + formatStringBlank(1:numDec+3)
+						end
+						else
+						begin
+							mreturn ",StringFormat=" + formatString(1:numDec+3)
+						end
+					end
+					else
+					begin
+						mreturn ""
+					end
+				end
+			end
+			mreturn TokenExpander.ExpandFieldLoopToken(tkn, file, loops, process)
+		endmethod
+		
+	endclass
+	
+endnamespace
