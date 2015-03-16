@@ -1,0 +1,83 @@
+
+import System
+import System.Diagnostics
+import System.Reflection
+import System.ServiceModel.Syndication
+import System.Xml
+
+namespace CodeGen
+
+	public static class UpdateManager
+	
+		public static method CheckForNewVersion, boolean
+			required out currentVersion, String
+			required out latestVersion, String
+			required out message, string
+			endparams
+		proc
+			currentVersion = getCurrentVersionNumber()
+			latestVersion = getLatestVersionNumber()
+			data updateAvailable, boolean
+			message = getUpdateMessage(currentVersion,latestVersion,updateAvailable)
+			mreturn updateAvailable
+		endmethod
+
+		private static method getCurrentVersionNumber, string
+			endparams
+		proc
+			data asy, @Assembly, Assembly.GetExecutingAssembly()
+			data fvi, @FileVersionInfo, FileVersionInfo.GetVersionInfo(asy.Location)
+			mreturn fvi.FileVersion
+		endmethod
+
+		private static method getLatestVersionNumber, String
+			endparams
+		proc
+			try
+			begin
+				;;Get an Atom formatter
+				data formatter, @Atom10FeedFormatter, new Atom10FeedFormatter()				
+				;;Read the Atom feed
+				disposable data reader, @XmlReader, XmlReader.Create("https://codegen.svn.codeplex.com/svn/Trunk/CurrentRelease.xml")
+				formatter.ReadFrom(reader)
+				mreturn formatter.Feed.Title.Text
+			end
+			catch (e, @Exception)
+			begin
+				mreturn "Unknown"
+			end
+			endtry
+		endmethod
+
+		private static method getUpdateMessage, String
+			required in currentVersion, String
+			required in latestVersion, string
+			required out updateAvailable, boolean
+			endparams
+		proc
+			updateAvailable = false
+			if (latestVersion=="Unknown") then
+			begin
+				mreturn "Failed to retrieve latest version information"
+			end
+			else
+			begin
+				if (latestVersion > currentVersion) then
+				begin
+					updateAvailable = true
+					mreturn "An updated version of CodeGen is available"
+				end
+				else if (latestVersion < currentVersion) then
+				begin
+					mreturn "You are running a pre-release version of CodeGen"
+				end
+				else
+				begin
+					mreturn "You are running the latest version of CodeGen"
+				end
+			end
+		endmethod
+		
+	endclass
+
+endnamespace
