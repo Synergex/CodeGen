@@ -2,12 +2,14 @@
 import System.Collections
 import System.Collections.Generic
 import System.Diagnostics
+import System.Runtime.InteropServices
 import System.Text
 import System.Windows
 import System.Windows.Controls
 import System.Windows.Data
 import System.Windows.Documents
 import System.Windows.Input
+import System.Windows.Interop
 import System.Windows.Shapes
 import System.Windows.Media
 import System.Windows.Media.Imaging
@@ -18,7 +20,9 @@ import Symphony.Orchestrator.Library.ViewModel
 namespace SymphonyOrchestrator
 	
 	public partial class MainWindow1 extends Window
-		
+	
+		private controlledClose, boolean, false
+			
 		public method MainWindow1
 			endparams
 		proc
@@ -26,6 +30,30 @@ namespace SymphonyOrchestrator
 			
 		endmethod
 		
+		private method Window_Loaded, void
+			sender, @object 
+			e, @System.Windows.RoutedEventArgs 
+			endparams
+		proc
+			;;Remove the close button from the main window
+			data hwnd = new WindowInteropHelper(this).Handle
+			SetWindowLong(hwnd, GWL_STYLE, GetWindowLong(hwnd, GWL_STYLE) & ~WS_SYSMENU)
+			
+			mVM = new OrchestratorViewModel(this, new  Symphony.Orchestrator.Library.AppLogic.SymphonyOrchestratorInjectorDummy())
+			mVM.DefaultValues.Use_command_line = Properties.Settings.Default.UseCommandLineInterface
+			addhandler(mVM.ApplicaitonClosing, appClosing)
+			this.DataContext = mVM
+			
+		endmethod
+		
+		private method Window_Closing, void
+			sender, @object 
+			e, @System.ComponentModel.CancelEventArgs 
+			endparams
+		proc
+			;;Prevent Alt+F4 form closing the window
+			e.Cancel = (!controlledClose)
+		endmethod
 		
 		private method Border_MouseLeftButtonDown, void
 			sender, @object 
@@ -37,17 +65,6 @@ namespace SymphonyOrchestrator
 		
 		private mVM	,@OrchestratorViewModel
 		
-		private method Window_Loaded, void
-			sender, @object 
-			e, @System.Windows.RoutedEventArgs 
-			endparams
-		proc
-			mVM = new OrchestratorViewModel(this, new  Symphony.Orchestrator.Library.AppLogic.SymphonyOrchestratorInjectorDummy())
-			mVM.DefaultValues.Use_command_line = Properties.Settings.Default.UseCommandLineInterface
-			addhandler(mVM.ApplicaitonClosing, appClosing)
-			this.DataContext = mVM
-		endmethod
-		
 		private method appClosing, void
 			endparams
 		proc
@@ -55,12 +72,37 @@ namespace SymphonyOrchestrator
 				Properties.Settings.Default.Template_folder = mVM.DefaultValues.Template_folder
 			
 			Properties.Settings.Default.UseCommandLineInterface = (mVM.DefaultValues.Use_command_line == 1)
-			
 			Properties.Settings.Default.Save()
 			
+			controlledClose = true
 			this.Close()
 			
 		endmethod
+	
+.region "PInvoke Stuff"
+
+		private const GWL_STYLE, int, -16
+		private const WS_SYSMENU, int, 524288
+		
+		{DllImport("user32.dll", SetLastError = true)}
+		private static method GetWindowLong, int
+			hWnd, IntPtr 
+			nIndex, int 
+			endparams
+		proc
+		endmethod
+		
+		{DllImport("user32.dll")}
+		private static method SetWindowLong, int
+			hWnd, IntPtr 
+			nIndex, int 
+			dwNewLong, int 
+			endparams
+		proc
+		endmethod
+
+.endregion
 		
 	endclass
+
 endnamespace
