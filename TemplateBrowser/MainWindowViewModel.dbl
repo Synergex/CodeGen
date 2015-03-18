@@ -100,16 +100,38 @@ namespace TemplateBrowser
 			if (templateFolderFound)
 			begin
 				foreach fileSpec in Directory.GetFiles(templateFolder,"*.tpl")
-					CodeGenTemplates.Add(new TemplateProxy(fileSpec))
+				begin
+					if (!fileSpec.ToLower().StartsWith("symphony"))
+					begin
+						CodeGenTemplates.Add(new TemplateProxy(fileSpec))
+					end
+				end
 			end
 			
 			;;--------------------------------------------------
 			;;Load Symphony Framework templates
 			
-			data symphonyTemplateFolder, String, Environment.GetEnvironmentVariable("SYMPHONYTPL")
-			if ((symphonyTemplateFolder!=^null) && Directory.Exists(symphonyTemplateFolder))
-				foreach fileSpec in Directory.GetFiles(symphonyTemplateFolder,"*.tpl")
+			if (templateFolderFound)
+			begin
+				foreach fileSpec in Directory.GetFiles(templateFolder,"symphony*.tpl")
+				begin
 					SymphonyTemplates.Add(new TemplateProxy(fileSpec))
+				end
+
+				;;If we didn't find any Symphony templates in the CodeGen templates folder, then we'll look for Templates
+				;;from older Symphony installs, which used to set the SYMPHONYTPL environment variable
+				if (SymphonyTemplates.Count == 0)
+				begin
+					data symphonyTemplateFolder, String, Environment.GetEnvironmentVariable("SYMPHONYTPL")
+					if ((!String.IsNullOrWhiteSpace(symphonyTemplateFolder)) && Directory.Exists(symphonyTemplateFolder))
+					begin
+						foreach fileSpec in Directory.GetFiles(symphonyTemplateFolder,"*.tpl")
+						begin
+							SymphonyTemplates.Add(new TemplateProxy(fileSpec))
+						end
+					end
+				end
+			end
 			
 			;;--------------------------------------------------
 			;;Load user templates
