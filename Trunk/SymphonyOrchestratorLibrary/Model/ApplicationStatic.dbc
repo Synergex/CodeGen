@@ -1,10 +1,11 @@
-import System.Diagnostics
-.array 0
 
 import System
 import System.Collections.Generic
+import System.Diagnostics
+import System.IO
 import System.Text
 
+.array 0
 
 namespace Symphony.Orchestrator.Library.Model
 
@@ -28,8 +29,8 @@ namespace Symphony.Orchestrator.Library.Model
 			method get
 			proc
 				data folderName	,String	,""
-				if (System.IO.File.Exists(mProjectFileName)) then
-					folderName = System.IO.FileInfo(mProjectFileName).DirectoryName
+				if (File.Exists(mProjectFileName)) then
+					folderName = FileInfo(mProjectFileName).DirectoryName
 				else
 				begin
 					data lstPos	,i4	,0
@@ -70,7 +71,7 @@ namespace Symphony.Orchestrator.Library.Model
 			method get
 			proc
 				data result	,a255
-				if (string.IsNullOrEmpty(mRPSMainFile)) then
+				if (String.IsNullOrWhitespace(mRPSMainFile)) then
 				begin
 					data length	,i4
 					getlog("RPSMFIL", result, length)
@@ -95,7 +96,7 @@ namespace Symphony.Orchestrator.Library.Model
 			method get
 			proc
 				data result	,a255
-				if (string.IsNullOrEmpty(mRPSTextFile)) then
+				if (String.IsNullOrWhitespace(mRPSTextFile)) then
 				begin
 					data length	,i4
 					getlog("RPSTFIL", result, length)
@@ -119,25 +120,54 @@ namespace Symphony.Orchestrator.Library.Model
 		public static property TPLFolder, String
 			method get
 			proc
-				data result	,a255
-				if (string.IsNullOrEmpty(mTPLFolder)) then
-				begin
-					data length	,i4
-					getlog("SYMPHONYTPL", result, length)
-					result = RemoveAndResolveLogical(result)
-					mTPLFolder = result
-				end
-				else
-				begin
-					result = mTPLFolder
-				end
-				mreturn result
+				if (String.IsNullOrWhitespace(mTPLFolder))
+					mTPLFolder = getTemplateFolder()
+				mreturn mTPLFolder
 			endmethod
 			method set
 			proc
-				mTPLFolder = value
+				mTPLFolder = value.Trim()
 			endmethod
 		endproperty
+
+		private static method getTemplateFolder, void
+			endparams
+		proc
+			data templateFolderFound, boolean, false
+
+			;;Is CODEGEN_TPLDIR already set in the environment?
+			data templateFolder, String, Environment.GetEnvironmentVariable("CODEGEN_TPLDIR")
+
+			if (String.IsNullOrWhiteSpace(templateFolder) || !Directory.Exists(templateFolder))
+			begin
+				;;No, look in the registry for the value set by the installer				
+				templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
+				if (!String.IsNullOrWhiteSpace(templateFolder)) then
+				begin
+					;;Found it
+					templateFolderFound = true
+				end
+				else if (Environment.Is64BitProcess)
+				begin
+					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+					templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","TemplatePath","")
+					if (!String.IsNullOrWhiteSpace(templateFolder))
+					begin
+						;;Found it
+						templateFolderFound = true
+					end
+				end
+			end
+
+			if (!templateFolderFound)
+				templateFilder = "."
+
+			if (!templateFolder.Trim().EndsWith("\"))
+				templateFolder = templateFolder.Trim() + "\"
+
+			mreturn templateFolder
+
+		endmethod
 
 		private static mNameSpace	,String
 		
@@ -145,7 +175,7 @@ namespace Symphony.Orchestrator.Library.Model
 			method get
 			proc
 				data result	,a255
-				if (string.IsNullOrEmpty(mTPLFolder)) then
+				if (String.IsNullOrWhiteSpace(mTPLFolder)) then
 				begin
 					data length	,i4
 					getlog("SYNDEFNS", result, length)
@@ -188,10 +218,9 @@ namespace Symphony.Orchestrator.Library.Model
 				else
 				begin
 					;;got a valid logical, expand and add the file name
-					resolvedFilePath = string.Concat(%atrim(translation), "\", %atrim(filePath(pos + 1, ^size(filePath))))
+					resolvedFilePath = String.Concat(%atrim(translation), "\", %atrim(filePath(pos + 1, ^size(filePath))))
 				end
 			end
-
 			mreturn resolvedFilePath
 		endmethod
 
