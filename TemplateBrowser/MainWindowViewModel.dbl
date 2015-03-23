@@ -100,37 +100,42 @@ namespace TemplateBrowser
 			if (templateFolderFound)
 			begin
 				foreach fileSpec in Directory.GetFiles(templateFolder,"*.tpl")
-				begin
-					if (!fileSpec.ToLower().StartsWith("symphony"))
-					begin
-						CodeGenTemplates.Add(new TemplateProxy(fileSpec))
-					end
-				end
+					CodeGenTemplates.Add(new TemplateProxy(fileSpec))
 			end
 			
 			;;--------------------------------------------------
 			;;Load Symphony Framework templates
+
+			templateFolderFound = false
+
+			templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","SymphonyTemplates","")
+			if (!String.IsNullOrWhiteSpace(templateFolder)) then
+				templateFolderFound = true
+			else if (Environment.Is64BitProcess)
+			begin
+				templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","SymphonyTemplates","")
+				if (!String.IsNullOrWhiteSpace(templateFolder))
+					templateFolderFound = true
+			end
+			
+			if (!templateFolderFound)
+			begin
+				data codeBase, string, Assembly.GetExecutingAssembly().CodeBase
+				data uri, @UriBuilder, new UriBuilder(codeBase)
+				data path, string, Uri.UnescapeDataString(uri.Path)
+				data binFolder, string, Path.GetDirectoryName(path)
+				
+				if (binFolder.Contains("\Bin\Release")||binFolder.Contains("\Bin\Debug"))
+				begin
+					templateFolder = binFolder + "\..\..\SymphonyTemplates"
+					templateFolderFound = true
+				end
+			end
 			
 			if (templateFolderFound)
 			begin
-				foreach fileSpec in Directory.GetFiles(templateFolder,"symphony*.tpl")
-				begin
+				foreach fileSpec in Directory.GetFiles(templateFolder,"*.tpl")
 					SymphonyTemplates.Add(new TemplateProxy(fileSpec))
-				end
-
-				;;If we didn't find any Symphony templates in the CodeGen templates folder, then we'll look for Templates
-				;;from older Symphony installs, which used to set the SYMPHONYTPL environment variable
-				if (SymphonyTemplates.Count == 0)
-				begin
-					data symphonyTemplateFolder, String, Environment.GetEnvironmentVariable("SYMPHONYTPL")
-					if ((!String.IsNullOrWhiteSpace(symphonyTemplateFolder)) && Directory.Exists(symphonyTemplateFolder))
-					begin
-						foreach fileSpec in Directory.GetFiles(symphonyTemplateFolder,"*.tpl")
-						begin
-							SymphonyTemplates.Add(new TemplateProxy(fileSpec))
-						end
-					end
-				end
 			end
 			
 			;;--------------------------------------------------
