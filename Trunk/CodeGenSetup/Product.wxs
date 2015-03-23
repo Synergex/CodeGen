@@ -96,20 +96,28 @@
     </Condition>
 
     <!-- ************************************************************************************************************* -->
+    <!-- Get a handle to the public documents folder so we can put templates there -->
+
+    <PropertyRef Id="WIX_DIR_COMMON_DOCUMENTS"/>
+    
+    <!-- ************************************************************************************************************* -->
     <!-- Define the folders that the installation uses -->
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <!-- Program Files Folder -->
       <Directory Id="ProgramFilesFolder">
         <Directory Id="SynergexFolder" Name="Synergex">
-          <Directory Id="MAINFOLDER" Name="CodeGen">
-            <Directory Id="TemplatesFolder" Name="Templates" />
-          </Directory>
+          <Directory Id="MAINFOLDER" Name="CodeGen" />
         </Directory>
       </Directory>
       <!-- Start Menu Folder -->
       <Directory Id="ProgramMenuFolder">
         <Directory Id="ApplicationProgramsFolder" Name="CodeGen"/>
+      </Directory>
+      <!-- Folders for templates -->
+      <Directory Id="WIX_DIR_COMMON_DOCUMENTS">
+         <Directory Id="TemplatesFolder" Name="CodeGenTemplates" />
+         <Directory Id="SymphonyTemplatesFolder" Name="SymphonyTemplates" />
       </Directory>
     </Directory>
 
@@ -158,11 +166,6 @@
           <RegistryValue Type="string" Name="InstallPath" Value="[MAINFOLDER]" KeyPath="yes"/>
         </RegistryKey>
       </Component>
-      <Component Id="Core_Registry_TemplatePath" Guid="{311A4845-58D1-4DFA-B90C-3B82C91E3D5F}">
-        <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
-          <RegistryValue Type="string" Name="TemplatePath" Value="[TemplatesFolder]" KeyPath="yes"/>
-        </RegistryKey>
-      </Component>
       <Component Id="Core_Registry_Author" Guid="{128D6361-F720-4A16-BB00-F6FABAEB10BC}">
         <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
           <RegistryValue Type="string" Name="DefaultAuthor"  Value="[USERNAME]" KeyPath="yes"/>
@@ -171,6 +174,11 @@
       <Component Id="Core_Registry_Company" Guid="{A4EE28AE-F91D-4B08-BC2F-AE771E4C6B63}">
         <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
           <RegistryValue Type="string" Name="DefaultCompany" Value="[COMPANYNAME]" KeyPath="yes"/>
+        </RegistryKey>
+      </Component>
+      <Component Id="Core_Registry_Version" Guid="{4E37B501-88C0-454F-BF96-DF5F14B49AEB}">
+        <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
+          <RegistryValue Type="string" Name="Version" Value="[ProductVersion]" KeyPath="yes"/>
         </RegistryKey>
       </Component>
     </DirectoryRef>
@@ -205,9 +213,9 @@
       <ComponentRef Id="DataMappingsExample.xml" />
       <ComponentRef Id="DefaultButtons.xml" />
       <ComponentRef Id="Core_Registry_InstallPath" />
-      <ComponentRef Id="Core_Registry_TemplatePath" />
       <ComponentRef Id="Core_Registry_Author" />
       <ComponentRef Id="Core_Registry_Company" />
+      <ComponentRef Id="Core_Registry_Version"/>
       <ComponentRef Id="Core_Environment" />
       <ComponentRef Id="Core_Shortcuts" />
     </Feature>
@@ -606,8 +614,18 @@
       </Component>
     </DirectoryRef>
 
+    <!-- Registry Entries -->
+    <DirectoryRef Id="MAINFOLDER">
+      <Component Id="Registry_TemplatePath" Guid="{311A4845-58D1-4DFA-B90C-3B82C91E3D5F}">
+        <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
+          <RegistryValue Type="string" Name="TemplatePath" Value="[TemplatesFolder]" KeyPath="yes"/>
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
     <!-- Feature -->
     <Feature Id="FeatureTemplates" Title="Sample Templates" Level="1" Description="Installs a collection of sample Templates.">
+      <ComponentRef Id="Registry_TemplatePath" />
       <ComponentRef Id="cs_annotated_class.tpl" />
       <ComponentRef Id="cs_asp_data_provider.tpl" />
       <ComponentRef Id="cs_class.tpl" />
@@ -878,8 +896,25 @@
     <!-- ************************************************************************************************************* -->
     <!-- Symphony Templates Feature -->
 
+    <!-- Environment Variables -->
+    <DirectoryRef Id="SymphonyTemplatesFolder">
+      <Component Id="EnvVar_SYMPHONYTPL" Guid="{15E2305A-431A-40D6-AA61-D2C4849F0720}">
+        <CreateFolder/>
+        <Environment Id="SYMPHONYTPL" Action="set" Name="SYMPHONYTPL" Value="[SymphonyTemplatesFolder]" System="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Registry Entries -->
+    <DirectoryRef Id="MAINFOLDER">
+      <Component Id="Registry_SymphonyTemplatePath" Guid="{FBF966BD-2BD1-4C80-BA6F-909DED176E84}">
+        <RegistryKey Root="HKLM" Key="Software\Synergex\CodeGen">
+          <RegistryValue Type="string" Name="SymphonyTemplates" Value="[SymphonyTemplatesFolder]" KeyPath="yes"/>
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
     <!-- Files -->
-    <DirectoryRef Id="TemplatesFolder">
+    <DirectoryRef Id="SymphonyTemplatesFolder">
       <Component Id="Symphony_AsXML.tpl" Guid="{BBD52E99-3946-46BB-A3A6-BD1AA2A9FFE3}">
         <File Id="Symphony_AsXML.tpl" KeyPath="yes" Source="..\SymphonyTemplates\Symphony_AsXML.tpl" />
       </Component>
@@ -1016,6 +1051,8 @@
 
     <!-- Feature -->
     <Feature Id="FeatureSymphonyTemplates" Title="Symphony Templates" Level="1" Description="Installs the Symphony Framework Templates.">
+      <ComponentRef Id="EnvVar_SYMPHONYTPL"/>
+      <ComponentRef Id="Registry_SymphonyTemplatePath"/>
       <ComponentRef Id="Symphony_AsXML.tpl" />
       <ComponentRef Id="Symphony_BLListViewModel.tpl" />
       <ComponentRef Id="Symphony_Collection.tpl" />
