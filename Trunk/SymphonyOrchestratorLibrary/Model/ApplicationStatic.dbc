@@ -138,28 +138,40 @@ namespace Symphony.Orchestrator.Library.Model
 
 			;;Is CODEGEN_TPLDIR already set in the environment?
 			data templateFolder, String, Environment.GetEnvironmentVariable("CODEGEN_TPLDIR")
+			if (!String.IsNullOrWhiteSpace(templateFolder) && Directory.Exists(templateFolder))
+				templateFolderFound = true
 
-			if (String.IsNullOrWhiteSpace(templateFolder) || !Directory.Exists(templateFolder))
+			;;If not found via CODEGEN_TPLDIR then look in the registry for the Symphony templates folder
+			if (!templateFolderFound)
 			begin
-				;;No, look in the registry for the value set by the installer				
+				templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","SymphonyTemplates","")
+				if (!String.IsNullOrWhiteSpace(templateFolder)) then
+					templateFolderFound = true
+				else if (Environment.Is64BitProcess)
+				begin
+					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
+					templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","SymphonyTemplates","")
+					if (!String.IsNullOrWhiteSpace(templateFolder))
+						templateFolderFound = true
+				end
+			end
+
+			;;If still not found then look in the registry for the CodeGen templates folder
+			if (!templateFolderFound)
+			begin
 				templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","TemplatePath","")
 				if (!String.IsNullOrWhiteSpace(templateFolder)) then
-				begin
-					;;Found it
 					templateFolderFound = true
-				end
 				else if (Environment.Is64BitProcess)
 				begin
 					;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
 					templateFolder = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","TemplatePath","")
 					if (!String.IsNullOrWhiteSpace(templateFolder))
-					begin
-						;;Found it
 						templateFolderFound = true
-					end
 				end
 			end
 
+			;;If still not found, use the current folder
 			if (!templateFolderFound)
 				templateFolder = "."
 
