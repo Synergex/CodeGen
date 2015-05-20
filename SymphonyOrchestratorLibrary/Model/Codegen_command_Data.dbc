@@ -17,33 +17,47 @@ namespace Symphony.Orchestrator.Library.Model
 	
 	public partial class Codegen_command_Data
 		
+		public static DoNotSetDefaults	,boolean	,false
+
 		protected override method extendedConstructor, void
 			endparams
 		proc
-			;;set some defaults
-			codegen_command_main.mrps_main_file = Symphony.Orchestrator.Model.ApplicationStatic.RPSMainFile
-			codegen_command_main.mrps_text_file = Symphony.Orchestrator.Model.ApplicationStatic.RPSTextFile
-			codegen_command_main.mtemplate_name = Symphony.Orchestrator.Model.ApplicationStatic.TPLFolder
-			
-			;;always default to no token file assigned
-			UserTokenEntryEnabled = false
-
 			;;create the required user tokens
 			mUserTokens = new ObservableCollection<Codegen_user_token_Data>()
-			
+
 			addhandler(SynergyRecordChanged, doSynergyRecordChange)
 			addhandler(ValidateData, doValidation)
 			
+			if (!DoNotSetDefaults)
+			begin
+				;;set some defaults
+				codegen_command_main.mrps_main_file = Symphony.Orchestrator.Model.ApplicationStatic.RPSMainFile
+				codegen_command_main.mrps_text_file = Symphony.Orchestrator.Model.ApplicationStatic.RPSTextFile
+				codegen_command_main.mtemplate_name = Symphony.Orchestrator.Model.ApplicationStatic.TPLFolder
+				
+				;;always default to no token file assigned
+				UserTokenEntryEnabled = false
+				
+				;;create the additional structure list and assign a blank one
+				mAdditionalStructures = new AsyncObservableCollection<Codegen_structures_Data>()
+				data str	,@Codegen_structures_Data	,new Codegen_structures_Data()
+				addhandler(str.ValidateData, checkStructureChanges)
+				str.InitData()
+				AdditionalStructures.Add(str)				
+				
+			end
+
 			;;if injected with data, go process!!
 			if (System.IO.File.Exists(codegen_command_main.mtemplate_name))
 			begin
 				loadUserTokensFromTemplate()
 			end
-
+			
 			;;create the additional structure list and assign a blank one
 			mAdditionalStructures = new AsyncObservableCollection<Codegen_structures_Data>()
 			data str	,@Codegen_structures_Data	,new Codegen_structures_Data()
 			addhandler(str.ValidateData, checkStructureChanges)
+
 			str.InitData()
 			AdditionalStructures.Add(str)				
 			
