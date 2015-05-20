@@ -106,7 +106,11 @@ namespace Symphony.Orchestrator.Library.ViewModel
 			addhandler(mCodeGenCommands.CollectionChanged, checkCollectionChanged)
 			
 			loadXMLFile()
-			
+
+			mUsingCodeGenCommand = new Codegen_command_Data()
+			mUsingCodeGenCommand.Rps_main_file = mDefaultValues.Rps_main_file
+			mUsingCodeGenCommand.Rps_text_file = mDefaultValues.Rps_text_file
+				
 		endmethod
 .endregion
 		
@@ -168,6 +172,10 @@ namespace Symphony.Orchestrator.Library.ViewModel
 						begin
 							;;ask to save
 							MoveToState("ConfirmState")
+						end
+						("ConfirmState"),
+						begin
+							StateCompleted()
 						end
 						endusing
 					end
@@ -1098,6 +1106,108 @@ namespace Symphony.Orchestrator.Library.ViewModel
 				end
 			end
 			endusing
+		endmethod
+		
+.endregion
+
+.region "Create Using logic"
+
+		private mSaveUsingCommand	,@GenericCommand
+
+		public property SaveUsingCommand, @GenericCommand
+			method get
+			proc
+				if (mSaveUsingCommand == ^null)
+				begin
+					mSaveUsingCommand = new GenericCommand("SAVEUSING")
+					mSaveUsingCommand.CommandExecuted += doSaveUsingCommandLogic
+				end
+				mreturn mSaveUsingCommand
+			endmethod
+		endproperty
+		
+		private method doSaveUsingCommandLogic	,void
+			sender								,@Object
+			param								,String
+			endparams
+
+			.include 'codegen_command' repository, record = "holdCGC"
+
+		proc
+			if (param == "CREATE")
+			begin
+				if (mCommandItemsSelected != ^null && mCommandItemsSelected.Count>0)
+				begin
+					data item	,@Codegen_command_Data
+					foreach item in mCommandItemsSelected
+					begin
+						Codegen_command_Data.DoNotSetDefaults = true
+						data newItem	,@Codegen_command_Data	,new Codegen_command_Data(item.SynergyRecord)
+						Codegen_command_Data.DoNotSetDefaults = false
+
+						newItem.RepositoryStructures.Clear()
+
+						addhandler(newItem.IsDataModifiedChanged, codegenChangesMade)
+						addhandler(newItem.PropertyChanged, commandPropertyChanged)
+
+						newItem.Structure_name = UsingCodeGenCommand.Structure_name
+						newItem.UserTokenEntryEnabled = item.UserTokenEntryEnabled
+
+						mCodeGenCommands.Add(newItem)
+					end
+				end
+			end
+			StateCompleted()
+		endmethod
+
+		;current item
+		private mUsingCodeGenCommand	,@Codegen_command_Data
+		
+		public property UsingCodeGenCommand, @Codegen_command_Data
+			method get
+			proc
+				mreturn mUsingCodeGenCommand
+			endmethod
+			method set
+			proc
+				mUsingCodeGenCommand = value
+			endmethod
+		endproperty
+		
+		private mMultiSelectCommand	,@GenericCommand
+		
+		public property MultiSelectCommand, @GenericCommand
+			method get
+			proc
+				if (mMultiSelectCommand == ^null)
+				begin
+					mMultiSelectCommand = new GenericCommand("MULTISELECT")
+					addhandler(mMultiSelectCommand.CommandExecuted, doMultiSelectCommand)
+				end
+				mreturn mMultiSelectCommand
+			endmethod
+		endproperty
+		
+		private mCommandItemsSelected	,@List<Codegen_command_Data>	,new List<Codegen_command_Data>()
+
+		private method doMultiSelectCommand, void
+			sender	,@Object
+			param	,String
+			endparams
+		proc
+			mCommandItemsSelected.Clear()
+			data item	,@Codegen_command_Data
+			data items	,@ObservableCollection<Object>	,^as(((@GenericCommand)sender).HostDataContext, ObservableCollection<Object>)
+			
+			Codegen_command_Data.DoNotSetDefaults = true
+			foreach item in items
+			begin
+				data cmd	,@Codegen_command_Data	,new Codegen_command_Data(item.SynergyRecord)
+				cmd.UserTokenEntryEnabled = item.UserTokenEntryEnabled
+				mCommandItemsSelected.Add(cmd)				
+			end				
+			Codegen_command_Data.DoNotSetDefaults = false
+			
 		endmethod
 		
 .endregion
