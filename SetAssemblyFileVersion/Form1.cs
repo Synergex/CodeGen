@@ -94,10 +94,7 @@ namespace SetAssemblyFileVersion
             SearchOption option = chkIncludeSubFolders.Checked ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
 
             foreach (String fileName in Directory.GetFiles(txtRootFolder.Text, "AssemblyInfo.*", option))
-            {
-                if (!fileName.ToLower().Contains("symphonyorchestrator"))
                     lstFiles.Items.Add(fileName);
-            }
 
             btnGo.Enabled = lstFiles.Items.Count > 0;
 
