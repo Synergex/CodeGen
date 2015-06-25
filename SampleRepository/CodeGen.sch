@@ -1,12 +1,12 @@
  
 ;  SYNERGY DATA LANGUAGE OUTPUT
 ;
-;  REPOSITORY     : D:\CodeGen\Trunk\SampleRepository\rpsmain.ism
-;                 : D:\CodeGen\Trunk\SampleRepository\rpstext.ism
+;  REPOSITORY     : C:\CodePlex\CodeGen\Trunk\SampleRepository\rpsmain.ism
+;                 : C:\CodePlex\CodeGen\Trunk\SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
-;  GENERATED      : 16-FEB-2015, 14:58:39
-;                 : Version 10.3.1
+;  GENERATED      : 25-JUN-2015, 09:07:03
+;                 : Version 10.3.1a
 ;  EXPORT OPTIONS : [ALL] 
  
  
@@ -587,6 +587,47 @@ Key STATUS   ACCESS   Order ASCENDING   Dups YES   Insert END   Modifiable YES
    Krf 005
    Description "Account status"
    Segment FIELD   STATUS
+ 
+Structure DATE_TEST   DBL ISAM
+   Description "Contains various date fields"
+ 
+Field D6DATE   Type DATE   Size 6   Stored YYMMDD
+   Description "Regular D6 date YYMMDD"
+ 
+Field D6DATE_NULLABLE   Type DATE   Size 6   Stored YYMMDD
+   Coerced Type NULLABLE_DATETIME
+   Description "Nullable D6 date YYMMDD"
+ 
+Field D8DATE   Type DATE   Size 8   Stored YYYYMMDD
+   Description "D8 date YYYYMMDD"
+ 
+Field D8DATE_NULLABLE   Type DATE   Size 8   Stored YYYYMMDD
+   Coerced Type NULLABLE_DATETIME
+   Description "Nullable D8 date YYYYMMDD"
+ 
+Field D5JULIAN   Type DATE   Size 5   Stored YYJJJ
+   Description "D5 julian date YYJJJ"
+ 
+Field D5JULIAN_NULLABLE   Type DATE   Size 5   Stored YYJJJ
+   Coerced Type NULLABLE_DATETIME
+   Description "Nullable D5 julian date YYJJJ"
+ 
+Field D7JULIAN   Type DATE   Size 7   Stored YYYYJJJ
+   Description "D7 julian date YYYYJJJ"
+ 
+Field D7JULIAN_NULLABLE   Type DATE   Size 7   Stored YYYYJJJ
+   Coerced Type NULLABLE_DATETIME
+   Description "Nullable D7 julian date YYYYJJJ"
+ 
+Field D4PERIOD   Type DATE   Size 4   Stored YYPP
+   Description "D4 period number YYPP"
+ 
+Field D6PERIOD   Type DATE   Size 6   Stored YYYYPP
+   Description "D6 period number YYPPPP"
+ 
+Field USER_DATE   Type USER   Size 14   Stored DATE
+   User Type "YYYYMMDDHHMMSS"
+   Description "User defined date YYYYMMDDHHMMSS"
  
 Structure EXECUTION_RESULTS   DBL ISAM
    Description "(Orchestrator) Command execution result"
