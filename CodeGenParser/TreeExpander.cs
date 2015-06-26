@@ -98,23 +98,23 @@ namespace CodeGen.Engine
             //This should be the only property that may have residual data from the last use.
             node.OutputFileName = String.Empty;
 
-            //try
-            //{
-            _currentFileNode = node;
-            node.Context.CurrentTask.DebugLog("   Tree expansion begins", true, false);
+            try
+            {
+                _currentFileNode = node;
+                node.Context.CurrentTask.DebugLog("   Tree expansion begins", true, false);
 
-            Visit(node.Body);
-            
-            setOutputFileName(node);
-            
-            node.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Output file", node.OutputFileName));
-            node.Context.CurrentTask.DebugLog("   Tree expansion ends", false, true);
-            //}
-            //catch (ApplicationException ex)
-            //{
-            //    node.Context.CurrentTask.ErrorLog(ex.Message);
-            //    throw;
-            //}
+                Visit(node.Body);
+
+                setOutputFileName(node);
+
+                node.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Output file", node.OutputFileName));
+                node.Context.CurrentTask.DebugLog("   Tree expansion ends", false, true);
+            }
+            catch (ApplicationException ex)
+            {
+                node.Context.CurrentTask.ErrorLog(ex.Message);
+                throw;
+            }
         }
 
         /// <summary>
