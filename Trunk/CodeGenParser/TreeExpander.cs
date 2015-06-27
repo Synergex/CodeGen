@@ -416,9 +416,17 @@ namespace CodeGen.Engine
             else
             {
                 //No, we'll be going with a default output file name
-                file.OutputFileName = String.Format("{0}_{1}.dbl",
-                    file.Context.CurrentStructure.Name.ToLower(),
-                    file.Context.CurrentTemplateBaseName.ToLower());
+                if (file.Context.CurrentStructure == null)
+                {
+                    file.OutputFileName = String.Format("{0}.dbl",
+                        file.Context.CurrentTemplateBaseName.ToLower());
+                }
+                else
+                {
+                    file.OutputFileName = String.Format("{0}_{1}.dbl",
+                        file.Context.CurrentStructure.Name.ToLower(),
+                        file.Context.CurrentTemplateBaseName.ToLower());
+                }
             }
         }
     }

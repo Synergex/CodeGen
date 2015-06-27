@@ -525,21 +525,25 @@ namespace CodeGen.Engine
 				task.EchoCommand()
 			
 			;;-------------------------------------------------------------------------
-			;;Open the tasks repository and load enums and files into context
+			;;If we have structures then open the tasks repository and load enums and
+			;;files into context
 			
-			disposable data rps, @Repository
-			
-			try
+			if (task.Structures.Count > 0)
 			begin
-				rps = new Repository()
-				context.Enumerations = rps.Enumerations
-				context.Files = rps.Files
+				disposable data rps, @Repository
+				
+				try
+				begin
+					rps = new Repository()
+					context.Enumerations = rps.Enumerations
+					context.Files = rps.Files
+				end
+				catch (ex, @RpsException)
+				begin
+					errStatus = task.ErrorLog(ex.Message)
+				end
+				endtry
 			end
-			catch (ex, @RpsException)
-			begin
-				errStatus = task.ErrorLog(ex.Message)
-			end
-			endtry
 			
 			;;-------------------------------------------------------------------------
 			;;Do we have a custom data mappings file specified?
@@ -1436,7 +1440,12 @@ namespace CodeGen.Engine
 					begin
 						data treeError, @Tuple<String, int, int, String>
 						foreach treeError in errorReporting.Errors
-							errStatus = task.ErrorLog(String.Format("{0} at line {1} position {2} in {3}", treeError.Item1, treeError.Item2, treeError.Item3, Path.GetFileName(treeError.Item4)))
+						begin
+							;If line numbers were working we could do this:
+							;errStatus = task.ErrorLog(String.Format("{0} at line {1} position {2} in {3}", treeError.Item1, treeError.Item2, treeError.Item3, Path.GetFileName(treeError.Item4)))
+							;But they are not, so we'll do this:
+							errStatus = task.ErrorLog(treeError.Item1)
+						end
 						nextloop
 					end
 					
@@ -1480,24 +1489,32 @@ namespace CodeGen.Engine
 					end
 					else
 					begin
-						;;Process the template once per structure
-						data ix, int
-						for ix from 0 thru context.Structures.Count-1
+						if (context.Structures.Count > 0) then
 						begin
-							;;Check the structure, flatten arrays and groups, etc.
-							if (!RepositoryTools.CheckStructure(context,context.Structures[ix])) then
-								errStatus = true
-							else
+							;;Process the template once per structure
+							data ix, int
+							for ix from 0 thru context.Structures.Count-1
 							begin
-								;;Set structure context
-								context.CurrentStructure = context.Structures[ix]
-								
-								;;Generate the code
-								errStatus = expandTreeToCode(tree)
+								;;Check the structure, flatten arrays and groups, etc.
+								if (!RepositoryTools.CheckStructure(context,context.Structures[ix])) then
+									errStatus = true
+								else
+								begin
+									;;Set structure context
+									context.CurrentStructure = context.Structures[ix]
+									
+									;;Generate the code
+									errStatus = expandTreeToCode(tree)
+								end
+								;;Bail structure loop on failure?
+								if ((errStatus) && (!taskset.ContinueAfterError))
+									exitloop
 							end
-							;;Bail structure loop on failure?
-							if ((errStatus) && (!taskset.ContinueAfterError))
-								exitloop
+						end
+						else
+						begin
+							;;Generate the code
+							errStatus = expandTreeToCode(tree)
 						end
 					end
 					
@@ -1525,7 +1542,7 @@ namespace CodeGen.Engine
 			
 			data task, @CodeGenTask, context.CurrentTask
 			
-			if (!context.MultiStructureMode)
+			if (context.Structures.Count > 0 && !context.MultiStructureMode)
 				task.VerboseLog(String.Format(" - Processing structure {0}",context.CurrentStructure.Name))
 			
 			;;Create a stream for the TreeExpander to write the generated code to
