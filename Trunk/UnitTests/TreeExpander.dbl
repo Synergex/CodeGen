@@ -1,8 +1,10 @@
 
 import System
+import System.IO
 import Microsoft.VisualStudio.TestTools.UnitTesting
 import CodeGen.Engine
 
+import System.Diagnostics
 .array 0
 
 namespace UnitTests
@@ -25,15 +27,40 @@ namespace UnitTests
 		endmethod
 
 		private method runTest, void
+			default in logFailures, boolean, false
 		proc
 			data actual, String
 			data errorText, String
 			if (simulator.ExpandCode(template,actual,errorText)) then
 			begin
+				if (logFailures && (expected != actual))
+				begin
+					data tempFileSpec = Path.Combine(Environment.GetEnvironmentVariable("TEMP"),"badcode.txt")
+					data sw = File.CreateText(tempFileSpec)
+					sw.WriteLine("Template code:")
+					sw.WriteLine("-------------------------------------------------------------------------")
+					sw.Write(template)
+					sw.WriteLine("")
+					sw.WriteLine("-------------------------------------------------------------------------")
+					sw.WriteLine("Expected:")
+					sw.WriteLine("-------------------------------------------------------------------------")
+					sw.Write(expected)
+					sw.WriteLine("")
+					sw.WriteLine("-------------------------------------------------------------------------")
+					sw.WriteLine("Actual:")
+					sw.WriteLine("-------------------------------------------------------------------------")
+					sw.Write(actual)
+					sw.WriteLine("")
+					sw.WriteLine("-------------------------------------------------------------------------")
+					sw.Close()
+					Process.Start(tempFileSpec)
+				end
 				Assert.IsTrue(expected==actual,StringTools.GetResultMessage(expected,actual))
 			end
 			else
+			begin
 				Assert.Fail(string.Format("Parse of template code failed. Parser error was {0}",errorText))
+			end
 		endmethod
 	
 		private method runTestExpectFail, void
