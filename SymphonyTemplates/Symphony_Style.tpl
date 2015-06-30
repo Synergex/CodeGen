@@ -118,6 +118,9 @@
 						</IF READWRITE>
 						VerticalAlignment="Center"
 						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+						            <i:Interaction.Behaviors>
+						              <symphonyControls:SelectAllTextBoxBehavior></symphonyControls:SelectAllTextBoxBehavior>
+						            </i:Interaction.Behaviors>
                         <symphonyUI:SearchTextBox.Style>
                             <Style>
                                 <Style.Triggers>
@@ -173,7 +176,10 @@
 						VerticalAlignment="Center"
 						HorizontalAlignment="Left"
 						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
-						<TextBox.Style>
+						            <i:Interaction.Behaviors>
+						              <symphonyControls:SelectAllTextBoxBehavior></symphonyControls:SelectAllTextBoxBehavior>
+						            </i:Interaction.Behaviors>
+						            <TextBox.Style>
                             <Style>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
@@ -230,7 +236,10 @@
 						VerticalAlignment="Center"
 						HorizontalAlignment="Left"
 						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
-						<TextBox.Style>
+						            <i:Interaction.Behaviors>
+						              <symphonyControls:SelectAllTextBoxBehavior></symphonyControls:SelectAllTextBoxBehavior>
+						            </i:Interaction.Behaviors>
+						            <TextBox.Style>
                             <Style>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
@@ -462,6 +471,9 @@
                         MaxLength="<SYMPHONY_FIELD_SIZE>"
 						Width="<SYMPHONY_FIELD_PIXEL_WIDTH>"
 						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+						            <i:Interaction.Behaviors>
+						              <symphonyControls:SelectAllTextBoxBehavior></symphonyControls:SelectAllTextBoxBehavior>
+						            </i:Interaction.Behaviors>
                         <symphonyUI:SynergyDecimalBox.Style>
                             <Style>
                                 <Style.Triggers>
@@ -693,6 +705,9 @@
 						MaxLength="<SYMPHONY_FIELD_SIZE>"
 						Width="<SYMPHONY_FIELD_PIXEL_WIDTH>"
 						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+						            <i:Interaction.Behaviors>
+						              <symphonyControls:SelectAllTextBoxBehavior></symphonyControls:SelectAllTextBoxBehavior>
+						            </i:Interaction.Behaviors>
                         <symphonyUI:SynergyDecimalBox.Style>
                             <Style>
                                 <Style.Triggers>
@@ -1059,6 +1074,9 @@
                         MaxLength="<FIELD_SIZE>"
 						Width="<FIELD_PIXEL_WIDTH>"
 						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+						            <i:Interaction.Behaviors>
+						              <symphonyControls:SelectAllTextBoxBehavior></symphonyControls:SelectAllTextBoxBehavior>
+						            </i:Interaction.Behaviors>
                         <symphonyUI:SynergyIntBox.Style>
                             <Style>
                                 <Style.Triggers>
@@ -1325,6 +1343,9 @@
 						VerticalAlignment="Center"
 						HorizontalAlignment="Left"
 						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+						<i:Interaction.Behaviors>
+						  <symphonyControls:SelectAllTextBoxBehavior></symphonyControls:SelectAllTextBoxBehavior>
+						</i:Interaction.Behaviors>
 						<TextBox.Style>
 							<Style>
 								<Style.Triggers>
