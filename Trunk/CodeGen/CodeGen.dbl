@@ -59,11 +59,13 @@ main CodeGen
 		ClValues	,@List<String>				;;Command line option values
 		taskSet		,@CodeGenTaskSet
 		task		,@CodeGenTask
+		exitCode	,int
 	endrecord
 	
 proc
 	
 	ok = true
+	exitCode = 0
 	flags(7004020,1)
 	
 	;;-------------------------------------------------------------------------
@@ -90,25 +92,112 @@ proc
 		Documentation()
 		ok = false
 	end
-	else if (CommandLineParser.Parse("version")) then
+	else if (CommandLineParser.Parse("version"))
 	begin
 		Console.WriteLine(String.Format("CodeGen {0} (Synergy {1} built {2})",CODEGEN_VERSION,SYN_VERSION,%datecompiled()))
 		ok = false
 	end
-	else if (CommandLineParser.Parse("checkversion"))
+	
+	;;-------------------------------------------------------------------------
+	;;Ia an auto update check scheduled and due?
+	
+	data doUpdateCheck = false
+	data doingAutoUpdateCheck = false
+	
+	if (ok)
+	begin
+		doUpdateCheck = UpdateManager.IsAutoUpdateCheckDue()
+		doingAutoUpdateCheck = doUpdateCheck
+	end
+
+	;;-------------------------------------------------------------------------
+	;;Are we being asked for to check for a new version?
+	
+	if (ok && CommandLineParser.Parse("checkversion",ClValues))
+	begin	
+		;;Are we being told to set the auto update check frequency
+		if (ClValues.Count == 1) then
+		begin
+			;;One value after -checkversion; set update check interval
+			data interval, int
+			if (Int32.TryParse(ClValues[0],interval) && (interval >= 0)) then
+			begin
+				if (interval > 0) then
+				begin
+					;;Set the auto-update interval
+					if (UpdateManager.ScheduleAutoUpdateChecks(interval)) then
+					begin
+						Console.WriteLine("Auto update check interval set to {0} days.",interval)
+						doUpdateCheck = false
+						doingAutoUpdateCheck = false
+					end
+					else
+					begin
+						Console.WriteLine("ERROR: Failed to set auto update interval!")
+						exitCode = 1
+					end
+				end
+				else
+				begin
+					if (UpdateManager.CancelAutoUpdateChecks()) then
+					begin
+						Console.WriteLine("Auto update check disabled.")
+						doUpdateCheck = false
+						doingAutoUpdateCheck = false
+					end
+					else
+					begin
+						Console.WriteLine("ERROR: Failed to disable auto update check.")
+						exitCode = 1
+					end
+				end
+			end
+			else
+			begin
+				Console.WriteLine("ERROR: An invalid auto update check interval was specified!")
+				doUpdateCheck = false
+				doingAutoUpdateCheck = false
+				exitCode = 1
+			end
+		end
+		else if (ClValues.Count == 0) then
+		begin
+			;;No value after -checkversion; check now
+			doUpdateCheck = true
+			doingAutoUpdateCheck = false
+		end
+		else
+		begin
+			;;More than one parameter after -checkversion; invalid
+			Console.WriteLine("ERROR: Only one value may follow the -checkversion option!")
+			doUpdateCheck = false
+			doingAutoUpdateCheck = false
+			exitCode = 1
+		end
+		
+		ok = false
+	end
+
+	;;Do we need to do an update check?
+	
+	if (doUpdateCheck)
 	begin
 		data currentVersion, string
 		data latestVersion, string
 		data message, string
 		data newVersionAvailable, boolean, UpdateManager.CheckForNewVersion(currentVersion,latestVersion,message)
-
+		
 		Console.WriteLine("")
-		Console.WriteLine("Update check")
+		if (doingAutoUpdateCheck)
+			Console.Write("Auto ")
+		Console.WriteLine("Update Check")
 		Console.WriteLine("Installed version: {0}",currentVersion)
 		Console.WriteLine("Released version : {0}",latestVersion)
 		Console.WriteLine(message)
-
-		if (newVersionAvailable)
+		if (doingAutoUpdateCheck)
+			Console.WriteLine("")
+		
+		if (newVersionAvailable && !doingAutoUpdateCheck)
 		begin
 			Console.WriteLine("")
 			Console.Write("Would you like to go to the download site now (Y/N) ? ")
@@ -117,21 +206,19 @@ proc
 				Process.Start("http://codegen.codeplex.com/releases")
 			Console.WriteLine("")
 		end
-
-		ok = false
 	end
 
 	;;-------------------------------------------------------------------------
 	;;OK, looks like we're going to be generating some code
 	
-	
 	data sw, @StopWatch
-	if (CommandLineParser.Parse("time"))
+
+	if (ok && CommandLineParser.Parse("time"))
 	begin
 		sw = new Stopwatch()
 		sw.Start()
 	end
-
+	
 	if (ok)
 	begin
 		;;Create a new task set
@@ -208,6 +295,7 @@ proc
 			begin
 				Console.WriteLine("ERROR: Two file specs must follow the -rps option!")
 				ok = false
+				exitCode = 1
 			end
 			endusing
 		end
@@ -224,11 +312,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No data mappings file was found after the -cdm option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one data mappings can be specified after the -cdm option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 				taskSet.DataMappingsFile = ClValues[0]
@@ -246,11 +336,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No template location was found after the -i option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one template location can be specified after the -i option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -270,11 +362,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No outout location was found after the -o option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one output location can be specified after the -o option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -306,11 +400,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No namespace was found after the -n option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one namespace can be specified after the -n option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -330,11 +426,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No field prefix value was found after the -prefix option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one field prefix value can be specified after the -prefix option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -354,16 +452,19 @@ proc
 			begin
 				Console.WriteLine("ERROR: No character width was found after the -cw option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one character width can be specified after the -cw option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (!StringTools.IsNumeric(ClValues[0])) then
 			begin
 				Console.WriteLine("ERROR: The character width after the -cw option must be numeric!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -383,16 +484,19 @@ proc
 			begin
 				Console.WriteLine("ERROR: No character height was found after the -ch option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one character height can be specified after the -ch option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (!StringTools.IsNumeric(ClValues[0])) then
 			begin
 				Console.WriteLine("ERROR: The character height after the -ch option must be numeric!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -412,16 +516,19 @@ proc
 			begin
 				Console.WriteLine("ERROR: No key number was found after the -opk option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one key number can be specified after the -opk option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (!StringTools.IsNumeric(ClValues[0])) then
 			begin
 				Console.WriteLine("ERROR: The key number specified after the -opk option must be numeric!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -466,11 +573,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No user defined token file was found after the -u option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one user defined token file can be specified after the -u option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -490,6 +599,7 @@ proc
 			begin
 				Console.WriteLine("ERROR: No user tokens were found after the -ut option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -503,6 +613,7 @@ proc
 					begin
 						Console.WriteLine("ERROR: Invalid command line user token expression: " + userTokenExpression)
 						ok = false
+						exitCode = 1
 					end
 				end
 			end
@@ -520,11 +631,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No file definition name was found after the -file option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one file definition name can be specified after the -file option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -544,11 +657,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No window script file name was found after the -w option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one window script file name can be specified after the -w option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -574,11 +689,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No ProForma file name was found after the -proforma option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: You can only specify one ProForma file name after the -proforma option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -598,11 +715,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No window script file name was found after the -ws option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one window script file name can be specified after the -ws option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -622,6 +741,7 @@ proc
 			begin
 				Console.WriteLine("ERROR: No structure names were specified after the -s option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -649,11 +769,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No subset name was found after the -subset option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count>1) then
 			begin
 				Console.WriteLine("ERROR: Only one subset name can be specified after the -subset option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -674,11 +796,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No field names were found after the -fields option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (!task.Structures.Count) then
 			begin
 				Console.WriteLine("ERROR: The -fields option can't be used unless you specify structures with the -s option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -692,6 +816,7 @@ proc
 						begin
 							Console.WriteLine("ERROR: The -fields syntax that you used is only valid when processing multiple structures together!")
 							ok = false
+							exitCode = 1
 							exitloop
 						end
 						else
@@ -701,12 +826,14 @@ proc
 							begin
 								Console.WriteLine("ERROR: Invalid -fields option value!")
 								ok = false
+								exitCode = 1
 								exitloop
 							end
 							else if (!task.Structures.Contains(values[0].ToUpper())) then
 							begin
 								Console.WriteLine("ERROR: One of the structures you specified via the -fields option was not specified with the -s option!")
 								ok = false
+								exitCode = 1
 								exitloop
 							end
 							else
@@ -748,6 +875,7 @@ proc
 		begin
 			Console.WriteLine("ERROR: Only one of the -ba, -bd and -bn options can be used at a time.")
 			ok = false
+			exitCode = 1
 		end
 	end
 	
@@ -762,6 +890,7 @@ proc
 			begin
 				Console.WriteLine("ERROR: No aliases specified after -a option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -783,6 +912,7 @@ proc
 			begin
 				Console.WriteLine("ERROR: No repository file override names were found after the -fo option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -805,11 +935,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No field processing filters were found after the -f option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count > 5) then
 			begin
 				Console.WriteLine("ERROR: Too many field processing filters were found after the -f option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -826,6 +958,7 @@ proc
 					begin
 						Console.WriteLine("ERROR: An invalid field filter -f " + ClValues[ix] + " was encountered!")
 						ok = false
+						exitCode = 1
 						exitloop
 					end
 					endusing
@@ -845,11 +978,13 @@ proc
 			begin
 				Console.WriteLine("ERROR: No group processing options were found after the -g option!")
 				ok = false
+				exitCode = 1
 			end
 			else if (ClValues.Count > 3) then
 			begin
 				Console.WriteLine("ERROR: Too many group processing options were found after the -g option!")
 				ok = false
+				exitCode = 1
 			end
 			else
 			begin
@@ -864,6 +999,7 @@ proc
 					begin
 						Console.WriteLine("ERROR: An invalid group processing option -f " + ClValues[ix] + " was encountered!")
 						ok = false
+						exitCode = 1
 						exitloop
 					end
 					endusing
@@ -885,6 +1021,9 @@ proc
 	begin
 		new CodeGenerator(taskSet).GenerateCode()
 
+		if (!taskSet.Complete)
+			exitCode = 1
+
 		if (sw != ^null)
 		begin
 			sw.Stop()
@@ -899,7 +1038,7 @@ proc
 		Console.Read()
 		Console.WriteLine()
 	end
-	
-	stop
+
+	stop exitCode
 	
 endmain

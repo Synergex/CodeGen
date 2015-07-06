@@ -1,6 +1,7 @@
 
 import System
 import System.Diagnostics
+import System.IO
 import System.Reflection
 import System.ServiceModel.Syndication
 import System.Xml
@@ -15,11 +16,32 @@ namespace CodeGen
 			required out message, string
 			endparams
 		proc
+			;;Get the current installed version number
 			currentVersion = getCurrentVersionNumber()
+
+			;;Get the latest version number available from CodePlex
 			latestVersion = getLatestVersionNumber()
+
+			;;Determine the response
 			data updateAvailable, boolean
 			message = getUpdateMessage(currentVersion,latestVersion,updateAvailable)
+
+			;;Record when the update check took place
+			try
+			begin
+				;;Create the file
+				data sw = File.CreateText(updateCheckFile)
+				sw.Write(DateTime.Now.ToString())
+				sw.Close()
+			end
+			catch (ex)
+			begin
+				nop
+			end
+			endtry
+
 			mreturn updateAvailable
+
 		endmethod
 
 		private static method getCurrentVersionNumber, string
@@ -78,6 +100,130 @@ namespace CodeGen
 			end
 		endmethod
 		
+		private static appDataPath, string, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"CodeGen")
+		private static autoUpdateFile, string, Path.Combine(appDataPath,"AutoUpdateInterval.txt")
+		private static updateCheckFile, string, Path.Combine(appDataPath,"LastUpdateCheck.txt")
+		
+		public static method ScheduleAutoUpdateChecks, boolean
+			required in interval, int
+		proc
+			;;Create the auto-update interval file
+			try
+			begin
+				data sw = File.CreateText(autoUpdateFile)
+				sw.Write(interval.ToString())
+				sw.Close()	
+				mreturn true
+			end
+			catch (e, @Exception)
+			begin
+				mreturn false
+			end
+			endtry
+		endmethod
+
+		public static method CancelAutoUpdateChecks, boolean
+		proc
+			if (File.Exists(autoUpdateFile))
+			begin
+				try
+				begin
+					File.Delete(autoUpdateFile)
+					mreturn true
+				end
+				catch (ex)
+				begin
+					mreturn false
+				end
+				endtry
+			end
+			mreturn true
+		endmethod
+		
+		public static method IsAutoUpdateCheckDue, boolean
+		proc
+			;;Make sure the AppData\Local\CodeGen folder exists
+			if (!Directory.Exists(appDataPath))
+				Directory.CreateDirectory(appDataPath)
+
+			data doUpdateCheck = false
+					
+			;;Have auto update checks been scheduled?
+			if (File.Exists(autoUpdateFile))
+			begin
+				if (File.Exists(updateCheckFile)) then
+				begin
+					try
+					begin
+						data stringLastUpdateCheck = File.ReadAllText(updateCheckFile)
+						data lastUpdateCheck, DateTime
+						if (DateTime.TryParse(stringLastUpdateCheck,lastUpdateCheck)) then
+						begin
+							;;We know when the last update check was. Now we need the interval.
+							data stringInterval = File.ReadAllText(autoUpdateFile)
+							data interval, int
+							if (Int32.TryParse(stringInterval,interval)) then
+							begin
+								if (DateTime.Compare(lastUpdateCheck.AddDays(interval),DateTime.Now) <= 0)
+								begin
+									;;An auto-update is due
+									doUpdateCheck = true
+								end
+							end
+							else
+							begin
+								;;Bad data in the update interval file
+								try
+								begin
+									File.Delete(autoUpdateFile)
+								end
+								catch (ex)
+								begin
+									nop
+								end
+								endtry
+							end
+						end
+						else
+						begin
+							;;Update check file contains bad data
+							try
+							begin
+								File.Delete(updateCheckFile)
+							end
+							catch (ex)
+							begin
+								nop
+							end
+							endtry
+						end
+					end
+					catch (ex)
+					begin
+						;;Failed to read update check file - maybe it's bad
+						try
+						begin
+							File.Delete(updateCheckFile)
+						end
+						catch (ex)
+						begin
+							nop
+						end
+						endtry
+					end
+					endtry
+				end
+				else
+				begin
+					;;Auto update scheduled but no update check done
+					doUpdateCheck = true
+				end
+			end		
+
+			mreturn doUpdateCheck
+
+		endmethod
+
 	endclass
 
 endnamespace
