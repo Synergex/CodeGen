@@ -115,35 +115,28 @@ proc
 	
 	if (ok && CommandLineParser.Parse("checkversion",ClValues))
 	begin	
-		;;Are we being told to set the auto update check frequency
-		if (ClValues.Count == 1) then
+		;;Do we have an auto update interval specified
+		using ClValues.Count select
+		(0),
 		begin
-			;;One value after -checkversion; set update check interval
+			;;No value after -checkversion; check now
+			doUpdateCheck = true
+			doingAutoUpdateCheck = false
+		end
+		(1),
+		begin
+			;;One value after -checkversion;
 			data interval, int
-			if (Int32.TryParse(ClValues[0],interval) && (interval >= 0)) then
+			if (Int32.TryParse(ClValues[0],interval)) then
 			begin
-				if (interval > 0) then
+				using interval select
+				(0),
 				begin
-					;;Set the auto-update interval
-					if (UpdateManager.ScheduleAutoUpdateChecks(interval)) then
-					begin
-						Console.WriteLine("Auto update check interval set to {0} days.",interval)
-						doUpdateCheck = false
-						doingAutoUpdateCheck = false
-					end
-					else
-					begin
-						Console.WriteLine("ERROR: Failed to set auto update interval!")
-						exitCode = 1
-					end
-				end
-				else
-				begin
+					;;Interval 0, cancel auto update checks
 					if (UpdateManager.CancelAutoUpdateChecks()) then
 					begin
 						Console.WriteLine("Auto update check disabled.")
 						doUpdateCheck = false
-						doingAutoUpdateCheck = false
 					end
 					else
 					begin
@@ -151,31 +144,48 @@ proc
 						exitCode = 1
 					end
 				end
+				(>0),
+				begin
+					;;Positive interval, schedule auto update checks
+					if (UpdateManager.ScheduleAutoUpdateChecks(interval)) then
+					begin
+						Console.WriteLine("Auto update check interval set to {0} days.",interval)
+						doUpdateCheck = false
+					end
+					else
+					begin
+						Console.WriteLine("ERROR: Failed to set auto update interval!")
+						exitCode = 1
+					end
+				end
+				(<0),
+				begin
+					;;Invalid (negative) interval specified
+					Console.WriteLine("ERROR: Invalid auto update interval!")
+					doUpdateCheck = false
+					exitCode = 1
+				end
+				endusing
 			end
 			else
 			begin
-				Console.WriteLine("ERROR: An invalid auto update check interval was specified!")
+				;;Invalid (non-integer) interval specified
+				Console.WriteLine("ERROR: Invalid auto update interval!")
 				doUpdateCheck = false
-				doingAutoUpdateCheck = false
 				exitCode = 1
 			end
 		end
-		else if (ClValues.Count == 0) then
-		begin
-			;;No value after -checkversion; check now
-			doUpdateCheck = true
-			doingAutoUpdateCheck = false
-		end
-		else
+		(),
 		begin
 			;;More than one parameter after -checkversion; invalid
-			Console.WriteLine("ERROR: Only one value may follow the -checkversion option!")
+			Console.WriteLine("ERROR: Invalid auto update interval!")
 			doUpdateCheck = false
-			doingAutoUpdateCheck = false
 			exitCode = 1
 		end
-		
+		endusing
+
 		ok = false
+
 	end
 
 	;;Do we need to do an update check?
@@ -188,12 +198,15 @@ proc
 		data newVersionAvailable, boolean, UpdateManager.CheckForNewVersion(currentVersion,latestVersion,message)
 		
 		Console.WriteLine("")
+
 		if (doingAutoUpdateCheck)
 			Console.Write("Auto ")
+
 		Console.WriteLine("Update Check")
 		Console.WriteLine("Installed version: {0}",currentVersion)
 		Console.WriteLine("Released version : {0}",latestVersion)
 		Console.WriteLine(message)
+
 		if (doingAutoUpdateCheck)
 			Console.WriteLine("")
 		
@@ -201,9 +214,11 @@ proc
 		begin
 			Console.WriteLine("")
 			Console.Write("Would you like to go to the download site now (Y/N) ? ")
+
 			data ki, ConsoleKeyInfo, Console.ReadKey(false)
 			if (ki.Key.ToString().ToUpper()=="Y")
 				Process.Start("http://codegen.codeplex.com/releases")
+
 			Console.WriteLine("")
 		end
 	end
