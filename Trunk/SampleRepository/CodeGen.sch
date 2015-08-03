@@ -5,7 +5,7 @@
 ;                 : C:\CodePlex\CodeGen\Trunk\SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
-;  GENERATED      : 25-JUN-2015, 09:07:03
+;  GENERATED      : 31-JUL-2015, 11:03:20
 ;                 : Version 10.3.1a
 ;  EXPORT OPTIONS : [ALL] 
  
@@ -235,10 +235,8 @@ Field OUTPUT_FOLDER   Type ALPHA   Size 255
  
 Field REPLACE_FILE   Type DECIMAL   Size 1
    Description "repalce existing file"
-   Prompt "Replace exiting file?"
+   Prompt "Replace exiting file?"   Checkbox
    Default "1"   Automatic
-   Selection List 0 0 0  Entries "No", "Yes"
-   Enumerated 3 0 1
  
 Field NAMESPACE   Type ALPHA   Size 100
    Description "namespace"
@@ -813,6 +811,12 @@ Structure MAPPED_TO   DBL ISAM
 Field FIELD1   Type ALPHA   Size 1
    Description "FIELD1"
  
+Structure MULTI_DIM_ARRAY   DBL ISAM
+   Description "Multi-dimensional array test structure"
+ 
+Field FIELD   Type ALPHA   Size 10   Dimension 15:12
+   Description "Field"
+ 
 Structure ORCHESTRATOR_DEFAULTS   DBL ISAM
    Description "(Orchestrator) Default options"
  
@@ -858,10 +862,8 @@ Field ADD_FOLDER_TO_NAMESPACE   Type DECIMAL   Size 1
  
 Field REPLACE_FILE   Type DECIMAL   Size 1
    Description "repalce existing file"
-   Prompt "Replace exiting file?"
+   Prompt "Replace exiting file?"   Checkbox
    Default "1"   Automatic
-   Selection List 0 0 0  Entries "No", "Yes"
-   Enumerated 3 0 1
  
 Field NAMESPACE   Type ALPHA   Size 100
    Description "namespace"
