@@ -755,6 +755,8 @@ namespace CodeGen.Engine
             expressions.Add("STRUCTURE_LDESC", TokenValidity.Anywhere);
             expressions.Add("STRUCTURE_RELATIONS", TokenValidity.Anywhere);
             expressions.Add("STRUCTURE_TAGS", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_MULTIPLE_TAGS", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_SINGLE_TAG", TokenValidity.Anywhere);
             expressions.Add("STRUCTURE_UTEXT", TokenValidity.Anywhere);
             expressions.Add("TERABYTE", TokenValidity.FileLoop);
             expressions.Add("TEXTBOX", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
