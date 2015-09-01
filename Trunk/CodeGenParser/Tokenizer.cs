@@ -485,7 +485,7 @@ namespace CodeGen.Engine
             };
 
             //Declare all of the expression tokens that we support. Multiple TokenValidity options can
-            //be specified by bitwair ORing the values together. See the notes on the expressionLookupHelper
+            //be specified by bitwise ORing the values together. See the notes on the expressionLookupHelper
             //lambda above.
 
             Dictionary<string, TokenValidity> expressions = new Dictionary<string, TokenValidity>();
@@ -494,10 +494,15 @@ namespace CodeGen.Engine
             expressions.Add("ALPHA", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("ALTERNATE_NAME", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("ARRAY", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
+            expressions.Add("ARRAY_FIRST", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("ARRAY1", TokenValidity.FieldLoop);
+            expressions.Add("ARRAY1_FIRST", TokenValidity.FieldLoop);
             expressions.Add("ARRAY2", TokenValidity.FieldLoop);
+            expressions.Add("ARRAY2_FIRST", TokenValidity.FieldLoop);
             expressions.Add("ARRAY3", TokenValidity.FieldLoop);
+            expressions.Add("ARRAY3_FIRST", TokenValidity.FieldLoop);
             expressions.Add("ARRAY4", TokenValidity.FieldLoop);
+            expressions.Add("ARRAY4_FIRST", TokenValidity.FieldLoop);
             expressions.Add("ARRIVE", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("ASCENDING", TokenValidity.KeyLoop);
             expressions.Add("ASCII", TokenValidity.FileLoop);
