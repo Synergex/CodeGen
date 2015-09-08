@@ -322,6 +322,8 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "FIELD_SNTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SPEC"),
                 makeFieldSqlName(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop),
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SQL","ALTNAME"),
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SQL","NETNAME"),
                 new TokenMeta { Name = "FIELD_SQLTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_TEMPLATE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_TKSCRIPT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
