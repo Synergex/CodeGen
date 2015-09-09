@@ -195,9 +195,9 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "GUID1", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
                 new TokenMeta { Name = "GUID2", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
                 new TokenMeta { Name = "GUID3", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
-                makeCasedLimited(TokenType.Generic, TokenValidity.Anywhere, false, "HOST","DNS","NAME"),
+                makeTokenMeta_UpperLower(TokenType.Generic, TokenValidity.Anywhere, false, "HOST","DNS","NAME"),
                 new TokenMeta { Name = "HOST_IP_ADDRESS", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
-                makeCasedLimited(TokenType.Generic, TokenValidity.Anywhere, false, "MACHINE","NAME"),
+                makeTokenMeta_UpperLower(TokenType.Generic, TokenValidity.Anywhere, false, "MACHINE","NAME"),
                 new TokenMeta { Name = "MONTH", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
                 new TokenMeta { Name = "MONTHNAME", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
                 new TokenMeta { Name = "MONTHSHORTNAME", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
@@ -210,7 +210,7 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "RANDOM_100", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
                 new TokenMeta { Name = "RANDOM_1000", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
                 new TokenMeta { Name = "RANDOM_INT", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
-                makeCasedLimited(TokenType.Generic, TokenValidity.Anywhere, false, "TEMPLATE"),
+                makeTokenMeta_UpperLower(TokenType.Generic, TokenValidity.Anywhere, false, "TEMPLATE"),
                 new TokenMeta { Name = "TIME", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
                 new TokenMeta { Name = "WEEKDAY", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
                 new TokenMeta { Name = "YEAR", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
@@ -218,29 +218,29 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "DATA_FIELDS_LIST", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "DISPLAY_FIELD", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },    
                 new TokenMeta { Name = "FILE_ADDRESSING", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
-                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "CHANGE", "TRACKING"),
-                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "COMPRESSION"),
+                makeTokenMeta_UpperLower(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "CHANGE", "TRACKING"),
+                makeTokenMeta_UpperLower(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "COMPRESSION"),
                 new TokenMeta { Name = "FILE_DENSITY", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "FILE_DESC", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },    
                 new TokenMeta { Name = "FILE_NAME", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "FILE_NAME_NOEXT", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "FILE_PAGESIZE", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
-                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "RECTYPE"),
-                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "STATIC", "RFA"),
-                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "STORED", "GRFA"),
+                makeTokenMeta_UpperLower(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "RECTYPE"),
+                makeTokenMeta_UpperLower(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "STATIC", "RFA"),
+                makeTokenMeta_UpperLower(TokenType.StructureInfo, TokenValidity.Anywhere, true, "FILE", "STORED", "GRFA"),
                 new TokenMeta { Name = "FILE_TYPE", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "FILE_UTEXT", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
-                makeCased(TokenType.StructureInfo, TokenValidity.Anywhere, true, "MAPPED", "FILE"),
-                makeCasedLimited(TokenType.StructureInfo, TokenValidity.Anywhere, true, "MAPPED", "STRUCTURE"),
-                makeCased(TokenType.StructureInfo, TokenValidity.Anywhere, true, "PRIMARY", "KEY", "FIELD"),
+                makeTokenMeta_AllVariants(TokenType.StructureInfo, TokenValidity.Anywhere, true, "MAPPED", "FILE"),
+                makeTokenMeta_UpperLower(TokenType.StructureInfo, TokenValidity.Anywhere, true, "MAPPED", "STRUCTURE"),
+                makeTokenMeta_AllVariants(TokenType.StructureInfo, TokenValidity.Anywhere, true, "PRIMARY", "KEY", "FIELD"),
 
                 new TokenMeta { Name = "STRUCTURE_CHILDREN", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "STRUCTURE_DESC", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "STRUCTURE_FIELDS", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "STRUCTURE_KEYS", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "STRUCTURE_LDESC", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
-                makeCased(TokenType.StructureInfo, TokenValidity.Anywhere, true, "STRUCTURE", "NAME"),
-                makeCased(TokenType.StructureInfo, TokenValidity.Anywhere, true, "STRUCTURE", "NOALIAS"),
+                makeTokenMeta_AllVariants(TokenType.StructureInfo, TokenValidity.Anywhere, true, "STRUCTURE", "NAME"),
+                makeTokenMeta_AllVariants(TokenType.StructureInfo, TokenValidity.Anywhere, true, "STRUCTURE", "NOALIAS"),
                 new TokenMeta { Name = "STRUCTURE_SIZE", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "STRUCTURE_UTEXT", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
 
@@ -258,11 +258,11 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "FIELD#_ZERO", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD#LOGICAL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD#LOGICAL_ZERO", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ALTNAME"),
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ARRIVEM"),
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "BASENAME"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ALTNAME"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ARRIVEM"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "BASENAME"),
                 new TokenMeta { Name = "FIELD_BREAK_MODE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "CHANGEM"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "CHANGEM"),
                 new TokenMeta { Name = "FIELD_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_CSCONVERT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_CSDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
@@ -273,7 +273,7 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "FIELD_DIMENSION2_INDEX", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_DIMENSION3_INDEX", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_DIMENSION4_INDEX", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "DRILLM"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "DRILLM"),
                 new TokenMeta { Name = "FIELD_DRILL_PIXEL_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_ELEMENT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_ELEMENT0", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
@@ -282,22 +282,22 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "FIELD_FORMATNAME", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_HEADING", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_HELPID", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "HYPERM"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "HYPERM"),
                 new TokenMeta { Name = "FIELD_INFOLINE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_INPUT_LENGTH", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_LDESC", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "LEAVEM"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "LEAVEM"),
                 new TokenMeta { Name = "FIELD_MAXVALUE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_MINVALUE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NAME"),
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NETNAME"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NAME"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NETNAME"),
                 new TokenMeta { Name = "FIELD_NOECHO_CHAR", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_OCDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_OCTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ODBCNAME"),
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ORIGINAL", "NAME"),
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "PATH"),
-                makeCasedLimited(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "PATH", "CONV"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ODBCNAME"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ORIGINAL", "NAME"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "PATH"),
+                makeTokenMeta_UpperLower(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "PATH", "CONV"),
                 new TokenMeta { Name = "FIELD_PIXEL_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_PIXEL_ROW", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_PIXEL_WIDTH", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
@@ -315,26 +315,26 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "FIELD_SELECTIONS", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_SELECTIONS1", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_SELLENGTH", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SELWND"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SELWND"),
                 new TokenMeta { Name = "FIELD_SELWND_ORIGINAL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_SIZE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_SNDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_SNTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SPEC"),
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SQLNAME"),
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NET","ALTNAME"),
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SQL","ALTNAME"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SPEC"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SQLNAME"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NET","ALTNAME"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SQL","ALTNAME"),
                 new TokenMeta { Name = "FIELD_SQLTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_TEMPLATE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_TKSCRIPT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "TYPE"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "TYPE"),
                 new TokenMeta { Name = "FIELD_TYPE_NAME", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_UTEXT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_VBDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_VBTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "MAPPED", "FIELD"),
-                makeCasedLimited(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "MAPPED", "PATH"),
-                makeCasedLimited(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "MAPPED", "PATH", "CONV"),
+                makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "MAPPED", "FIELD"),
+                makeTokenMeta_UpperLower(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "MAPPED", "PATH"),
+                makeTokenMeta_UpperLower(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "MAPPED", "PATH", "CONV"),
                 new TokenMeta { Name = "PROMPT_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "PROMPT_PIXEL_COL", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "PROMPT_PIXEL_ROW", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
@@ -352,8 +352,8 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "KEY_DUPLICATES", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
                 new TokenMeta { Name = "KEY_DUPLICATES_AT", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
                 new TokenMeta { Name = "KEY_LENGTH", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
-                makeCased(TokenType.KeyLoop, TokenValidity.KeyLoop, true, "KEY", "NAME"),
-                makeCasedLimited(TokenType.KeyLoop, TokenValidity.KeyLoop, true, "KEY", "NULLTYPE"),
+                makeTokenMeta_AllVariants(TokenType.KeyLoop, TokenValidity.KeyLoop, true, "KEY", "NAME"),
+                makeTokenMeta_UpperLower(TokenType.KeyLoop, TokenValidity.KeyLoop, true, "KEY", "NULLTYPE"),
                 new TokenMeta { Name = "KEY_NULLVALUE", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
                 new TokenMeta { Name = "KEY_NUMBER", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
                 new TokenMeta { Name = "KEY_ORDER", TypeOfToken = TokenType.KeyLoop, IsPaired = false, Validity = TokenValidity.KeyLoop, RequiresRepository = true },
@@ -366,26 +366,26 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "SEGMENT_KIND", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "SEGMENT_LENGTH", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "SEGMENT_LITVAL", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCased(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "MAPPEDNAME"),
-                makeCased(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "NAME"),
+                makeTokenMeta_AllVariants(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "MAPPEDNAME"),
+                makeTokenMeta_AllVariants(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "NAME"),
                 new TokenMeta { Name = "SEGMENT_NUMBER", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "ORDER"),
+                makeTokenMeta_UpperLower(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "ORDER"),
                 new TokenMeta { Name = "SEGMENT_POSITION", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "SEQUENCE"),
+                makeTokenMeta_UpperLower(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "SEQUENCE"),
                 new TokenMeta { Name = "SEGMENT_SNTYPE", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "SPEC"),
+                makeTokenMeta_UpperLower(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "SPEC"),
                 new TokenMeta { Name = "SEGMENT_STRUCTURE", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "TYPE"),
+                makeTokenMeta_UpperLower(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, "SEGMENT", "TYPE"),
                 new TokenMeta { Name = "SEGMENT_VBTYPE", TypeOfToken = TokenType.KeySegmentLoop, IsPaired = false, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true },
 
                 new TokenMeta { Name = "ENUM_COUNT", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
                 new TokenMeta { Name = "ENUM_DESCRIPTION", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
                 new TokenMeta { Name = "ENUM_LONG_DESCRIPTION", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
                 new TokenMeta { Name = "ENUM_MEMBER_COUNT", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
-                makeCased(TokenType.EnumLoop, TokenValidity.EnumLoop, true, "ENUM", "NAME"),
+                makeTokenMeta_AllVariants(TokenType.EnumLoop, TokenValidity.EnumLoop, true, "ENUM", "NAME"),
                 new TokenMeta { Name = "ENUM_NUMBER", TypeOfToken = TokenType.EnumLoop, IsPaired = false, Validity = TokenValidity.EnumLoop, RequiresRepository = true },
 
-                makeCased(TokenType.EnumMemberLoop, TokenValidity.EnumMemberLoop, true, "ENUM", "MEMBER", "NAME"),
+                makeTokenMeta_AllVariants(TokenType.EnumMemberLoop, TokenValidity.EnumMemberLoop, true, "ENUM", "MEMBER", "NAME"),
                 new TokenMeta { Name = "ENUM_MEMBER_EXPLICIT_VALUE", TypeOfToken = TokenType.EnumMemberLoop, IsPaired = false, Validity = TokenValidity.EnumMemberLoop, RequiresRepository = true },
                 new TokenMeta { Name = "ENUM_MEMBER_IMPLICIT_VALUE", TypeOfToken = TokenType.EnumMemberLoop, IsPaired = false, Validity = TokenValidity.EnumMemberLoop, RequiresRepository = true },
 
@@ -407,28 +407,28 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "BUTTON_WIDTHPX", TypeOfToken = TokenType.ButtonLoop, IsPaired = false, Validity = TokenValidity.ButtonLoop },
 
                 new TokenMeta { Name = "FLOOP_ADDRESSING", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
-                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "COMPRESSION"),
-                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP","CHANGE","TRACKING"),
+                makeTokenMeta_UpperLower(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "COMPRESSION"),
+                makeTokenMeta_UpperLower(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP","CHANGE","TRACKING"),
                 new TokenMeta { Name = "FLOOP_DESC", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FLOOP_DENSITY", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FLOOP_NAME", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FLOOP_NAME_NOEXT", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FLOOP_PAGESIZE", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
-                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "RECTYPE"),
-                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "STATIC", "RFA"),
-                makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "STORED", "GRFA"),
+                makeTokenMeta_UpperLower(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "RECTYPE"),
+                makeTokenMeta_UpperLower(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "STATIC", "RFA"),
+                makeTokenMeta_UpperLower(TokenType.FileLoop, TokenValidity.FileLoop, true, "FLOOP", "STORED", "GRFA"),
                 new TokenMeta { Name = "FLOOP_TYPE", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FLOOP_UTEXT", TypeOfToken = TokenType.FileLoop, IsPaired = false, Validity = TokenValidity.FileLoop, RequiresRepository = true },
 
                 new TokenMeta { Name = "TAGLOOP_CONNECTOR_C", TypeOfToken = TokenType.TagLoop, IsPaired = false, Validity = TokenValidity.TagLoop, RequiresRepository = true },
-                makeCasedLimited(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "CONNECTOR", "DBL"),
-                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "ALTNAME"),
-                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "BASENAME"),
-                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "NAME"),
-                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "ODBCNAME"),
-                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "ORIGINALNAME"),
-                makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "SQLNAME"),
-                makeCasedLimited(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "OPERATOR", "DBL"),
+                makeTokenMeta_UpperLower(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "CONNECTOR", "DBL"),
+                makeTokenMeta_AllVariants(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "ALTNAME"),
+                makeTokenMeta_AllVariants(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "BASENAME"),
+                makeTokenMeta_AllVariants(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "NAME"),
+                makeTokenMeta_AllVariants(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "ODBCNAME"),
+                makeTokenMeta_AllVariants(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "ORIGINALNAME"),
+                makeTokenMeta_AllVariants(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "FIELD", "SQLNAME"),
+                makeTokenMeta_UpperLower(TokenType.TagLoop, TokenValidity.TagLoop, true, "TAGLOOP", "OPERATOR", "DBL"),
                 new TokenMeta { Name = "TAGLOOP_OPERATOR_C", TypeOfToken = TokenType.TagLoop, IsPaired = false, Validity = TokenValidity.TagLoop, RequiresRepository = true },
                 new TokenMeta { Name = "TAGLOOP_SEQUENCE", TypeOfToken = TokenType.TagLoop, IsPaired = false, Validity = TokenValidity.TagLoop, RequiresRepository = true },
                 new TokenMeta { Name = "TAGLOOP_TAG_NAME", TypeOfToken = TokenType.TagLoop, IsPaired = false, Validity = TokenValidity.TagLoop, RequiresRepository = true },
@@ -436,7 +436,7 @@ namespace CodeGen.Engine
 
                 new TokenMeta { Name = "WINDOW_HEIGHT", TypeOfToken = TokenType.Window, IsPaired = false, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "WINDOW_HEIGHTPX", TypeOfToken = TokenType.Window, IsPaired = false, Validity = TokenValidity.Anywhere },
-                makeCased(TokenType.Window, TokenValidity.Anywhere, false, "WINDOW", "NAME"),
+                makeTokenMeta_AllVariants(TokenType.Window, TokenValidity.Anywhere, false, "WINDOW", "NAME"),
                 new TokenMeta { Name = "WINDOW_WIDTH", TypeOfToken = TokenType.Window, IsPaired = false, Validity = TokenValidity.Anywhere },
                 new TokenMeta { Name = "WINDOW_WIDTHPX", TypeOfToken = TokenType.Window, IsPaired = false, Validity = TokenValidity.Anywhere },
 
@@ -890,24 +890,24 @@ namespace CodeGen.Engine
         }
 
         //TODO: These overloads are to support code conversion to Synergy .NET. They provide a workaround for a Synergy .NET compiler bug with param array arguments.
-        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1)
+        //private TokenMeta makeTokenMeta_AllVariants(TokenType aType, TokenValidity aValidity, string aPart1)
         //{
-        //    return makeCased(aType, aValidity, new string[] { aPart1 });
+        //    return makeTokenMeta_AllVariants(aType, aValidity, new string[] { aPart1 });
         //}
         ////TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
-        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2)
+        //private TokenMeta makeTokenMeta_AllVariants(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2)
         //{
-        //    return makeCased(aType, aValidity, new string[] { aPart1, aPart2 });
+        //    return makeTokenMeta_AllVariants(aType, aValidity, new string[] { aPart1, aPart2 });
         //}
         ////TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
-        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3)
+        //private TokenMeta makeTokenMeta_AllVariants(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3)
         //{
-        //    return makeCased(aType, aValidity, new string[] { aPart1, aPart2, aPart3 });
+        //    return makeTokenMeta_AllVariants(aType, aValidity, new string[] { aPart1, aPart2, aPart3 });
         //}
         ////TODO: This overload is a workaround for a Synergy .NET compiler bug with params arguments
-        //private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3, string aPart4)
+        //private TokenMeta makeTokenMeta_AllVariants(TokenType aType, TokenValidity aValidity, string aPart1, string aPart2, string aPart3, string aPart4)
         //{
-        //    return makeCased(aType, aValidity, new string[] { aPart1, aPart2, aPart3, aPart4 });
+        //    return makeTokenMeta_AllVariants(aType, aValidity, new string[] { aPart1, aPart2, aPart3, aPart4 });
         //}
 
         /// <summary>
@@ -918,7 +918,7 @@ namespace CodeGen.Engine
         /// <param name="aRequiresRps">Requires repository information</param>
         /// <param name="aParts">Parts of token name (e.g. "FIELD_NAME" should be passed as "FIELD", "NAME")</param>
         /// <returns>TokenMeta object</returns>
-        private TokenMeta makeCased(TokenType aType, TokenValidity aValidity, bool aRequiresRps, params string[] aParts)
+        private TokenMeta makeTokenMeta_AllVariants(TokenType aType, TokenValidity aValidity, bool aRequiresRps, params string[] aParts)
         {
             List<string> lowerCaseParts = aParts.Select(str => str.ToLower()).ToList();
             List<string> upperCaseParts = aParts.Select(str => str.ToUpper()).ToList();
@@ -954,21 +954,21 @@ namespace CodeGen.Engine
             return result;
         }
         //TODO: These overloads are to support code conversion to Synergy .NET. They provide a workaround for a Synergy .NET compiler bug with param array arguments.
-        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1)
+        //private TokenMeta makeTokenMeta_UpperLower(TokenType aType, TokenValidity aValidity, string part1)
         //{
-        //    return makeCasedLimited(aType, aValidity, new string[] { part1 });
+        //    return makeTokenMeta_UpperLower(aType, aValidity, new string[] { part1 });
         //}
-        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2)
+        //private TokenMeta makeTokenMeta_UpperLower(TokenType aType, TokenValidity aValidity, string part1, string part2)
         //{
-        //    return makeCasedLimited(aType, aValidity, new string[] { part1, part2 });
+        //    return makeTokenMeta_UpperLower(aType, aValidity, new string[] { part1, part2 });
         //}
-        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3)
+        //private TokenMeta makeTokenMeta_UpperLower(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3)
         //{
-        //    return makeCasedLimited(aType, aValidity, new string[] { part1, part2, part3 });
+        //    return makeTokenMeta_UpperLower(aType, aValidity, new string[] { part1, part2, part3 });
         //}
-        //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3, string part4)
+        //private TokenMeta makeTokenMeta_UpperLower(TokenType aType, TokenValidity aValidity, string part1, string part2, string part3, string part4)
         //{
-        //    return makeCasedLimited(aType, aValidity, new string[] { part1, part2, part3, part4 });
+        //    return makeTokenMeta_UpperLower(aType, aValidity, new string[] { part1, part2, part3, part4 });
         //}
 
         /// <summary>
@@ -979,7 +979,7 @@ namespace CodeGen.Engine
         /// <param name="aRequiresRps">Requires repository information</param>
         /// <param name="aParts">Parts of token name (e.g. "FIELD_NAME" should be passed as "FIELD", "NAME")</param>
         /// <returns>TokenMeta object</returns>
-        private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, bool aRequiresRps, params string[] aParts)
+        private TokenMeta makeTokenMeta_UpperLower(TokenType aType, TokenValidity aValidity, bool aRequiresRps, params string[] aParts)
         {
             List<string> lowerCaseParts = aParts.Select(str => str.ToLower()).ToList();
             List<string> upperCaseParts = aParts.Select(str => str.ToUpper()).ToList();
@@ -1631,10 +1631,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.Generic, TokenValidity.Anywhere, false, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.Generic, TokenValidity.Anywhere, false, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.Generic, TokenValidity.Anywhere, false, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.Generic, TokenValidity.Anywhere, false, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.Generic, Validity = TokenValidity.Anywhere, RequiresRepository = false });
@@ -1662,10 +1662,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.LoopUtility, TokenValidity.AnyLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.LoopUtility, TokenValidity.AnyLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.LoopUtility, TokenValidity.AnyLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.LoopUtility, TokenValidity.AnyLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.LoopUtility, Validity = TokenValidity.AnyLoop, RequiresRepository = true });
@@ -1679,10 +1679,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.FieldLoop, TokenValidity.FieldLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.FieldLoop, TokenValidity.FieldLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.FieldLoop, TokenValidity.FieldLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.FieldLoop, Validity = TokenValidity.FieldLoop, RequiresRepository = true });
@@ -1696,10 +1696,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.FieldSelectionLoop, TokenValidity.FieldSelectionLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.FieldSelectionLoop, TokenValidity.FieldSelectionLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.FieldSelectionLoop, TokenValidity.FieldSelectionLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.FieldSelectionLoop, TokenValidity.FieldSelectionLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.FieldSelectionLoop, Validity = TokenValidity.FieldSelectionLoop, RequiresRepository = true });
@@ -1713,10 +1713,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.KeyLoop, TokenValidity.KeyLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.KeyLoop, TokenValidity.KeyLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.KeyLoop, TokenValidity.KeyLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.KeyLoop, TokenValidity.KeyLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.KeyLoop, Validity = TokenValidity.KeyLoop, RequiresRepository = true });
@@ -1730,10 +1730,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.KeySegmentLoop, TokenValidity.KeySegmentLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.KeySegmentLoop, Validity = TokenValidity.KeySegmentLoop, RequiresRepository = true });
@@ -1747,10 +1747,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.EnumLoop, TokenValidity.EnumLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.EnumLoop, TokenValidity.EnumLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.EnumLoop, TokenValidity.EnumLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.EnumLoop, TokenValidity.EnumLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.EnumLoop, Validity = TokenValidity.EnumLoop, RequiresRepository = true });
@@ -1764,10 +1764,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.EnumMemberLoop, TokenValidity.EnumMemberLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.EnumMemberLoop, TokenValidity.EnumMemberLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.EnumMemberLoop, TokenValidity.EnumMemberLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.EnumMemberLoop, TokenValidity.EnumMemberLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.EnumMemberLoop, Validity = TokenValidity.EnumMemberLoop, RequiresRepository = true });
@@ -1781,10 +1781,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.RelationLoop, TokenValidity.RelationLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.RelationLoop, TokenValidity.RelationLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.RelationLoop, TokenValidity.RelationLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.RelationLoop, TokenValidity.RelationLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.RelationLoop, Validity = TokenValidity.RelationLoop, RequiresRepository = true });
@@ -1798,10 +1798,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.TagLoop, TokenValidity.TagLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.TagLoop, TokenValidity.TagLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.TagLoop, TokenValidity.TagLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.TagLoop, TokenValidity.TagLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.TagLoop, Validity = TokenValidity.TagLoop, RequiresRepository = true });
@@ -1815,10 +1815,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.StructureLoop, TokenValidity.StructureLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.StructureLoop, TokenValidity.StructureLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.StructureLoop, TokenValidity.StructureLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.StructureLoop, TokenValidity.StructureLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.StructureLoop, Validity = TokenValidity.StructureLoop, RequiresRepository = true });
@@ -1832,10 +1832,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.ButtonLoop, TokenValidity.ButtonLoop, false, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.ButtonLoop, TokenValidity.ButtonLoop, false, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.ButtonLoop, TokenValidity.ButtonLoop, false, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.ButtonLoop, TokenValidity.ButtonLoop, false, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.ButtonLoop, Validity = TokenValidity.ButtonLoop, RequiresRepository = false });
@@ -1849,10 +1849,10 @@ namespace CodeGen.Engine
                             switch (customexpander.Item4)
                             {
                                 case TokenCaseMode.AllCasingOptions:
-                                    addLookupToken(makeCased(TokenType.FileLoop, TokenValidity.FileLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_AllVariants(TokenType.FileLoop, TokenValidity.FileLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseAndLowerCase:
-                                    addLookupToken(makeCasedLimited(TokenType.FileLoop, TokenValidity.FileLoop, true, customexpander.Item1.Split('_')));
+                                    addLookupToken(makeTokenMeta_UpperLower(TokenType.FileLoop, TokenValidity.FileLoop, true, customexpander.Item1.Split('_')));
                                     break;
                                 case TokenCaseMode.UppercaseOnly:
                                     addLookupToken(new TokenMeta { Name = customexpander.Item1, TypeOfToken = TokenType.FileLoop, Validity = TokenValidity.FileLoop, RequiresRepository = true });
