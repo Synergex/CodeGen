@@ -290,11 +290,11 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "FIELD_MAXVALUE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_MINVALUE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NAME"),
-                makeFieldNetName(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop),
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NETNAME"),
                 new TokenMeta { Name = "FIELD_NOECHO_CHAR", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_OCDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_OCTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
-                makeFieldOdbcName(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop),
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ODBCNAME"),
                 makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "ORIGINAL", "NAME"),
                 makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "PATH"),
                 makeCasedLimited(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "PATH", "CONV"),
@@ -321,7 +321,7 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "FIELD_SNDEFAULT", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 new TokenMeta { Name = "FIELD_SNTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
                 makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SPEC"),
-                makeFieldSqlName(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop),
+                makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SQLNAME"),
                 makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "NET","ALTNAME"),
                 makeCased(TokenType.FieldLoop, TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, true, "FIELD", "SQL","ALTNAME"),
                 new TokenMeta { Name = "FIELD_SQLTYPE", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true },
@@ -458,6 +458,27 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "STRUCTURE#4", TypeOfToken = TokenType.NotInLoop, IsPaired = false, Validity = TokenValidity.NotInLoop, RequiresRepository = true},
                 new TokenMeta { Name = "STRUCTURE#5", TypeOfToken = TokenType.NotInLoop, IsPaired = false, Validity = TokenValidity.NotInLoop, RequiresRepository = true}
             };
+
+            //Apply non-standard customizations. These are here for historic reasons because of errors made when implementing token names in earlier versions.
+
+            foreach (TokenMeta tokenMeta in metaLookup)
+            {
+                switch (tokenMeta.Name)
+                {
+                    case "FIELD_NETNAME":
+                        tokenMeta.Modifiers.Add("FieldNetName", TokenModifier.PascalCase);
+                        tokenMeta.Modifiers.Add("fieldNetName", TokenModifier.CamelCase);
+                        break;
+                    case "FIELD_ODBCNAME":
+                        tokenMeta.Modifiers.Add("FieldOdbcName", TokenModifier.PascalCase);
+                        tokenMeta.Modifiers.Add("fieldOdbcName", TokenModifier.CamelCase);
+                        break;
+                    case "FIELD_SQLNAME":
+                        tokenMeta.Modifiers.Add("FieldSqlName", TokenModifier.PascalCase);
+                        tokenMeta.Modifiers.Add("fieldSqlName", TokenModifier.CamelCase);
+                        break;
+                }
+            }
 
             //Now process each of the replacement tokens that we have defined, adding them to our various lookup collections
 
@@ -810,8 +831,10 @@ namespace CodeGen.Engine
                         string upperName = modifier.Key.ToUpper();
                         if (upperName != meta.Name)
                         {
-                            typeLookup.Add(upperName, meta.TypeOfToken);
-                            canonicalNameLookup.Add(upperName, meta.Name);
+                            if (!typeLookup.ContainsKey(upperName))
+                                typeLookup.Add(upperName, meta.TypeOfToken);
+                            if (!canonicalNameLookup.ContainsKey(upperName))
+                                canonicalNameLookup.Add(upperName, meta.Name);
                         }
                     }
                 }
@@ -930,61 +953,6 @@ namespace CodeGen.Engine
 
             return result;
         }
-
-        private TokenMeta makeFieldSqlName(TokenType aType, TokenValidity aValidity)
-        {
-            //Had to hard code this one because the token does not follow usual rules!!!
-            TokenMeta result = new TokenMeta();
-            result.TypeOfToken = aType;
-            result.Name = "FIELD_SQLNAME";
-            result.Modifiers = new Dictionary<string, TokenModifier>();
-            result.Modifiers.Add("FIELD_SQLNAME", TokenModifier.None);
-            result.Modifiers.Add("field_sqlname", TokenModifier.LowerCase);
-            result.Modifiers.Add("Field_Sqlname", TokenModifier.MixedCase);
-            result.Modifiers.Add("Field_sqlname", TokenModifier.XfCase);
-            result.Modifiers.Add("FieldSqlName", TokenModifier.PascalCase);
-            result.Modifiers.Add("fieldSqlName", TokenModifier.CamelCase);
-            result.Validity = aValidity;
-            result.RequiresRepository = true;
-            return result;
-        }
-
-        private TokenMeta makeFieldNetName(TokenType aType, TokenValidity aValidity)
-        {
-            //Had to hard code this one because the token does not follow usual rules!!!
-            TokenMeta result = new TokenMeta();
-            result.TypeOfToken = aType;
-            result.Name = "FIELD_NETNAME";
-            result.Modifiers = new Dictionary<string, TokenModifier>();
-            result.Modifiers.Add("FIELD_NETNAME", TokenModifier.None);
-            result.Modifiers.Add("field_netname", TokenModifier.LowerCase);
-            result.Modifiers.Add("Field_Netname", TokenModifier.MixedCase);
-            result.Modifiers.Add("Field_netname", TokenModifier.XfCase);
-            result.Modifiers.Add("FieldNetName", TokenModifier.PascalCase);
-            result.Modifiers.Add("fieldNetName", TokenModifier.CamelCase);
-            result.Validity = aValidity;
-            result.RequiresRepository = true;
-            return result;
-        }
-
-        private TokenMeta makeFieldOdbcName(TokenType aType, TokenValidity aValidity)
-        {
-            //Had to hard code this one because the token does not follow usual rules!!!
-            TokenMeta result = new TokenMeta();
-            result.TypeOfToken = aType;
-            result.Name = "FIELD_ODBCNAME";
-            result.Modifiers = new Dictionary<string, TokenModifier>();
-            result.Modifiers.Add("FIELD_ODBCNAME", TokenModifier.None);
-            result.Modifiers.Add("field_odbcname", TokenModifier.LowerCase);
-            result.Modifiers.Add("Field_Odbcname", TokenModifier.MixedCase);
-            result.Modifiers.Add("Field_odbcname", TokenModifier.XfCase);
-            result.Modifiers.Add("FieldOdbcName", TokenModifier.PascalCase);
-            result.Modifiers.Add("fieldOdbcName", TokenModifier.CamelCase);
-            result.Validity = aValidity;
-            result.RequiresRepository = true;
-            return result;
-        }
-
         //TODO: These overloads are to support code conversion to Synergy .NET. They provide a workaround for a Synergy .NET compiler bug with param array arguments.
         //private TokenMeta makeCasedLimited(TokenType aType, TokenValidity aValidity, string part1)
         //{
