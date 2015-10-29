@@ -1,0 +1,127 @@
+
+import System
+import System.Collections.Generic
+import System.Drawing
+import System.IO
+import System.Windows.Forms
+
+.array 0
+
+namespace SetAssemblyFileVersion
+
+    public partial class Form1 extends Form
+
+        public method Form1
+            endparams
+        proc
+            InitializeComponent()
+        endmethod
+
+        private method Form1_Load, void
+            sender, @object 
+            e, @EventArgs 
+            endparams
+        proc
+            data root, String, Environment.GetEnvironmentVariable("DEVROOT")
+            if (!String.IsNullOrWhiteSpace(root))
+                txtRootFolder.Text = root
+        endmethod
+
+        private method btnGo_Click, void
+            sender, @object 
+            e, @EventArgs 
+            endparams
+        proc
+            data filesWritten, int, 0
+			data fileName, String
+
+			foreach fileName in lstFiles.Items
+			begin
+				;; Get the data from the file
+				data sourceLines, @List<String>, new List<String>(File.ReadAllLines(fileName))
+				data ix, int
+				
+				for ix from 0 thru sourceLines.Count - 1
+				begin
+					data sourceLine, String, sourceLines[ix]
+					if (sourceLine.StartsWith("{assembly: AssemblyFileVersion(")) then
+					begin
+						sourceLines[ix] = "{assembly: AssemblyFileVersion(""" + txtNewVersionNumbers.Text + """)}"
+						exitloop
+					end
+					else if (sourceLine.StartsWith("[assembly: AssemblyFileVersion("))
+					begin
+						sourceLines[ix] = "[assembly: AssemblyFileVersion(""" + txtNewVersionNumbers.Text + """)]"
+						exitloop
+					end
+				end
+
+				;; If the file is read-only, make it writable
+				data attributes, FileAttributes, File.GetAttributes(fileName)
+				if ((attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+				begin
+					;;  Make the file RW
+					attributes = attributes & ~FileAttributes.ReadOnly
+					File.SetAttributes(fileName, attributes)
+				end
+
+				;; Re-write the file
+				File.WriteAllLines(fileName, sourceLines)
+
+				filesWritten += 1
+			end
+			
+            MessageBox.Show(this, String.Format("{0} files updated.", filesWritten))
+		
+		endmethod
+
+        private static method RemoveAttribute, FileAttributes
+            attributes, FileAttributes 
+            attributesToRemove, FileAttributes 
+            endparams
+        proc
+            mreturn attributes & ~FileAttributes.ReadOnly
+        endmethod
+
+        private method btnFolderLookup_Click, void
+            sender, @object 
+            e, @EventArgs 
+            endparams
+        proc
+            if (folderBrowserDialog1.ShowDialog(this) == DialogResult.OK)
+                txtRootFolder.Text = folderBrowserDialog1.SelectedPath
+        endmethod
+
+        private method txtRootFolder_TextChanged, void
+            sender, @object 
+            e, @EventArgs 
+            endparams
+        proc
+            getFiles()
+        endmethod
+
+        private method chkIncludeSubFolders_CheckedChanged, void
+            sender, @object 
+            e, @EventArgs 
+            endparams
+        proc
+            getFiles()
+        endmethod
+
+        private method getFiles, void
+            endparams
+        proc
+            data option, SearchOption, chkIncludeSubFolders.Checked ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly
+			data fileName, String
+			
+			foreach fileName in Directory.GetFiles(txtRootFolder.Text, "AssemblyInfo.*", option)
+				lstFiles.Items.Add(fileName)
+
+			btnGo.Enabled = lstFiles.Items.Count > 0
+
+        endmethod
+	
+	endclass
+
+endnamespace
+
