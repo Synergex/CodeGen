@@ -1,0 +1,246 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TreePreExpander.dbl
+;; 
+;;  Type:        Class
+;; 
+;;  Description: Tree visitor performing pre-expansion of the tree, including
+;;               loop expansion.
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Jeff Greene, Synergex Development
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+
+.array 0
+
+namespace CodeGen.Engine
+
+    ;;;  <summary>
+    ;;;  This class is used to pre-process the tree that was created by Parser and tag various nodes as
+    ;;;  not being part of the final output stream.
+    ;;;  </summary>
+    public class TreePreExpander implements ITreeNodeVisitor
+
+        ;;;  <summary>
+        ;;;  Pre-processes a collection of nodes, generally from the Body of another node.
+        ;;;  </summary>
+        ;;;  <param name="nodes">Collection of tree nodes to process.</param>
+        private method TagPriorToControlBody, void
+            nodes, @List<ITreeNode> 
+            endparams
+        proc
+			data ix, int
+
+            for ix from 0 thru nodes.Count - 1
+            begin
+                if ((nodes[ix] .is. ControlNode) && (ix > 0) && (nodes[ix - 1] .is. TextNode))
+                begin
+                    data cnode, @ControlNode, ^as(nodes[ix], ControlNode)
+                    if ((cnode.CloseToken != ^null) && (cnode.OpenToken.StartLineNumber != cnode.CloseToken.EndLineNumber))
+                    begin
+                        data tnode, @TextNode, ^as(nodes[ix - 1], TextNode)
+                        tnode.LastLineNotInResult = true
+                    end
+                end
+                if ((nodes[ix] .is. ControlNode) && (ix < (nodes.Count - 1)) && (nodes[ix + 1] .is. TextNode))
+                begin
+                    data cnode, @ControlNode, ^as(nodes[ix], ControlNode)
+                    if ((cnode.CloseToken != ^null) && (cnode.OpenToken.StartLineNumber != cnode.CloseToken.EndLineNumber))
+                    begin
+                        data tnode, @TextNode, ^as(nodes[ix + 1], TextNode)
+                        tnode.FirstLineNotInResult = true
+                    end
+                end
+				
+				;; also do expansion tokens like Counters
+                if ((nodes[ix] .is. ExpansionNode) && (ix > 0) && (nodes[ix - 1] .is. TextNode))
+                begin
+                    data cnode, @ExpansionNode, ^as(nodes[ix], ExpansionNode)
+                    if (cnode.Value.TypeOfToken == TokenType.CounterInstruction)
+                    begin
+                        data tnode, @TextNode, ^as(nodes[ix - 1], TextNode)
+                        tnode.LastLineNotInResult = true
+                    end
+                end
+                if ((nodes[ix] .is. ExpansionNode) && (ix < (nodes.Count - 1)) && (nodes[ix + 1] .is. TextNode))
+                begin
+                    data cnode, @ExpansionNode, ^as(nodes[ix], ExpansionNode)
+                    if (cnode.Value.TypeOfToken == TokenType.CounterInstruction)
+                    begin
+                        data tnode, @TextNode, ^as(nodes[ix + 1], TextNode)
+                        tnode.FirstLineNotInResult = true
+                    end
+                end
+            end
+		
+		endmethod
+
+        ;;;  <summary>
+        ;;;  Pre-processes control nodes, setting the FirstLineNotInResult and LastLineNotInResult properties of
+        ;;;  various nodes based on the location of the control node. Control nodes include all LOOP, IF and ELSE nodes.
+        ;;;  </summary>
+        ;;;  <param name="cnode">Control node to process. </param>
+        private method TagFirstLastControlBody, void
+            cnode, @ControlNode 
+            endparams
+        proc
+            ;; If there is a close token (there always should be) and the open and close tokens are not on the same line
+            ;; then we'll park the 
+            if ((cnode.CloseToken != ^null) && (cnode.OpenToken.StartLineNumber != cnode.CloseToken.EndLineNumber))
+            begin
+                data firstTextNode, @TextNode, ^as(cnode.Body.First(), TextNode)
+				data lastTextNode, @TextNode, ^as(cnode.Body.Last(), TextNode)
+
+                if (firstTextNode != ^null)
+                    firstTextNode.FirstLineNotInResult = true
+				
+				if (lastTextNode != ^null)
+                    lastTextNode.LastLineNotInResult = true
+			end
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Called by the consumer application to prepare the tree for expansion.
+        ;;;  Removes new lines around loop tokens, etc.
+        ;;;  </summary>
+        ;;;  <param name="node">Tree to generate output from.</param>
+        public method Visit, void
+            node, @FileNode 
+            endparams
+        proc
+            Visit(node.Body)
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit a collection of nodes
+        ;;;  </summary>
+        ;;;  <param name="nodes"></param>
+        private method Visit, void
+            nodes, @List<ITreeNode> 
+            endparams
+        proc
+            TagPriorToControlBody(nodes)
+			data node, @ITreeNode
+			foreach node in nodes
+				node.Accept(this)
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit any LOOP node.
+        ;;;  </summary>
+        ;;;  <param name="loop"></param>
+        public method Visit, void
+            loop, @LoopNode 
+            endparams
+        proc
+            TagFirstLastControlBody(loop)
+            Visit(loop.Body)
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit an IF node
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @IfNode 
+            endparams
+        proc
+            if (node.Expression == ^null)
+				throw new ApplicationException("CODEGEN BUG: TreePreExpander.Visit(IfNode) encountered an IfNode without an associated ExpressionNode. This indicates a Parser bug!")
+
+            TagFirstLastControlBody(node)
+            Visit(node.Body)
+			
+			if (node.Else != ^null)
+            begin
+                TagFirstLastControlBody(node.Else)
+                Visit(node.Else.Body)
+			end
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit an EXPRESSION node. In theory this should never happen because expression nodes
+        ;;;  are processed as part of an enclosing IF node.
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @ExpressionNode 
+            endparams
+        proc
+            throw new ApplicationException("CODEGEN BUG: TreePreExpander.Visit(ExpressionNode) should not be called. This indicates a Parser bug.")
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit an ELSE node. In theory this should never happen because else nodes
+        ;;;  are processed as part of an associated IF node.
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @ElseNode 
+            endparams
+        proc
+            throw new ApplicationException("CODEGEN BUG: TreePreExpander.Visit(ElseNode) should not be called. This indicates a Parser bug.")
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit an EXPANSION node.
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @ExpansionNode 
+            endparams
+        proc
+			nop
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit a TEXT node.
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @TextNode 
+            endparams
+        proc
+			nop
+        endmethod
+	
+	endclass
+
+endnamespace
+

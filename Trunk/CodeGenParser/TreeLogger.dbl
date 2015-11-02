@@ -1,0 +1,216 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TreeLogger.dbl
+;; 
+;;  Type:        Class
+;; 
+;;  Description: Tree visitor that performs error checking and reporting on a tree
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.IO
+import System.Linq
+
+.array 0
+
+namespace CodeGen.Engine
+
+    ;;;  <summary>
+    ;;;  Validates the structure of a template file tree by walking the tree and analyzing its structure.
+    ;;;  Uses TokenValidation.IsValid to determine whether each node in the tree is in an appropriate
+    ;;;  position, based on the rules defined by the TokenValidity enum.
+    ;;;  </summary>
+    public class TreeLogger implements ITreeNodeVisitor
+
+        private currentFileNode, @FileNode
+        private currentLoops, @List<LoopNode>, new List<LoopNode>()
+        private sw, @StreamWriter
+        private logFile, String
+        private indentText, string, ""
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="logFileName"></param>
+        public method TreeLogger
+            logFileName, string 
+            endparams
+        proc
+            logFile = logFileName
+        endmethod
+
+        private method logToken, void
+            text, string 
+            endparams
+        proc
+            sw.WriteLine(String.Format("{0}{1}", indentText, text))
+        endmethod
+
+        private method indent, void
+            endparams
+        proc
+            indentText += %char(9)
+        endmethod
+
+        private method unindent, void
+            endparams
+        proc
+            indentText = indentText.Substring(0, indentText.Length - 1)
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @FileNode 
+            endparams
+        proc
+            ;; Write the structure of the tree to a file
+			disposable data sw, @StreamWriter, File.CreateText(logFile)
+			currentFileNode = node
+			Visit(node.Body)
+			sw.Close()
+		endmethod
+
+        private method Visit, void
+            nodes, @IEnumerable<ITreeNode> 
+            endparams
+        proc
+			data node, @ITreeNode
+			foreach node in nodes
+				node.Accept(this)
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @LoopNode 
+            endparams
+        proc
+            logToken(String.Format("<{0}>", node.OpenToken.Value))
+			
+			currentLoops.Add(node)
+			
+			indent()
+            Visit(node.Body)
+			unindent()
+
+            currentLoops.Remove(node)
+			
+			logToken(String.Format("</{0}>", node.OpenToken.Value))
+		
+		endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @IfNode 
+            endparams
+        proc
+            if (node.Expression == ^null)
+				throw new ApplicationException("CODEGEN BUG: TreeLogger.Visit(IfNode) encountered an IfNode without an associated ExpressionNode. This indicates a Parser bug!")
+
+            logToken(String.Format("<IF {0}>", node.Expression.Value.Value))
+            indent()
+            Visit(node.Body)
+            unindent()
+			
+			if (node.Else != ^null)
+            begin
+                logToken("<ELSE>")
+                indent()
+                Visit(node.Else.Body)
+                unindent()
+			end
+
+            logToken(String.Format("</IF {0}>", node.Expression.Value.Value))
+		
+		endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @ExpressionNode 
+            endparams
+        proc
+            throw new NotImplementedException("CODEGEN BUG: TreeLogger.Visit(ExpressionNode) should not be called. This indicates a Parser bug.")
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @ElseNode 
+            endparams
+        proc
+            throw new NotImplementedException("CODEGEN BUG: TreeLogger.Visit(ElseNode) should not be called. This indicates a Parser bug.")
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @ExpansionNode 
+            endparams
+        proc
+            logToken(node.Value.ToString())
+        endmethod
+
+        ;;;  <summary>
+        ;;;  
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @TextNode 
+            endparams
+        proc
+            logToken(TreeExpander.CleanOutput(node).Replace(%char(13), "<CR>").Replace(%char(10), "<LF>").Replace(%char(9), "<TAB>"))
+		endmethod
+
+    endclass
+
+endnamespace
+
