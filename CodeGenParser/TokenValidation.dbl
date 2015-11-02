@@ -1,0 +1,212 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TokenValidation.dbl
+;; 
+;;  Type:        Class
+;; 
+;;  Description: Validates that tokens are in a valid location within the tree
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+
+.array 0
+
+namespace CodeGen.Engine
+
+    ;;;  <summary>
+    ;;;  Validates the location of a token based on the TokenValidity of the token and the location of the
+    ;;;  token in the tree. For example, field loop tokens may only exist in a field loop.
+    ;;;  </summary>
+    class TokenValidation
+
+        tokenValidators, @Dictionary<TokenValidity, Func<FileNode, IEnumerable<LoopNode>, boolean>>
+
+        public method TokenValidation
+            endparams
+        proc
+            tokenValidators = new Dictionary<TokenValidity, Func<FileNode, IEnumerable<LoopNode>, boolean>>()
+            tokenValidators.Add(TokenValidity.Anywhere, isGenericTokenValid)
+            tokenValidators.Add(TokenValidity.NotInLoop, isNotInLoopTokenValid)
+            tokenValidators.Add(TokenValidity.FieldLoop, isFieldLoopTokenValid)
+            tokenValidators.Add(TokenValidity.FieldSelectionLoop, isSelectionLoopTokenValid)
+            tokenValidators.Add(TokenValidity.KeyLoop, isKeyLoopTokenValid)
+            tokenValidators.Add(TokenValidity.KeySegmentLoop, isKeySegmentLoopTokenValid)
+            tokenValidators.Add(TokenValidity.EnumLoop, isEnumLoopTokenValid)
+            tokenValidators.Add(TokenValidity.EnumMemberLoop, isEnumMemberLoopTokenValid)
+            tokenValidators.Add(TokenValidity.RelationLoop, isRelationLoopTokenValid)
+            tokenValidators.Add(TokenValidity.ButtonLoop, isButtonLoopTokenValid)
+            tokenValidators.Add(TokenValidity.FileLoop, isFileLoopTokenValid)
+            tokenValidators.Add(TokenValidity.TagLoop, isTagLoopTokenValid)
+            tokenValidators.Add(TokenValidity.StructureLoop, isStructureLoopTokenValid)
+            tokenValidators.Add(TokenValidity.AnyLoop, isAnyLoopTokenValid)
+		endmethod
+
+		;; TODO: I don't believe this class is actually required. It should be possible to write code to impose these rules based on Validity and location. This class just hard-codes the rules that the Validity options express.
+
+        ;;;  <summary>
+        ;;;  Called by ErrorReporting to determine if a token is in a valid location.
+        ;;;  </summary>
+        ;;;  <param name="validityType">Token type.</param>
+        ;;;  <param name="file">Tree root node.</param>
+        ;;;  <param name="loops">Current loop heirarchy.</param>
+        ;;;  <returns>True indicates that the location of the token is valid.</returns>
+        public method IsValid, boolean
+            validityType, TokenValidity 
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn tokenValidators[validityType](file, loops)
+        endmethod
+
+        private static method isGenericTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn true
+        endmethod
+
+		private static method isNotInLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn loops.Count() == 0
+        endmethod
+
+		private static method isFieldLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.FirstOrDefault(lambda (node) {node .is. FieldLoopNode}) != ^null))
+        endmethod
+
+		private static method isSelectionLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.Last() .is. SelectionLoopNode))
+        endmethod
+
+		private static method isKeyLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.FirstOrDefault(lambda (node) {node .is. KeyLoopNode}) != ^null))
+        endmethod
+
+		private static method isKeySegmentLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.Last() .is. SegmentLoopNode))
+        endmethod
+
+		private static method isEnumLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.FirstOrDefault(lambda (node) {node .is. EnumLoopNode}) != ^null))
+        endmethod
+
+		private static method isEnumMemberLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.Last() .is. EnumMemberLoopNode))
+        endmethod
+
+		private static method isRelationLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.Last() .is. RelationLoopNode))
+        endmethod
+
+		private static method isButtonLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.Last() .is. ButtonLoopNode))
+        endmethod
+
+		private static method isFileLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.Last() .is. FileLoopNode))
+        endmethod
+
+		private static method isTagLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.Last() .is. TagLoopNode))
+        endmethod
+
+		private static method isStructureLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn ((loops.Count() > 0) && (loops.Last() .is. StructureLoopNode))
+        endmethod
+
+        static method isAnyLoopTokenValid, boolean
+            file, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            mreturn (loops.Count() > 0)
+        endmethod
+	
+	endclass
+
+endnamespace
+

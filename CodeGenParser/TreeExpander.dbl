@@ -1,0 +1,448 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TreeExpander.dbl
+;; 
+;;  Type:        Class
+;; 
+;;  Description: Tree visitor that expands a tree into a stream of output data (code)
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Jeff Greene, Synergex Development
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+import System
+import System.Collections.Generic
+import System.IO
+import System.Linq
+
+.array 0
+
+namespace CodeGen.Engine
+
+    ;;;  <summary>
+    ;;;  
+    ;;;  </summary>
+    public class TreeExpander implements ITreeNodeVisitor
+
+        private _currentFileNode, @FileNode
+        private _currentLoops, @List<LoopNode>, new List<LoopNode>()
+        private _expander, @TokenExpander
+        private _evaluator, @ExpressionEvaluator
+        private _outputStream, @TextWriter
+        private _validator, @TokenValidation, new TokenValidation()
+        private _killTextSibling, boolean, false
+
+        ;;;  <summary>
+        ;;;  Constructor used when expanding the whole tree. After constructing the object,
+        ;;;  call Visit(@FileNode) to initiate code generation.
+        ;;;  </summary>
+        ;;;  <param name="context">Current CodeGenContext object.</param>
+		;;;  <param name="outStream">Stream to write output code to.</param>
+        public method TreeExpander
+            context, @CodeGenContext 
+            outStream, @TextWriter 
+            endparams
+        proc
+            _expander = new TokenExpander(context)
+            _evaluator = new ExpressionEvaluator(context)
+			_outputStream = outStream
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Constructor used when expanding part of a tree, e.g. output file name.
+        ;;;  </summary>
+        ;;;  <param name="tree">Full or partial tree to expand.</param>
+        ;;;  <param name="expander">TokenExpander instance.</param>
+        ;;;  <param name="evaluator">ExpressionEvaluator instance.</param>
+		;;;  <param name="outStream">Stream to write output code to.</param>
+        public method TreeExpander
+            tree, @FileNode 
+            expander, @TokenExpander 
+            evaluator, @ExpressionEvaluator 
+			outStream, @TextWriter 
+            endparams
+        proc
+            _currentFileNode = tree
+            _expander = expander
+            _evaluator = evaluator
+			_outputStream = outStream
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Called by the consumer application to generate the actual output text.
+        ;;;  </summary>
+        ;;;  <param name="node">Tree to generate output from.</param>
+        public method Visit, void
+            node, @FileNode 
+            endparams
+        proc
+			_killTextSibling = false
+
+            ;; This should be the only property that may have residual data from the last use.
+			node.OutputFileName = String.Empty
+
+            try
+            begin
+                _currentFileNode = node
+                node.Context.CurrentTask.DebugLog("   Tree expansion begins", true, false)
+                Visit(node.Body)
+                setOutputFileName(node)
+                node.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Output file", node.OutputFileName))
+                node.Context.CurrentTask.DebugLog("   Tree expansion ends", false, true)
+            end
+            catch (ex, @ApplicationException)
+            begin
+                node.Context.CurrentTask.ErrorLog(ex.Message)
+                throw
+            end
+			endtry
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Main dispatcher for expanding the body of a node (FileNode.Body, IfNode.Body, ElseNode.Body)
+        ;;;  </summary>
+        ;;;  <param name="nodes">Collection of nodes to visit</param>
+        private method Visit, void
+            nodes, @List<ITreeNode> 
+            endparams
+        proc
+			data node, @ITreeNode
+			foreach node in nodes
+				node.Accept(this)
+        endmethod
+
+        ;;;  <summary>
+        ;;;  This method is called when a loop node is encountered during tree expansion.
+        ;;;  It uses LoopExpander to expand the loop.
+        ;;;  </summary>
+        ;;;  <param name="loop">The loop node that was encountered in the tree.</param>
+        public method Visit, void
+            loop, @LoopNode 
+            endparams
+        proc
+            _killTextSibling = false
+            _currentLoops.Add(loop)
+            LoopExpander.ProcessLoop(loop, _currentFileNode, _currentLoops, this)
+            _currentLoops.Remove(loop)
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit an IfNode tree member to process the IF/THEN/ELSE logic and output the appropriate code.
+        ;;;  </summary>
+        ;;;  <param name="node">Node to visit.</param>
+        public method Visit, void
+            node, @IfNode 
+            endparams
+        proc
+			_killTextSibling = false
+
+            ;; Make sure we have an expression node to process
+            if (node.Expression == ^null)
+                throw new ApplicationException("CODEGEN BUG: TreeExpander.Visit(IfNode) encountered an IfNode without an associated ExpressionNode. This indicates a Parser bug!")
+			
+			if (_evaluator.EvaluateExpression(getContextForExpression(node.Expression), node.Expression, _currentFileNode, _currentLoops)) then
+            begin
+                if (_currentFileNode.Context.DebugLoggingEnabled)
+					_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("<IF {0}>", node.Expression.Value.Value), true))
+
+				Visit(node.Body)
+
+                if (_currentFileNode.Context.DebugLoggingEnabled)
+                    _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} ->", String.Format("</IF {0}>", node.Expression.Value.Value)))
+            end
+            else if (node.Else != ^null) then
+            begin
+                if (_currentFileNode.Context.DebugLoggingEnabled)
+					_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} ->", "</ELSE>"))
+
+                Visit(node.Else.Body)
+            end
+            else
+				_killTextSibling = true
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit an ExpressionNode. If this method is called it indicates a problem in Parser.Parse, because
+        ;;;  ExpresssionNode nodes are really just part of an IfNode and should be processed by Visit(IfNode).
+        ;;;  </summary>
+        ;;;  <param name="node">ExpressionNode to viait</param>
+        public method Visit, void
+            node, @ExpressionNode 
+            endparams
+        proc
+            throw new ApplicationException("CODEGEN BUG: TreeExpander.Visit(ExpressionNode) should not be called. This indicates a Parser bug.")
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Visit an ElseNode. If this method is called it indicates a problem in Parser.Parse, because
+        ;;;  ElseNode nodes are really just part of an IfNode and should be processed by Visit(IfNode).
+        ;;;  </summary>
+        ;;;  <param name="node"></param>
+        public method Visit, void
+            node, @ElseNode 
+            endparams
+        proc
+            throw new ApplicationException("CODEGEN BUG: TreePreExpander.Visit(ElseNode) should not be called. This indicates a Parser bug.")
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Processes an expansion token, writing the resulting text value to the output stream.
+        ;;;  </summary>
+        ;;;  <param name="node">ExpansionMode to visit.</param>
+        public method Visit, void
+            node, @ExpansionNode 
+            endparams
+        proc
+			_killTextSibling = false
+
+            ;; Use TokenExpander to expand the expansion token to it's text value
+            data expandedText, string, _expander.ExpandToken(node.Value, _currentFileNode, _currentLoops)
+			
+			;; And add the text to the output stream
+            _outputStream.Write(expandedText)
+			
+			;; Debug logging? Log the token expansion.
+            if (_currentFileNode.Context.DebugLoggingEnabled)
+				_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("<{0}>", node.Value.Value), expandedText))
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Processes a text token, writing the text to the output stream.
+        ;;;  </summary>
+        ;;;  <param name="node">TextNode to visit.</param>
+        public method Visit, void
+            node, @TextNode 
+            endparams
+        proc
+            ;; Apply the text processing rules that were established by TreePreExpander
+			data cleanedOutput, string, CleanOutput(node, _killTextSibling ? (boolean?)true : ^null)
+
+			_killTextSibling = false
+
+            ;; Write the text to the output stream
+			_outputStream.Write(cleanedOutput)
+
+            ;; Debug logging? Log the text.
+            if (_currentFileNode.Context.DebugLoggingEnabled)
+            begin
+                if (cleanedOutput.Length > 0)
+                begin
+                    cleanedOutput = cleanedOutput.Replace(" ", "<SP>").Replace(%char(9), "<TAB>").Replace(%char(13), "<CR>").Replace(%char(10), "<LF>")
+                    if (cleanedOutput.Length > 30)
+                        cleanedOutput = cleanedOutput.Substring(0, 30) + "..."
+                end
+                _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Text", cleanedOutput))
+			end
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Returns a TokenType that indicates the context in which an expression is being evaluated.
+        ;;;  </summary>
+        ;;;  <param name="expnode">Expression node being processed</param>
+        ;;;  <returns>TokeyType indicating the context in which the expression is being processed.</returns>
+        private method getContextForExpression, TokenType
+            expnode, @ExpressionNode 
+            endparams
+        proc
+            data expressionValidityList, @List<TokenValidity>, ^as(expnode.Value.Bucket, List<TokenValidity>)
+			data validLocations, @List<TokenType>, new List<TokenType>()
+			data validity, TokenValidity
+
+			foreach validity in expressionValidityList
+			begin
+				if (_validator.IsValid(validity, _currentFileNode, _currentLoops))
+				begin
+					using validity select
+					(TokenValidity.Anywhere),
+						mreturn TokenType.Generic
+					(TokenValidity.AnyLoop),
+						mreturn TokenType.LoopUtility
+					(TokenValidity.FieldLoop),
+						validLocations.Add(TokenType.FieldLoop)
+					(TokenValidity.FieldSelectionLoop),
+						validLocations.Add(TokenType.FieldSelectionLoop)
+					(TokenValidity.KeyLoop),
+						validLocations.Add(TokenType.KeyLoop)
+					(TokenValidity.KeySegmentLoop),
+						validLocations.Add(TokenType.KeySegmentLoop)
+					(TokenValidity.EnumLoop),
+						validLocations.Add(TokenType.EnumLoop)
+					(TokenValidity.EnumMemberLoop),
+						validLocations.Add(TokenType.EnumMemberLoop)
+					(TokenValidity.RelationLoop),
+						validLocations.Add(TokenType.RelationLoop)
+					(TokenValidity.ButtonLoop),
+						validLocations.Add(TokenType.ButtonLoop)
+					(TokenValidity.FileLoop),
+						validLocations.Add(TokenType.FileLoop)
+					(TokenValidity.TagLoop),
+						validLocations.Add(TokenType.TagLoop)
+					endusing
+				end
+			end
+			
+            if (validLocations.Count == 1) then
+                mreturn validLocations[0]
+            else if (validLocations.Count > 1) then
+            begin
+				data loop, @LoopNode
+				foreach loop in _currentLoops
+					if (validLocations.Contains(loop.OpenToken.TypeOfToken))
+						mreturn loop.OpenToken.TypeOfToken
+				
+                mreturn validLocations[0]
+            end
+            else
+                mreturn TokenType.Text
+		
+		endmethod
+
+        ;;;  <summary>
+        ;;;  This method cleans the output of a TextNode according to the rules established by TreePreExpander
+        ;;;  </summary>
+        ;;;  <param name="node">TextNode to clean</param>
+        ;;;  <param name="firstLineNotInResult"></param>
+        ;;;  <returns>Cleaned string</returns>
+        public static method CleanOutput, string
+            node, @TextNode 
+            default firstLineNotInResult, boolean?, ^null
+            endparams
+        proc
+            data realFirstLineNotInResult = firstLineNotInResult != ^null ? firstLineNotInResult : (Nullable<Boolean>)node.FirstLineNotInResult
+			data cleanedOutput, string, node.Value.Value
+
+            if (node.LastLineNotInResult)
+            begin
+                ;; Find the last <CR><LF>
+				data lastNewline, int, cleanedOutput.LastIndexOf(%char(13) + %char(10))
+
+                if ((lastNewline == 0) && (cleanedOutput.Length == 2)) then
+                begin
+					;; All we have is a <CR><LF> ... leave it alone
+					nop
+				end
+				else if ((lastNewline != -1) && (cleanedOutput.Length > (lastNewline + 2))) then
+                begin
+                    ;; We have a <CR><LF>, there may or may not be data before the <CR><LF>, and there IS data after the <CR><LF>
+                    ;; Remove all the data from the last <CR><LF> to the end, then put it back again, then remove trailing whitespace!!!
+                    cleanedOutput = cleanedOutput.Remove(lastNewline + 2) + cleanedOutput.Substring(lastNewline + 2).TrimEnd(' ',%char(9))
+				
+					;; TODO: That can't be right, try this:
+					;; cleanedOutput = cleanedOutput.Remove(lastNewline,2).TrimEnd(' ', '\t');
+				end
+                else if (lastNewline == -1)
+                begin
+                    cleanedOutput = cleanedOutput.TrimEnd(' ',%char(9))
+                end
+            end
+			
+			if (realFirstLineNotInResult)
+            begin
+                ;; Find the first <CR><LF>
+				data firstNewline, int, cleanedOutput.IndexOf(%char(13) + %char(10))
+
+                if ((firstNewline > 0) && cleanedOutput.Take(firstNewline).Any(lambda (ch) {!char.IsWhiteSpace(ch)})) then
+                begin
+					nop
+                end
+                else if ((firstNewline > 0) && cleanedOutput.Take(firstNewline).All(lambda (ch) {(ch == ' ') || (ch == %char(9))})) then
+                begin
+                    ;; We have a CRLF that has characters before it, and those characters are all whitespace
+                    ;; Remove the whitespace before the <CR><LF>
+                    cleanedOutput = cleanedOutput.TrimStart(' ',%char(9))
+                    ;; Remove the <CR><LF>
+                    cleanedOutput = cleanedOutput.Remove(cleanedOutput.IndexOf(%char(13) + %char(10)), 2)
+                end
+                else if (firstNewline != -1)
+                begin
+                    ;; We have a <CR><LF> somewhere in the string, maybe at the beggining, maybe after some other data.
+                    ;; Just remove the <CR><LF>
+					
+					;; TODO: Is this right, or should be be removing everything UP TO AND INCLUDING the Crlf?
+
+                    cleanedOutput = cleanedOutput.Remove(firstNewline, 2)
+                end
+            end
+			
+			mreturn cleanedOutput
+
+        endmethod
+
+        ;;;  <summary>
+        ;;;  Defines the name of the output file that will be created. The name of the output file
+        ;;;  is stored in the passed FileNode's OutputFileName property. This method is called after
+        ;;;  code generation has completed.
+        ;;;  </summary>
+        ;;;  <param name="file"></param>
+        private method setOutputFileName, void
+            file, @FileNode 
+            endparams
+        proc
+            ;; If we're processing multiple structures at the same time then make sure we
+            ;; reset the current structure to the first structure so file names will be
+            ;; based on it.
+            if (file.Context.MultiStructureMode)
+				file.Context.CurrentStructure = file.Context.Structures[0]
+
+            ;; Do we have any output file name tokens that were specified via <CODEGEN_FILENAME>?
+            if (file.OutputFileNameTokens != ^null) then
+            begin
+                ;; Yes, we'll be using a custom output file name.
+                begin
+                    disposable data sw, @StringWriter, new StringWriter()
+                    data expander, @TreeExpander, new TreeExpander(file, _expander, _evaluator, sw)
+					data node, @ITreeNode
+					
+					foreach node in file.OutputFileNameTokens
+						node.Accept(expander)
+					
+					file.OutputFileName = sw.ToString()
+                end
+            end
+            else
+            begin
+                ;; No, we'll be going with a default output file name
+                if (file.Context.CurrentStructure == ^null) then
+                    file.OutputFileName = String.Format("{0}.dbl", file.Context.CurrentTemplateBaseName.ToLower())
+                else
+                    file.OutputFileName = String.Format("{0}_{1}.dbl", file.Context.CurrentStructure.Name.ToLower(), file.Context.CurrentTemplateBaseName.ToLower())
+            end
+        endmethod
+	
+	endclass
+
+endnamespace
+

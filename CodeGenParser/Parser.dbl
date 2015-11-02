@@ -1,0 +1,715 @@
+;; *****************************************************************************
+;; 
+;;  Title:       Parser.dbl
+;; 
+;;  Type:        Class
+;; 
+;;  Description: Parses a list of tokens into a tree of nodes
+;; 
+;;  Date:        30th August 2014
+;; 
+;;  Author:      Jeff Greene, Synergex Development
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+import System
+import System.Collections.Generic
+import System.IO
+import System.Linq
+
+import CodeGen.Engine
+
+.array 0
+
+namespace CodeGen.Engine
+	
+	;;;  <summary>
+	;;;  The current processing state of the parser
+	;;;  </summary>
+	public enum ParserState
+		;;;  <summary>
+		;;;  Nothing special, just processing.
+		;;;  </summary>
+		None
+		;;;  <summary>
+		;;;  Processing a loop structure.
+		;;;  </summary>
+		ProcessingLoop
+		;;;  <summary>
+		;;;  Processing an expression, looking for a possible else expression.
+		;;;  </summary>
+		LookingForElseToken
+		;;;  <summary>
+		;;;  Looking for a matching closer token.
+		;;;  </summary>
+		LookingForCloserToken
+		;;;  <summary>
+		;;;  Looking for file header tokens.
+		;;;  </summary>
+		LookingForFileHeaderToken
+	endenum
+	
+	;;;  <summary>
+	;;;  
+	;;;  </summary>
+	public class Parser
+		
+		;;;  <summary>
+		;;;  Parser wrapper used by CodeGenerator class. This method writes error messages to the current
+		;;;  CodeGenTask as well as returning a fail status.
+		;;;  </summary>
+		;;;  <param name="context">Current CodeGen context (for provisioning of user tokens, extensions, etc.)</param>
+		;;;  <param name="tokens">Collection of tokens to be parsed.</param>
+		;;;  <param name="file">Returned tree of tokens represented by a FileNode object.</param>
+		;;;  <returns>Returns true if the parse was successful, otherwise false and reports errors via context.CurrentTask.Messages.</returns>
+		public static method Parse, boolean
+			context, @CodeGenContext 
+			tokens, @List<Token> 
+			inout file, @FileNode 
+			endparams
+		proc
+			data errors, @List<Tuple<int, int, String>>, ^null
+			
+			file = Parser.Parse(tokens, errors)
+			
+			if ((errors == ^null) || (errors.Count == 0)) then
+			begin
+				;; Associate the provided context with the file node
+				file.Context = context
+				errors = ^null
+				mreturn true
+			end
+			else
+			begin
+				data error, @Tuple<int, int, String>
+				foreach error in errors
+				begin
+					data message = String.Format("{0} At line {1} column {2} in template {3}", errors[0].Item3, errors[0].Item1, errors[0].Item2, Path.GetFileName(context.CurrentTemplate))
+					context.CurrentTask.ErrorLog(message)
+				end				
+				mreturn false
+			end
+			
+		endmethod
+		
+		;;;  <summary>
+		;;;  This overload is used by the Parse method above, and also by unit tests.
+		;;;  </summary>
+		;;;  <param name="tokens">Collection of tokens to be parsed.</param>
+		;;;  <param name="errors">Returned collection of errors that occurred during the parse.</param>
+		;;;  <returns>Tree of tokens represented by a FileNode</returns>
+		public static method Parse, @FileNode
+			tokens, @List<Token> 
+			inout errors, @List<Tuple<int, int, String>> 
+			endparams
+		proc
+			;; Create the FileNode
+			data topLevelNode, @FileNode, new FileNode() { Body = new List<ITreeNode>() }
+			
+			;; Initialize the state stack
+			data state, @Stack<ParserState>, new Stack<ParserState>()
+			state.Push(ParserState.None)
+			state.Push(ParserState.LookingForFileHeaderToken)
+			
+			;; Are there any tokens that require repository processing?
+			topLevelNode.RequiresRepository = tokens.Any(lambda (t) {t.RequiresRepository == true})
+
+			;; Are there any tokens that require a namespace?
+			topLevelNode.RequiresNamespace = tokens.Any(lambda (t) {t.RequiresNamespace == true})
+
+			;; Work through the collection of tokens that we got from tokenizer
+			data ix, int
+			for ix from 0 thru tokens.Count - 1
+			begin
+				data tkn, @Token, tokens[ix]
+
+				using (state.Peek()) select
+				(ParserState.LookingForFileHeaderToken),
+				begin
+					if (tkn.TypeOfToken == TokenType.FileHeader) then
+					begin
+						data endOfTag, int, getTagContentBounds(tokens, ix + 1)
+						if (endOfTag != -1)
+						begin
+							using (tkn.Value) select
+							("CODEGEN_FILENAME"),
+							begin
+								if (topLevelNode.OutputFileNameTokens == ^null) then
+									topLevelNode.OutputFileNameTokens = nodesFromTokens(tokens, ix + 1, endOfTag)
+								else
+									reportParserError(errors, tkn, "Token <CODEGEN_FILENAME> can only be used once in a template file!")
+							end
+							("CODEGEN_FOLDER"),
+							begin
+								if (topLevelNode.OutputFolder == ^null) then
+									topLevelNode.OutputFolder = tokens[ix + 1].Value
+								else
+									reportParserError(errors, tkn, "Token <CODEGEN_FOLDER> can only be used once in a template file!")
+							end
+							("REQUIRES_USERTOKEN"),
+							begin
+								if (topLevelNode.RequiredUserTokens == ^null)
+									topLevelNode.RequiredUserTokens = new List<string>()
+								topLevelNode.RequiredUserTokens.Add(tokens[ix + 1].Value.ToUpper())
+							end
+							("OPTIONAL_USERTOKEN"),
+							begin
+								nop
+							end
+							("PROCESS_TEMPLATE"),
+							begin
+								if (topLevelNode.ProcessTemplates == ^null)
+									topLevelNode.ProcessTemplates = new List<string>()
+								topLevelNode.ProcessTemplates.Add(tokens[ix + 1].Value)
+							end
+							("PROVIDE_FILE"),
+							begin
+								if (topLevelNode.ProvideFiles == ^null)
+									topLevelNode.ProvideFiles = new List<string>()
+								topLevelNode.ProvideFiles.Add(tokens[ix + 1].Value)
+							end
+							("REQUIRES_OPTION"),
+							begin
+								if (topLevelNode.RequiredOptions == ^null)
+									topLevelNode.RequiredOptions = new List<string>()
+								data optionValue, string, tokens[ix + 1].Value.Trim().ToUpper()
+								using optionValue select
+								("FL", "FO", "FR", "FT", "FW", "MS", "PREFIX", "SUBSET"),
+									topLevelNode.RequiredOptions.Add(optionValue)
+								(),
+									reportParserError(errors, tkn, String.Format("Invalid option {0} detected in <REQUIRES_OPTION> token.", optionValue))
+								endusing
+							end
+							("REQUIRES_CUSTOM_BUTTON_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.ButtonLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_BUTTON_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.ButtonLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_ENUM_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.EnumLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_ENUM_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.EnumLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_ENUM_MEMBER_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.EnumMemberLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_ENUM_MEMBER_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.EnumMemberLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_FIELD_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.FieldLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_FIELD_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.FieldLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_FILE_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.FileLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_FILE_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.FileLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_KEY_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.KeyLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_KEY_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.KeyLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_LOOPUTIL_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.AnyLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_LOOPUTIL_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.AnyLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_NOTINLOOP_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.NotInLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_NOTINLOOP_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.NotInLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_RELATION_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.RelationLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_RELATION_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.RelationLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_SEGMENT_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.KeySegmentLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_SEGMENT_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.KeySegmentLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_SELECTION_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.FieldSelectionLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_SELECTION_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.FieldSelectionLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_STRUCTLOOP_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.StructureLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_STRUCTLOOP_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.StructureLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_TAG_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.TagLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_TAG_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.TagLoop, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_EXPRESSION"),
+							begin
+								if (topLevelNode.RequiredCustomExpressions == ^null)
+									topLevelNode.RequiredCustomExpressions = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomExpressions.Add(Tuple.Create(TokenValidity.Anywhere, tokens[ix + 1].Value))
+							end
+							("REQUIRES_CUSTOM_TOKEN"),
+							begin
+								if (topLevelNode.RequiredCustomTokens == ^null)
+									topLevelNode.RequiredCustomTokens = new List<Tuple<TokenValidity, string>>()
+								topLevelNode.RequiredCustomTokens.Add(Tuple.Create(TokenValidity.Anywhere, tokens[ix + 1].Value))
+							end
+							endusing
+
+							ix = endOfTag
+
+						end
+					end
+					;; else errors!
+					else if (tkn.TypeOfToken == TokenType.Text) then
+					begin
+						tkn.Value = tkn.Value.TrimStart(' ', %char(10),%char(13),%char(9))
+						topLevelNode.Body.Add(new TextNode() { Value = tkn })
+					end
+					else
+					begin
+						^decr(ix, true)
+						state.Pop()
+					end
+				end
+				(ParserState.ProcessingLoop, ParserState.LookingForElseToken, ParserState.LookingForCloserToken, ParserState.None),
+				begin
+					data endIndex, int, process(topLevelNode.Body, tokens, ix, state, errors, ^null)
+					if (endIndex != -1)
+						ix = endIndex
+				end
+				endusing
+			end
+			
+			if ((errors != ^null) && (errors.Count == 0))
+				errors = ^null
+			
+			mreturn topLevelNode
+
+		endmethod
+		
+		;;;  <summary>
+		;;;  Adds an error to the collection of errors generated by the current parse
+		;;;  </summary>
+		;;;  <param name="errors">Collection of errors</param>
+		;;;  <param name="tkn">Token being processes</param>
+		;;;  <param name="message">Error message</param>
+		private static method reportParserError, void
+			inout errors, @List<Tuple<int, int, string>> 
+			tkn, @Token 
+			message, string 
+			endparams
+		proc
+			if (errors == ^null)
+				errors = new List<Tuple<int, int, string>>()
+			errors.Add(Tuple.Create(tkn.StartLineNumber, tkn.StartColumn, message))
+		endmethod
+		
+		;;;  <summary>
+		;;;  
+		;;;  </summary>
+		;;;  <param name="list"></param>
+		;;;  <param name="tokens"></param>
+		;;;  <param name="startIndex"></param>
+		;;;  <param name="state"></param>
+		;;;  <param name="errors"></param>
+		;;;  <param name="currentIfNode"></param>
+		;;;  <returns></returns>
+		private static method process, int
+			list, @List<ITreeNode> 
+			tokens, @List<Token> 
+			startIndex, int 
+			state, @Stack<ParserState> 
+			inout errors, @List<Tuple<int, int, String>> 
+			currentIfNode, @IfNode 
+			endparams
+		proc
+			data ix, int
+			for ix from startIndex thru tokens.Count - 1
+			begin
+				data tkn, @Token, tokens[ix]
+				if (tkn.Closer)
+					mreturn ix
+				;; change state if we see a loop token or a control token
+				using (tkn.TypeOfToken) select
+				(TokenType.Loop),
+				begin
+					data endOfLoop, int, processLoop(list, tokens, ix, state, errors)
+					if (endOfLoop != -1)
+						ix = endOfLoop
+					exit
+				end
+				(TokenType.Control),
+				begin
+					begin
+						if (tokens[ix].Value == "ELSE") then
+						begin
+							;; int endOfElse = processElse(list, tokens, ix, state, ref errors);
+							data endOfElse, int, processElse(currentIfNode, tokens, ix, state, errors)
+							if (endOfElse != -1)
+							begin
+								ix = endOfElse
+								if ((state.Count > 0) && (state.First() == ParserState.LookingForElseToken))
+									mreturn ix
+							end
+						end
+						else
+						begin
+							data endOfControl, int, processControl(list, tokens, ix, state, errors)
+							if (endOfControl != -1)
+								ix = endOfControl
+						end
+					end
+				end
+				(TokenType.Text),
+					list.Add(new TextNode() { Value = tkn })
+				(),
+					list.Add(new ExpansionNode() { Value = tkn })
+				endusing
+			end
+
+			mreturn tokens.Count
+
+		endmethod
+		
+		private static method processLoop, int
+			list, @List<ITreeNode> 
+			tokens, @List<Token> 
+			startIndex, int 
+			state, @Stack<ParserState> 
+			inout errors, @List<Tuple<int, int, String>> 
+			endparams
+		proc
+			data loop, @LoopNode
+
+			using (tokens[startIndex].Value) select
+			("FIELD_LOOP"),
+				loop = new FieldLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("SELECTION_LOOP"),
+				loop = new SelectionLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("KEY_LOOP", "ALTERNATE_KEY_LOOP", "PRIMARY_KEY"),
+				loop = new KeyLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("SEGMENT_LOOP", "SEGMENT_LOOP_FILTER", "FIRST_SEGMENT", "SECOND_SEGMENT"),
+				loop = new SegmentLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("ENUM_LOOP", "ENUM_LOOP_STRUCTURE"),
+				loop = new EnumLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("ENUM_MEMBER_LOOP"),
+				loop = new EnumMemberLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("RELATION_LOOP"),
+				loop = new RelationLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("BUTTON_LOOP"),
+				loop = new ButtonLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("FILE_LOOP"),
+				loop = new FileLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("TAG_LOOP"),
+				loop = new TagLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			("STRUCTURE_LOOP"),
+				loop = new StructureLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+			(),
+				loop = ^null
+			endusing
+
+			list.Add(loop)
+
+			data closer, int, process(loop.Body, tokens, startIndex + 1, state, errors, ^null)
+
+			if ((closer != -1) && (closer != tokens.Count))
+			begin
+				;; TODO: There is a problem here somewhere. With the folowing template, the </IF> is being associated with the loop.CloseToken!
+				;; 
+				;; <FIELD_LOOP>
+				;; <IF PROMPT>
+				;; Prompt
+				;; </ELSE>
+				;; No prompt
+				;; </IF>
+				;; </FIELD_LOOP>
+				;;                  
+				loop.CloseToken = tokens[closer]
+			end
+
+			mreturn closer
+
+		endmethod
+		
+		private static method processControl, int
+			list, @List<ITreeNode> 
+			tokens, @List<Token> 
+			startIndex, int 
+			state, @Stack<ParserState> 
+			inout errors, @List<Tuple<int, int, String>> 
+			endparams
+		proc
+			data ctrlNode, @IfNode, new IfNode() {Body = new List<ITreeNode>(), OpenToken = tokens[startIndex]}
+
+			list.Add(ctrlNode)
+			
+			data tkn, @Token
+			
+			try
+			begin
+				data ix, int
+				for ix from startIndex + 1 thru tokens.Count - 1
+				begin
+					tkn = tokens[ix]
+
+					using (tkn.TypeOfToken) select
+
+					(TokenType.Expression),
+						ctrlNode.Expression = new ExpressionNode() { Value = tkn }
+
+					(),
+					begin
+						state.Push(ParserState.LookingForElseToken)
+						try
+						begin
+							data endOfProcessed, int, process(ctrlNode.Body, tokens, ix, state, errors, ctrlNode)
+
+							if ((endOfProcessed != -1) && tokens[endOfProcessed].Closer)
+								ctrlNode.CloseToken = tokens[endOfProcessed]
+
+							;; Check if we've got a trailing expression, this is not validated/required it is simply ignored
+							if (((endOfProcessed != -1) && ((tokens.Count - 1) > (endOfProcessed + 1))) && (tokens[endOfProcessed + 1].TypeOfToken == TokenType.Expression))
+								^incr(endOfProcessed, true)
+
+							mreturn endOfProcessed
+
+						end
+						finally
+						begin
+							state.Pop()
+						end
+						endtry
+					end
+
+					endusing
+				end
+				
+			end
+			finally
+			begin
+				if (ctrlNode.Expression == ^null)
+					reportParserError(errors, tkn, "CODEGEN BUG: Parser encountered an IfNode without an associated ExpressionNode. This indicates a bug in Tokenizer.")
+			end
+			endtry
+
+			mreturn -1
+
+		endmethod
+		
+		private static method processElse, int
+			ctrlNode, @IfNode 
+			tokens, @List<Token> 
+			startIndex, int 
+			state, @Stack<ParserState> 
+			inout errors, @List<Tuple<int, int, String>> 
+			endparams
+		proc
+			data ix, int
+			for ix from startIndex thru tokens.Count - 1
+			begin
+				data tkn, @Token, tokens[ix]
+
+				if ((tkn.TypeOfToken == TokenType.Control) && (tkn.Value == "ELSE")) then
+				begin
+					ctrlNode.Else = new ElseNode() {OpenToken = tkn, Body = new List<ITreeNode>()}
+
+					data endOfProcessed, int, process(ctrlNode.Else.Body, tokens, ix + 1, state, errors, ^null)
+
+					if (((endOfProcessed != -1) && (endOfProcessed < tokens.Count)) && tokens[endOfProcessed].Closer)
+						set ctrlNode.CloseToken, ctrlNode.Else.CloseToken = tokens[endOfProcessed]
+
+					mreturn endOfProcessed
+				end
+				else if (tkn.TypeOfToken == TokenType.Text) then
+					nextloop
+				else
+					exitloop
+			end
+			
+			mreturn startIndex
+
+		endmethod
+		
+		;; Not sure what the intention of this overload was, but it seems to do the wrong thing, and is no longer called.
+		;; private static int processElse(List<ITreeNode> list, List<Token> tokens, int startIndex, Stack<ParserState> state, ref List<Tuple<int, int, String>> errors)
+		;; {
+		;;     for (int i = startIndex; i < tokens.Count; i++)
+		;;     {
+		;;         Token tkn = tokens[i];
+		;;         if (tkn.TypeOfToken == TokenType.Control && tkn.Value == "ELSE")
+		;;         {
+		;;             ElseNode ctrlNode = new ElseNode { Body = new List<ITreeNode>() };
+		;;             list.Add(ctrlNode);
+		;;             return process(ctrlNode.Body, tokens, i + 1, state, ref errors, null);
+		;;         }
+		;;         else if (tkn.TypeOfToken == TokenType.Text)
+		;;             continue;
+		;;         else
+		;;             break;
+		;;     }
+		;;     return startIndex;
+		;; }
+		
+		private static method nodesFromTokens, @List<ITreeNode>
+			tokens, @List<Token> 
+			startIndex, int 
+			endIndex, int 
+			endparams
+		proc
+			data results, @List<ITreeNode>, new List<ITreeNode>()
+			data ix, int
+			
+			for ix from startIndex thru endIndex - 1
+			begin
+				if (tokens[ix].TypeOfToken == TokenType.Text) then
+					results.Add(new TextNode() { Value = tokens[ix] })
+				else
+					results.Add(new ExpansionNode() { Value = tokens[ix] })
+			end
+			
+			mreturn results
+
+		endmethod
+		
+		private static method getTagContentBounds, int
+			tokens, @List<Token> 
+			startIndex, int 
+			endparams
+		proc
+			data ix, int
+			for ix from startIndex thru tokens.Count - 1
+			begin
+				if (tokens[ix].Closer)
+					mreturn ix
+			end
+
+			mreturn -1
+
+		endmethod
+
+	endclass
+
+endnamespace
+
