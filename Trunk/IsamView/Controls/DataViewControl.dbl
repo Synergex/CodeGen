@@ -1,0 +1,659 @@
+import System
+import System.Collections
+import System.ComponentModel
+import System.Data
+import System.Drawing
+import System.Windows.Forms
+import CodeGen.RepositoryAPI
+import IsamView.Tools
+
+.Array 0
+namespace IsamView.Controls
+	
+	public partial class DataViewControl extends UserControl
+		
+		private mFile			,@RpsFile
+		private mStructure		,@RpsStructure
+		private mClassFactory	,@DynamicClassFactory
+        private mCh				,i4
+
+		public method DataViewControl
+			required in aFile	,@RpsFile
+			required in aStruct	,@RpsStructure
+			required in aCf		,@DynamicClassFactory
+			endparams
+		proc
+			this.InitializeComponent()
+            
+            ;;Dock us in the parent container
+            this.Dock = DockStyle.Fill
+
+            ;;Save the data we were passed
+            mFile = aFile
+            mStructure = aStruct
+            mClassFactory = aCf
+
+            ;;Define columns in the data grid
+            grid.AutoGenerateColumns = False
+            createGridColumns()
+
+            ;;Create key tab pages
+            data tmpKey, @RpsKey
+            foreach tmpKey in mStructure.Keys
+                tabset.TabPages.Add(new KeyTabPage(tmpKey))
+
+		endmethod
+        
+        private method btnLoadData_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            loadData()
+        endmethod
+        
+		private method loadData, void
+			endparams
+			record
+				ix				,int
+				recObj			,@Object
+				recs			,@ArrayList
+				recBuf			,i4
+			endrecord
+			structure strChar
+				,a1
+			endstructure
+		proc
+			
+			if (!openFile())
+				mreturn
+			
+            Cursor = Cursors.WaitCursor
+
+			recBuf = %mem_proc(DM_ALLOC,mStructure.Length)
+			recs = new ArrayList()
+			
+			try
+			begin
+				repeat
+				begin
+					
+					reads(mCh,^m(recBuf))
+					
+					recObj = mClassFactory.Create()  
+					
+					for ix from 0 thru mStructure.Fields.Count - 1
+					begin
+						data fld, @RpsField, mStructure.Fields[ix]
+						
+						using fld.DataType select
+						
+						(RpsFieldDataType.Alpha),
+							using fld.DataTypeSubclass select
+							(RpsFieldSubclass.Binary),
+							begin
+								data tmpVar, String
+								tmpVar = %atrim(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(),
+							begin
+								data tmpVar, String
+								tmpVar = %atrim(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							endusing
+						
+						(RpsFieldDataType.User),
+							using fld.DataTypeSubclass select
+							(RpsFieldSubclass.UserAlpha),
+							begin
+								data tmpVar, String
+								tmpVar = %atrim(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(RpsFieldSubclass.UserNumeric),
+							begin
+								data tmpVar, String
+								tmpVar = %atrim(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(RpsFieldSubclass.UserDate),
+							begin
+								data tmpVar, String
+								tmpVar = %atrim(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							endusing
+						
+						(RpsFieldDataType.Decimal),
+							using fld.DataTypeSubclass select
+							(RpsFieldSubclass.DateYYYYMMDD),
+							begin
+								data ymd, a8
+								data year, int
+								data month, int
+								data day, int
+								data tmpVar, DateTime
+								ymd = ^m(strChar(fld.StartPosition:fld.Size),recBuf)
+								if ((int.TryParse(ymd(1:4),year))&&(int.TryParse(ymd(5:2),month))&&(int.TryParse(ymd(7:2),day)))
+								begin
+									try
+									begin
+										tmpVar = new DateTime(year,month,day)
+										mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+									end
+									catch (ex)
+									begin
+										;;Got a bad date in the file!
+										nop 
+									end
+									endtry
+								end
+							end
+							(RpsFieldSubclass.DateYYMMDD),
+							begin
+								;;TODO: Add support for Y2K cutoff year, prob as a user setting, and honor it here
+								data ymd, a6
+								data year, int
+								data month, int
+								data day, int
+								data tmpVar, DateTime
+								ymd = ^m(strChar(fld.StartPosition:fld.Size),recBuf)
+								if ((int.TryParse(ymd(1:2),year))&&(int.TryParse(ymd(3:2),month))&&(int.TryParse(ymd(5:2),day)))
+								begin
+									try
+									begin
+										tmpVar = new DateTime(year,month,day)
+										mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+									end
+									catch (ex)
+									begin
+										;;Got a bad date in the file!
+										nop 
+									end
+									endtry
+								end
+							end
+							(RpsFieldSubclass.DateYYYYJJJ),
+							begin
+								data yp, a7
+								data year, int
+								data month, int
+								data dayOfMonth, int
+								data dayOfYear, int
+								data monthdays, [#]int
+								data ix, int
+								data tmpVar, DateTime
+								
+								yp = ^m(strChar(fld.StartPosition:fld.Size),recBuf)
+								year = %integer(yp(1:4))
+								dayOfYear = %integer(yp(5:3))
+								
+								if (DataConverter.IsLeapYear(year)) then
+									monthdays = new int[#] { 31,60,91,121,152,182,213,244,274,305,335,366 }
+								else
+									monthdays = new int[#] { 31,59,90,120,151,181,212,243,273,304,334,365 }
+								
+								for ix from 0 thru 11
+								begin
+									if (dayOfYear < monthdays[ix])
+									begin
+										month = ix + 1
+										exitloop
+									end
+								end
+								
+								if (ix) then
+									dayOfMonth = dayOfYear - monthdays[ix-1]
+								else
+									dayOfMonth = dayOfYear
+								
+								tmpVar = new DateTime(year,month,dayOfMonth)
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+								
+							end
+							(RpsFieldSubclass.DateYYJJJ),
+								;;TODO: Calculate date from Julian
+								nop
+							(RpsFieldSubclass.DateYYYYPP),
+							begin
+								data yp, a6
+								data tmpVar, String
+								yp = ^m(strChar(fld.StartPosition:fld.Size),recBuf)
+								tmpVar = string.Format("{0}/{1}",yp(1:4),yp(5:2))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(RpsFieldSubclass.DateYYPP),
+							begin
+								;;TODO: Add support for Y2K cutoff year, prob as a user setting, and honor it here
+								data yp, a4
+								data tmpVar, String
+								yp = ^m(strChar(fld.StartPosition:fld.Size),recBuf)
+								tmpVar = string.Format("{0}/{1}",yp(1:2),yp(3:2))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(RpsFieldSubclass.TimeHHMMSS),
+							begin
+								data hhmmss, a6
+								data tmpVar, DateTime
+								hhmmss = ^m(strChar(fld.StartPosition:fld.Size),recBuf)
+								tmpVar = DateTime.parse(String.Format("{0}:{1}:{2}",hhmmss(1:2),hhmmss(3:2),hhmmss(5:2)))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(RpsFieldSubclass.TimeHHMM),
+							begin
+								data hhmm, a4
+								data tmpVar, DateTime
+								hhmm = ^m(strChar(fld.StartPosition:fld.Size),recBuf)
+								tmpVar = DateTime.parse(String.Format("{0}:{1}",hhmm(1:2),hhmm(3:2)))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(),
+							begin
+								if (fld.Precision) then
+								begin
+									;;TODO: Add support for negative implied decimals
+									data tmpVar, decimal
+									tmpVar = DataConverter.NetDecimalFromSynImplied(^m(strChar(fld.StartPosition:fld.Size),recBuf),fld.Precision)
+									mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+								end
+								else
+								begin
+									data tmpVar, long
+									tmpVar = DataConverter.NetLongFromSynDecimal(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+									mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+								end
+							end
+							endusing
+						
+						(RpsFieldDataType.Integer),
+							using fld.Size select
+							(1),
+							begin
+								data tmpVar, System.Sbyte
+								tmpVar = ^i(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(2),
+							begin
+								data tmpVar, System.Int16
+								tmpVar = ^i(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(4),
+							begin
+								data tmpVar, System.Int32
+								tmpVar = ^i(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							(8),
+							begin
+								data tmpVar, System.Int64
+								tmpVar = ^i(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+								mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+							end
+							endusing
+						
+						(RpsFieldDatatype.Boolean),
+						begin
+							data tmpVar, Boolean
+							tmpVar = (^i(^m(strChar(fld.StartPosition:fld.Size),recBuf))!=0)
+							mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+						end
+						
+						(RpsFieldDataType.Enum),
+							nop
+						
+						(RpsFieldDataType.Binary),
+						begin
+							data tmpVar, String
+							tmpVar = %atrim(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+							mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+						end
+						
+						(RpsFieldDataType.Structfield),
+						begin
+							data tmpVar, String
+							tmpVar = %atrim(^m(strChar(fld.StartPosition:fld.Size),recBuf))
+							mClassFactory.SetProperty(recObj,fld.Name, tmpVar)
+						end
+						
+						endusing
+						
+					end
+					
+					;;Add this record to the data collection
+					recs.Add(recObj)
+					
+				end
+			end
+			catch (ex, @EndOfFileException)
+			begin
+				nop
+			end
+			finally
+			begin
+				recBuf = %mem_proc(DM_FREE,recBuf)
+			end
+			endtry
+			
+			;;Bind the data to the grid
+			bsData.DataSource = recs
+
+            close mCh
+
+            Cursor = Cursors.Default
+			
+		endmethod
+        
+        private method createGridColumns, void
+            endparams
+        proc
+            ;;Now we need to figure out any special grid formatting that may be required
+            data fld, @RpsField
+            foreach fld in mStructure.Fields
+            begin
+                using fld.DataType select
+                
+                (RpsFieldDataType.Alpha),
+                    using fld.DataTypeSubclass select
+                    (RpsFieldSubclass.Binary),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Description
+                        newCol.ValueType = ^typeof(System.String)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        grid.Columns.Add(newCol)
+                    end
+                    (),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.String)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        grid.Columns.Add(newCol)
+                    end
+                    endusing
+                
+                (RpsFieldDataType.User),
+                    using fld.DataTypeSubclass select
+                    (RpsFieldSubclass.UserAlpha),
+                    begin
+                        begin
+                            data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                            newCol.Name = String.Format("col{0}",fld.Name)
+                            newCol.DataPropertyName = fld.Name
+                            newCol.ValueType = ^typeof(System.String)
+                            newCol.HeaderText = getColumnHeading(fld)
+                            grid.Columns.Add(newCol)
+                        end
+                    end
+                    (RpsFieldSubclass.UserNumeric),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.String)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    (RpsFieldSubclass.UserDate),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.String)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    endusing
+                
+                (RpsFieldDataType.Decimal),
+                    using fld.DataTypeSubclass select
+                    (RpsFieldSubclass.DateYYYYMMDD),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.DateTime)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Format = "d"
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    (RpsFieldSubclass.DateYYMMDD),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.DateTime)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Format = "d"
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    (RpsFieldSubclass.DateYYYYJJJ),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.DateTime)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Format = "d"
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    (RpsFieldSubclass.DateYYJJJ),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.DateTime)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Format = "d"
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    (RpsFieldSubclass.DateYYYYPP),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.String)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        grid.Columns.Add(newCol)
+                    end
+                    (RpsFieldSubclass.DateYYPP),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.String)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        grid.Columns.Add(newCol)
+                    end
+                    (RpsFieldSubclass.TimeHHMMSS),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.DateTime)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        newCol.DefaultCellStyle.Format = "T"
+                        grid.Columns.Add(newCol)
+                    end
+                    (RpsFieldSubclass.TimeHHMM),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.DateTime)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        newCol.DefaultCellStyle.Format = "t"
+                        grid.Columns.Add(newCol)
+                    end
+                    (),
+                    begin
+                        if (fld.Precision) then
+                        begin
+                            data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                            newCol.Name = String.Format("col{0}",fld.Name)
+                            newCol.DataPropertyName = fld.Name
+                            newCol.ValueType = ^typeof(System.Decimal)
+                            newCol.HeaderText = getColumnHeading(fld)
+                            newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                            newCol.DefaultCellStyle.Format = string.Format("F{0}",fld.Precision)
+                            grid.Columns.Add(newCol)
+                        end
+                        else
+                        begin
+                            data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                            newCol.Name = String.Format("col{0}",fld.Name)
+                            newCol.DataPropertyName = fld.Name
+                            newCol.ValueType = ^typeof(System.Long)
+                            newCol.HeaderText = getColumnHeading(fld)
+                            newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                            grid.Columns.Add(newCol)
+                        end
+                    end
+                    endusing
+                
+                (RpsFieldDataType.Integer),
+                    using fld.Size select
+                    (1),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.SByte)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    (2),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.Int16)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    (4),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.Int32)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    (8),
+                    begin
+                        data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                        newCol.Name = String.Format("col{0}",fld.Name)
+                        newCol.DataPropertyName = fld.Name
+                        newCol.ValueType = ^typeof(System.Int64)
+                        newCol.HeaderText = getColumnHeading(fld)
+                        newCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                        grid.Columns.Add(newCol)
+                    end
+                    endusing
+                
+                (RpsFieldDatatype.Boolean),
+                begin
+                    data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                    newCol.Name = String.Format("col{0}",fld.Name)
+                    newCol.DataPropertyName = fld.Name
+                    newCol.ValueType = ^typeof(System.Boolean)
+                    newCol.HeaderText = getColumnHeading(fld)
+                    grid.Columns.Add(newCol)
+                end
+                
+                (RpsFieldDataType.Enum),
+                begin
+                    data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                    newCol.Name = String.Format("col{0}",fld.Name)
+                    newCol.DataPropertyName = fld.Name
+                    newCol.ValueType = ^typeof(System.Int32)
+                    newCol.HeaderText = getColumnHeading(fld)
+                    grid.Columns.Add(newCol)
+                end
+                
+                (RpsFieldDataType.Binary),
+                begin
+                    data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                    newCol.Name = String.Format("col{0}",fld.Name)
+                    newCol.DataPropertyName = fld.Name
+                    newCol.ValueType = ^typeof(System.String)
+                    newCol.HeaderText = getColumnHeading(fld)
+                    grid.Columns.Add(newCol)
+                end
+                
+                (RpsFieldDataType.Structfield),
+                begin
+                    data newCol, @DataGridViewTextBoxColumn, new DataGridViewTextBoxColumn()
+                    newCol.Name = String.Format("col{0}",fld.Name)
+                    newCol.DataPropertyName = fld.Name
+                    newCol.ValueType = ^typeof(System.String)
+                    newCol.HeaderText = getColumnHeading(fld)
+                    grid.Columns.Add(newCol)
+                end
+                
+                endusing
+            end
+        endmethod
+        
+        private method getColumnHeading, @String
+			required in fld, @RpsField
+			endparams
+		proc
+			using Properties.Settings.Default.DataViewHeadings select
+			("Name"),
+				mreturn fld.Name
+			("Prompt"),
+				mreturn fld.Prompt
+			("Description"),
+				mreturn fld.Description
+			(),
+				mreturn fld.Name
+			endusing
+		endmethod
+		
+		private method openFile, Boolean
+			endparams
+        proc
+            data ok, Boolean
+			if (mFile.FileType == "DBL ISAM") then
+			begin
+				try
+				begin
+					open(mCh=0,i:i,mFile.FileSpec)
+					ok = true
+				end
+				catch (ex, @Exception)
+				begin
+                    clear mCh
+                    data msg, String, String.Format("{0} error when opening {1}",ex.Message,mFile.FileSpec)
+                    MessageBox.Show(this,msg,"Failed to Open File",MessageBoxButtons.OK,MessageBoxIcon.Exclamation)
+				end
+				endtry
+			end
+			else
+				MessageBox.Show("It is currently only possible to view the content of ISAM files")
+			mreturn ok
+		endmethod
+        
+	endclass
+
+endnamespace
+

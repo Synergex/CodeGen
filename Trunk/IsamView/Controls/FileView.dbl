@@ -1,0 +1,173 @@
+
+import System
+import System.Collections.Generic
+import System.ComponentModel
+import System.Data
+import System.Drawing
+import System.Windows.Forms
+import CodeGen.RepositoryAPI
+
+.Array 0
+namespace IsamView.Controls
+
+	public partial class FileView extends UserControl
+		
+		private mFile			,@RpsFile					;;Repository file
+		private mStructure		,@RpsStructure				;;Files first (or only) structure
+		private mClassFactory	,@DynamicClassFactory		;;Class factory for data
+		
+		private ch				,i4						;;File channel number
+		
+		private mFieldsCtl		,@FieldListControl			;;Field list control
+		private mFieldCtrl		,@FieldViewControl			;;Field view control
+		private mKeysCtrl		,@KeyListControl			;;Key list control
+		private mKeyCtrl		,@KeyViewControl			;;Key view control
+		private mDataCtl		,@DataViewControl			;;Data view control
+		private mClassCtl		,@ClassViewControl			;;Class view control
+		
+		public method FileView
+			required in aFile, @RpsFile
+			endparams
+		proc
+			this.InitializeComponent()
+			this.Dock = DockStyle.Fill
+
+			ch = 0
+
+			;;Save the file data
+			mFile = aFile
+
+			;;Load the first structure and remove overlay fields
+			mStructure = new RpsStructure(mFile.FirstStructure)
+			mStructure.Fields.RemoveOverlays()
+			
+			;;Create a dynamic class factory
+			try
+			begin
+				mClassFactory = CodeGenerationHelper.CreateClassFactory(mStructure)
+			end
+			catch (ex, @NotImplementedException)
+			begin
+				MessageBox.Show(string.Format("File contains a field type of {0} which is currently not supported. Data and class views will be unavailable.",ex.Message))
+			end
+			endtry
+			
+			;;Load fields into the tree
+			begin
+				data fieldsRootNode, @TreeNode
+				data field, @RpsField
+				
+				fieldsRootNode = treeView.Nodes.Add("Fields")
+
+				foreach field in mStructure.Fields
+				begin
+					data fieldNode, @TreeNode
+					fieldNode = fieldsRootNode.Nodes.Add(field.Name)
+					fieldNode.Tag = field
+				end
+
+				treeView.SelectedNode = fieldsRootNode
+				mFieldsCtl = new FieldListControl(mStructure.Fields)
+				showControl(mFieldsCtl)
+			end
+
+			;;Load keys into the tree
+			begin
+				data keysRootNode, @TreeNode
+				data key, @RpsKey
+
+				keysRootNode = treeView.Nodes.Add("Keys")
+				foreach key in mStructure.Keys
+				begin
+					data keyNode, @TreeNode
+					keyNode = keysRootNode.Nodes.Add(key.Name)
+					keyNode.Tag = key
+				end
+			end
+
+			if (mClassFactory!=^null)
+			begin
+				treeView.Nodes.Add(new TreeNode("Data"))
+				treeView.Nodes.Add(new TreeNode("Class"))
+			end
+
+			;;Prepare the field and key view controls for use
+			mFieldCtrl = new FieldViewControl()
+			mKeyCtrl = new KeyViewControl()
+
+		endmethod
+
+		method ~FileView
+			endparams
+		proc
+			if (ch&&%chopen(ch))
+				close ch
+		endmethod
+		
+		private method treeView_NodeMouseClick, void
+			byval sender, @System.Object
+			byval e, @System.Windows.Forms.TreeNodeMouseClickEventArgs
+			endparams
+		proc
+
+			;;If the selected node has a tag then it's a field or a key
+
+			if (e.Node.Tag==^null) then
+			begin
+				using e.Node.Text select
+				("Fields"),
+				begin
+					if (mFieldsCtl==^null)
+						mFieldsCtl = new FieldListControl(mStructure.Fields)
+					showControl(mFieldsCtl)
+				end
+				("Keys"),
+				begin
+					if (mKeysCtrl==^null)
+						mKeysCtrl = new KeyListControl(mStructure.Keys)
+					showControl(mKeysCtrl)
+				end
+				("Data"),
+				begin
+					if (mDataCtl==^null)
+						mDataCtl = new DataViewControl(mFile, mStructure, mClassFactory)
+					showControl(mDataCtl)
+				end
+				("Class"),
+				begin
+					if (mClassCtl==^null)
+						mClassCtl = new ClassViewControl(mClassFactory)
+					showControl(mClassCtl)
+				end
+				endusing
+			end
+			else
+			begin
+				if (e.Node.Tag.is.RpsField) then
+				begin
+					mFieldCtrl.ShowField((RpsField)e.Node.Tag)
+					showControl(mFieldCtrl)
+				end
+				else if (e.Node.Tag.is.RpsKey)
+				begin
+					mKeyCtrl.ShowKey((RpsKey)e.Node.Tag)
+					showControl(mKeyCtrl)
+				end
+			end
+
+		endmethod
+
+		private method showControl, Void
+			required in ctrlToShow, @UserControl
+			endparams
+		proc
+			if ((contentPanel.Controls.Count==0)||(contentPanel.Controls[0]!=ctrlToShow))
+			begin
+				contentPanel.Controls.Clear()
+				contentPanel.Controls.Add(ctrlToShow)
+			end
+		endmethod
+
+	endclass
+endnamespace
+
