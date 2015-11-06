@@ -779,6 +779,7 @@ namespace CodeGen.Engine
             expressions.Add("STORED_GRFA", TokenValidity.FileLoop);
             expressions.Add("STRUCTFIELD", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("STRUCTURE_FILES", TokenValidity.Anywhere);
+            expressions.Add("STRUCTURE_HAS_UNIQUE_KEY", TokenValidity.Anywhere);
             expressions.Add("STRUCTURE_KEYS", TokenValidity.Anywhere);
             expressions.Add("STRUCTURE_LDESC", TokenValidity.Anywhere);
             expressions.Add("STRUCTURE_RELATIONS", TokenValidity.Anywhere);
