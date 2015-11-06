@@ -62,6 +62,7 @@ namespace CodeGen.Engine
             loopProcessors.Add("KEY_LOOP", processKeyLoop)
             loopProcessors.Add("ALTERNATE_KEY_LOOP", processAlternateKeyLoop)
             loopProcessors.Add("PRIMARY_KEY", processPrimaryKeyLoop)
+			loopProcessors.Add("UNIQUE_KEY", processUniqueKeyLoop)
             loopProcessors.Add("ENUM_LOOP", processEnumLoop)
             loopProcessors.Add("ENUM_LOOP_STRUCTURE", processStructureEnumLoop)
             loopProcessors.Add("RELATION_LOOP", processRelationLoop)
@@ -221,7 +222,35 @@ namespace CodeGen.Engine
 				
         endmethod
 
-        private static method processEnumLoop, void
+		private static method processUniqueKeyLoop, void
+			node, @LoopNode 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			expander, @ITreeNodeVisitor 
+			endparams
+		proc
+			data loop, @KeyLoopNode, ^as(node, KeyLoopNode)
+			data context, @CodeGenContext, file.Context
+			
+			if (file.Context.CurrentStructure.Keys.Count == 0)
+				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, file.Context.CurrentStructure.Name))
+			
+			if (!file.Context.CurrentStructure.Keys.Any(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates}))
+				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no unique keys!",node.OpenToken.Value,node.OpenToken.StartLineNumber,file.Context.CurrentTemplateBaseName,file.Context.CurrentStructure.Name))
+			
+			loop.CurrentKey = file.Context.CurrentStructure.Keys.First(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates})
+			loop.CurrentIndex = file.Context.CurrentStructure.Keys.IndexOf(loop.CurrentKey)
+			loop.MaxIndex = loop.CurrentIndex
+			
+			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> 1 key", string.Format("<{0}>", loop.OpenToken.Value)))
+			
+			data child, @ITreeNode
+			foreach child in node.Body
+				child.Accept(expander)
+			
+		endmethod
+		
+		private static method processEnumLoop, void
             node, @LoopNode 
             file, @FileNode 
             loops, @IEnumerable<LoopNode> 

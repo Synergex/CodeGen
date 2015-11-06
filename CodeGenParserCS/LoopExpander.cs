@@ -59,6 +59,7 @@ namespace CodeGen.Engine
             loopProcessors.Add("KEY_LOOP",processKeyLoop);
             loopProcessors.Add("ALTERNATE_KEY_LOOP",processAlternateKeyLoop);
             loopProcessors.Add("PRIMARY_KEY",processPrimaryKeyLoop);
+            loopProcessors.Add("UNIQUE_KEY", processUniqueKeyLoop);
             loopProcessors.Add("ENUM_LOOP",processEnumLoop);
             loopProcessors.Add("ENUM_LOOP_STRUCTURE",processStructureEnumLoop);
             loopProcessors.Add("RELATION_LOOP",processRelationLoop);
@@ -205,6 +206,39 @@ namespace CodeGen.Engine
             loop.CurrentKey = file.Context.CurrentStructure.Keys[file.Context.CurrentTask.PrimaryKeyNumber];
             loop.CurrentIndex = file.Context.CurrentTask.PrimaryKeyNumber;
             loop.MaxIndex = file.Context.CurrentTask.PrimaryKeyNumber;
+
+            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> 1 key", string.Format("<{0}>", loop.OpenToken.Value)));
+
+            foreach (ITreeNode child in node.Body)
+                child.Accept(expander);
+        }
+
+        private static void processUniqueKeyLoop(LoopNode node, FileNode file, IEnumerable<LoopNode> loops, ITreeNodeVisitor expander)
+        {
+            KeyLoopNode loop = node as KeyLoopNode;
+            CodeGenContext context = file.Context;
+
+            if (file.Context.CurrentStructure.Keys.Count == 0)
+                throw new ApplicationException(
+                    String.Format(
+                    "The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!",
+                    node.OpenToken.Value,
+                    node.OpenToken.StartLineNumber,
+                    file.Context.CurrentTemplateBaseName,
+                    file.Context.CurrentStructure.Name));
+
+            if (!file.Context.CurrentStructure.Keys.Any(k => (k.Duplicates == RpsKeyDuplicates.NoDuplicates)))
+                throw new ApplicationException(
+                    String.Format(
+                    "The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no unique keys!",
+                    node.OpenToken.Value,
+                    node.OpenToken.StartLineNumber,
+                    file.Context.CurrentTemplateBaseName,
+                    file.Context.CurrentStructure.Name));
+
+            loop.CurrentKey = file.Context.CurrentStructure.Keys.First(k => (k.Duplicates == RpsKeyDuplicates.NoDuplicates));
+            loop.CurrentIndex = file.Context.CurrentStructure.Keys.IndexOf(loop.CurrentKey);
+            loop.MaxIndex = loop.CurrentIndex;
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> 1 key", string.Format("<{0}>", loop.OpenToken.Value)));
 

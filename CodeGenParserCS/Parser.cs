@@ -474,6 +474,7 @@ namespace CodeGen.Engine
                 case "KEY_LOOP":
                 case "ALTERNATE_KEY_LOOP":
                 case "PRIMARY_KEY":
+                case "UNIQUE_KEY":
                     loop = new KeyLoopNode()
                     {
                         OpenToken = tokens[startIndex],
