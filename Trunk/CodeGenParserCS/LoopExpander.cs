@@ -455,7 +455,15 @@ namespace CodeGen.Engine
         {
             if (seg.SegmentType == RpsKeySegmentType.Field)
             {
-                return (str.Fields.First(fld => (fld.Name == seg.Field)));
+                try
+                {
+                    var matchingField = str.Fields.First(fld => (fld.Name == seg.Field));
+                    return matchingField;
+                }
+                catch (Exception)
+                {
+                    throw new ApplicationException(String.Format("When processing structure {0} key segment field {1} was not found.", str.Name, seg.Field));
+                }
             }
             else
                 return null;
