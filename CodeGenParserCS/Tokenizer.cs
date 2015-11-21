@@ -216,6 +216,8 @@ namespace CodeGen.Engine
                 new TokenMeta { Name = "WEEKDAY", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
                 new TokenMeta { Name = "YEAR", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
 
+                new TokenMeta { Name = "GOAT", TypeOfToken = TokenType.Generic, IsPaired = false, Validity= TokenValidity.Anywhere },
+
                 new TokenMeta { Name = "DATA_FIELDS_LIST", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
                 new TokenMeta { Name = "DISPLAY_FIELD", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },    
                 new TokenMeta { Name = "FILE_ADDRESSING", TypeOfToken = TokenType.StructureInfo, IsPaired = false, Validity= TokenValidity.Anywhere, RequiresRepository = true },
