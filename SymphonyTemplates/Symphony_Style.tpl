@@ -278,43 +278,55 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type symphonyControls:FieldControl}">
-                    <ComboBox
-						HorizontalAlignment="Left"
-                        Name="ctl<Structure_name>_<Field_sqlname>"
-                        ItemsSource="{Binding <SYMPHONY_ITEMSSOURCE_PATH>}"
-                        DisplayMemberPath="Description"
-                        SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource alphaConverter}<SYMPHONY_CONVERTER_PARAMETER>,
-                        ValidatesOnDataErrors=True}"
-                        Validation.ErrorTemplate="{StaticResource validationTemplate}"
-                        SelectedValuePath="ItemStringValue"
-                        IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
-                        VerticalAlignment="Center"
-						Width="<SYMPHONY_SELWND_LENGTH>"
-						Margin="0,1,0,1"
-						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
-                        <ComboBox.Style>
-                            <Style>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
-                                        <Setter Property="FocusManager.FocusedElement"
-                                                Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
-                                    </DataTrigger>
-									<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
-										<Setter Property="ComboBox.Background">
-											<Setter.Value>
-												<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-													<LinearGradientBrush.GradientStops>
-														<GradientStop Offset="0.2" Color="WhiteSmoke" />
-														<GradientStop Offset="3" Color="Red" />
-													</LinearGradientBrush.GradientStops>
-												</LinearGradientBrush>
-											</Setter.Value>
-										</Setter>
-									</DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ComboBox.Style>
-                    </ComboBox>
+					<Grid>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="auto"></RowDefinition>
+						</Grid.RowDefinitions>
+						<ComboBox Grid.Row="0"
+							Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource reverseBooleanToVisibilityConverter}}"
+							HorizontalAlignment="Left"
+							Name="ctl<Structure_name>_<Field_sqlname>"
+							ItemsSource="{Binding <SYMPHONY_ITEMSSOURCE_PATH>}"
+							DisplayMemberPath="Description"
+							SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource alphaConverter}<SYMPHONY_CONVERTER_PARAMETER>,
+							ValidatesOnDataErrors=True}"
+							Validation.ErrorTemplate="{StaticResource validationTemplate}"
+							SelectedValuePath="ItemStringValue"
+							IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
+							Width="<SYMPHONY_SELWND_LENGTH>"
+							Margin="0,1,0,1"
+							ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+							<ComboBox.Style>
+								<Style>
+									<Style.Triggers>
+										<DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
+											<Setter Property="FocusManager.FocusedElement"
+													Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
+										</DataTrigger>
+										<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
+											<Setter Property="ComboBox.Background">
+												<Setter.Value>
+													<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+														<LinearGradientBrush.GradientStops>
+															<GradientStop Offset="0.2" Color="WhiteSmoke" />
+															<GradientStop Offset="3" Color="Red" />
+														</LinearGradientBrush.GradientStops>
+													</LinearGradientBrush>
+												</Setter.Value>
+											</Setter>
+										</DataTrigger>
+									</Style.Triggers>
+								</Style>
+							</ComboBox.Style>
+						</ComboBox>
+						<TextBox Grid.Row="0"
+                                 Width="<SYMPHONY_SELWND_LENGTH>"
+						         Margin="0,1,0,1"
+                                 Text="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>, Path=Text}"
+                                 Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                 IsReadOnly="True">
+                        </TextBox>
+					</Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -329,43 +341,55 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type symphonyControls:FieldControl}">
-                    <ComboBox
-						HorizontalAlignment="Left"
-                        Name="ctl<Structure_name>_<Field_sqlname>"
-                        ItemsSource="{Binding Source={StaticResource <FIELD_SELWND>items}}"
-                        DisplayMemberPath="Description"
-                        SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource alphaConverter}<SYMPHONY_CONVERTER_PARAMETER>,
-                        ValidatesOnDataErrors=True}"
-                        Validation.ErrorTemplate="{StaticResource validationTemplate}"
-                        SelectedValuePath="ItemStringValue"
-                        IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
-                        VerticalAlignment="Center"
-						Width="<SYMPHONY_SELWND_LENGTH>"
-						Margin="0,1,0,1"
-						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
-                        <ComboBox.Style>
-                            <Style>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
-                                        <Setter Property="FocusManager.FocusedElement"
-                                                Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
-                                    </DataTrigger>
-									<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
-										<Setter Property="ComboBox.Background">
-											<Setter.Value>
-												<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-													<LinearGradientBrush.GradientStops>
-														<GradientStop Offset="0.2" Color="WhiteSmoke" />
-														<GradientStop Offset="3" Color="Red" />
-													</LinearGradientBrush.GradientStops>
-												</LinearGradientBrush>
-											</Setter.Value>
-										</Setter>
-									</DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ComboBox.Style>
-                    </ComboBox>
+					<Grid>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="auto"></RowDefinition>
+						</Grid.RowDefinitions>
+						<ComboBox Grid.Row="0"
+							Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource reverseBooleanToVisibilityConverter}}"
+							HorizontalAlignment="Left"
+							Name="ctl<Structure_name>_<Field_sqlname>"
+							ItemsSource="{Binding Source={StaticResource <FIELD_SELWND>items}}"
+							DisplayMemberPath="Description"
+							SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource alphaConverter}<SYMPHONY_CONVERTER_PARAMETER>,
+							ValidatesOnDataErrors=True}"
+							Validation.ErrorTemplate="{StaticResource validationTemplate}"
+							SelectedValuePath="ItemStringValue"
+							IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
+							Width="<SYMPHONY_SELWND_LENGTH>"
+							Margin="0,1,0,1"
+							ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+							<ComboBox.Style>
+								<Style>
+									<Style.Triggers>
+										<DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
+											<Setter Property="FocusManager.FocusedElement"
+													Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
+										</DataTrigger>
+										<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
+											<Setter Property="ComboBox.Background">
+												<Setter.Value>
+													<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+														<LinearGradientBrush.GradientStops>
+															<GradientStop Offset="0.2" Color="WhiteSmoke" />
+															<GradientStop Offset="3" Color="Red" />
+														</LinearGradientBrush.GradientStops>
+													</LinearGradientBrush>
+												</Setter.Value>
+											</Setter>
+										</DataTrigger>
+									</Style.Triggers>
+								</Style>
+							</ComboBox.Style>
+						</ComboBox>
+						<TextBox Grid.Row="0"
+								 Width="<SYMPHONY_SELWND_LENGTH>"
+								 Margin="0,1,0,1"
+								 Text="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>, Path=Text}"
+								 Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"
+								 IsReadOnly="True">
+						</TextBox>
+					</Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -512,42 +536,55 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type symphonyControls:FieldControl}">
-                    <ComboBox
-						HorizontalAlignment="Left"
-                        Name="ctl<Structure_name>_<Field_sqlname>"
-                        ItemsSource="{Binding Source={StaticResource <FIELD_ORIGINAL_NAME>items}}"
-                        DisplayMemberPath="Description"
-                        SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource decimalConverter}<SYMPHONY_CONVERTER_PARAMETER>,
-						ValidatesOnDataErrors=True}"
-						Validation.ErrorTemplate="{StaticResource validationTemplate}"
-                        SelectedValuePath="IndexValue"
-                        IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
-						Width="<SYMPHONY_SELWND_LENGTH>"
-						Margin="0,1,0,1"
-						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
-                        <ComboBox.Style>
-                            <Style>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
-                                        <Setter Property="FocusManager.FocusedElement"
-                                                Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
-                                    </DataTrigger>
-									<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
-										<Setter Property="ComboBox.Background">
-											<Setter.Value>
-												<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-													<LinearGradientBrush.GradientStops>
-														<GradientStop Offset="0.2" Color="WhiteSmoke" />
-														<GradientStop Offset="3" Color="Red" />
-													</LinearGradientBrush.GradientStops>
-												</LinearGradientBrush>
-											</Setter.Value>
-										</Setter>
-									</DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ComboBox.Style>
-                    </ComboBox>
+					<Grid>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="auto"></RowDefinition>
+						</Grid.RowDefinitions>
+						<ComboBox Grid.Row="0"
+							Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource reverseBooleanToVisibilityConverter}}"
+							HorizontalAlignment="Left"
+							Name="ctl<Structure_name>_<Field_sqlname>"
+							ItemsSource="{Binding Source={StaticResource <FIELD_ORIGINAL_NAME>items}}"
+							DisplayMemberPath="Description"
+							SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource decimalConverter}<SYMPHONY_CONVERTER_PARAMETER>,
+							ValidatesOnDataErrors=True}"
+							Validation.ErrorTemplate="{StaticResource validationTemplate}"
+							SelectedValuePath="IndexValue"
+							IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
+							Width="<SYMPHONY_SELWND_LENGTH>"
+							Margin="0,1,0,1"
+							ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+							<ComboBox.Style>
+								<Style>
+									<Style.Triggers>
+										<DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
+											<Setter Property="FocusManager.FocusedElement"
+													Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
+										</DataTrigger>
+										<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
+											<Setter Property="ComboBox.Background">
+												<Setter.Value>
+													<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+														<LinearGradientBrush.GradientStops>
+															<GradientStop Offset="0.2" Color="WhiteSmoke" />
+															<GradientStop Offset="3" Color="Red" />
+														</LinearGradientBrush.GradientStops>
+													</LinearGradientBrush>
+												</Setter.Value>
+											</Setter>
+										</DataTrigger>
+									</Style.Triggers>
+								</Style>
+							</ComboBox.Style>
+						</ComboBox>
+						<TextBox Grid.Row="0"
+								 Width="<SYMPHONY_SELWND_LENGTH>"
+								 Margin="0,1,0,1"
+								 Text="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>, Path=Text}"
+								 Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"
+								 IsReadOnly="True">
+						</TextBox>
+					</Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -562,43 +599,55 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type symphonyControls:FieldControl}">
-                    <ComboBox
-						HorizontalAlignment="Left"
-                        Name="ctl<Structure_name>_<Field_sqlname>"
-                        ItemsSource="{Binding Source={StaticResource <FIELD_SELWND>items}}"
-                        DisplayMemberPath="Description"
-                        SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource decimalConverter},
-                        ValidatesOnDataErrors=True}"
-                        Validation.ErrorTemplate="{StaticResource validationTemplate}"
-                        SelectedValuePath="ItemValue"
-                        IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
-                        VerticalAlignment="Center"
-						Width="<SYMPHONY_SELWND_LENGTH>"
-						Margin="0,1,0,1"
-						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
-                        <ComboBox.Style>
-                            <Style>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
-                                        <Setter Property="FocusManager.FocusedElement"
-                                                Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
-                                    </DataTrigger>
-									<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
-										<Setter Property="ComboBox.Background">
-											<Setter.Value>
-												<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-													<LinearGradientBrush.GradientStops>
-														<GradientStop Offset="0.2" Color="WhiteSmoke" />
-														<GradientStop Offset="3" Color="Red" />
-													</LinearGradientBrush.GradientStops>
-												</LinearGradientBrush>
-											</Setter.Value>
-										</Setter>
-									</DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ComboBox.Style>
-                    </ComboBox>
+					<Grid>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="auto"></RowDefinition>
+						</Grid.RowDefinitions>
+						<ComboBox Grid.Row="0"
+							Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource reverseBooleanToVisibilityConverter}}"
+							HorizontalAlignment="Left"
+							Name="ctl<Structure_name>_<Field_sqlname>"
+							ItemsSource="{Binding Source={StaticResource <FIELD_SELWND>items}}"
+							DisplayMemberPath="Description"
+							SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource decimalConverter},
+							ValidatesOnDataErrors=True}"
+							Validation.ErrorTemplate="{StaticResource validationTemplate}"
+							SelectedValuePath="ItemValue"
+							IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
+							Width="<SYMPHONY_SELWND_LENGTH>"
+							Margin="0,1,0,1"
+							ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+							<ComboBox.Style>
+								<Style>
+									<Style.Triggers>
+										<DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
+											<Setter Property="FocusManager.FocusedElement"
+													Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
+										</DataTrigger>
+										<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
+											<Setter Property="ComboBox.Background">
+												<Setter.Value>
+													<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+														<LinearGradientBrush.GradientStops>
+															<GradientStop Offset="0.2" Color="WhiteSmoke" />
+															<GradientStop Offset="3" Color="Red" />
+														</LinearGradientBrush.GradientStops>
+													</LinearGradientBrush>
+												</Setter.Value>
+											</Setter>
+										</DataTrigger>
+									</Style.Triggers>
+								</Style>
+							</ComboBox.Style>
+						</ComboBox>
+						<TextBox Grid.Row="0"
+								 Width="<SYMPHONY_SELWND_LENGTH>"
+								 Margin="0,1,0,1"
+								 Text="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>, Path=Text}"
+								 Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"
+								 IsReadOnly="True">
+						</TextBox>
+					</Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -1114,43 +1163,56 @@
         <Setter Property="Focusable" Value="False"></Setter>
         <Setter Property="Template">
             <Setter.Value>
-                <ControlTemplate TargetType="{x:Type symphonyControls:FieldControl}">
-                    <ComboBox
-						HorizontalAlignment="Left"
-                        Name="ctl<Structure_name>_<Field_sqlname>"
-                        ItemsSource="{Binding Source={StaticResource <FIELD_ORIGINAL_NAME>items}}"
-                        DisplayMemberPath="Description"
-                        SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource intConverter},
-                        ValidatesOnDataErrors=True}"
-                        Validation.ErrorTemplate="{StaticResource validationTemplate}"
-                        SelectedValuePath="IndexValue"
-                        IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
-						Width="<SYMPHONY_SELWND_LENGTH>"
-						Margin="0,1,0,1"
-						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
-                        <ComboBox.Style>
-                            <Style>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
-                                        <Setter Property="FocusManager.FocusedElement"
-                                                Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
-                                    </DataTrigger>
-									<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
-										<Setter Property="ComboBox.Background">
-											<Setter.Value>
-												<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-													<LinearGradientBrush.GradientStops>
-														<GradientStop Offset="0.2" Color="WhiteSmoke" />
-														<GradientStop Offset="3" Color="Red" />
-													</LinearGradientBrush.GradientStops>
-												</LinearGradientBrush>
-											</Setter.Value>
-										</Setter>
-									</DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ComboBox.Style>
-                    </ComboBox>
+				<ControlTemplate TargetType="{x:Type symphonyControls:FieldControl}">
+					<Grid>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="auto"></RowDefinition>
+						</Grid.RowDefinitions>
+						<ComboBox Grid.Row="0"
+							Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource reverseBooleanToVisibilityConverter}}"
+							HorizontalAlignment="Left"
+							Name="ctl<Structure_name>_<Field_sqlname>"
+							ItemsSource="{Binding Source={StaticResource <FIELD_ORIGINAL_NAME>items}}"
+							DisplayMemberPath="Description"
+							SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource intConverter},
+							ValidatesOnDataErrors=True}"
+							Validation.ErrorTemplate="{StaticResource validationTemplate}"
+							SelectedValuePath="IndexValue"
+							IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
+							Width="<SYMPHONY_SELWND_LENGTH>"
+							Margin="0,1,0,1"
+							ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+							<ComboBox.Style>
+								<Style>
+									<Style.Triggers>
+										<DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
+											<Setter Property="FocusManager.FocusedElement"
+													Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
+										</DataTrigger>
+										<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
+											<Setter Property="ComboBox.Background">
+												<Setter.Value>
+													<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+														<LinearGradientBrush.GradientStops>
+															<GradientStop Offset="0.2" Color="WhiteSmoke" />
+															<GradientStop Offset="3" Color="Red" />
+														</LinearGradientBrush.GradientStops>
+													</LinearGradientBrush>
+												</Setter.Value>
+											</Setter>
+										</DataTrigger>
+									</Style.Triggers>
+								</Style>
+							</ComboBox.Style>
+						</ComboBox>
+						<TextBox Grid.Row="0"
+								 Width="<SYMPHONY_SELWND_LENGTH>"
+								 Margin="0,1,0,1"
+								 Text="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>, Path=Text}"
+								 Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"
+								 IsReadOnly="True">
+						</TextBox>
+					</Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -1165,43 +1227,55 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type symphonyControls:FieldControl}">
-                    <ComboBox
-						HorizontalAlignment="Left"
-                        Name="ctl<Structure_name>_<Field_sqlname>"
-                        ItemsSource="{Binding Source={StaticResource <FIELD_SELWND>items}}"
-                        DisplayMemberPath="Description"
-                        SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource intConverter},
-                        ValidatesOnDataErrors=True}"
-                        Validation.ErrorTemplate="{StaticResource validationTemplate}"
-                        SelectedValuePath="ItemValue"
-                        IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
-                        VerticalAlignment="Center"
-						Width="<SYMPHONY_SELWND_LENGTH>"
-						Margin="0,1,0,1"
-						ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
-                        <ComboBox.Style>
-                            <Style>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
-                                        <Setter Property="FocusManager.FocusedElement"
-                                                Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
-                                    </DataTrigger>
-									<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
-										<Setter Property="ComboBox.Background">
-											<Setter.Value>
-												<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-													<LinearGradientBrush.GradientStops>
-														<GradientStop Offset="0.2" Color="WhiteSmoke" />
-														<GradientStop Offset="3" Color="Red" />
-													</LinearGradientBrush.GradientStops>
-												</LinearGradientBrush>
-											</Setter.Value>
-										</Setter>
-									</DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ComboBox.Style>
-                    </ComboBox>
+					<Grid>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="auto"></RowDefinition>
+						</Grid.RowDefinitions>
+						<ComboBox Grid.Row="0"
+							Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource reverseBooleanToVisibilityConverter}}"
+							HorizontalAlignment="Left"
+							Name="ctl<Structure_name>_<Field_sqlname>"
+							ItemsSource="{Binding Source={StaticResource <FIELD_SELWND>items}}"
+							DisplayMemberPath="Description"
+							SelectedValue="{Binding Path=<Field_sqlname>, Converter={StaticResource intConverter},
+							ValidatesOnDataErrors=True}"
+							Validation.ErrorTemplate="{StaticResource validationTemplate}"
+							SelectedValuePath="ItemValue"
+							IsEnabled="{Binding Path=<Field_sqlname>IsEnabled}"
+							Width="<SYMPHONY_SELWND_LENGTH>"
+							Margin="0,1,0,1"
+							ToolTip="{Binding RelativeSource={RelativeSource Self},Path=(Validation.Errors), Converter={StaticResource errorConveter}}">
+							<ComboBox.Style>
+								<Style>
+									<Style.Triggers>
+										<DataTrigger Binding="{Binding Path=<Field_sqlname>IsFocused}" Value="true">
+											<Setter Property="FocusManager.FocusedElement"
+													Value="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>}"></Setter>
+										</DataTrigger>
+										<DataTrigger Binding="{Binding RelativeSource={RelativeSource Self},Path=(Validation.HasError)}" Value="True">
+											<Setter Property="ComboBox.Background">
+												<Setter.Value>
+													<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+														<LinearGradientBrush.GradientStops>
+															<GradientStop Offset="0.2" Color="WhiteSmoke" />
+															<GradientStop Offset="3" Color="Red" />
+														</LinearGradientBrush.GradientStops>
+													</LinearGradientBrush>
+												</Setter.Value>
+											</Setter>
+										</DataTrigger>
+									</Style.Triggers>
+								</Style>
+							</ComboBox.Style>
+						</ComboBox>
+						<TextBox Grid.Row="0"
+								 Width="<SYMPHONY_SELWND_LENGTH>"
+								 Margin="0,1,0,1"
+								 Text="{Binding ElementName=ctl<Structure_name>_<Field_sqlname>, Path=Text}"
+								 Visibility="{Binding Path=<Field_sqlname>IsReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}"
+								 IsReadOnly="True">
+						</TextBox>
+					</Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
