@@ -94,28 +94,12 @@ namespace CodeGen.Engine
 		;;;  </summary>
 		;;;  <param name="aContext">Code generator context.</param>
 		public method Tokenizer
-			aContext, @CodeGenContext 
+			default in aContext, @CodeGenContext, ^null
 			endparams
-			this()
 		proc
 			;; For use later (error reporting during Tokenize)
 			context = aContext
 
-			;; Add user defined tokens and custom extensions to the environment
-			loadUserTokens()
-			loadCustomExpanders()
-			loadCustomEvaluators()
-
-		endmethod
-		
-		;;;  <summary>
-		;;;  This constructor is only used unit tests that are testing the tokenization of template code
-		;;;  that does not require the tokenization of user-defined tokens, or custom tokens or expressions.
-		;;;  If user-token or custom extension processing is required then use the other constructor.
-		;;;  </summary>
-		public method Tokenizer
-			endparams
-		proc
 			customValidity = new List<TokenValidity>()
 			customValidity.Add(TokenValidity.FieldLoop)
 
@@ -813,7 +797,22 @@ namespace CodeGen.Engine
 			expressions.Add("VIEW_LENGTH", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop)
 			expressions.Add("WEB", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop)
 
+			if (context != ^null)
+			begin
+				data define, string
+				foreach define in context.Taskset.Defines
+					expressions.Add(define, TokenValidity.Anywhere)
+			end
+				
 			expressionLookup = loadExpressionLookup(expressions)
+
+			if (context != ^null)
+			begin
+				;; Add user defined tokens and custom extensions to the environment
+				loadUserTokens()
+				loadCustomExpanders()
+				loadCustomEvaluators()
+			end
 
 		endmethod
 		
@@ -1595,6 +1594,10 @@ namespace CodeGen.Engine
 						else if ((expstring.ToUpper().StartsWith("USERTOKEN_")) || (expstring.ToUpper().StartsWith("NOT_USERTOKEN_"))) then
 						begin
 							mreturn Tuple.Create(startedTokenIndex, ix, userTokenValidity)
+						end
+						else if (expstring.StartsWith("DEFINED_") || expstring.StartsWith("NOT_DEFINED_")) then
+						begin
+							mreturn Tuple.Create(startedTokenIndex, i, userTokenValidity)
 						end
 						else
 						begin

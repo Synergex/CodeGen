@@ -90,29 +90,15 @@ namespace CodeGen.Engine
         private Dictionary<string, List<Token>> optionalUserTokens = new Dictionary<string, List<Token>>();
 
         /// <summary>
-        /// This constructor should be used if you're trying to do "real" tokenization. 
-        /// Context is passed in so that the tokenizer is aware of user-defined tokens and custom extensions.
+        /// If "real" tokenization is taking place then context is passed in so that the tokenizer is aware of
+        /// user-defined tokens and custom extensions. Context may not be passed if we're being called by unit tests.
         /// </summary>
         /// <param name="aContext">Code generator context.</param>
-        public Tokenizer(CodeGenContext aContext)
-            : this()
+        public Tokenizer(CodeGenContext aContext = null)
         {
             //For use later (error reporting during Tokenize)
             context = aContext;
 
-            //Add user defined tokens and custom extensions to the environment
-            loadUserTokens();
-            loadCustomExpanders();
-            loadCustomEvaluators();
-        }
-
-        /// <summary>
-        /// This constructor is only used unit tests that are testing the tokenization of template code
-        /// that does not require the tokenization of user-defined tokens, or custom tokens or expressions.
-        /// If user-token or custom extension processing is required then use the other constructor.
-        /// </summary>
-        public Tokenizer()
-        {
             customValidity = new List<TokenValidity>();
             customValidity.Add(TokenValidity.FieldLoop);
 
@@ -809,7 +795,21 @@ namespace CodeGen.Engine
             expressions.Add("VIEW_LENGTH", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
             expressions.Add("WEB", TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop);
 
+            if (context != null)
+            {
+                foreach (string define in context.Taskset.Defines)
+                    expressions.Add(define, TokenValidity.Anywhere);
+            }
+
             expressionLookup = expressionLookupHelper(expressions);
+
+            if (context != null)
+            {
+                //Add user defined tokens and custom extensions to the environment
+                loadUserTokens();
+                loadCustomExpanders();
+                loadCustomEvaluators();
+            }
 
         }
 
@@ -1557,6 +1557,10 @@ namespace CodeGen.Engine
                             return Tuple.Create(startedTokenIndex, i, customValidity);
                         }
                         else if ((expstring.ToUpper().StartsWith("USERTOKEN_")) || (expstring.ToUpper().StartsWith("NOT_USERTOKEN_")))
+                        {
+                            return Tuple.Create(startedTokenIndex, i, userTokenValidity);
+                        }
+                        else if (expstring.StartsWith("DEFINED_") || expstring.StartsWith("NOT_DEFINED_"))
                         {
                             return Tuple.Create(startedTokenIndex, i, userTokenValidity);
                         }
