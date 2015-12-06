@@ -457,8 +457,7 @@ namespace CodeGen.Engine
             {
                 try
                 {
-                    var matchingField = str.Fields.First(fld => (fld.Name == seg.Field));
-                    return matchingField;
+                    return str.Fields.First(fld => (fld.Name == seg.Field));
                 }
                 catch (Exception)
                 {
