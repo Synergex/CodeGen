@@ -54,12 +54,12 @@ namespace CodeGen.Engine
     public class TreeExpander implements ITreeNodeVisitor
 
         private _currentFileNode, @FileNode
-        private _currentLoops, @List<LoopNode>, new List<LoopNode>()
-        private _expander, @TokenExpander
-        private _evaluator, @ExpressionEvaluator
-        private _outputStream, @TextWriter
-        private _validator, @TokenValidation, new TokenValidation()
-        private _killTextSibling, boolean, false
+        private _currentLoops,    @List<LoopNode>,     new List<LoopNode>()
+        private _expander,        @TokenExpander
+        private _evaluator,       @ExpressionEvaluator
+        private _outputStream,    @TextWriter
+        private _validator,       @TokenValidation,    new TokenValidation()
+        private _killTextSibling, boolean,             false
 
         ;;;  <summary>
         ;;;  Constructor used when expanding the whole tree. After constructing the object,
@@ -68,7 +68,7 @@ namespace CodeGen.Engine
         ;;;  <param name="context">Current CodeGenContext object.</param>
 		;;;  <param name="outStream">Stream to write output code to.</param>
         public method TreeExpander
-            context, @CodeGenContext 
+            context,   @CodeGenContext 
             outStream, @TextWriter 
             endparams
         proc
@@ -85,8 +85,8 @@ namespace CodeGen.Engine
         ;;;  <param name="evaluator">ExpressionEvaluator instance.</param>
 		;;;  <param name="outStream">Stream to write output code to.</param>
         public method TreeExpander
-            tree, @FileNode 
-            expander, @TokenExpander 
+            tree,      @FileNode 
+            expander,  @TokenExpander 
             evaluator, @ExpressionEvaluator 
 			outStream, @TextWriter 
             endparams
@@ -274,10 +274,10 @@ namespace CodeGen.Engine
         ;;;  <param name="expnode">Expression node being processed</param>
         ;;;  <returns>TokeyType indicating the context in which the expression is being processed.</returns>
         private method getContextForExpression, TokenType
-            expnode, @ExpressionNode 
+            node, @ExpressionNode 
             endparams
         proc
-            data expressionValidityList, @List<TokenValidity>, ^as(expnode.Value.Bucket, List<TokenValidity>)
+			data expressionValidityList, @List<TokenValidity>, ^as(node.Value.Bucket, List<TokenValidity>)
 			data validLocations, @List<TokenType>, new List<TokenType>()
 			data validity, TokenValidity
 
@@ -338,13 +338,27 @@ namespace CodeGen.Engine
         ;;;  <returns>Cleaned string</returns>
         public static method CleanOutput, string
             node, @TextNode 
-            default firstLineNotInResult, boolean?, ^null
-            endparams
+			default firstLineNotInResult, boolean?, ^null
+			endparams
         proc
-            data realFirstLineNotInResult = firstLineNotInResult != ^null ? firstLineNotInResult : (Nullable<Boolean>)node.FirstLineNotInResult
+			;--------------------------------------------------------------------------------
+			;TODO:BUG: Compiler crash is preventing us getting this working!!!
+
+			;This is what it should be
+			;data realFirstLineNotInResult = firstLineNotInResult.HasValue ? firstLineNotInResult.Value : node.FirstLineNotInResult
+			;data realFirstLineNotInResult, boolean, firstLineNotInResult != ^null ? firstLineNotInResult.Value : (Nullable<Boolean>)node.FirstLineNotInResult
+			;data realFirstLineNotInResult = firstLineNotInResult != ^null ? firstLineNotInResult : (Nullable<Boolean>)node.FirstLineNotInResult
+
+;			data realFirstLineNotInResult, boolean, node.FirstLineNotInResult
+;			if(firstLineNotInResult != ^null)
+;				realFirstLineNotInResult = firstLineNotInResult.Value
+
+			;--------------------------------------------------------------------------------
+			
+			data realFirstLineNotInResult, boolean, firstLineNotInResult != ^null ? firstLineNotInResult.Value : node.FirstLineNotInResult
 			data cleanedOutput, string, node.Value.Value
 
-            if (node.LastLineNotInResult)
+			if (node.LastLineNotInResult)
             begin
                 ;; Find the last <CR><LF>
 				data lastNewline, int, cleanedOutput.LastIndexOf(%char(13) + %char(10))
@@ -408,37 +422,37 @@ namespace CodeGen.Engine
         ;;;  </summary>
         ;;;  <param name="file"></param>
         private method setOutputFileName, void
-            file, @FileNode 
+            node, @FileNode 
             endparams
         proc
             ;; If we're processing multiple structures at the same time then make sure we
             ;; reset the current structure to the first structure so file names will be
             ;; based on it.
-            if (file.Context.MultiStructureMode)
-				file.Context.CurrentStructure = file.Context.Structures[0]
+			if (node.Context.MultiStructureMode)
+				node.Context.CurrentStructure = node.Context.Structures[0]
 
             ;; Do we have any output file name tokens that were specified via <CODEGEN_FILENAME>?
-            if (file.OutputFileNameTokens != ^null) then
+			if (node.OutputFileNameTokens != ^null) then
             begin
                 ;; Yes, we'll be using a custom output file name.
                 begin
                     disposable data sw, @StringWriter, new StringWriter()
-                    data expander, @TreeExpander, new TreeExpander(file, _expander, _evaluator, sw)
-					data node, @ITreeNode
+					data expander, @TreeExpander, new TreeExpander(node, _expander, _evaluator, sw)
+
+					data treeNode, @ITreeNode
+					foreach treeNode in node.OutputFileNameTokens
+						treeNode.Accept(expander)
 					
-					foreach node in file.OutputFileNameTokens
-						node.Accept(expander)
-					
-					file.OutputFileName = sw.ToString()
+					node.OutputFileName = sw.ToString()
                 end
             end
             else
             begin
                 ;; No, we'll be going with a default output file name
-                if (file.Context.CurrentStructure == ^null) then
-                    file.OutputFileName = String.Format("{0}.dbl", file.Context.CurrentTemplateBaseName.ToLower())
+				if (node.Context.CurrentStructure == ^null) then
+					node.OutputFileName = String.Format("{0}.dbl", node.Context.CurrentTemplateBaseName.ToLower())
                 else
-                    file.OutputFileName = String.Format("{0}_{1}.dbl", file.Context.CurrentStructure.Name.ToLower(), file.Context.CurrentTemplateBaseName.ToLower())
+					node.OutputFileName = String.Format("{0}_{1}.dbl", node.Context.CurrentStructure.Name.ToLower(), node.Context.CurrentTemplateBaseName.ToLower())
             end
         endmethod
 	
