@@ -93,14 +93,14 @@ namespace <NAMESPACE>
 		protected override method checkInRange	,boolean
 			in req <structure_name>Arg		,a
 			endparams
-			.include '<structure_name>' repository <RPSDATAFILES>, stack record = "<structure_name>"
+			.include '<structure_name>' repository <RPSDATAFILES>, stack record = "<structure_name>", end
 		proc
 			<structure_name> = <structure_name>Arg
 			;;do any tag values
 			.ifdef FILE_HAS_TAGS
 			if (
 			<TAG_LOOP>
-			&	<TAGLOOP_CONNECTOR_DBL> <TAGLOOP_FIELD_NAME> <TAGLOOP_OPERATOR_DBL> <TAGLOOP_TAG_VALUE> 
+			&	<TAGLOOP_CONNECTOR_DBL> <TAGLOOP_FIELD_SQLNAME> <TAGLOOP_OPERATOR_DBL> <TAGLOOP_TAG_VALUE> 
 			</TAG_LOOP>
 			&	) then
 				mreturn true
@@ -134,7 +134,7 @@ namespace <NAMESPACE>
 			dataObject.InitData()
 			<TAG_LOOP>
 			<IF COMPARISON_EQ>
-			((@<Structure_name>_Data)dataObject).<TAGLOOP_FIELD_NAME> = <TAGLOOP_TAG_VALUE>
+			((@<Structure_name>_Data)dataObject).<TAGLOOP_FIELD_SQLNAME> = <TAGLOOP_TAG_VALUE>
 			</IF COMPARISON_EQ>
 			</TAG_LOOP>
 			mreturn parent.ReadRecord(dataObject)
@@ -158,7 +158,7 @@ namespace <NAMESPACE>
 			dataObject.InitData()
 			<TAG_LOOP>
 			<IF COMPARISON_EQ>
-			((@<Structure_name>_Data)dataObject).<TAGLOOP_FIELD_NAME> = <TAGLOOP_TAG_VALUE>
+			((@<Structure_name>_Data)dataObject).<TAGLOOP_FIELD_SQLNAME> = <TAGLOOP_TAG_VALUE>
 			</IF COMPARISON_EQ>
 			</TAG_LOOP>
 			mreturn parent.ReadRecord(dataObject, noLock)
@@ -244,7 +244,7 @@ namespace <NAMESPACE>
 		proc
 			<TAG_LOOP>
 			<IF COMPARISON_EQ>
-			((@<Structure_name>_Data)dataObject).<TAGLOOP_FIELD_NAME> = <TAGLOOP_TAG_VALUE>
+			((@<Structure_name>_Data)dataObject).<TAGLOOP_FIELD_SQLNAME> = <TAGLOOP_TAG_VALUE>
 			</IF COMPARISON_EQ>
 			</TAG_LOOP>
 			mreturn parent.ReadRecord(dataObject)
@@ -267,7 +267,7 @@ namespace <NAMESPACE>
 		proc
 			<TAG_LOOP>
 			<IF COMPARISON_EQ>
-			((@<Structure_name>_Data)dataObject).<TAGLOOP_FIELD_NAME> = <TAGLOOP_TAG_VALUE>
+			((@<Structure_name>_Data)dataObject).<TAGLOOP_FIELD_SQLNAME> = <TAGLOOP_TAG_VALUE>
 			</IF COMPARISON_EQ>
 			</TAG_LOOP>
 			mreturn parent.ReadRecord(dataObject, noLock)
