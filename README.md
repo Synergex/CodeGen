@@ -5,3 +5,6 @@ CodeGen was primarily developed to generate Synergy DBL source code, but can als
 
 ## Requirements
 CodeGen is developed using Visual Studio 2015 and the Synergy .NET development environment. In order to build or use CodeGen you must have a Synergy Development Environment and the latest version of Synergy DBL Integration for Visual Studio installed. For information on how to get started with CodeGen, refer to the documentation.
+
+[Spam control by MX GuardDog](http://mxguarddog.com/firewall)
+
