@@ -1,15 +1,5 @@
 @echo off
 
-if not defined CODEPLEX_UID (
-  echo ERROR: CodePlex user ID is not defined. Set environment varaible CODEPLEX_UID.
-  goto done
-)
-
-if not defined CODEPLEX_PWD (
-  echo ERROR: CodePlex password is not defined. Set environment varaible CODEPLEX_PWD.
-  goto done
-)
-
 setlocal
 
 rem These commands were lifted from the Orchestrator project file SymphonyOrchestrator.symproj
@@ -25,11 +15,6 @@ set STR_STYLE=CODEGEN_STRUCTURES CODEGEN_COMMAND ORCHESTRATOR_DEFAULTS ORCHESTRA
 set STR_CONTENT=CODEGEN_STRUCTURES CODEGEN_COMMAND ORCHESTRATOR_DEFAULTS ORCHESTRATOR_PROJECT
 set STR_COLLECTION=CODEGEN_COMMAND ORCHESTRATOR_PROJECT
 set STR_ASXML=CODEGEN_COMMAND ORCHESTRATOR_DEFAULTS
-
-echo.
-echo Checking out generated files...
-
-tf checkout /recursive *.CodeGen.* /login:%CODEPLEX_UID%,%CODEPLEX_PWD% > nul
 
 echo.
 echo Regenerating code...

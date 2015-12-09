@@ -1,8 +1,8 @@
  
 ;  SYNERGY DATA LANGUAGE OUTPUT
 ;
-;  REPOSITORY     : C:\CodePlex\CodeGen\Trunk\SampleRepository\rpsmain.ism
-;                 : C:\CodePlex\CodeGen\Trunk\SampleRepository\rpstext.ism
+;  REPOSITORY     : C:\GitHub\CodeGen\SampleRepository\rpsmain.ism
+;                 : C:\GitHub\CodeGen\SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
 ;  GENERATED      : 31-JUL-2015, 11:03:20
