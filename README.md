@@ -30,12 +30,5 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-
-
-
-
-
-
-
-
-[spam firewall](http://mxguarddog.com/firewall/)
+<p><p><p><p><p><p><p><p>
+<a href="http://mxguarddog.com/firewall/">spam firewall</a>
