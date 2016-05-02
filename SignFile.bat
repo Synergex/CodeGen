@@ -27,7 +27,7 @@ if not exist "%CODE_SIGN_CERT%" (
 set PASSWORD=%2
 if not "%PASSWORD%"=="" goto gotPassword
 
-set PASSWORD=%CODE_SIGN_PSWD%
+set PASSWORD=%CODE_SIGN_PWD%
 if "%PASSWORD%"=="" (
   echo ERROR: Code signing password is not defined. Set environment variable CODE_SIGN_PWD.
   goto done  
