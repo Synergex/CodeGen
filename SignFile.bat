@@ -11,9 +11,6 @@ if not exist "%FILE_TO_SIGN%" (
   goto done
 )
 
-echo.
-for %%F in ("%FILE_TO_SIGN%") do echo Signing %%~nxF
-
 if not defined CODE_SIGN_CERT (
   echo ERROR: No code signing certificate is defined. Set environment varaible CODE_SIGN_CERT.
   goto done
@@ -37,7 +34,11 @@ if "%PASSWORD%"=="" (
 
 set TIMESTAMP_URL=http://timestamp.entrust.net/TSS/AuthenticodeTS
 
-signtool sign /f "%CODE_SIGN_CERT%" /p %PASSWORD% /t %TIMESTAMP_URL% /fd SHA256 /q  "%FILE_TO_SIGN%"
+echo.
+for %%F in ("%FILE_TO_SIGN%") do echo Signing %%~nxF
+
+rem Should be able to use %WindowsSdkDir% but it looks like Visual Studio clears it for some reason!
+"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool.exe" sign /f "%CODE_SIGN_CERT%" /p %PASSWORD% /t %TIMESTAMP_URL% /fd SHA256 /q "%FILE_TO_SIGN%"
 
 if "%ERRORLEVEL%"=="0" (
   echo SUCCESS!
