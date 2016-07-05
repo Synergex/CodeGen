@@ -1,0 +1,86 @@
+;;*****************************************************************************
+;;
+;; Title:       CustomActions.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Custom actions for the CodeGen installation
+;;
+;; Date:        5th July 2016
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2016, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Text
+import Microsoft.Deployment.WindowsInstaller
+import System.Runtime.InteropServices
+
+namespace CodeGenSetupCustomActions
+	
+	public class CustomActions
+		
+		{DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)}
+		{ReturnType: MarshalAs(UnmanagedType.Bool)}
+		public static method SendMessageTimeout, boolean
+			hWnd,								IntPtr
+			Msg,								int
+			wParam,								int
+			lParam,								string
+			fuFlags,							int
+			uTimeout,							int
+			out lpdwResult,						int
+			endparams
+		proc
+		endmethod
+		
+		public const HWND_BROADCAST,			int, 65535
+		public const WM_SETTINGCHANGE,			int, 26
+		public const SMTO_NORMAL,				int, 0
+		public const SMTO_BLOCK,				int, 1
+		public const SMTO_ABORTIFHUNG,			int, 2
+		public const SMTO_NOTIMEOUTIFNOTHUNG,	int, 8
+		
+		{CustomAction}
+		public static method InvokeRefresh,		ActionResult
+			required in installerSession,		@Session 
+			endparams
+		proc
+			data result,						int
+			data callResult = SendMessageTimeout((System.IntPtr)HWND_BROADCAST,WM_SETTINGCHANGE,0, "Environment",SMTO_ABORTIFHUNG,5000,result)
+			mreturn ActionResult.Success
+		endmethod
+
+	endclass
+
+endnamespace
