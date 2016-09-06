@@ -1,12 +1,12 @@
  
 ;  SYNERGY DATA LANGUAGE OUTPUT
 ;
-;  REPOSITORY     : C:\GitHub\CodeGen\SampleRepository\rpsmain.ism
-;                 : C:\GitHub\CodeGen\SampleRepository\rpstext.ism
+;  REPOSITORY     : C:\DEV\SYNERGEX\CodeGen\SampleRepository\rpsmain.ism
+;                 : C:\DEV\SYNERGEX\CodeGen\SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
-;  GENERATED      : 31-JUL-2015, 11:03:20
-;                 : Version 10.3.1a
+;  GENERATED      : 06-SEP-2016, 12:00:47
+;                 : Version 10.3.3a
 ;  EXPORT OPTIONS : [ALL] 
  
  
@@ -1431,6 +1431,17 @@ Field DESCRIPTION   Type ALPHA   Size 40
 Key PRODUCT_GROUP   ACCESS   Order ASCENDING   Dups NO
    Description "Product group name"
    Segment FIELD   NAME
+ 
+Structure TAG_TEST   DBL ISAM
+   Description "Tag test"
+ 
+Tag FIELD   TAG_FIELD EQ "A"
+ 
+Field TAG_FIELD   Type ALPHA   Size 1
+   Description "Tag field"
+ 
+Field OTHER_FIELD   Type ALPHA   Size 1
+   Description "Other field"
  
 Structure UNIT_TEST_1   DBL ISAM
    Description "A simple structure for unit testing"
