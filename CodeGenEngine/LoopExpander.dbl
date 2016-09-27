@@ -149,6 +149,10 @@ namespace CodeGen.Engine
 			data ix, int
 			for ix from 0 thru file.Context.CurrentStructure.Keys.Count - 1
 			begin
+				;;Skip any Foreign keys
+				if (file.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+					nextloop
+
 				loop.CurrentKey = file.Context.CurrentStructure.Keys[ix]
 				loop.CurrentIndex = ix
 
@@ -179,8 +183,8 @@ namespace CodeGen.Engine
 			data ix, int
 			for ix from 0 thru file.Context.CurrentStructure.Keys.Count - 1
 			begin
-				;; Skip the first key
-				if (ix == 0)
+				;; Skip the first key and any alternate keys
+				if ((ix == 0) || (file.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
 					nextloop
 
 				;; Then process as normal
@@ -235,7 +239,7 @@ namespace CodeGen.Engine
 			if (file.Context.CurrentStructure.Keys.Count == 0)
 				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, file.Context.CurrentStructure.Name))
 			
-			if (!file.Context.CurrentStructure.Keys.Any(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates}))
+			if (!file.Context.CurrentStructure.Keys.Any(lambda (k) {(k.Duplicates == RpsKeyDuplicates.NoDuplicates) && (k.KeyType == RpsKeyType.Access)}))
 				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no unique keys!",node.OpenToken.Value,node.OpenToken.StartLineNumber,file.Context.CurrentTemplateBaseName,file.Context.CurrentStructure.Name))
 			
 			loop.CurrentKey = file.Context.CurrentStructure.Keys.First(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates})
