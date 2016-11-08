@@ -76,7 +76,11 @@ namespace CodeGen.Engine
 			fieldLoopExpressionEvaluators.Add("ARRAY4", evaluateFieldArray4)
 			fieldLoopExpressionEvaluators.Add("ARRAY4_FIRST", evaluateFieldArray4First)
 			fieldLoopExpressionEvaluators.Add("ARRIVE", evaluateFieldArrive)
-            fieldLoopExpressionEvaluators.Add("BINARY", evaluateFieldBinary)
+			fieldLoopExpressionEvaluators.Add("AUTO_SEQUENCE", evaluateFieldAutoSequence)
+			fieldLoopExpressionEvaluators.Add("AUTO_TIMESTAMP", evaluateFieldAutoTime)
+			fieldLoopExpressionEvaluators.Add("AUTO_TIMESTAMP_CREATED", evaluateFieldAutoTimeCreated)
+			fieldLoopExpressionEvaluators.Add("AUTO_TIMESTAMP_UPDATED", evaluateFieldAutoTimeUpdated)
+			fieldLoopExpressionEvaluators.Add("BINARY", evaluateFieldBinary)
             fieldLoopExpressionEvaluators.Add("BOLD", evaluateFieldBold)
             fieldLoopExpressionEvaluators.Add("BOOLEAN", evaluateFieldBoolean)
             fieldLoopExpressionEvaluators.Add("BREAK", evaluateFieldBreak)
@@ -414,16 +418,94 @@ namespace CodeGen.Engine
 		endmethod
 		
 		private static method evaluateFieldArrive, boolean
-            tkn, @Token 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            endparams
-        proc
-            lambda doEvaluate(str, field, index) (!String.IsNullOrWhiteSpace(field.ArriveMethod))
-            mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
-        endmethod
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str, field, index) (!String.IsNullOrWhiteSpace(field.ArriveMethod))
+			mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+		endmethod
 
-        private static method evaluateFieldBinary, boolean
+		private static method evaluateFieldAutoSequence, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str, field, index) (field.DataType == RpsFieldDataType.AutoSequence)
+			mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateFieldAutoTime, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str, field, index) (field.DataType == RpsFieldDataType.AutoTime)
+			mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateFieldAutoTimeCreated, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str, field, index)
+			begin
+				data result, boolean, false
+				if (field.DataType == RpsFieldDataType.AutoTime)
+				begin
+					data k, @RpsKey
+					foreach k in str.Keys
+					begin
+						data s, @RpsKeySegment
+						foreach s in k.Segments
+						begin
+							if (result = ((s.Field == field.Name) && (s.DataType == RpsKeySegmentDataType.AutoTimestampCreated)))
+								exitloop
+						end
+						if (result)
+							exitloop
+					end
+				end
+				mreturn result
+			end
+			mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateFieldAutoTimeUpdated, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str, field, index)
+			begin
+				data result, boolean, false
+				if (field.DataType == RpsFieldDataType.AutoTime)
+				begin
+					data k, @RpsKey
+					foreach k in str.Keys
+					begin
+						data s, @RpsKeySegment
+						foreach s in k.Segments
+						begin
+							if (result = ((s.Field == field.Name) && (s.DataType == RpsKeySegmentDataType.AutoTimestampUpdated)))
+								exitloop
+						end
+						if (result)
+							exitloop
+					end
+				end
+				mreturn result
+			end
+			mreturn EvaluateFieldLoopExpression(tkn, file, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateFieldBinary, boolean
             tkn, @Token 
             file, @FileNode 
             loops, @IEnumerable<LoopNode> 

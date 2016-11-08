@@ -1,13 +1,13 @@
  
 ;  SYNERGY DATA LANGUAGE OUTPUT
 ;
-;  REPOSITORY     : C:\DEV\SYNERGEX\CodeGen\SampleRepository\rpsmain.ism
-;                 : C:\DEV\SYNERGEX\CodeGen\SampleRepository\rpstext.ism
+;  REPOSITORY     : SampleRepository\rpsmain.ism
+;                 : SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
-;  GENERATED      : 06-SEP-2016, 12:00:47
+;  GENERATED      : 07-NOV-2016, 16:02:37
 ;                 : Version 10.3.3a
-;  EXPORT OPTIONS : [ALL] 
+;  EXPORT OPTIONS : [ALL-K-R-A] 
  
  
 Format COST_PRICE   Type NUMERIC   "$$,$$X.XXXX"   Justify RIGHT
@@ -23,6 +23,10 @@ Format CURRENCY_8_2   Type NUMERIC   "$$$$,$$X.XX"   Justify RIGHT
 Format PHONE_NUMBER   Type NUMERIC   "XXX-XXXX"   Justify RIGHT
  
 Format QUANTITY   Type NUMERIC   "ZZZZZX-"   Justify RIGHT
+ 
+Enumeration PRIMARY_COLOR
+   Description "Primary colors"
+   Members RED, GREEN, BLUE
  
 Structure CUSMAS   DBL ISAM
    Description "Customer master file"
@@ -169,6 +173,48 @@ Key CUSAST   ACCESS   Order ASCENDING   Dups YES   Insert END   Modifiable YES
    Krf 004
    Description "Account status"
    Segment FIELD   CUSAST
+ 
+Structure AUTO_KEYS   DBL ISAM
+   Description "Auto keys structure"
+ 
+Field AUTO_SEQUENCE   Type AUTOSEQ   Size 8
+   Description "Auto sequence field"
+   Readonly
+   Nonull
+ 
+Field AUTO_TIMESTAMP_CREATED   Type AUTOTIME   Size 8
+   Description "Auto timestamp field (time created)"
+   Readonly
+   Nonull
+ 
+Field AUTO_TIMESTAMP_UPDATED   Type AUTOTIME   Size 8
+   Description "Auto timestamp field (time updated)"
+   Readonly
+   Nonull
+ 
+Key AUTO_SEQUENCE   ACCESS   Order ASCENDING   Dups NO
+   Description "Auto sequence key"
+   Segment FIELD   AUTO_SEQUENCE  SegType SEQUENCE
+ 
+Key AUTO_TIMESTAMP_CREATED   ACCESS   Order ASCENDING   Dups NO   Krf 001
+   Description "Auto timestamp key (time created)"
+   Segment FIELD   AUTO_TIMESTAMP_CREATED  SegType CTIMESTAMP
+ 
+Key AUTO_TIMESTAMP_UPDATED   ACCESS   Order ASCENDING   Dups NO   Krf 002
+   Description "Auto timestamp key (time updated)"
+   Segment FIELD   AUTO_TIMESTAMP_UPDATED  SegType TIMESTAMP
+ 
+Structure BINARY_EMUM_STRUCT   DBL ISAM
+   Description "Binary, enum and strut fields"
+ 
+Field BINARY_FIELD   Type ALPHA   Size 100   Stored BINARY
+   Description "Binary field"
+ 
+Field STRUCT_FIELD   Type STRUCT   Size 437   Struct CUSMAS
+   Description "Struct field"
+ 
+Field ENUM_FIELD   Type ENUM   Size 4   Enum PRIMARY_COLOR
+   Description "Enum field"
  
 Structure CODEGEN_COMMAND   DBL ISAM
    Description "(Orchestrator) Codegen command options"
