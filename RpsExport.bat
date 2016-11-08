@@ -1,11 +1,15 @@
 @echo off
-pushd %~dp0..
-if not exist rps\vdsc.sch goto no_delete
+setlocal
+call "%SYNERGYDE32%dbl\dblvars32.bat"
+pushd %~dp0
+set RPSMFIL=SampleRepository\rpsmain.ism
+set RPSTFIL=SampleRepository\rpstext.ism
+if not exist SampleRepository\CodeGen.sch goto no_delete
 echo Deleting existing repository schema...
-del /q rps\vdsc.sch
+del /q SampleRepository\CodeGen.sch
 :no_delete
 echo Exporting new repository schema...
-dbs RPS:rpsutl -e rps\vdsc.sch
+dbs RPS:rpsutl -e SampleRepository\CodeGen.sch
 if "%ERRORLEVEL%"=="1" goto export_fail
 goto done
 :export_fail
@@ -13,3 +17,4 @@ echo *ERROR* Schema export failed
 goto done
 :done
 popd
+endlocal
