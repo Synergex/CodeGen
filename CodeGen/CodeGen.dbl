@@ -341,6 +341,46 @@ proc
 	end
 	
 	;;-------------------------------------------------------------------------
+	;;Do we have a custom database type specified?
+	;;If not the default will be SqlDatabaseType.SQLServer.
+
+	if (ok)
+	begin
+		if (CommandLineParser.Parse("database",ClValues))
+		begin
+			if (!ClValues.Count) then
+			begin
+				Console.WriteLine("ERROR: No database type was found after the -database option!")
+				ok = false
+				exitCode = 1
+			end
+			else if (ClValues.Count>1) then
+			begin
+				Console.WriteLine("ERROR: Only one database code can be specified after the -database option!")
+				ok = false
+				exitCode = 1
+			end
+			else
+			begin
+				using ClValues[0].ToLower() select
+				("mysql"),
+					taskSet.DatabaseType = SqlDatabaseType.MySQL
+				("postgresql"),
+					taskSet.DatabaseType = SqlDatabaseType.PostgreSQL
+				("sqlserver"),
+					nop ;It's the default anyway!
+				(),
+				begin
+					Console.WriteLine("ERROR: Unsupported database code {0} found after the -database option!",ClValues[0])
+					ok = false
+					exitCode = 1
+				end
+				endusing
+			end
+		end
+	end
+
+	;;-------------------------------------------------------------------------
 	;;See if we have a template file location command line option
 	
 	if (ok)
