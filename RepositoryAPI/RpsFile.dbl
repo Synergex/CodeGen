@@ -45,6 +45,7 @@
 .undefine DDINFO_DEFINES_ONLY
 
 import CodeGen.RepositoryAPI
+import System.Collections.Generic
 
 namespace CodeGen.RepositoryAPI
 
@@ -65,6 +66,8 @@ namespace CodeGen.RepositoryAPI
         protected mPortableInts     ,String     ;; Portable integer specs
         protected mKeys             ,@RpsKeyCollection
         protected mStructures       ,@RpsStructureCollection
+		protected mStructureNames	,@List<string>
+		protected mOdbcTableNames	,@List<string>
 
         ;; Constructor
         public method RpsFile
@@ -139,6 +142,36 @@ namespace CodeGen.RepositoryAPI
             end
             else
                 mPortableInts = ""
+
+			;;Load structure names and ODBC table names
+			
+			mStructureNames = new List<String>()
+			mOdbcTableNames = new List<String>()
+
+			if (mfl_info.fli_nmstructs)
+			begin
+				data strNames,  D_HANDLE, %mem_proc(DM_ALLOC,^size(strIdentifier)*mfl_info.fli_nmstructs)
+				data odbcNames, D_HANDLE, %mem_proc(DM_ALLOC,^size(strIdentifier)*mfl_info.fli_nmstructs)
+				
+				xcall dd_file(Repository.RpsControl,DDL_STRS,mfl_info.fli_nmstructs,^m(strIdentifier,strNames),,,^m(strIdentifier,odbcNames))
+
+				data strName, string
+				data odbcName, string
+
+				data ix, int
+				for ix from 1 thru mfl_info.fli_nmstructs
+				begin
+					strName = %atrim(^m(strIdentifier[ix],strNames))
+					odbcName = %atrim(^m(strIdentifier[ix],odbcNames))
+					if (String.IsNullOrWhiteSpace(odbcName))
+						odbcName = strName
+					mStructureNames.Add(strName)
+					mOdbcTableNames.Add(odbcName)
+				end
+
+				strNames  = %mem_proc(DM_FREE,strNames)
+				odbcNames = %mem_proc(DM_FREE,odbcNames)
+			end
 
             ;;Defualt the file's key density to 50% if not specified
             if (!mfl_info.fli_density)
@@ -332,6 +365,22 @@ namespace CodeGen.RepositoryAPI
                 mreturn mStructures
             endmethod
         endproperty
+
+		;;Collection of assigned structure NAMES and ODBC TABLE NAMES 
+		public property StructureNames, @List<string>
+			method get
+			proc
+				mreturn mStructureNames
+			endmethod
+		endproperty
+
+		;;Collection of assigned structure NAMES and ODBC TABLE NAMES 
+		public property OdbcTableNames, @List<string>
+			method get
+			proc
+				mreturn mOdbcTableNames
+			endmethod
+		endproperty
 
     endclass
 
