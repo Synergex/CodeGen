@@ -81,6 +81,7 @@ namespace CodeGen.Engine
 
 		private customValidity, @List<TokenValidity>
 		private userTokenValidity, @List<TokenValidity>
+		private loopUtilityTokenValidity, @List<TokenValidity>
 
 		private context, @CodeGenContext
 		private errorsReported, boolean, false
@@ -105,6 +106,9 @@ namespace CodeGen.Engine
 
 			userTokenValidity = new List<TokenValidity>()
 			userTokenValidity.Add(TokenValidity.Anywhere)
+
+			loopUtilityTokenValidity = new List<TokenValidity>()
+			loopUtilityTokenValidity.Add(TokenValidity.AnyLoop)
 
 			;; Declare all the special and expansion tokens
 
@@ -248,6 +252,11 @@ namespace CodeGen.Engine
 			&	{ new TokenMeta() {Name = "OR", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop} }, 
 			&	{ new TokenMeta() {Name = "BSLASH", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop} }, 
 			&	{ new TokenMeta() {Name = "FSLASH", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop} }, 
+			&	{ new TokenMeta() {Name = "PROCESSED_INCLUSIVE", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop} }, 
+			&	{ new TokenMeta() {Name = "PROCESSED_EXCLUSIVE", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop} }, 
+			&	{ new TokenMeta() {Name = "REMAINING_INCLUSIVE", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop} }, 
+			&	{ new TokenMeta() {Name = "REMAINING_EXCLUSIVE", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop} }, 
+			&	{ new TokenMeta() {Name = "TOTAL_ITEMS", TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop} }, 
 			&	
 			&	{ new TokenMeta() {Name = "FIELD#", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true} }, 
 			&	{ new TokenMeta() {Name = "FIELD#_ZERO", TypeOfToken = TokenType.FieldLoop, IsPaired = false, Validity = TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop, RequiresRepository = true} }, 
@@ -1608,13 +1617,26 @@ namespace CodeGen.Engine
 						begin
 							mreturn Tuple.Create(startedTokenIndex, ix, customValidity)
 						end
-						else if ((expstring.ToUpper().StartsWith("USERTOKEN_")) || (expstring.ToUpper().StartsWith("NOT_USERTOKEN_"))) then
+						else if ((expstring.ToUpper().StartsWith("USERTOKEN_"))
+						&	||   (expstring.ToUpper().StartsWith("NOT_USERTOKEN_"))) then
 						begin
 							mreturn Tuple.Create(startedTokenIndex, ix, userTokenValidity)
 						end
 						else if (expstring.StartsWith("DEFINED_") || expstring.StartsWith("NOT_DEFINED_")) then
 						begin
 							mreturn Tuple.Create(startedTokenIndex, ix, userTokenValidity)
+						end
+						else if (expstring.StartsWith("COUNTER_1_") || expstring.StartsWith("COUNTER_2_")) then
+						begin
+							mreturn Tuple.Create(startedTokenIndex, ix, userTokenValidity)
+						end
+						else if (expstring.StartsWith("PROCESSED_EXCLUSIVE_") 
+						&	||   expstring.StartsWith("PROCESSED_INCLUSIVE_")
+						&	||   expstring.StartsWith("REMAINING_EXCLUSIVE_") 
+						&	||   expstring.StartsWith("REMAINING_INCLUSIVE_")
+						&	||   expstring.StartsWith("TOTAL_ITEMS_")) then
+						begin
+							mreturn Tuple.Create(startedTokenIndex, ix, loopUtilityTokenValidity)
 						end
 						else
 						begin

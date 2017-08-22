@@ -52,73 +52,214 @@ import System.IO
 
 namespace CodeGen.Engine
 
-    public partial class ExpressionEvaluator
+	public partial class ExpressionEvaluator
 
-        loopUtilityExpressionEvaluators, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
+		loopUtilityExpressionEvaluators, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
 
-        private method registerLoopUtilityExpressions, void
-            endparams
-        proc
+		private method registerLoopUtilityExpressions, void
+			endparams
+		proc
 			
 			loopUtilityExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
 			
 			loopUtilityExpressionEvaluators.Add("FIRST", evaluateFirst)
-            loopUtilityExpressionEvaluators.Add("LAST", evaluateLast)
-            loopUtilityExpressionEvaluators.Add("MORE", evaluateMore)
+			loopUtilityExpressionEvaluators.Add("LAST", evaluateLast)
+			loopUtilityExpressionEvaluators.Add("MORE", evaluateMore)
 			loopUtilityExpressionEvaluators.Add("NOMORE", evaluateNoMore)
 
-        endmethod
+		endmethod
 
-        private static method evaluateFirst, boolean
-            tkn, @Token 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            endparams
-        proc
-            lambda isLoopNode(node) (node .is. LoopNode)
-			data loop, @LoopNode, loops.First(isLoopNode)
-            mreturn (loop.CurrentIndex == 0)
-        endmethod
-
-        private static method evaluateLast, boolean
-            tkn, @Token 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            endparams
-        proc
+		;; *********************************************************************
+		
+		private static method evaluateFirst, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
 			lambda isLoopNode(node) (node .is. LoopNode)
 			data loop, @LoopNode, loops.First(isLoopNode)
-            ;; Always return true if it's a <PRIMARY_KEY> block
+			mreturn (loop.CurrentIndex == 0)
+		endmethod
+
+		private static method evaluateLast, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda isLoopNode(node) (node .is. LoopNode)
+			data loop, @LoopNode, loops.First(isLoopNode)
+			;; Always return true if it's a <PRIMARY_KEY> block
 			if (loop.OpenToken.Value == "PRIMARY_KEY") then
 				mreturn true
 			else
-	            mreturn (loop.CurrentIndex == loop.MaxIndex)
-        endmethod
+				mreturn (loop.CurrentIndex == loop.MaxIndex)
+		endmethod
 
-        private static method evaluateMore, boolean
-            tkn, @Token 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            endparams
-        proc
+		private static method evaluateMore, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
 			lambda isLoopNode(node) (node .is. LoopNode)
 			data loop, @LoopNode, loops.First(isLoopNode)
-            ;; TODO: Should always return false if it's a primary key loop
-            mreturn (loop.CurrentIndex < loop.MaxIndex)
-        endmethod
+			;; TODO: Should always return false if it's a primary key loop
+			mreturn (loop.CurrentIndex < loop.MaxIndex)
+		endmethod
 
-        private static method evaluateNoMore, boolean
-            tkn, @Token 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            endparams
-        proc
+		private static method evaluateNoMore, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
 			lambda isLoopNode(node) (node .is. LoopNode)
 			data loop, @LoopNode, loops.First(isLoopNode)
-            ;; TODO: Should always return true if it's a primary key loop
-            mreturn (loop.CurrentIndex == loop.MaxIndex)
-        endmethod
+			;; TODO: Should always return true if it's a primary key loop
+			mreturn (loop.CurrentIndex == loop.MaxIndex)
+		endmethod
+
+		;; *********************************************************************
+		
+		private static method evaluateLoopProgress, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda isLoopNode(node) (node .is. LoopNode)
+			data loop, @LoopNode, loops.First(isLoopNode)
+
+			;This method will be called to evaluate the following expressions:
+			;
+			;	<IF PROCESSED_EXCLUSIVE_operator_value>
+			;	<IF PROCESSED_INCLUSIVE_operator_value>
+			;	<IF REMAINING_EXCLUSIVE_operator_value>
+			;	<IF REMAINING_INCLUSIVE_operator_value>
+			;
+			;Where operator can be one of EQ, NE, LT, GT, LE and GE
+			;And where value is a numeric literal
+
+			data tokenText = tkn.Value
+			data tokenValue = 0
+			data progressValue = 0
+
+			if (tokenText.StartsWith("PROCESSED_EXCLUSIVE_")) then
+			begin
+				tokenText = tokenText.Replace("PROCESSED_EXCLUSIVE_","")
+				progressValue = loop.CurrentIndex
+			end
+			else if (tokenText.StartsWith("PROCESSED_INCLUSIVE_")) then
+			begin
+				tokenText = tokenText.Replace("PROCESSED_INCLUSIVE_","")
+				progressValue = loop.CurrentIndex + 1
+			end
+			else if (tokenText.StartsWith("REMAINING_EXCLUSIVE_")) then
+			begin
+				tokenText = tokenText.Replace("REMAINING_EXCLUSIVE_","")
+				progressValue = loop.MaxIndex - loop.CurrentIndex
+			end
+			else if (tokenText.StartsWith("REMAINING_INCLUSIVE_")) then
+			begin
+				tokenText = tokenText.Replace("REMAINING_INCLUSIVE_","")
+				progressValue = loop.MaxIndex - loop.CurrentIndex + 1
+			end
+			else
+				throw new ApplicationException("Invalid loop utility expression " + tkn.Value)
+
+			using (tokenText.Substring(0,3)) select
+			("EQ_"),
+			begin
+				if (int.TryParse(tokenText.Replace("EQ_",""),tokenValue))
+					mreturn (progressValue == tokenValue)
+			end
+			("NE_"),
+			begin
+				if (int.TryParse(tokenText.Replace("NE_",""),tokenValue))
+					mreturn (progressValue != tokenValue)
+			end
+			("GT_"),
+			begin
+				if (int.TryParse(tokenText.Replace("GT_",""),tokenValue))
+					mreturn (progressValue > tokenValue)
+			end
+			("LT_"),
+			begin
+				if (int.TryParse(tokenText.Replace("LT_",""),tokenValue))
+					mreturn (progressValue < tokenValue)
+			end
+			("GE_"),
+			begin
+				if (int.TryParse(tokenText.Replace("GE_",""),tokenValue))
+					mreturn (progressValue >= tokenValue)
+			end
+			("LE_"),
+			begin
+				if (int.TryParse(tokenText.Replace("LE_",""),tokenValue))
+					mreturn (progressValue <= tokenValue)
+			end
+			endusing
+
+			throw new ApplicationException("Invalid loop utility expression " + tkn.Value)
+
+		endmethod
 	
+		private static method evaluateLoopTotalItems, boolean
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda isLoopNode(node) (node .is. LoopNode)
+			data loop, @LoopNode, loops.First(isLoopNode)
+
+			;This method will be called to evaluate <IF TOTAL_ITEMS_operator_value>
+			;Operator can be one of EQ, NE, LT, GT, LE and GE
+			;Value is a numeric literal
+
+			data tokenText = tkn.Value.Replace("TOTAL_ITEMS_","")
+			data tokenValue = 0
+			data totalItems = loop.MaxIndex + 1
+
+			using (tokenText.Substring(0,3)) select
+			("EQ_"),
+			begin
+				if (int.TryParse(tokenText.Replace("EQ_",""),tokenValue))
+					mreturn (totalItems == tokenValue)
+			end
+			("NE_"),
+			begin
+				if (int.TryParse(tokenText.Replace("NE_",""),tokenValue))
+					mreturn (totalItems != tokenValue)
+			end
+			("GT_"),
+			begin
+				if (int.TryParse(tokenText.Replace("GT_",""),tokenValue))
+					mreturn (totalItems > tokenValue)
+			end
+			("LT_"),
+			begin
+				if (int.TryParse(tokenText.Replace("LT_",""),tokenValue))
+					mreturn (totalItems < tokenValue)
+			end
+			("GE_"),
+			begin
+				if (int.TryParse(tokenText.Replace("GE_",""),tokenValue))
+					mreturn (totalItems >= tokenValue)
+			end
+			("LE_"),
+			begin
+				if (int.TryParse(tokenText.Replace("LE_",""),tokenValue))
+					mreturn (totalItems <= tokenValue)
+			end
+			endusing
+
+			throw new ApplicationException("Invalid loop utility expression " + tkn.Value)
+
+		endmethod
+
 	endclass
 
 endnamespace
