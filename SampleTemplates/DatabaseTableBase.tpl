@@ -183,7 +183,7 @@ namespace <NAMESPACE>
             endrecord
         proc
             if (%ssc_getemsg(mDb.Channel,dbErrText,length,,mErrorNumber)==SSQL_NORMAL) then
-                mErrorMessage = atrim(dbErrText)
+                mErrorMessage = %atrim(dbErrText)
             else
                 mErrorMessage = defaultMessage
             mreturn false

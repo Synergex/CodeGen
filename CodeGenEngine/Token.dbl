@@ -46,16 +46,16 @@ import System.Collections.Generic
 
 namespace CodeGen.Engine
 
-    public enum TokenModifier
-        XfCase
-        MixedCase
-        PascalCase
-        CamelCase
-        None
+	public enum TokenModifier
+		XfCase
+		MixedCase
+		PascalCase
+		CamelCase
+		None
 		LowerCase
 	endenum
 
-    public class Token
+	public class Token
 
 		public File					,string
 		public StartColumn			,int
@@ -71,87 +71,84 @@ namespace CodeGen.Engine
 		public RequiresNamespace	,boolean
 		
 		public method Token
-            aFile				,string 
-            aStartIndex			,int 
-            aEndIndex			,int 
-            aCloser				,boolean 
-            aValue				,string 
-            aType				,TokenType 
-            aModifier			,TokenModifier 
-            aBucket				,@object 
+			aFile				,string 
+			aStartIndex			,int 
+			aEndIndex			,int 
+			aCloser				,boolean 
+			aValue				,string 
+			aType				,TokenType 
+			aModifier			,TokenModifier 
+			aBucket				,@object 
 			aLineStarts			,[#]int
 			aRequiresRepository	,boolean
 			aRequiresNamespace	,boolean
-			endparams
-        proc
-            File = aFile
-            StartLineNumber = GetLineNumber(aStartIndex, aLineStarts)
-            StartColumn = aStartIndex - aLineStarts[StartLineNumber]
-            EndLineNumber = GetLineNumber(aEndIndex, aLineStarts)
-            StartColumn = aEndIndex - aLineStarts[EndLineNumber]
-            Closer = aCloser
-            Value = aValue
+		proc
+			File = aFile
+			StartLineNumber = GetLineNumber(aStartIndex, aLineStarts)
+			StartColumn = aStartIndex - aLineStarts[StartLineNumber]
+			EndLineNumber = GetLineNumber(aEndIndex, aLineStarts)
+			StartColumn = aEndIndex - aLineStarts[EndLineNumber]
+			Closer = aCloser
+			Value = aValue
 			TypeOfToken = aType
-            Modifier = aModifier
+			Modifier = aModifier
 			Bucket = aBucket
 			RequiresRepository = aRequiresRepository
 			RequiresNamespace = aRequiresNamespace
 		endmethod
 
-        private static method GetLineNumber, int
-            position	, int 
-            lineStarts	, [#]int 
-            endparams
-        proc
-            data index = Array.BinarySearch(lineStarts, position)
-            if (index < 0)
-            begin
-                ;; less than zero means we didnt match exactly a line start but the ones complement will give us the nearest following line start
-                ;; we want the nearest prior, so do the ones complement then subtract one from it to get the right position
+		private static method GetLineNumber, int
+			position	, int 
+			lineStarts	, [#]int 
+		proc
+			data index = Array.BinarySearch(lineStarts, position)
+			if (index < 0)
+			begin
+				;; less than zero means we didnt match exactly a line start but the ones complement will give us the nearest following line start
+				;; we want the nearest prior, so do the ones complement then subtract one from it to get the right position
 				index = (~index) - 1
 			end
-            mreturn index
-        endmethod
+			mreturn index
+		endmethod
 
-        public override method ToString, string
-            endparams
-        proc
+		public override method ToString, string
+		proc
 			using TypeOfToken select
 			
 			(TokenType.FileHeader, TokenType.PreProcessor),
-            begin
-                if (Closer) then
+			begin
+				if (Closer) then
 					mreturn String.Format("{0}: </{1}>", TypeOfToken, Value)
-                else
+				else
 					mreturn String.Format("{0}: <{1}>", TypeOfToken, Value)
-            end
+			end
 			
-            (TokenType.Text),
+			(TokenType.Text),
 				mreturn String.Format("{0}: {1}", TypeOfToken, Value.Replace(%char(13), "<CR>").Replace(%char(10), "<LF>").Replace(%char(9), "<TAB>"))
 			
 			(TokenType.Generic, TokenType.StructureInfo, TokenType.FieldLoop, TokenType.FieldSelectionLoop, TokenType.KeyLoop, TokenType.KeySegmentLoop, TokenType.EnumLoop, TokenType.EnumMemberLoop, TokenType.RelationLoop, TokenType.ButtonLoop, TokenType.FileLoop, TokenType.TagLoop, TokenType.StructureLoop, TokenType.LoopUtility, TokenType.Window, TokenType.Counter, TokenType.User),
 				mreturn String.Format("{0}: <{1}>", TypeOfToken, Value)
 			
-            (TokenType.Control),
-            begin
-                if (Closer) then
+			(TokenType.Control),
+			begin
+				if (Closer) then
 					mreturn String.Format("{0}: </{1}>", TypeOfToken, Value)
-                else
+				else
 					mreturn String.Format("{0}: <{1}>", TypeOfToken, Value)
-            end
+			end
 			
 			(TokenType.Expression),
-            begin
+			begin
 				mreturn String.Format("{0}: {1}", TypeOfToken, Value)
-            end
+			end
             
-            (TokenType.Loop, TokenType.NotInLoop),
-            begin
-                if (Closer) then
+			(TokenType.Loop, TokenType.NotInLoop),
+			begin
+				if (Closer) then
 					mreturn String.Format("{0}: </{1}>", TypeOfToken, Value)
-                else
+				else
 					mreturn String.Format("{0}: <{1}>", TypeOfToken, Value)
-            end
+			end
 			
 			(),
 				mreturn String.Format("{0}: <{1}>", TypeOfToken, Value)

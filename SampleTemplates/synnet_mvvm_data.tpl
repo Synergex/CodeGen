@@ -112,7 +112,7 @@ namespace <MVVM_DATA_NAMESPACE>
             method get
             proc
                 <IF ALPHA>
-                mreturn atrim(m<StructureName>.<field_name>)
+                mreturn %atrim(m<StructureName>.<field_name>)
                 </IF ALPHA>
                 <IF DECIMAL>
                 mreturn m<StructureName>.<field_name>

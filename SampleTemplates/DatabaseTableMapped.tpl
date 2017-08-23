@@ -217,7 +217,7 @@ namespace <NAMESPACE>
                             ok = true
                         end
                         else
-                            mErrorMessage = atrim(dbErrText)
+                            mErrorMessage = %atrim(dbErrText)
                     end
                 end
             end

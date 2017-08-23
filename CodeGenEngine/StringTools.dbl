@@ -56,7 +56,7 @@ namespace CodeGen.Engine
 		;;; <returns>Converted string</returns>
 		public static method CamelCase, String
 			required in inString, String
-			endparams
+
 			.include "CODEGEN_SRC:codegen.def"
 			stack record
 				outString   ,a CODEGEN_BUFSZ
@@ -105,29 +105,90 @@ namespace CodeGen.Engine
 					endusing
 				end
 			end
-			mreturn atrim(outString)
+			mreturn %atrim(outString)
 		endmethod
 
 		public static method FieldRegex, String
-			required in Fld         ,@RpsField
-			endparams
+			required in Fld, @RpsField
 		proc
 			data theRegEx, String
 
 			using Fld.DataTypeCode select
+
 			("D"),
-				call DecimalRegex
+			begin
+				;;From start of string
+				theRegEx = "^"
+			
+				;;Determine if a leading + or - are allowed
+				if (Fld.NegativeAllowed==RpsFieldNegatives.None) then
+					theRegEx = theRegEx + "[+]?"
+				else
+					theRegEx = theRegEx + "[+-]?"
+				
+				;;Allow any number of leading zero's
+				theRegEx = theRegEx + "[0]*"
+			
+				;;Allow the appropriate number of numeric characters before the decimal point
+				theRegEx = theRegEx + "[0-9]{0," + string(Fld.Size-Fld.Precision) + "}"
+			
+				if (Fld.Precision>0)
+				begin
+					;;Start sub-expression. This is used to ensure that the code that allows digits
+					;;after a decimal point is excluded if there is no decimal point.
+					theRegEx = theRegEx + "("
+				
+					;;Optional decimal point
+					theRegEx = theRegEx + "\."
+				
+					;;Allow the appropriate number of numeric characters after the decimal point
+					theRegEx = theRegEx + "[0-9]{0," + string(Fld.Precision) + "}"
+				
+					;;Allow any number of trailing zero's
+					theRegEx = theRegEx + "[0]*"
+				
+					;;End sub-expression
+					theRegEx = theRegEx + ")?"
+				end
+			
+				;;End of string
+				theRegEx = theRegEx + "$"
+			end
+
 			("I"),
-				call IntegerRegex
-			(),
-				call AlphaRegex
-			endusing
+			begin
+				;;IMPORTANT: The regular expression for integer fields will constrain
+				;;the number of characters entered, and restrict those characters to
+				;;being numeric characters, but it will NOT restrict the user to only
+				;;entering valid numeric values. For example, an i1 field can store
+				;;up to 127, the regex will constrain the entry to 3 numeric characters
+				;;but it will still be possible to enter an out of range value (e.g. 256).
 			
-			mreturn theRegEx
+				;;From start of string
+				theRegEx = "^"
 			
-			;;-------------------------------------------------------------------------
-		AlphaRegex,
+				;;Determine if a leading + or - are allowed
+				if (Fld.NegativeAllowed==RpsFieldNegatives.None) then
+					theRegEx = theRegEx + "[+]?"
+				else
+					theRegEx = theRegEx + "[+-]?"
+				
+				;;Allow any number of leading zero's
+				theRegEx = theRegEx + "[0]*"
 			
+				;;Allow the appropriate number of numeric characters
+				using Fld.Size select
+				(1),    theRegEx = theRegEx + "[0-9]{0,3}"
+				(2),    theRegEx = theRegEx + "[0-9]{0,5}"
+				(4),    theRegEx = theRegEx + "[0-9]{0,10}"
+				(8),    theRegEx = theRegEx + "[0-9]{0,19}"
+				endusing
+			
+				;;End of string
+				theRegEx = theRegEx + "$"
+			end
+
+			(),	;Alpha
 			begin
 				data minChars, int, 0
 				
@@ -144,85 +205,9 @@ namespace CodeGen.Engine
 				;;End of string
 				theRegEx = theRegEx + "$"
 			end
-			
-			return
-			
-			;;-------------------------------------------------------------------------
-		DecimalRegex,
-			
-			;;From start of string
-			theRegEx = "^"
-			
-			;;Determine if a leading + or - are allowed
-			if (Fld.NegativeAllowed==RpsFieldNegatives.None) then
-				theRegEx = theRegEx + "[+]?"
-			else
-				theRegEx = theRegEx + "[+-]?"
-				
-			;;Allow any number of leading zero's
-			theRegEx = theRegEx + "[0]*"
-			
-			;;Allow the appropriate number of numeric characters before the decimal point
-			theRegEx = theRegEx + "[0-9]{0," + string(Fld.Size-Fld.Precision) + "}"
-			
-			if (Fld.Precision>0)
-			begin
-				;;Start sub-expression. This is used to ensure that the code that allows digits
-				;;after a decimal point is excluded if there is no decimal point.
-				theRegEx = theRegEx + "("
-				
-				;;Optional decimal point
-				theRegEx = theRegEx + "\."
-				
-				;;Allow the appropriate number of numeric characters after the decimal point
-				theRegEx = theRegEx + "[0-9]{0," + string(Fld.Precision) + "}"
-				
-				;;Allow any number of trailing zero's
-				theRegEx = theRegEx + "[0]*"
-				
-				;;End sub-expression
-				theRegEx = theRegEx + ")?"
-			end
-			
-			;;End of string
-			theRegEx = theRegEx + "$"
-			
-			return
-			
-			;;-------------------------------------------------------------------------
-		IntegerRegex,
-			
-			;;IMPORTANT: The regular expression for integer fields will constrain
-			;;the number of characters entered, and restrict those characters to
-			;;being numeric characters, but it will NOT restrict the user to only
-			;;entering valid numeric values. For example, an i1 field can store
-			;;up to 127, the regex will constrain the entry to 3 numeric characters
-			;;but it will still be possible to enter an out of range value (e.g. 256).
-			
-			;;From start of string
-			theRegEx = "^"
-			
-			;;Determine if a leading + or - are allowed
-			if (Fld.NegativeAllowed==RpsFieldNegatives.None) then
-				theRegEx = theRegEx + "[+]?"
-			else
-				theRegEx = theRegEx + "[+-]?"
-				
-			;;Allow any number of leading zero's
-			theRegEx = theRegEx + "[0]*"
-			
-			;;Allow the appropriate number of numeric characters
-			using Fld.Size select
-			(1),    theRegEx = theRegEx + "[0-9]{0,3}"
-			(2),    theRegEx = theRegEx + "[0-9]{0,5}"
-			(4),    theRegEx = theRegEx + "[0-9]{0,10}"
-			(8),    theRegEx = theRegEx + "[0-9]{0,19}"
 			endusing
 			
-			;;End of string
-			theRegEx = theRegEx + "$"
-			
-			return
+			mreturn theRegEx
 			
 		endmethod
 
@@ -233,52 +218,38 @@ namespace CodeGen.Engine
 		;;; <returns>True if the string contains a numeric value</returns>
 		public static method IsNumeric, boolean
 			required in inString, a
-			endparams
-			stack record
-				numeric, boolean
-			endrecord
 		proc
 			try
 			begin
 				data d28, d28
-				d28 = atrim(inString)
-				numeric = true
+				d28 = %atrim(inString)
+				mreturn true
 			end
 			catch (e, @BadDigitException)
 			begin
-				numeric = false
+				mreturn false
 			end
 			endtry
-			mreturn numeric
 		endmethod
 	
 		public static method IsValidSynergyIdentifier, boolean
 			required in name, a
-			endparams
-			stack record
-				nameOk, boolean
-				length, int
-			endrecord
 		proc
-			nameOk = true
-
 			;;Length must be between 1 and 30
-			length = %trim(name)
-			nameOk = ((length>0)&&(length<=30))
-			
+			data length = %trim(name)
+			if ((length<0)||(length>30))
+				mreturn false
+
 			;;First character must be alphabetic
-			if (nameOk)
-			begin
-				using %decml(name(1:1)) select
-				(65 thru 90, 97 thru 122),
-					nop
-				(),
-					nameOk = false
-				endusing
-			end
+			using %decml(name(1:1)) select
+			(65 thru 90, 97 thru 122),
+				nop
+			(),
+				mreturn false
+			endusing
 			
 			;;Subsequent characters must be alphabetic, numeric, $ or _
-			if (nameOk&&(length>1))
+			if (length>1)
 			begin
 				data pos, int
 				for pos from 2 thru length
@@ -288,14 +259,13 @@ namespace CodeGen.Engine
 						nop
 					(),
 					begin
-						nameOk = false
-						exitloop
+						mreturn false
 					end
 					endusing
 				end
 			end
 
-			mreturn nameOk
+			mreturn true
 			
 		endmethod
 
@@ -306,13 +276,8 @@ namespace CodeGen.Engine
 		;;; <returns>True if the string only contains whitespace characters</returns>
 		public static method IsWhitespace, boolean
 			required in inString, a
-			endparams
-			stack record
-				ix          ,int
-				whitespace  ,boolean
-			endrecord
 		proc
-			whitespace = true
+			data ix = 0
 			for ix from 1 thru trimz(inString)
 			begin
 				using decml(inString(ix:1)) select
@@ -320,12 +285,11 @@ namespace CodeGen.Engine
 					nop
 				(),     ;;Anything else is not
 				begin
-					whitespace = false
-					exitloop
+					mreturn false
 				end
 				endusing
 			end
-			mreturn whitespace
+			mreturn true
 		endmethod
 		
 		;;; <summary>
@@ -335,7 +299,6 @@ namespace CodeGen.Engine
 		;;; <returns>Converted string</returns>
 		public static method LowerCase, String
 			required in inString, String
-			endparams
 		proc
 			mreturn inString.TrimEnd().ToLower()
 		endmethod
@@ -347,7 +310,6 @@ namespace CodeGen.Engine
 		;;; <returns>Converted string</returns>
 		public static method MixedCase, String
 			required in inString, String
-			endparams
 			.include "CODEGEN_SRC:codegen.def"
 			stack record
 				len         ,i4
@@ -388,7 +350,7 @@ namespace CodeGen.Engine
 						exitloop
 				end
 			end
-			mreturn atrim(outString)
+			mreturn %atrim(outString)
 		endmethod
 		
 		;;; <summary>
@@ -399,23 +361,19 @@ namespace CodeGen.Engine
 		;;; <returns>Number that was delimited by first set or parentheses, or zero.</returns>
 		public static method NumberFromParens ,int
 			required in inString, a
-			endparams
-			stack record
-				startPos    ,int
-				endPos      ,int
-				intVal      ,int
-			endrecord
 		proc
-			clear intVal
-			if (startPos = instr(1,inString,"("))
+			data startPos = 0
+			data endPos = 0
+			data intVal = 0
+			if (startPos = %instr(1,inString,"("))
 			begin
-				if (endPos = instr(startPos,inString,")"))
+				if (endPos = %instr(startPos,inString,")"))
 				begin
 					if ((endPos-=1)>(startPos+=1))
 					begin
 						try
 						begin
-							intVal = integer(inString(startPos,endPos))
+							intVal = %integer(inString(startPos,endPos))
 						end
 						catch (e, @BadDigitException)
 						begin
@@ -430,7 +388,6 @@ namespace CodeGen.Engine
 		
 		public static method OdbcName, String
 			required in fieldName, String
-			endparams
 		proc
 			mreturn fieldName.Trim().Replace("[","_").Replace("]","").Replace(",","_").Replace(".","_")
 		endmethod
@@ -442,14 +399,13 @@ namespace CodeGen.Engine
 		;;; <returns>Converted string</returns>
 		public static method PascalCase, String
 			required in inString, String
-			endparams
 			.include "CODEGEN_SRC:codegen.def"
 			stack record
 				outString, a CODEGEN_BUFSZ
 			endrecord
 		proc
 			outString = inString
-			if (trimz(outString))
+			if (%trimz(outString))
 			begin
 				data pos, int
 				;;Start with the original string
@@ -466,7 +422,7 @@ namespace CodeGen.Engine
 				end
 				;;Uppercase any character which follows anything other than 0-9, A-Z, a-z
 				pos=1
-				while ((pos+=1)<=trim(outString))
+				while ((pos+=1)<=%trim(outString))
 				begin
 					using outString(pos:1) select
 					("0" thru "9", "A" thru "Z", "a" thru "z"),
@@ -477,7 +433,7 @@ namespace CodeGen.Engine
 				end
 				;;Remove anything that is not 0-9, A-Z, a-z, [, ], (, ), @
 				clear pos
-				while ((pos+=1)<=trim(outString))
+				while ((pos+=1)<=%trim(outString))
 				begin
 					using outString(pos:1) select
 					("0" thru "9", "A" thru "Z", "a" thru "z", "[", "]", "(", ")", "@"),
@@ -499,7 +455,7 @@ namespace CodeGen.Engine
 				else
 					upcase outString(1:1)
 			end
-			mreturn atrim(outString)
+			mreturn %atrim(outString)
 		endmethod
 		
 		private enum QuoteType
@@ -516,7 +472,7 @@ namespace CodeGen.Engine
 		;;; <returns>Content of first quoted string (not including the quotes) or blank.</returns>
 		public static method QuotedString ,a
 			required in inString, a
-			endparams
+
 			stack record local_data
 				gotQuote    ,int
 				thisPos     ,int
@@ -526,7 +482,7 @@ namespace CodeGen.Engine
 			endrecord
 		proc
 			init local_data
-			for thisPos from 1 thru trim(inString)
+			for thisPos from 1 thru %trim(inString)
 			begin
 				using inString(thisPos:1) select
 				("'"),
@@ -568,7 +524,7 @@ namespace CodeGen.Engine
 				endusing
 			end
 			if (gotQuote == 2) then
-				mreturn atrim(inString(startPos,endPos))
+				mreturn %atrim(inString(startPos,endPos))
 			else
 				mreturn ""
 		endmethod
@@ -580,7 +536,6 @@ namespace CodeGen.Engine
 		;;; <returns>String with leading spaces removed</returns>
 		public static method RemoveLeading, a
 			required in inString, a
-			endparams
 		proc
 			if (inString) then
 			begin
@@ -596,11 +551,9 @@ namespace CodeGen.Engine
 		
 		public static method SqlName, String
 			required in fieldName, String
-			endparams
 		proc
 			mreturn fieldName.Trim().Replace("[","").Replace("]","").Replace(",","_").Replace(".","_").Replace("$","_")
 		endmethod
-		
 
 		;;; <summary>
 		;;; Extracts and returns a string which is delimited by the first
@@ -610,22 +563,18 @@ namespace CodeGen.Engine
 		;;; <returns>String that was delimited by first set or parentheses, or blank.</returns>
 		public static method StringFromParens, a
 			required in inString, a
-			endparams
-			stack record
-				startPos    ,int
-				endPos      ,int
-				result      ,String
-			endrecord
 		proc
-			result = ""
-			if (startPos = instr(1,inString,"("))
+			data startPos, int
+			data endPos, int
+			data result, string, ""
+			if (startPos = %instr(1,inString,"("))
 			begin
-				if (endPos = instr(1,inString,")"))
+				if (endPos = %instr(1,inString,")"))
 				begin
 					incr startPos
 					decr endPos
 					if (endPos>startPos)
-						result = atrim(inString(startPos,endPos))
+						result = %atrim(inString(startPos,endPos))
 				end
 			end
 			mreturn (a)result
@@ -697,7 +646,7 @@ namespace CodeGen.Engine
 						exitloop
 				end
 			end
-			mreturn atrim(outString)
+			mreturn %atrim(outString)
 		endmethod
 		
 		public static method GetGoat, string
