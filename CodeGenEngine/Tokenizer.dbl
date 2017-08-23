@@ -1556,7 +1556,28 @@ namespace CodeGen.Engine
 			if (tokenValue.StartsWith("/")) then
 				mreturn closerLookup.Contains(tokenValue.ToUpper())
 			else
-				mreturn modifierLookup.ContainsKey(tokenValue)
+			begin
+				;;Main token lookup - this will validate most tokens
+				if (modifierLookup.ContainsKey(tokenValue))
+					mreturn true
+				
+				;;And now the exceptions!
+				if ( tokenValue.StartsWith("REMAINING_EXCLUSIVE_MAX_")
+				& || tokenValue.StartsWith("REMAINING_INCLUSIVE_MAX_"))
+				begin
+					;;Declare the token as valid so that tokenization works.
+					;;Further validation will take place later during expansion.
+					if (!canonicalNameLookup.ContainsKey(tokenValue))
+					begin
+						addLookupToken( new TokenMeta() {Name = tokenValue, TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop})
+						mreturn true
+					end
+				end
+
+				;;Whatever you found, it's not a CodeGen token!
+				mreturn false
+
+			end
 		endmethod
 		
 		;;;  <summary>

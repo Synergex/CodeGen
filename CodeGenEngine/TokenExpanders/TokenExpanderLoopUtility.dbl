@@ -248,6 +248,47 @@ namespace CodeGen.Engine
 			mreturn ExpandLoopUtilityToken(tkn, file, loops, doExpand)
 		endmethod
 		
+		private static method expandLoopUtilRemainingMax, string
+			tkn, @Token 
+			file, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			;This method will be called to expand the following tokens:
+			;
+			;	<REMAINING_EXCLUSIVE_MAX_value>
+			;	<REMAINING_INCLUSIVE_MAX_value>
+			;
+			;Where value is a numeric literal
+
+			lambda isLoopNode(node) (node .is. LoopNode)
+			data loop, @LoopNode, loops.First(isLoopNode)
+
+			data tokenText = tkn.Value
+			data maxValue = 0
+			data remainingValue = 0
+
+			if (tokenText.StartsWith("REMAINING_EXCLUSIVE_MAX_")) then
+			begin
+				tokenText = tokenText.Replace("REMAINING_EXCLUSIVE_MAX_","")
+				remainingValue = loop.MaxIndex - loop.CurrentIndex
+			end
+			else if (tokenText.StartsWith("REMAINING_INCLUSIVE_MAX_"))
+			begin
+				tokenText = tokenText.Replace("REMAINING_INCLUSIVE_MAX_","")
+				remainingValue = loop.MaxIndex - loop.CurrentIndex + 1
+			end
+
+			if (int.TryParse(tokenText,maxValue))
+			begin
+				lambda doExpand(loop) String.Format("{0}", (remainingValue < maxValue) ? remainingValue : maxValue )
+				mreturn ExpandLoopUtilityToken(tkn, file, loops, doExpand)
+			end
+				
+			throw new ApplicationException("Invalid loop utility token " + tkn.Value)
+
+		endmethod
+		
 		private static method expandLoopUtilTotalItems, string
 			tkn, @Token 
 			file, @FileNode 
