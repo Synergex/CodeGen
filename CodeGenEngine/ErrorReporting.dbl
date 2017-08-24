@@ -45,6 +45,8 @@
 import System
 import System.Collections.Generic
 import System.IO
+import System.Reflection
+import System.Diagnostics
 
 .array 0
 
@@ -162,6 +164,20 @@ namespace CodeGen.Engine
 			currentFileNode = node
 			Visit(node.Body)
 			
+			;; Does the template require a specific version of CodeGen?
+			if (node.RequiredCodeGenVersion != ^null)
+			begin
+				data codeGenVersion = Version.Parse(FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion)
+				if (node.RequiredCodeGenVersion > codeGenVersion)
+				begin
+					;;Strip off the last component of the assembly version number
+					data versionString = codeGenVersion.ToString().Substring(0,codeGenVersion.ToString().LastIndexOf("."))
+					;;Display the error
+					data message = String.Format("Template {0} requires a CodeGen {1} or higher. You are running version {2}.", node.Context.CurrentTemplateBaseName,node.RequiredCodeGenVersion.ToString(), versionString)
+					Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+				end
+			end
+
 			;; Does anythng in the tree require repository structure processing?
 			if ((node.RequiresRepository) && (node.Context.Structures.Count == 0))
 			begin
