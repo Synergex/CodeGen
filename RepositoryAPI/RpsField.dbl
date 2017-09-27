@@ -101,6 +101,7 @@ namespace CodeGen.RepositoryAPI
         protected mGroupFields          ,@RpsFieldCollection
         protected mGroupStructure       ,String
         protected mGroupMemberPrefix    ,String
+		protected mFormatString			,String
 
         ;;; <summary>
         ;;; Constructs a new field based on the name of a structure and a field.
@@ -500,6 +501,36 @@ namespace CodeGen.RepositoryAPI
             end
             else
                 mEnumName = ""
+
+			;; Load display format string
+			if (mf_info.fi_fmt) then
+			begin
+				;;Is the format defined in the structure?
+				data formatType, a1
+				data formatString, a30
+				xcall dd_format(Repository.RpsControl,DDM_SINFO,mf_info.fi_fmt,formatType,formatString)
+
+				if (!Repository.RpsControl.error) then
+				begin
+					;;Found it
+					mFormatString = %atrim(formatString)
+				end
+				else
+				begin
+					;;Maybe it's a "global" or "pre-defined" format?
+					xcall dd_format(Repository.RpsControl,DDM_INFO,mf_info.fi_fmt,formatType,formatString)
+					if (!Repository.RpsControl.error)
+					begin
+						;;Found it
+						mFormatString = %atrim(formatString)
+					end
+				end
+
+				;;Shouldn't get here, but just in case
+				mFormatString = String.Empty
+			end
+			else
+				mFormatString = String.Empty
 
             ;; Things below here are unique to fields (not included in templates)
 
@@ -1430,24 +1461,37 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Display format name (a30)
+		;; Display format name (a30)
 
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
+		{Category("Display - Field")}
+		{Description("")}
+		{ReadOnly(true)}
         
-        public property FormatName, String
-            method get
-            proc
-                mreturn %atrim(mf_info.fi_fmt)
-            endmethod
-            method set
-            proc
-                mf_info.fi_fmt = value
-            endmethod
-        endproperty
+		public property FormatName, String
+			method get
+			proc
+				mreturn %atrim(mf_info.fi_fmt)
+			endmethod
+			method set
+			proc
+				mf_info.fi_fmt = value
+			endmethod
+		endproperty
 
-        ;; Input field justification
+		;; Display format string (a30)
+
+		{Category("Display - Field")}
+		{Description("The fields display format string, if any.")}
+		{ReadOnly(true)}
+        
+		public property FormatString, String
+			method get
+			proc
+				mreturn mFormatString
+			endmethod
+		endproperty
+
+		;; Input field justification
 
         {Category("Display - Field")}
         {Description("")}
