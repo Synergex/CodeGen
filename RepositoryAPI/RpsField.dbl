@@ -59,49 +59,10 @@ namespace CodeGen.RepositoryAPI
 		public override method ToString, String
 			endparams
 		proc
-			mreturn String.Format("RpsField: {0}",mName)
+			mreturn String.Format("RpsField: {0}",this.Name)
 		endmethod
 		
-		;;Field attribute data
-        ;;
-        ;;IMPARTANT: If more properties are added, remember to update the cloneField method
-        ;;
-        protected mStructureName        ,String
-        protected mf_info               ,f_info
-        protected mName                 ,String
-        protected mOriginalName         ,String
-        protected mBaseName             ,String
-        protected mDescription          ,String
-        protected mLongDescription      ,String
-        protected mUserFieldType        ,String
-        protected mReportHeading        ,String
-        protected mPrompt               ,String
-        protected mHelpIdentifier       ,String
-        protected mInfoLineText         ,String
-        protected mUserText             ,String
-        protected mAlternateName        ,String
-        protected mFieldFont            ,String
-        protected mPromptFont           ,String
-        protected mDefaultValue         ,String
-        protected mArriveMethod         ,String
-        protected mLeaveMethod          ,String
-        protected mDrillMethod          ,String
-        protected mHyperlinkMethod      ,String
-        protected mChangeMethod         ,String
-        protected mDisplayMethod        ,String
-        protected mEditFormatMethod     ,String
-        protected mStructFieldStructure ,String
-        protected mArrayDimension       ,[#]int
-        protected mfti_range            ,fti_range
-        protected mfti_enum             ,fti_enum
-        protected mAllowList            ,@ArrayList
-        protected mSelectionList        ,@List<String>
-        protected mCoercedType          ,RpsFieldCoercedType
-        protected mEnumName             ,String
-        protected mGroupFields          ,@RpsFieldCollection
-        protected mGroupStructure       ,String
-        protected mGroupMemberPrefix    ,String
-		protected mFormatString			,String
+        protected mf_info, f_info
 
         ;;; <summary>
         ;;; Constructs a new field based on the name of a structure and a field.
@@ -142,7 +103,7 @@ namespace CodeGen.RepositoryAPI
         ;; Destructor
         method ~RpsField
         proc
-            clear mAllowList, mSelectionList, mGroupFields
+            clear this.AllowList, this.SelectionList, this.GroupFields
         endmethod
 
         ;;; <summary>
@@ -175,336 +136,272 @@ namespace CodeGen.RepositoryAPI
             endparams
         proc
             ;;Save the structure and field names
-            mStructureName = RpsUtils.UpperCase(Repository.RpsControl.sname)
-            mName = FieldName.Trim().ToUpper()
-            mOriginalName = mName
-            mBaseName = mName
+			this.StructureName = %atrim(Repository.RpsControl.sname)
+			this.Name = FieldName.Trim().ToUpper()
+			this.OriginalName = this.Name
+			this.BaseName = this.Name
 
             ;;Load the field information structure
             dd_field(Repository.RpsControl,DDF_INFO,FieldName,^a(mf_info))
             if (Repository.RpsControl.error)
-                throw new RpsFieldException("Failed to get repository information for " + mStructureName +  "." + FieldName.Trim())
+				throw new RpsFieldException("Failed to get repository information for " + this.StructureName +  "." + FieldName.Trim())
 
             ;;Load extended data
 
-            mArrayDimension = new int[4]
-            mArrayDimension[1] = mf_info.fi_dim[1]
-            mArrayDimension[2] = mf_info.fi_dim[2]
-            mArrayDimension[3] = mf_info.fi_dim[3]
-            mArrayDimension[4] = mf_info.fi_dim[4]
+            this.ArrayDimension = new int[4]
+            this.ArrayDimension[1] = mf_info.fi_dim[1]
+            this.ArrayDimension[2] = mf_info.fi_dim[2]
+            this.ArrayDimension[3] = mf_info.fi_dim[3]
+            this.ArrayDimension[4] = mf_info.fi_dim[4]
 
             ;;Load description
-            if (mf_info.fi_desc) then
+            if (mf_info.fi_desc)
             begin
                 data tmpDescription, a40
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_desc,tmpDescription)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get description for repository field "+FieldName)
-                else
-                    mDescription = %atrim(tmpDescription)
+                this.Description = %atrim(tmpDescription)
             end
-            else
-                mDescription = ""
 
             ;;Load long description
-            if (mf_info.fi_ldesc) then
+            if (mf_info.fi_ldesc)
             begin
                 data tmpLongDescription, a1800
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_ldesc,tmpLongDescription)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get long description for repository field "+FieldName)
-                else
-                    mLongDescription = %atrim(tmpLongDescription)
+				this.LongDescription = %atrim(tmpLongDescription)
             end
-            else
-                mLongDescription = ""
 
             ;;Load user defined field type
-            if (mf_info.fi_usrtyp) then
+            if (mf_info.fi_usrtyp)
             begin
                 data tmpUserFieldType, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_usrtyp,tmpUserFieldType)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get user defined type for repository field "+FieldName)
-                else
-                    mUserFieldType = %atrim(tmpUserFieldType)
+				this.UserFieldType = %atrim(tmpUserFieldType)
             end
-            else
-                mUserFieldType = ""
 
             ;;Load report heading
-            if (mf_info.fi_heading) then
+            if (mf_info.fi_heading)
             begin
                 data tmpReportHeading, a40
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_heading,tmpReportHeading)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get report heading for repository field "+FieldName)
-                else
-                    mReportHeading = %atrim(tmpReportHeading)
+				this.ReportHeading = %atrim(tmpReportHeading)
             end
-            else
-                mReportHeading = ""
 
             ;;Load prompt
-            if (mf_info.fi_prompt) then
+            if (mf_info.fi_prompt)
             begin
                 data tmpPrompt, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prompt,tmpPrompt)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get prompt for repository field "+FieldName)
-                else
-                    mPrompt = %atrim(tmpPrompt)
+                this.Prompt = %atrim(tmpPrompt)
             end
-            else
-                mPrompt = ""
 
             ;;Load help identifier
-            if (mf_info.fi_help) then
+            if (mf_info.fi_help)
             begin
                 data tmpHelpIdentifier, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_help,tmpHelpIdentifier)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get help identifier for repository field "+FieldName)
-                else
-                    mHelpIdentifier = %atrim(tmpHelpIdentifier)
+				this.HelpIdentifier = %atrim(tmpHelpIdentifier)
             end
-            else
-                mHelpIdentifier = ""
 
             ;;Load information line text
-            if (mf_info.fi_infoln) then
+            if (mf_info.fi_infoln)
             begin
                 data tmpInfoLineText, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_infoln,tmpInfoLineText)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get information line text for repository field "+FieldName)
-                else
-                    mInfoLineText = tmpInfoLineText
+				this.InfoLineText = tmpInfoLineText
             end
-            else
-                mInfoLineText = ""
 
             ;;Load user text string
-            if (mf_info.fi_utext) then
+            if (mf_info.fi_utext)
             begin
                 data tmpUserText, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_utext,tmpUserText)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get user text for repository field "+FieldName)
-                else
-                    mUserText = %atrim(tmpUserText)
+				this.UserText = %atrim(tmpUserText)
             end
-            else
-                mUserText = ""
 
             ;;Load alternate name
-            if (mf_info.fi_altnm) then
+            if (mf_info.fi_altnm)
             begin
                 data tmpalternateName, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_altnm,tmpAlternateName)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get alternate name for repository field "+FieldName)
-                else
-                    mAlternateName = %atrim(tmpalternateName)
+				this.AlternateName = %atrim(tmpalternateName)
             end
-            else
-                mAlternateName = mName
-
 
             ;;Load field font
-            if (mf_info.fi_font) then
+            if (mf_info.fi_font)
             begin
                 data tmpFieldFont, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_font,tmpFieldFont)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get field font for repository field "+FieldName)
-                else
-                    mFieldFont = %atrim(tmpFieldFont)
+				this.FieldFont = %atrim(tmpFieldFont)
             end
-            else
-                mFieldFont = ""
 
             ;;Load prompt font
-            if (mf_info.fi_prmptfont) then
+            if (mf_info.fi_prmptfont)
             begin
                 data tmpPromptFont, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prmptfont,tmpPromptFont)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get prompt font for repository field "+FieldName)
-                else
-                    mPromptFont = %atrim(tmpPromptFont)
+				this.PromptFont = %atrim(tmpPromptFont)
             end
-            else
-                mPromptFont = ""
 
             ;;Load default value
-            if (mf_info.fi_def) then
+            if (mf_info.fi_def)
             begin
                 data tmpDefaultValue, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_def,tmpDefaultValue)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get default value for repository field "+FieldName)
-                else
-                    mDefaultValue = %atrim(tmpDefaultValue)
+				this.DefaultValue = %atrim(tmpDefaultValue)
             end
-            else
-                mDefaultValue = ""
 
             ;;Load arrive method
-            if (mf_info.fi_arrivemeth) then
+            if (mf_info.fi_arrivemeth)
             begin
                 data tmpArriveMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_arrivemeth,tmpArriveMethod)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get arrive method for repository field "+FieldName)
-                else
-                    mArriveMethod = %atrim(tmpArriveMethod)
+				this.ArriveMethod = %atrim(tmpArriveMethod)
             end
-            else
-                mArriveMethod = ""
 
             ;;Load leave method
-            if (mf_info.fi_leavemeth) then
+            if (mf_info.fi_leavemeth)
             begin
                 data tmpLeaveMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_leavemeth,tmpLeaveMethod)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get leave method for repository field "+FieldName)
-                else
-                    mLeaveMethod = %atrim(tmpLeaveMethod)
+				this.LeaveMethod = %atrim(tmpLeaveMethod)
             end
-            else
-                mLeaveMethod = ""
 
             ;;Load drill method
-            if (mf_info.fi_drillmeth) then
+            if (mf_info.fi_drillmeth)
             begin
                 data tmpDrillMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_drillmeth,tmpDrillMethod)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get drill method for repository field "+FieldName)
-                else
-                    mDrillMethod = %atrim(tmpDrillMethod)
+				this.DrillMethod = %atrim(tmpDrillMethod)
             end
-            else
-                mDrillMethod = ""
 
             ;;Load hyperlink method
-            if (mf_info.fi_hypermeth) then
+            if (mf_info.fi_hypermeth)
             begin
                 data tmpHyperlinkMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_hypermeth,tmpHyperlinkMethod)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get hyperlink method for repository field "+FieldName)
-                else
-                    mHyperlinkMethod = %atrim(tmpHyperlinkMethod)
+				this.HyperlinkMethod = %atrim(tmpHyperlinkMethod)
             end
-            else
-                mHyperlinkMethod = ""
 
             ;;Load change method
-            if (mf_info.fi_changemeth) then
+            if (mf_info.fi_changemeth)
             begin
                 data tmpChangeMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_changemeth,tmpChangeMethod)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get change method for repository field "+FieldName)
-                else
-                    mChangeMethod = %atrim(tmpChangeMethod)
+				this.ChangeMethod = %atrim(tmpChangeMethod)
             end
-            else
-                mChangeMethod = ""
 
             ;;Load display format method
-            if (mf_info.fi_dispmeth) then
+            if (mf_info.fi_dispmeth)
             begin
                 data tmpDisplayMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_dispmeth,tmpDisplayMethod)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get display method for repository field "+FieldName)
-                else
-                    mDisplayMethod = %atrim(tmpDisplayMethod)
+				this.DisplayMethod = %atrim(tmpDisplayMethod)
             end
-            else
-                mDisplayMethod = ""
 
             ;;Load edit format method
-            if (mf_info.fi_editfmtmeth) then
+            if (mf_info.fi_editfmtmeth)
             begin
                 data tmpEditFormatMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_editfmtmeth,tmpEditFormatMethod)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get edit format method for repository field "+FieldName)
-                else
-                    mEditFormatMethod = %atrim(tmpEditFormatMethod)
+				this.EditFormatMethod = %atrim(tmpEditFormatMethod)
             end
-            else
-                mEditFormatMethod = ""
 
             ;;Load allowed value list (@ArrayList)
-            mAllowList = new ArrayList()
             if (mf_info.fi_alwlst&&mf_info.fi_alwct)
             begin
                 data ListData, fti_entlst
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_alwlst,^a(ListData))
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get allow list entries for repository field "+FieldName)
-                else
-                begin
-                    data idx, int
-                    for idx from 1 thru mf_info.fi_alwct
-                        mAllowList.Add((@a)ListData.fti_entlstary[idx])
-                end
-            end
+				data idx, int
+				for idx from 1 thru mf_info.fi_alwct
+					this.AllowList.Add((@a)ListData.fti_entlstary[idx])
+			end
 
             ;;Load valid selections
-            mSelectionList = new List<String>()
             if (mf_info.fi_sellist&&mf_info.fi_selct)
             begin
                 data ListData, fti_entlst
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_sellist,^a(ListData))
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get allow list entries for repository field "+FieldName)
-                else
-                begin
-                    data idx, int
-                    for idx from 1 thru mf_info.fi_selct
-                        mSelectionList.Add((String)%atrim(ListData.fti_entlstary[idx]))
-                end
+                data idx, int
+                for idx from 1 thru mf_info.fi_selct
+					this.SelectionList.Add((String)%atrim(ListData.fti_entlstary[idx]))
             end
 
             ;;Load numeric range values (fti_range)
             if (mf_info.fi_range)
             begin
+				data mfti_range, fti_range
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_range,^a(mfti_range))
                 if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get ranges for repository field "+FieldName)
+				this.NumericRangeMinimum = mfti_range.fti_rgmin
+				this.NumericRangeMaximum = mfti_range.fti_rgmax
             end
 
             ;;Load Toolkit enumeration data (fti_enum)
             if (mf_info.fi_enum)
             begin
+				data mfti_enum, fti_enum
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enum,^a(mfti_enum))
                 if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get emumeration data for repository field "+FieldName)
+				this.EnumeratedBaseValue = mfti_enum.fti_enmbase
+				this.EnumeratedDisplayLength = mfti_enum.fti_enmlen
+				this.EnumeratedStepValue = mfti_enum.fti_enmstep
             end
 
             ;;Load enumerated field name
-            if ((mf_info.fi_type==T_INT)&&(mf_info.fi_class==C_ENUM)&&(mf_info.fi_enmfld)) then
+            if ((mf_info.fi_type==T_INT)&&(mf_info.fi_class==C_ENUM)&&(mf_info.fi_enmfld))
             begin
                 data tmpEnumName, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enmfld,tmpEnumName)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get emumeration name for repository field "+FieldName)
-                else
-                    mEnumName = %atrim(tmpEnumName)
+                this.EnumName = %atrim(tmpEnumName)
             end
-            else
-                mEnumName = ""
 
 			;; Load display format string
-
-			mFormatString = String.Empty
 
 			if (mf_info.fi_fmt)
 			begin
@@ -514,66 +411,50 @@ namespace CodeGen.RepositoryAPI
 				xcall dd_format(Repository.RpsControl,DDM_SINFO,mf_info.fi_fmt,formatType,formatString)
 
 				if (!Repository.RpsControl.error) then
-				begin
-					;;Found it
-					mFormatString = %atrim(formatString)
-				end
+					this.FormatString = %atrim(formatString)
 				else
 				begin
 					;;Maybe it's a "global" or "pre-defined" format?
 					xcall dd_format(Repository.RpsControl,DDM_INFO,mf_info.fi_fmt,formatType,formatString)
 					if (!Repository.RpsControl.error)
-					begin
-						;;Found it
-						mFormatString = %atrim(formatString)
-					end
+						this.FormatString = %atrim(formatString)
 				end
 			end
 
             ;; Things below here are unique to fields (not included in templates)
 
             ;;Load a struct fields structure name
-            if ((mf_info.fi_type=="A")&&(mf_info.fi_class==C_STRFLD)) then
+            if ((mf_info.fi_type=="A")&&(mf_info.fi_class==C_STRFLD))
             begin
                 data tmpStructFieldStructure, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_strfld,tmpStructFieldStructure)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get structure for repository struct field "+FieldName)
-                else
-                    mStructFieldStructure = %atrim(tmpStructFieldStructure)
+				this.StructFieldStructure = %atrim(tmpStructFieldStructure)
             end
-            else
-                mStructFieldStructure = ""
 
             ;;Load group structure name
-            mGroupStructure = ""
-            if (mf_info.fi_struct) then
+            if (mf_info.fi_struct)
             begin
                 data tmpGroupStructure, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,tmpGroupStructure)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get group structure for repository field "+FieldName)
-                else
-                    mGroupStructure = %atrim(tmpGroupStructure)
+                this.GroupStructure = %atrim(tmpGroupStructure)
             end
-            else
-                mGroupStructure = ""
 
             ;;Load group member prefix
-            if (mf_info.fi_prefix)  then
+            if (mf_info.fi_prefix)
             begin
                 data tmpGroupMemberPrefix, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prefix,tmpGroupMemberPrefix)
-                if (Repository.RpsControl.error) then
+                if (Repository.RpsControl.error)
                     throw new RpsFieldException("Failed to get group prefix for repository field "+FieldName)
-                else
-                    mGroupMemberPrefix = %atrim(tmpGroupMemberPrefix)
+				this.GroupMemberPrefix = %atrim(tmpGroupMemberPrefix)
             end
-            else
-                mGroupMemberPrefix = ""
 
             ;;Is this field a group?
-            if (mf_info.fi_group) then
+            if (mf_info.fi_group)
             begin
                 ;;Yes, it it an implicit or explicit group?
                 if (mf_info.fi_struct) then
@@ -581,16 +462,14 @@ namespace CodeGen.RepositoryAPI
                     ;;It's an implicit group, get the implicit group structure name
                     data implicitGroupStructure, a30
                     dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,implicitGroupStructure)
-                    mGroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Structure,implicitGroupStructure)
+                    this.GroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Structure,implicitGroupStructure)
                 end
                 else
                 begin
                     ;;It's an explicit group
-                    mGroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Group,FieldName)
+					this.GroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Group,FieldName)
                 end
             end
-            else
-                mGroupFields = new RpsFieldCollection()
 
             ;;Load the fields coerced type
             using mf_info.fi_type select
@@ -601,9 +480,9 @@ namespace CodeGen.RepositoryAPI
                 begin
                     using mf_info.fi_coertype select
                     (CT_DATETIME),
-                        mCoercedType = RpsFieldCoercedType.CtNone
+                        this.CoercedType = RpsFieldCoercedType.CtNone
                     (CT_NULLDATETIME),
-                        mCoercedType = RpsFieldCoercedType.CtNullDateTime
+                        this.CoercedType = RpsFieldCoercedType.CtNullDateTime
                     endusing
                 end
                 (),
@@ -612,36 +491,36 @@ namespace CodeGen.RepositoryAPI
                     begin
                         using mf_info.fi_coertype select
                         (CT_DECIMAL),
-                            mCoercedType = RpsFieldCoercedType.CtNone
+                            this.CoercedType = RpsFieldCoercedType.CtNone
                         (CT_DOUBLE),
-                            mCoercedType = RpsFieldCoercedType.CtDouble
+                            this.CoercedType = RpsFieldCoercedType.CtDouble
                         (CT_FLOAT),
-                            mCoercedType = RpsFieldCoercedType.CtFloat
+                            this.CoercedType = RpsFieldCoercedType.CtFloat
                         endusing
                     end
                     else
                     begin
                         using mf_info.fi_coertype select
                         (CT_DEFAULT),
-                            mCoercedType = RpsFieldCoercedType.CtNone
+                            this.CoercedType = RpsFieldCoercedType.CtNone
                         (CT_BYTE),
-                            mCoercedType = RpsFieldCoercedType.CtByte
+                            this.CoercedType = RpsFieldCoercedType.CtByte
                         (CT_SHORT),
-                            mCoercedType = RpsFieldCoercedType.CtShort
+                            this.CoercedType = RpsFieldCoercedType.CtShort
                         (CT_INT),
-                            mCoercedType = RpsFieldCoercedType.CtInt
+                            this.CoercedType = RpsFieldCoercedType.CtInt
                         (CT_LONG),
-                            mCoercedType = RpsFieldCoercedType.CtLong
+                            this.CoercedType = RpsFieldCoercedType.CtLong
                         (CT_SBYTE),
-                            mCoercedType = RpsFieldCoercedType.CtSbyte
+                            this.CoercedType = RpsFieldCoercedType.CtSbyte
                         (CT_USHORT),
-                            mCoercedType = RpsFieldCoercedType.CtUshort
+                            this.CoercedType = RpsFieldCoercedType.CtUshort
                         (CT_UINT),
-                            mCoercedType = RpsFieldCoercedType.CtUint
+                            this.CoercedType = RpsFieldCoercedType.CtUint
                         (CT_ULONG),
-                            mCoercedType = RpsFieldCoercedType.CtUlong
+                            this.CoercedType = RpsFieldCoercedType.CtUlong
                         (CT_BOOLEAN),
-                            mCoercedType = RpsFieldCoercedType.CtBoolean
+                            this.CoercedType = RpsFieldCoercedType.CtBoolean
                         endusing
                     end
                 end
@@ -651,29 +530,29 @@ namespace CodeGen.RepositoryAPI
             begin
                 using mf_info.fi_coertype select
                 (CT_DEFAULT),
-                    mCoercedType = RpsFieldCoercedType.CtNone
+                    this.CoercedType = RpsFieldCoercedType.CtNone
                 (CT_BYTE),
-                    mCoercedType = RpsFieldCoercedType.CtByte
+                    this.CoercedType = RpsFieldCoercedType.CtByte
                 (CT_SHORT),
-                    mCoercedType = RpsFieldCoercedType.CtShort
+                    this.CoercedType = RpsFieldCoercedType.CtShort
                 (CT_INT),
-                    mCoercedType = RpsFieldCoercedType.CtInt
+                    this.CoercedType = RpsFieldCoercedType.CtInt
                 (CT_LONG),
-                    mCoercedType = RpsFieldCoercedType.CtLong
+                    this.CoercedType = RpsFieldCoercedType.CtLong
                 (CT_SBYTE),
-                    mCoercedType = RpsFieldCoercedType.CtSbyte
+                    this.CoercedType = RpsFieldCoercedType.CtSbyte
                 (CT_USHORT),
-                    mCoercedType = RpsFieldCoercedType.CtUshort
+                    this.CoercedType = RpsFieldCoercedType.CtUshort
                 (CT_UINT),
-                    mCoercedType = RpsFieldCoercedType.CtUint
+                    this.CoercedType = RpsFieldCoercedType.CtUint
                 (CT_ULONG),
-                    mCoercedType = RpsFieldCoercedType.CtUlong
+                    this.CoercedType = RpsFieldCoercedType.CtUlong
                 (CT_BOOLEAN),
-                    mCoercedType = RpsFieldCoercedType.CtBoolean
+                    this.CoercedType = RpsFieldCoercedType.CtBoolean
                 endusing
             end
             (),
-                mCoercedType = RpsFieldCoercedType.CtNone
+                this.CoercedType = RpsFieldCoercedType.CtNone
             endusing
 
             ;;Load additional CodeGen specific data
@@ -685,69 +564,69 @@ namespace CodeGen.RepositoryAPI
             required in SourceField, @RpsField
             endparams
         proc
-            mStructureName          = SourceField.StructureName
-            mf_info                 = SourceField.FieldData
-            mName                   = SourceField.Name
-            mOriginalName           = SourceField.OriginalName
-            mBaseName               = SourceField.BaseName
-            mDescription            = SourceField.Description
-            mLongDescription        = SourceField.LongDescription
-            mUserFieldType          = SourceField.UserFieldType
-            mReportHeading          = SourceField.ReportHeading
-            mPrompt                 = SourceField.Prompt
-            mHelpIdentifier         = SourceField.HelpIdentifier
-            mInfoLineText           = SourceField.InfoLineText
-            mUserText               = SourceField.UserText
-            mAlternateName          = SourceField.AlternateName
-            mFieldFont              = SourceField.FieldFont
-            mPromptFont             = SourceField.PromptFont
-            mDefaultValue           = SourceField.DefaultValue
-            mArriveMethod           = SourceField.ArriveMethod
-            mLeaveMethod            = SourceField.LeaveMethod
-            mDrillMethod            = SourceField.DrillMethod
-            mHyperlinkMethod        = SourceField.HyperlinkMethod
-            mChangeMethod           = SourceField.ChangeMethod
-            mDisplayMethod          = SourceField.DisplayMethod
-            mEditFormatMethod       = SourceField.EditFormatMethod
-            mfti_range.fti_rgmin    = SourceField.NumericRangeMinimum
-            mfti_range.fti_rgmax    = SourceField.NumericRangeMaximum
-            mfti_enum.fti_enmlen    = SourceField.EnumeratedDisplayLength
-            mfti_enum.fti_enmbase   = SourceField.EnumeratedBaseValue
-            mfti_enum.fti_enmstep   = SourceField.EnumeratedStepValue
-            mCoercedType            = SourceField.CoercedType
-            mEnumName               = SourceField.EnumName
-            mGroupStructure         = SourceField.GroupStructure
-            mGroupMemberPrefix      = SourceField.GroupMemberPrefix
+            this.StructureName           = SourceField.StructureName
+            mf_info                      = SourceField.FieldData
+			this.Name                    = SourceField.Name
+			this.OriginalName            = SourceField.OriginalName
+			this.BaseName                = SourceField.BaseName
+			this.Description             = SourceField.Description
+			this.LongDescription         = SourceField.LongDescription
+			this.UserFieldType           = SourceField.UserFieldType
+			this.ReportHeading           = SourceField.ReportHeading
+			this.Prompt                  = SourceField.Prompt
+			this.HelpIdentifier          = SourceField.HelpIdentifier
+			this.InfoLineText            = SourceField.InfoLineText
+			this.UserText                = SourceField.UserText
+			this.AlternateName           = SourceField.AlternateName
+			this.FieldFont               = SourceField.FieldFont
+			this.PromptFont              = SourceField.PromptFont
+			this.DefaultValue            = SourceField.DefaultValue
+			this.ArriveMethod            = SourceField.ArriveMethod
+			this.LeaveMethod             = SourceField.LeaveMethod
+			this.DrillMethod             = SourceField.DrillMethod
+			this.HyperlinkMethod         = SourceField.HyperlinkMethod
+			this.ChangeMethod            = SourceField.ChangeMethod
+			this.DisplayMethod           = SourceField.DisplayMethod
+			this.EditFormatMethod        = SourceField.EditFormatMethod
+			this.NumericRangeMinimum     = SourceField.NumericRangeMinimum
+			this.NumericRangeMaximum     = SourceField.NumericRangeMaximum
+			this.EnumeratedDisplayLength = SourceField.EnumeratedDisplayLength
+			this.EnumeratedBaseValue     = SourceField.EnumeratedBaseValue
+			this.EnumeratedStepValue     = SourceField.EnumeratedStepValue
+            this.CoercedType             = SourceField.CoercedType
+			this.EnumName                = SourceField.EnumName
+			this.GroupStructure          = SourceField.GroupStructure
+			this.GroupMemberPrefix       = SourceField.GroupMemberPrefix
 
             ;;Clone the array dimensions
-            mArrayDimension = new int[4]
-            mArrayDimension[1] = SourceField.ArrayDimension[1]
-            mArrayDimension[2] = SourceField.ArrayDimension[2]
-            mArrayDimension[3] = SourceField.ArrayDimension[3]
-            mArrayDimension[4] = SourceField.ArrayDimension[4]
+            this.ArrayDimension = new int[4]
+            this.ArrayDimension[1] = SourceField.ArrayDimension[1]
+            this.ArrayDimension[2] = SourceField.ArrayDimension[2]
+            this.ArrayDimension[3] = SourceField.ArrayDimension[3]
+            this.ArrayDimension[4] = SourceField.ArrayDimension[4]
 
             ;;Clone the AllowList collection
             begin
                 data item, @a
-                mAllowList = new ArrayList()
+                this.AllowList.Clear()
                 foreach item in SourceField.AllowList
-                    mAllowList.Add(item)
+					this.AllowList.Add(item)
             end
 
             ;;Clone the SelectionList collection
             begin
                 data item, String
-                mSelectionList = new List<String>()
+				this.SelectionList.Clear()
                 foreach item in SourceField.SelectionList
-                    mSelectionList.Add(item)
+					this.SelectionList.Add(item)
             end
 
             ;;Clone the GroupFields collection
             begin
                 data fld, @RpsField
-                mGroupFields = new RpsFieldCollection()
+				this.GroupFields.Clear()
                 foreach fld in SourceField.GroupFields
-                    mGroupFields.Add(new RpsField(fld))
+                    this.GroupFields.Add(new RpsField(fld))
             end
 
             ;;Clone the CodeGen specific properties
@@ -757,56 +636,29 @@ namespace CodeGen.RepositoryAPI
 
         ;;---------------------------------------------------------------------
         ;;Public properties to expose field attributes
+		;;
+		;;IMPARTANT: If more properties are added, remember to update the cloneField method
+		;;
+		
+		;;; <summary>
+		;;; The name of the structure containing this field.
+		;;; </summary>
+		public readwrite property StructureName, String, String.Empty
 
-        ;; Structure name
-        {Browsable(false)}
-        {ReadOnly(true)}
-        public property StructureName, String
-            method get
-            proc
-                mreturn mStructureName
-            endmethod
-            method set
-            proc
-                mStructureName = value.Trim().ToUpper()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The name of the field.
+		;;; </summary>
+		public readwrite property Name, String, String.Empty
 
-        ;; Field name
-        {Category("Basic Details")}
-        {Description("The unique name of the repository field.")}
-        {ReadOnly(true)}
-        public property Name, String
-            method get
-            proc
-                mreturn mName
-            endmethod
-            method set
-            proc
-                mName = value.Trim().ToUpper()
-            endmethod
-        endproperty
-
-        ;; Description
-        {Category("Basic Details")}
-        {Description("The description of the field.")}
-        {ReadOnly(true)}
-        public property Description, String
-            method get
-            proc
-                mreturn mDescription
-            endmethod
-            method set
-            proc
-                mDescription = value.Trim()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The description of the field.
+		;;; </summary>
+		public readwrite property Description, String, String.Empty
         
-        ;; Data type (enum RpsFieldDataType)
-        {Category("Basic Details")}
-        {Description("The data type of the field.")}
-        {ReadOnly(true)}
-        public property DataType, RpsFieldDataType
+		;;; <summary>
+		;;; Data type.
+		;;; </summary>
+		public property DataType, RpsFieldDataType
             method get
                 record
                     retval, RpsFieldDataType
@@ -893,12 +745,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Data type code (a1)
-        ;;   "A", "D", "I" or "U"
-        {Category("Basic Details")}
-        {Description("The data type code of the field, e.g. A, D, I or U.")}
-        {ReadOnly(true)}
-        public property DataTypeCode, a1
+		;;; <summary>
+		;;; Data type code ("A", "D", "I" or "U").
+		;;; </summary>
+		public property DataTypeCode, a1
             method get
             proc
                 mreturn mf_info.fi_type
@@ -912,11 +762,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Field size (d5)
-        {Category("Basic Details")}
-        {Description("The size of the field in bytes.")}
-        {ReadOnly(true)}
-        public property Size, int
+		;;; <summary>
+		;;; Field size in bytes.
+		;;; </summary>
+		public property Size, int
             method get
             proc
                 mreturn mf_info.fi_size
@@ -927,11 +776,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Digits to right of decimal point (d2)
-        {Category("Basic Details")}
-        {Description("The precision of an impled decimal field.")}
-        {ReadOnly(true)}
-        public property Precision, int
+		;;; <summary>
+		;;; The precision of an impled decimal field.
+		;;; </summary>
+		public property Precision, int
             method get
             proc
                 mreturn mf_info.fi_prec
@@ -942,26 +790,15 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Array dimensions ([4]d3)
-        {Category("Basic Details")}
-        {Description("The array dimensions of an array field.")}
-        {ReadOnly(true)}
-        public property ArrayDimension, [#]int
-            method get
-            proc
-                mreturn mArrayDimension
-            endmethod
-            method set
-            proc
-                mArrayDimension = value
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The array dimensions of an array field.
+		;;; </summary>
+		public readwrite property ArrayDimension, [#]int
 
-        ;; Template referenced by this field (a30)
-        {Category("Basic Details")}
-        {Description("The repository template that this field inherits attributes from.")}
-        {ReadOnly(true)}
-        public property Template, String
+		;;; <summary>
+		;;; The repository template that this field inherits attributes from.
+		;;; </summary>
+		public property Template, String
             method get
             proc
                 mreturn %atrim(mf_info.fi_template)
@@ -972,12 +809,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        
-        ;; Sequence number (d3)
-        {Category("Basic Details")}
-        {Description("The one-based sequence number of this field in the record.")}
-        {ReadOnly(true)}
-        public property SequenceNumber, int
+		;;; <summary>
+		;;; The one-based sequence number of this field in the record.
+		;;; </summary>
+		public property SequenceNumber, int
             method get
             proc
                 mreturn mf_info.fi_seqnm
@@ -988,11 +823,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Starting position within the record or group (d5)
-        {Category("Basic Details")}
-        {Description("The one-based starting position of this field within the record.")}
-        {ReadOnly(true)}
-        public property StartPosition, int
+		;;; <summary>
+		;;; The one-based starting position of this field within the record.
+		;;; </summary>
+		public property StartPosition, int
             method get
             proc
                 mreturn mf_info.fi_pos
@@ -1003,11 +837,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Name of the field being overlaid (a30)
-        {Category("Basic Details")}
-        {Description("The name of the field which this field overlays.")}
-        {ReadOnly(true)}
-        public property OverlaysField, String
+		;;; <summary>
+		;;; The name of the field which this field overlays.
+		;;; </summary>
+		public property OverlaysField, String
             method get
             proc
                 mreturn %atrim(mf_info.fi_ovrfld)
@@ -1018,11 +851,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Overlay offset within the above field (d5)
-        {Category("Basic Details")}
-        {Description("The offset from the beginning of the field being overlayed.")}
-        {ReadOnly(true)}
-        public property OverlayOffset, int
+		;;; <summary>
+		;;; The offset from the beginning of the field being overlayed.
+		;;; </summary>
+		public property OverlayOffset, int
             method get
             proc
                 mreturn mf_info.fi_ovroff
@@ -1033,11 +865,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; DBL type subclass
-        {Category("Basic Details")}
-        {Description("The data subclass of the field.")}
-        {ReadOnly(true)}
-        public property DataTypeSubclass, RpsFieldSubclass
+		;;; <summary>
+		;;; The data subclass of the field.
+		;;; </summary>
+		public property DataTypeSubclass, RpsFieldSubclass
             method get
                 record
                     retval, RpsFieldSubclass
@@ -1152,25 +983,14 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; User defined field type
-        {Category("Basic Details")}
-        {Description("The user defined type of a user defined field.")}
-        {ReadOnly(true)}
-        public property UserFieldType, String
-            method get
-            proc
-                mreturn mUserFieldType
-            endmethod
-            method set
-            proc
-                mUserFieldType = value.Trim()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The user defined type of a user defined field.
+		;;; </summary>
+		public readwrite property UserFieldType, String, String.Empty
 
-        ;; Native data size (d5)
-        {Category("Basic Details")}
-        {Description("The native size of the field.")}
-        {ReadOnly(true)}
+		;;; <summary>
+		;;; The native size of the field.
+		;;; </summary>
         public property NativeSize, int
             method get
             proc
@@ -1182,71 +1002,37 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;Enum name (real language enum name)
-        {Category("Basic Details")}
-        {Description("The name of the repository enumeration referenced by an enum field. This refers to a Synergy language enumeration, not a UI Toolkit enumeration.")}
-        {ReadOnly(true)}
-        public property EnumName, String
-            method get
-            proc
-                mreturn mEnumName
-            endmethod
-            method set
-            proc
-                mEnumName = value.Trim().ToUpper()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The name of the repository enumeration referenced by an enum field. 
+		;;; This refers to a Synergy language enumeration, not a UI Toolkit enumeration.
+		;;; </summary>
+		public readwrite property EnumName, String, String.Empty
         
-        ;; Coerced type
-        {Category("Basic Details")}
-        {Description("The coreced data type of the field.")}
-        {ReadOnly(true)}
-        public property CoercedType, RpsFieldCoercedType
-            method get
-            proc
-                mreturn mCoercedType
-            endmethod
-            method set
-            proc
-                mCoercedType = value
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The coreced data type of the field.
+		;;; </summary>
+		public readwrite property CoercedType, RpsFieldCoercedType, RpsFieldCoercedType.CtNone
         
-        ;; Struct field structure name
-        {Category("Basic Details")}
-        {Description("The name of the structure that defines the type of this struct field.")}
-        {ReadOnly(true)}
-        public property StructFieldStructure, String
-            method get
-            proc
-                mreturn mStructFieldStructure
-            endmethod
-            method set
-            proc
-                mStructFieldStructure = value.Trim().ToUpper()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The name of the structure that defines the type of this struct field.
+		;;; </summary>
+		public readwrite property StructFieldStructure, String, String.Empty
 
         ;;; <summary>
-        ;;; Indicates whether or not the field is a group. See the
-        ;;; GroupType property to determine the type of group.
+        ;;; Indicates whether or not the field is a group.
+		;;; See the GroupType property to determine the type of group.
         ;;; </summary>
-        ;;; <returns>True indicates that the field is a group</returns>
-        {Category("Basic Details - Group")}
-        {Description("Indicates whether the current field is a group field.")}
-        {ReadOnly(true)}
-        public property IsGroup, boolean
+		public property IsGroup, boolean
             method get
             proc
                 mreturn (mf_info.fi_group!=0)
             endmethod
         endproperty
         
-        ;; Group flag
-        {Category("Basic Details - Group")}
-        {Description("Indicates the type of group referred to by the field (implicit or explicit).")}
-        {ReadOnly(true)}
-        public property GroupType, RpsFieldGroup
+		;;; <summary>
+		;;; Indicates the type of group referred to by the field (implicit or explicit).
+		;;; </summary>
+		public property GroupType, RpsFieldGroup
             method get
             proc
                 mreturn (RpsFieldGroup)integer(mf_info.fi_group)
@@ -1257,62 +1043,27 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;GroupFields collection (@RpsGroupFieldsCollection)
-        ;If this field is not a group then this collection will be empty
-        {Category("Basic Details - Group")}
-        {Description("The collection of fields within this group field.")}
-        {ReadOnly(true)}
-        public property GroupFields, @RpsFieldCollection
-            method get
-            proc
-                mreturn mGroupFields
-            endmethod
-            method set
-            proc
-                mGroupFields = value
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The collection of fields within this group field.
+		;;; If this field is not a group this collection will be empty.
+		;;; </summary>
+		public readwrite property GroupFields, @RpsFieldCollection, new RpsFieldCollection()
         
-        ;Group structure name
-        ;Only used for implicit groups, i.e. groups based on a different repository structure.
-        {Category("Basic Details - Group")}
-        {Description("The structure that defines the fields for an implicit group field.")}
-        {ReadOnly(true)}
-        public property GroupStructure, string
-            method get
-            proc
-                mreturn mGroupStructure
-            endmethod
-            method set
-            proc
-                mGroupStructure = value
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The structure that defines the fields for an implicit group field.
+		;;; Only used for implicit groups (i.e. groups based on a different repository structure).
+		;;; </summary>
+		public readwrite property GroupStructure, string, String.Empty
         
-        ;Group member prefix
-
-        {Category("Basic Details - Group")}
-        {Description("The prefix to be applied to members of the group field.")}
-        {ReadOnly(true)}
+		;;; <summary>
+		;;; The prefix to be applied to members of the group field.
+		;;; </summary>
+		public readwrite property GroupMemberPrefix, String, String.Empty
         
-        public property GroupMemberPrefix, String
-            method get
-            proc
-                mreturn mGroupMemberPrefix
-            endmethod
-            method set
-            proc
-                mGroupMemberPrefix = value.Trim()
-            endmethod
-        endproperty
-        
-        ;; TRUE if group size = size of all members (boolean)
-
-        {Category("Basic Details - Group")}
-        {Description("Is the size of the group field equal to the sum of the sizes of all members of the group?")}
-        {ReadOnly(true)}
-        
-        public property GroupSizeEqualsMembers, boolean
+		;;; <summary>
+		;;; Is the size of the group field equal to the sum of the sizes of all members of the group?
+		;;; </summary>
+		public property GroupSizeEqualsMembers, boolean
             method get
             proc
                 mreturn mf_info.fi_nosize
@@ -1323,13 +1074,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Group member prefix used by compiler (boolean)
-
-        {Category("Basic Details - Group")}
-        {Description("Does the compiler use the group member prefix?")}
-        {ReadOnly(true)}
-        
-        public property CompilerUsesGroupMemberPrefix, boolean
+		;;; <summary>
+		;;; Does the compiler use the group member prefix?
+		;;; </summary>
+		public property CompilerUsesGroupMemberPrefix, boolean
             method get
             proc
                 mreturn mf_info.fi_cmppref
@@ -1340,13 +1088,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Excluded by language (boolean)
-
-        {Category("Special Field Processing")}
-        {Description("Is the current field excluded by the compiler?")}
-        {ReadOnly(true)}
-        
-        public property ExcludedByLanguage, boolean
+		;;; <summary>
+		;;; Is the current field excluded by the compiler?
+		;;; </summary>
+		public property ExcludedByLanguage, boolean
             method get
             proc
                 mreturn mf_info.fi_dblvw
@@ -1357,13 +1102,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Excluded by ReportWriter (boolean)
-
-        {Category("Special Field Processing")}
-        {Description("Is the current field invisible to the ReportWriter product?")}
-        {ReadOnly(true)}
-        
-        public property ExcludedByReportWriter, boolean
+		;;; <summary>
+		;;; Is the current field invisible to the ReportWriter product?
+		;;; </summary>
+		public property ExcludedByReportWriter, boolean
             method get
             proc
                 mreturn mf_info.fi_rptvw
@@ -1374,13 +1116,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Excluded by Toolkit (boolean)
-
-        {Category("Special Field Processing")}
-        {Description("Is the current field invisible to the UI Toolkit product?")}
-        {ReadOnly(true)}
-        
-        public property ExcludedByToolkit, boolean
+		;;; <summary>
+		;;; Is the current field invisible to the UI Toolkit product?
+		;;; </summary>
+		public property ExcludedByToolkit, boolean
             method get
             proc
                 mreturn mf_info.fi_scrptvw
@@ -1391,13 +1130,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Excluded by Web? (boolean)
-
-        {Category("Special Field Processing")}
-        {Description("Is the current field invisible to the Web products?")}
-        {ReadOnly(true)}
-        
-        public property ExcludedByWeb, boolean
+		;;; <summary>
+		;;; Is the current field invisible to the Web products?
+		;;; </summary>
+		public property ExcludedByWeb, boolean
             method get
             proc
                 mreturn mf_info.fi_webvw
@@ -1408,13 +1144,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Field name is the name link (boolean)
-
-        {Category("Special Field Processing")}
-        {Description("Shoult the current field be excluded from 'link by name' processing?")}
-        {ReadOnly(true)}
-        
-        public property NoNameLink, boolean
+		;;; <summary>
+		;;; Should the current field be excluded from 'link by name' processing?
+		;;; </summary>
+		public property NoNameLink, boolean
             method get
             proc
                 mreturn mf_info.fi_nolnk
@@ -1425,46 +1158,25 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Field original name
-
-        {Category("CodeGen Extensions")}
-        {Description("The original name of the field, before any renaming by CodeGen.")}
-        {ReadOnly(true)}
-        
-        public property OriginalName, String
-            method get
-            proc
-                mreturn mOriginalName
-            endmethod
-            method set
-            proc
-                mOriginalName = value.Trim().ToUpper()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The original name of the field, before any renaming by CodeGen.
+		;;; </summary>
+		public readwrite property OriginalName, String, String.Empty
         
         ;; Field base name
 
         {Category("CodeGen Extensions")}
         {Description("")}
         {ReadOnly(true)}
+		;;; <summary>
+		;;; The base name of the field.
+		;;; Array dimensions are not included in the base name.
+		;;; </summary>
+		public readwrite property BaseName, String, String.Empty
         
-        public property BaseName, String
-            method get
-            proc
-                mreturn mBaseName
-            endmethod
-            method set
-            proc
-                mBaseName = value.Trim().ToUpper()
-            endmethod
-        endproperty
-        
-		;; Display format name (a30)
-
-		{Category("Display - Field")}
-		{Description("")}
-		{ReadOnly(true)}
-        
+		;;; <summary>
+		;;; The repository name of the fields display format, if any.
+		;;; </summary>
 		public property FormatName, String
 			method get
 			proc
@@ -1476,26 +1188,15 @@ namespace CodeGen.RepositoryAPI
 			endmethod
 		endproperty
 
-		;; Display format string (a30)
+		;;; <summary>
+		;;; The fields display format string, if any.
+		;;; </summary>
+		public readwrite property FormatString, String, String.Empty
 
-		{Category("Display - Field")}
-		{Description("The fields display format string, if any.")}
-		{ReadOnly(true)}
-        
-		public property FormatString, String
-			method get
-			proc
-				mreturn mFormatString
-			endmethod
-		endproperty
-
-		;; Input field justification
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property InputJustification, RpsJustification
+		;;; <summary>
+		;;; Input field justification.
+		;;; </summary>
+		public property InputJustification, RpsJustification
             method get
             proc
                 mreturn (RpsJustification)integer(mf_info.fi_inpjust)
@@ -1506,13 +1207,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Input field position mode
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property FieldPositionMode, RpsPositionMode
+		;;; <summary>
+		;;; Field positioning mode (None, Absolute or Relative).
+		;;; </summary>
+		public property FieldPositionMode, RpsPositionMode
             method get
             proc
                 mreturn (RpsPositionMode)integer(mf_info.fi_fpostyp)
@@ -1523,13 +1221,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Input field row (d3)
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property FieldRow, int
+		;;; <summary>
+		;;; Screen row for input.
+		;;; </summary>
+		public property FieldRow, int
             method get
             proc
                 mreturn mf_info.fi_finprow
@@ -1540,12 +1235,9 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Input field column (d3)
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
+		;;; <summary>
+		;;; Screen column for input.
+		;;; </summary>
         public property FieldColumn, int
             method get
             proc
@@ -1557,13 +1249,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Blank if zero? (boolean)
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property BlankIfZero, boolean
+		;;; <summary>
+		;;; For numeric fields, display blank instead of zero.
+		;;; </summary>
+		public property BlankIfZero, boolean
             method get
             proc
                 mreturn mf_info.fi_bzro
@@ -1574,13 +1263,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Custom paint character specified (boolean)
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property PaintCharacterSpecified, boolean
+		;;; <summary>
+		;;; Does the field have a custom paint character specified?
+		;;; See also PaintCharacter.
+		;;; </summary>
+		public property PaintCharacterSpecified, boolean
             method get
             proc
                 mreturn mf_info.fi_paint
@@ -1591,13 +1278,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Custom paint character (a1)
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property PaintCharacter, a
+		;;; <summary>
+		;;; The fields custom paint character, if any.
+		;;; See also PaintCharacterSpecified.
+		;;; </summary>
+		public property PaintCharacter, a
             method get
             proc
                 mreturn mf_info.fi_pntchr
@@ -1608,13 +1293,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; View field as
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property ViewAs, RpsFieldViewAs
+		;;; <summary>
+		;;; How the field should be viewed (Field, RadioButton or Checkbox).
+		;;; </summary>
+		public property ViewAs, RpsFieldViewAs
             method get
             proc
                 mreturn (RpsFieldViewAs)integer(mf_info.fi_view)
@@ -1625,13 +1307,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Read-only (boolean)
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property ReadOnly, boolean
+		;;; <summary>
+		;;; Is the field read-only?
+		;;; </summary>
+		public property ReadOnly, boolean
             method get
             proc
                 mreturn mf_info.fi_readonly
@@ -1642,13 +1321,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Disabled (boolean)
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property Disabled, boolean
+		;;; <summary>
+		;;; Is the field disabled?
+		;;; </summary>
+		public property Disabled, boolean
             method get
             proc
                 mreturn mf_info.fi_disabled
@@ -1659,13 +1335,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Display length (d5)
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property DisplayLength, int
+		;;; <summary>
+		;;; The display length of the field.
+		;;; </summary>
+		public property DisplayLength, int
             method get
             proc
                 mreturn mf_info.fi_displen
@@ -1676,13 +1349,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; View length (d5)
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property ViewLength, int
+		;;; <summary>
+		;;; The view length of the field.
+		;;; </summary>
+		public property ViewLength, int
             method get
             proc
                 mreturn mf_info.fi_viewlen
@@ -1693,132 +1363,45 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Help identifier
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
+		;;; <summary>
+		;;; The help identifier associated with the field.
+		;;; </summary>
+		public readwrite property HelpIdentifier, String, String.Empty
         
-        public property HelpIdentifier, String
-            method get
-            proc
-                mreturn mHelpIdentifier
-            endmethod
-            method set
-            proc
-                mHelpIdentifier = value.Trim()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; Text to be displayed in the information line when the field is being processed.
+		;;; </summary>
+		public readwrite property InfoLineText, String, String.Empty
         
-        ;; Information line text
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
+		;;; <summary>
+		;;; The fields "user-defined" text.
+		;;; </summary>
+		public readwrite property UserText, String, String.Empty
         
-        public property InfoLineText, String
-            method get
-            proc
-                mreturn mInfoLineText
-            endmethod
-            method set
-            proc
-				mInfoLineText = value.Trim()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The fields long description.
+		;;; </summary>
+		public readwrite property LongDescription, String, String.Empty
         
-        ;User text string
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
+		;;; <summary>
+		;;; The alternate name (ODBC name) of the field.
+		;;; </summary>
+		public readwrite property AlternateName, String, String.Empty
         
-        public property UserText, String
-            method get
-            proc
-                mreturn mUserText
-            endmethod
-            method set
-            proc
-				mUserText = value.Trim()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The name of the font palette used to display the field.
+		;;; </summary>
+		public readwrite property FieldFont, String, String.Empty
         
-        ;; Long description
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
+		;;; <summary>
+		;;; The prompt associated with the field.
+		;;; </summary>
+		public readwrite property Prompt, String, String.Empty
         
-        public property LongDescription, String
-            method get
-            proc
-                mreturn mLongDescription
-            endmethod
-            method set
-            proc
-				mLongDescription = value.Trim()
-            endmethod
-        endproperty
-        
-        ;; Alternate name
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property AlternateName, String
-            method get
-            proc
-                mreturn mAlternateName
-            endmethod
-            method set
-            proc
-                mAlternateName = value.Trim().ToUpper()
-            endmethod
-        endproperty
-        
-        ;; Field font palette name
-
-        {Category("Display - Field")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property FieldFont, String
-            method get
-            proc
-                mreturn mFieldFont
-            endmethod
-            method set
-            proc
-				mFieldFont = value.Trim()
-            endmethod
-        endproperty
-        
-        ;; Field prompt
-
-        {Category("Display - Prompt")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property Prompt, String
-            method get
-            proc
-                mreturn mPrompt
-            endmethod
-            method set
-            proc
-				mPrompt = value.Trim()
-            endmethod
-        endproperty
-        
-        ;; Prompt position mode
-
-        {Category("Display - Prompt")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property PromptPositionMode, RpsPositionMode
+		;;; <summary>
+		;;; The positioning mode of the prompt (None, Absolute or Relative).
+		;;; </summary>
+		public property PromptPositionMode, RpsPositionMode
             method get
             proc
                 mreturn (RpsPositionMode)integer(mf_info.fi_postyp)
@@ -1829,13 +1412,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Prompt row (d3)
-
-        {Category("Display - Prompt")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property PromptRow, int
+		;;; <summary>
+		;;; Screen row where the prompt should be displayed.
+		;;; </summary>
+		public property PromptRow, int
             method get
             proc
                 mreturn mf_info.fi_inprow
@@ -1846,13 +1426,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Prompt column (d3)
-
-        {Category("Display - Prompt")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property PromptColumn, int
+		;;; <summary>
+		;;; Screen column where the prompt should be displayed.
+		;;; </summary>
+		public property PromptColumn, int
             method get
             proc
                 mreturn mf_info.fi_inpcol
@@ -1863,47 +1440,20 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Prompt font palette name
-
-        {Category("Display - Prompt")}
-        {Description("")}
-        {ReadOnly(true)}
+		;;; <summary>
+		;;; The font palette that should be used to display the prompt.
+		;;; </summary>
+		public readwrite property PromptFont, String, String.Empty
         
-        public property PromptFont, String
-            method get
-            proc
-                mreturn mPromptFont
-            endmethod
-            method set
-            proc
-				mPromptFont = value.Trim()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The heading for the field when displayed in a report.
+		;;; </summary>
+		public readwrite property ReportHeading, String, String.Empty
         
-        ;Report heading
-
-        {Category("Display - Report")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property ReportHeading, String
-            method get
-            proc
-                mreturn mReportHeading
-            endmethod
-            method set
-            proc
-				mReportHeading = value.Trim()
-            endmethod
-        endproperty
-        
-        ;; Report field justification
-
-        {Category("Display - Report")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property ReportJustification, RpsJustification
+		;;; <summary>
+		;;; The field justification (Left, Right or Center).
+		;;; </summary>
+		public property ReportJustification, RpsJustification
             method get
             proc
                 mreturn (RpsJustification)integer(mf_info.fi_rptjust)
@@ -1914,13 +1464,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Color palette
-
-        {Category("Display - Renditions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property ColorPalette, RpsColorPalette
+		;;; <summary>
+		;;; The color palete that should be used to display the field (Palette1 thru Palette16).
+		;;; </summary>
+		public property ColorPalette, RpsColorPalette
             method get
             proc
                 mreturn (RpsColorPalette)integer(mf_info.fi_color)
@@ -1931,13 +1478,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Override the highlight attribute (boolean)
-
-        {Category("Display - Renditions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property RenditionHighlight, boolean
+		;;; <summary>
+		;;; Should the field be highlighted (bolded)?
+		;;; </summary>
+		public property RenditionHighlight, boolean
             method get
             proc
                 mreturn (mf_info.fi_attrib&&mf_info.fi_highlight)
@@ -1948,13 +1492,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Override the reverse attribute (boolean)
-
-        {Category("Display - Renditions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property RenditionReverse, boolean
+		;;; <summary>
+		;;; Should the field be displayed in "reverse video"?
+		;;; </summary>
+		public property RenditionReverse, boolean
             method get
             proc
                 mreturn (mf_info.fi_attrib&&mf_info.fi_reverse)
@@ -1965,13 +1506,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Override the blink attribute (boolea)
-
-        {Category("Display - Renditions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property RenditionBlink, boolean
+		;;; <summary>
+		;;; Should the field be displayed using a "blinking" font?
+		;;; </summary>
+		public property RenditionBlink, boolean
             method get
             proc
                 mreturn (mf_info.fi_attrib&&mf_info.fi_blink)
@@ -1982,13 +1520,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Override the underline attribute (boolean)
-
-        {Category("Display - Renditions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property RenditionUnderline, boolean
+		;;; <summary>
+		;;; Should the field be displayed underlined?
+		;;; </summary>
+		public property RenditionUnderline, boolean
             method get
             proc
                 mreturn (mf_info.fi_attrib&&mf_info.fi_underline)
@@ -1999,13 +1534,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
         
-        ;; Don't echo characters typed (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property NoEcho, boolean
+		;;; <summary>
+		;;; Should "echo" be s uppressed as the user types (password fields)?
+		;;; See also NoEchoCharacter.
+		;;; </summary>
+		public property NoEcho, boolean
             method get
             proc
                 mreturn mf_info.fi_noecho
@@ -2016,14 +1549,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Echo character for characters typed (a1)
-        ;; (Only used if NoEcho = true)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property NoEchoCharacter, String
+		;;; <summary>
+		;;; If echo is suppressed as the user types, whet character should be displayed instead of the characters typed?
+		;;; See also NoEcho.
+		;;; </summary>
+		public property NoEchoCharacter, String
             method get
             proc
                 mreturn mf_info.fi_echochr
@@ -2034,13 +1564,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Default action (enum RpsFieldDefaultAction)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property DefaultAction, RpsFieldDefaultAction
+		;;; <summary>
+		;;; The default action assocuated with the field (None, Default, Copy, Increment or Decrement).
+		;;; See also DefaultAuotmatic.
+		;;; </summary>
+		public property DefaultAction, RpsFieldDefaultAction
             method get
             proc
                 mreturn (RpsFieldDefaultAction)integer(mf_info.fi_defact)
@@ -2051,13 +1579,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Automatic default action? (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property DefaultAuotmatic, boolean
+		;;; <summary>
+		;;; Should the fields default action be applied automatically?
+		;;; See also DefaultAction.
+		;;; </summary>
+		public property DefaultAuotmatic, boolean
             method get
             proc
                 mreturn mf_info.fi_auto
@@ -2068,13 +1594,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Default date to current date? (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property DateDefaultToday, boolean
+		;;; <summary>
+		;;; Should date fields default to the current day?
+		;;; </summary>
+		public property DateDefaultToday, boolean
             method get
             proc
                 mreturn mf_info.fi_today
@@ -2085,13 +1608,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Allow short date? (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property AllowShortDate, boolean
+		;;; <summary>
+		;;; Should date fields be displayed in a shortened format?
+		;;; </summary>
+		public property AllowShortDate, boolean
             method get
             proc
                 mreturn mf_info.fi_short
@@ -2102,13 +1622,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Default time to current time? (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property TimeDefaultNow, boolean
+		;;; <summary>
+		;;; Should time fields default to the current time?
+		;;; </summary>
+		public property TimeDefaultNow, boolean
             method get
             proc
                 mreturn mf_info.fi_now
@@ -2119,13 +1636,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Display meridian indicator? (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property TimeAmPm, boolean
+		;;; <summary>
+		;;; Should time fields be displayed with an AM/PM indicator?
+		;;; </summary>
+		public property TimeAmPm, boolean
             method get
             proc
                 mreturn mf_info.fi_ampm
@@ -2136,13 +1650,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Input timeout mode (enum RpsFieldTimeout)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property InputTimeoutMode, RpsFieldTimeout
+		;;; <summary>
+		;;; Should a timeout peried be used when processing the field?
+		;;; </summary>
+		public property InputTimeoutMode, RpsFieldTimeout
             method get
             proc
                 mreturn (RpsFieldTimeout)integer(mf_info.fi_wait)
@@ -2153,14 +1664,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Input timeout delay (d5)
-        ;; (Only used if InputTimeoutMode = RpsFieldTimeout.Time)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property InputTimeout, int
+		;;; <summary>
+		;;; What timeout peried should be used when processing the field?
+		;;; </summary>
+		public property InputTimeout, int
             method get
             proc
                 mreturn mf_info.fi_waittime
@@ -2171,13 +1678,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Convert input to uppercase (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property Uppercase, boolean
+		;;; <summary>
+		;;; Should input to an alpha field be converted to uppercase?
+		;;; </summary>
+		public property Uppercase, boolean
             method get
             proc
                 mreturn mf_info.fi_uc
@@ -2188,13 +1692,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; No decimal needs to be entered (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property NoDecimalRequired, boolean
+		;;; <summary>
+		;;; Should entry to implied decimal fields not require the entry of a decimal point?
+		;;; </summary>
+		public property NoDecimalRequired, boolean
             method get
             proc
                 mreturn mf_info.fi_nodec
@@ -2205,13 +1706,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Field terminates automatically when filled (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property NoTerminatorRequired, boolean
+		;;; <summary>
+		;;; Should the field terminate automatically when full?
+		;;; </summary>
+		public property NoTerminatorRequired, boolean
             method get
             proc
                 mreturn mf_info.fi_noterm
@@ -2222,13 +1720,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Cursor position is retained (boolean)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property RetainPosition, boolean
+		;;; <summary>
+		;;; Should the position of the cursor within the field be retained between
+		;;; different times when the field is being processed?
+		;;; </summary>
+		public property RetainPosition, boolean
             method get
             proc
                 mreturn mf_info.fi_retpos
@@ -2239,13 +1735,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Input length (d5)
-
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property InputLength, int
+		;;; <summary>
+		;;; The input length of the field.
+		;;; </summary>
+		public property InputLength, int
             method get
             proc
                 mreturn mf_info.fi_inplen
@@ -2256,13 +1749,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Required field (boolean)
-
-        {Category("Validation")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property Required, boolean
+		;;; <summary>
+		;;; Does the field require a value in order to be valid?
+		;;; </summary>
+		public property Required, boolean
             method get
             proc
                 mreturn mf_info.fi_req
@@ -2273,13 +1763,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Break field (enum RpsFieldBreak)
-
-        {Category("Validation")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property BreakMode, RpsFieldBreak
+		;;; <summary>
+		;;; Is the field a "break" field (None, Change, Always or OnReturn)?
+		;;; </summary>
+		public property BreakMode, RpsFieldBreak
             method get
             proc
                 mreturn (RpsFieldBreak)integer(mf_info.fi_break)
@@ -2290,14 +1777,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Negatives allowed (enum RpsFieldNegatives)
-        ;; (Only used for numeric fields)
-
-        {Category("Validation")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property NegativeAllowed, RpsFieldNegatives
+		;;; <summary>
+		;;; Are negative values allowed in numeric fields (None, Allowed, Only or OrZero)?
+		;;; </summary>
+		public property NegativeAllowed, RpsFieldNegatives
             method get
             proc
                 mreturn (RpsFieldNegatives)integer(mf_info.fi_negalw)
@@ -2308,30 +1791,19 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Allowed values list (@ArrayList)
+		;;; <summary>
+		;;; A list of values that are allowed in the field.
+		;;; An empty collection if all values are allowed.
+		;;; See also AllowListMatchCase, AllowListMatchExact and AllowListMaxLength.
+		;;; </summary>
+		public readwrite property AllowList, @ArrayList, new ArrayList()
 
-        {Category("Validation - Allowed Values")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property AllowList, @ArrayList
-            method get
-            proc
-                mreturn mAllowList
-            endmethod
-            method set
-            proc
-                mAllowList = value
-            endmethod
-        endproperty
-
-        ;; Length of longest allow list entry (d3)
-
-        {Category("Validation - Allowed Values")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property AllowListMaxLength, int
+		;;; <summary>
+		;;; If the content of the field is restricted to certain values,
+		;;; what is the maximum length of those allowed values.
+		;;; See also AllowList.
+		;;; </summary>
+		public property AllowListMaxLength, int
             method get
             proc
                 mreturn mf_info.fi_alwlen
@@ -2342,13 +1814,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Case sensitive matches for allow list values (boolean)
-
-        {Category("Validation - Allowed Values")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property AllowListMatchCase, boolean
+		;;; <summary>
+		;;; If the content of the field is restricted to specific allowed values,
+		;;; should the comparison to that list be case sensitive?
+		;;; See also AllowList.
+		;;; </summary>
+		public property AllowListMatchCase, boolean
             method get
             proc
                 mreturn mf_info.fi_matchcs
@@ -2359,13 +1830,12 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Exact matches for allow list values (boolean)
-
-        {Category("Validation - Allowed Values")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property AllowListMatchExact, boolean
+		;;; <summary>
+		;;; If the content of the field is restricted to specific allowed values,
+		;;; should the comparison to that list be for an exact match?
+		;;; See also AllowList.
+		;;; </summary>
+		public property AllowListMatchExact, boolean
             method get
             proc
                 mreturn mf_info.fi_matchex
@@ -2376,30 +1846,17 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Selection List (@ArrayList)
+		;;; <summary>
+		;;; A collection of valid selections to be displayed as a drop-doen list or
+		;;; collection of radio buttons.
+		;;; </summary>
+		public readwrite property SelectionList, @List<String>, new List<String>()
 
-        {Category("Validation - Selections")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property SelectionList, @List<String>
-            method get
-            proc
-                mreturn mSelectionList
-            endmethod
-            method set
-            proc
-                mSelectionList = value
-            endmethod
-        endproperty
-
-        ;; Length of longest selection list entry (d3)
-
-        {Category("Validation - Selections")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property SelectionListMaxLength, int
+		;;; <summary>
+		;;; If a collection of valid selections is provided, what is the maximum length
+		;;; of those selections?
+		;;; </summary>
+		public property SelectionListMaxLength, int
             method get
             proc
                 mreturn mf_info.fi_sellen
@@ -2410,13 +1867,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Selection list type
-
-        {Category("Validation - Selections")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property SelectionListType, RpsFieldSelectionType
+		;;; <summary>
+		;;; Type of selection list (Window or List).
+		;;; </summary>
+		public property SelectionListType, RpsFieldSelectionType
             method get
             proc
                 mreturn (RpsFieldSelectionType)integer(mf_info.fi_seltyp)
@@ -2427,13 +1881,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Selection window row (d2)
-
-        {Category("Validation - Selections")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property SelectionWindowRow, int
+		;;; <summary>
+		;;; Screen row for the display of a selection window.
+		;;; </summary>
+		public property SelectionWindowRow, int
             method get
             proc
                 mreturn mf_info.fi_selrow
@@ -2444,13 +1895,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Selection window column (d2)
-
-        {Category("Validation - Selections")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property SelectionWindowColumn, int
+		;;; <summary>
+		;;; Screen column for the display of a selection window.
+		;;; </summary>
+		public property SelectionWindowColumn, int
             method get
             proc
                 mreturn mf_info.fi_selcol
@@ -2461,14 +1909,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Selection window name (a15)
-        ;; (Only used if SelectionListType = RpsFieldSelectionType.Window)
-
-        {Category("Validation - Selections")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property SelectionWindowName, String
+		;;; <summary>
+		;;; The name of the selection window associated with the field.
+		;;; Only used if SelectionListType is RpsFieldSelectionType.Window
+		;;; </summary>
+		public property SelectionWindowName, String
             method get
             proc
                 mreturn %atrim(mf_info.fi_selwin)
@@ -2479,14 +1924,11 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Selection window height (d2)
-        ;; (Only used if SelectionListType = RpsFieldSelectionType.List)
-
-        {Category("Validation - Selections")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property SelectionWindowHeight, int
+		;;; <summary>
+		;;; The height of the selection window associated with the field.
+		;;; Only used if SelectionListType is RpsFieldSelectionType.List
+		;;; </summary>
+		public property SelectionWindowHeight, int
             method get
             proc
                 mreturn mf_info.fi_selht
@@ -2497,149 +1939,51 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Default value
+		;;; <summary>
+		;;; The default value for the field.
+		;;; </summary>
+		public readwrite property DefaultValue, String, String.Empty
 
-        {Category("Input")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property DefaultValue, String
-            method get
-            proc
-                mreturn mDefaultValue
-            endmethod
-            method set
-            proc
-				mDefaultValue = value.Trim()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The name of the arrive method associated with the field.
+		;;; </summary>
+		public readwrite property ArriveMethod, String, String.Empty
 
-        ;; Arrive method name
+		;;; <summary>
+		;;; The name of the leave method associated with the field.
+		;;; </summary>
+		public readwrite property LeaveMethod, String, String.Empty
 
-        {Category("Input - Methods")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property ArriveMethod, String
-            method get
-            proc
-                mreturn mArriveMethod
-            endmethod
-            method set
-            proc
-                mArriveMethod = value.Trim().ToUpper()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The name of the drill method associated with the field.
+		;;; </summary>
+		public readwrite property DrillMethod, String, String.Empty
 
-        ;; Leave method name
+		;;; <summary>
+		;;; The name of the hyperlink method associated with the field.
+		;;; </summary>
+		public readwrite property HyperlinkMethod, String, String.Empty
 
-        {Category("Input - Methods")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property LeaveMethod, String
-            method get
-            proc
-                mreturn mLeaveMethod
-            endmethod
-            method set
-            proc
-				mLeaveMethod = value.Trim().ToUpper()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The name of the change method associated with the field.
+		;;; </summary>
+		public readwrite property ChangeMethod, String, String.Empty
 
-        ;; Drill method name
+		;;; <summary>
+		;;; The name of the display method associated with the field.
+		;;; </summary>
+		public readwrite property DisplayMethod, String, String.Empty
 
-        {Category("Input - Methods")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property DrillMethod, String
-            method get
-            proc
-                mreturn mDrillMethod
-            endmethod
-            method set
-            proc
-				mDrillMethod = value.Trim().ToUpper()
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The name of the edit format method associated with the field.
+		;;; </summary>
+		public readwrite property EditFormatMethod, String, String.Empty
 
-        ;; Hyperlink method name
-
-        {Category("Input - Methods")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property HyperlinkMethod, String
-            method get
-            proc
-                mreturn mHyperlinkMethod
-            endmethod
-            method set
-            proc
-				mHyperlinkMethod = value.Trim().ToUpper()
-            endmethod
-        endproperty
-
-        ;; Change method name
-
-        {Category("Input - Methods")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property ChangeMethod, String
-            method get
-            proc
-                mreturn mChangeMethod
-            endmethod
-            method set
-            proc
-				mChangeMethod = value.Trim().ToUpper()
-            endmethod
-        endproperty
-
-        ;; Display method name
-
-        {Category("Input - Methods")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property DisplayMethod, String
-            method get
-            proc
-                mreturn mDisplayMethod
-            endmethod
-            method set
-            proc
-				mDisplayMethod = value.Trim().ToUpper()
-            endmethod
-        endproperty
-
-        ;; Edit format method name
-
-        {Category("Input - Methods")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property EditFormatMethod, String
-            method get
-            proc
-                mreturn mEditFormatMethod
-            endmethod
-            method set
-            proc
-				mEditFormatMethod = value.Trim().ToUpper()
-            endmethod
-        endproperty
-
-        ;Numeric range exists (d2)
-
-        {Category("Validation - Numeric Range")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property NumericRangeExists, boolean
+		;;; <summary>
+		;;; Does a range of allowed values exist for a numeric field.
+		;;; See also NumericRangeMinimum and NumericRangeMaximum.
+		;;; </summary>
+		public property NumericRangeExists, boolean
             method get
             proc
                 mreturn mf_info.fi_range
@@ -2650,47 +1994,23 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;Numeric field range minimum (decimal)
+		;;; <summary>
+		;;; The minimum value allowed in a numeric field.
+		;;; See also NumericRangeExists.
+		;;; </summary>
+		public readwrite property NumericRangeMinimum, decimal, 0.0
 
-        {Category("Validation - Numeric Range")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property NumericRangeMinimum, decimal
-            method get
-            proc
-                mreturn mfti_range.fti_rgmin
-            endmethod
-            method set
-            proc
-                mfti_range.fti_rgmin = value
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The maximum value allowed in a numeric field.
+		;;; See also NumericRangeExists.
+		;;; </summary>
+		public readwrite property NumericRangeMaximum, decimal, 0.0
 
-        ;Numeric field range maximum (decimal)
-
-        {Category("Validation - Numeric Range")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property NumericRangeMaximum, decimal
-            method get
-            proc
-                mreturn mfti_range.fti_rgmax
-            endmethod
-            method set
-            proc
-                mfti_range.fti_rgmax = value
-            endmethod
-        endproperty
-
-        ;Enumerated (Toolkit) (d2)
-
-        {Category("Validation - Enumeration")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property Enumerated, boolean
+		;;; <summary>
+		;;; The the field "enumerated"? i.e. are selections translated into numeric values?
+		;;; See also EnumeratedDisplayLength, EnumeratedBaseValue and EnumeratedStepValue
+		;;; </summary>
+		public property Enumerated, boolean
             method get
             proc
                 mreturn (mf_info.fi_enum!=0)
@@ -2701,56 +2021,24 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;Enumerated field display length (Toolkit) (d2)
+		;;; <summary>
+		;;; The maximum length of an emumerated fields selections.
+		;;; See also Enumerated.
+		;;; </summary>
+		public readwrite property EnumeratedDisplayLength, int, 0
 
-        {Category("Validation - Enumeration")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property EnumeratedDisplayLength, int
-            method get
-            proc
-                mreturn mfti_enum.fti_enmlen
-            endmethod
-            method set
-            proc
-                mfti_enum.fti_enmlen = value
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; The value of an enumerated fields first selection.
+		;;; See also Enumerated.
+		;;; </summary>
+		public readwrite property EnumeratedBaseValue, int, 0
 
-        ;Enumerated field base value (Toolkit) (d2)
-
-        {Category("Validation - Enumeration")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property EnumeratedBaseValue, int
-            method get
-            proc
-                mreturn mfti_enum.fti_enmbase
-            endmethod
-            method set
-            proc
-                mfti_enum.fti_enmbase = value
-            endmethod
-        endproperty
-
-        ;Enumerated field step value (Toolkit) (d2)
-
-        {Category("Validation - Enumeration")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property EnumeratedStepValue, int
-            method get
-            proc
-                mreturn mfti_enum.fti_enmstep
-            endmethod
-            method set
-            proc
-                mfti_enum.fti_enmstep = value
-            endmethod
-        endproperty
+		;;; <summary>
+		;;; An enumerated fields step value.
+		;;; the base value is incremented by this value for each selection.
+		;;; See also Enumerated.
+		;;; </summary>
+		public readwrite property EnumeratedStepValue, int, 0
 
     endclass
 
@@ -2781,29 +2069,27 @@ namespace CodeGen.RepositoryAPI
 		;;
 		;;IMPARTANT: If more properties are added, remember to update the cloneField method
 		;;
-		protected mTypeCode             ,String     ;Data type code
-		protected mTypeName             ,String     ;Synergy type name
-		protected mCsType               ,String     ;C# data type
-		protected mCsDefault            ,String     ;C# default value
-		protected mCsNumericConvert     ,String     ;C# numeric conversion function
-		protected mOcType               ,String     ;Objective-C data type
-		protected mOcDefault            ,String     ;Objective-C default value
-		protected mOcObject             ,boolean    ;Objective-C data type is an object
-		protected mVbType               ,String     ;VB.NET data type
-		protected mVbDefault            ,String     ;VB default value
-		protected mSqlType              ,String     ;SQL data type
-		protected mSnType				,String		;Synergy .NET type
-		protected mSnDefault			,String		;Synergy .NET default value
-		protected mMappedField          ,String     ;Mapped field name
-		protected mMappingFunction      ,String     ;Mapping conversion function
-		protected mUnmappingFunction    ,String     ;Mapping unconversion function
-		protected mAutoIncrement        ,boolean    ;Auto incrementing numeric field
-		protected mWasArrayElement      ,boolean    ;Field was from an expanded array
-		protected mOriginalElement      ,[#]int     ;Original element #'s for expanded array fields
-		protected mSqlName              ,String     ;SQL compatible name
-		protected mOdbcName             ,String     ;ODBC compatible name
-		protected mFieldNumber			,int		;Field number (for <FIELD#>)
-		protected mLogicalFieldNumber	,int		;Field number (for <FIELD#LOGICAL>)
+;		protected mCsType               ,String     ;C# data type
+;		protected mCsDefault            ,String     ;C# default value
+;		protected mCsNumericConvert     ,String     ;C# numeric conversion function
+;		protected mOcType               ,String     ;Objective-C data type
+;		protected mOcDefault            ,String     ;Objective-C default value
+;		protected mOcObject             ,boolean    ;Objective-C data type is an object
+;		protected mVbType               ,String     ;VB.NET data type
+;		protected mVbDefault            ,String     ;VB default value
+;		protected mSqlType              ,String     ;SQL data type
+;		protected mSnType				,String		;Synergy .NET type
+;		protected mSnDefault			,String		;Synergy .NET default value
+;		protected mMappedField          ,String     ;Mapped field name
+;		protected mMappingFunction      ,String     ;Mapping conversion function
+;		protected mUnmappingFunction    ,String     ;Mapping unconversion function
+;		protected mAutoIncrement        ,boolean    ;Auto incrementing numeric field
+;		protected mWasArrayElement      ,boolean    ;Field was from an expanded array
+;		protected mOriginalElement      ,[#]int     ;Original element #'s for expanded array fields
+;		protected mSqlName              ,String     ;SQL compatible name
+;		protected mOdbcName             ,String     ;ODBC compatible name
+;		protected mFieldNumber			,int		;Field number (for <FIELD#>)
+;		protected mLogicalFieldNumber	,int		;Field number (for <FIELD#LOGICAL>)
 		
 		protected static mMappings, @DataMappings
 		
@@ -2829,192 +2115,192 @@ namespace CodeGen.RepositoryAPI
 
 			;;Load the CodeGen specific attributes
 
-			mCsType  = getDataType(MappedType.CSharp)
-			mVbType  = getDataType(MappedType.VB)
-			mSqlType = getDataType(MappedType.SQL)
-			mOcType  = getDataType(MappedType.ObjectiveC)
-			mSnType  = getDataType(MappedType.SynergyDotNet)
+			this.CsType  = getDataType(MappedType.CSharp)
+			this.VbType  = getDataType(MappedType.VB)
+			this.SqlType = getDataType(MappedType.SQL)
+			this.OcType  = getDataType(MappedType.ObjectiveC)
+			this.SnType  = getDataType(MappedType.SynergyDotNet)
 			
 			using DataType select
 			(RpsFieldDataType.Alpha),
 			begin
-				mTypeCode = "A"
+				this.TypeCode = "A"
 				using DataTypeSubclass select
 				(RpsFieldSubclass.Binary),
 				begin
-					mTypeName = "BINARY"
-					mCsNumericConvert = ""
-					mCsDefault = '""'
-					mVbDefault = '""'
-					mOcDefault = '@""'
-					mOcObject = true
-					mSnDefault = '""'
+					this.TypeName = "BINARY"
+					this.CsNumericConvert = ""
+					this.CsDefault = '""'
+					this.VbDefault = '""'
+					this.OcDefault = '@""'
+					this.OcObject = true
+					this.SnDefault = '""'
 				end
 				(),
 				begin
-					mTypeName = "ALPHA"
-					mCsNumericConvert = ""
-					mCsDefault = '""'
-					mVbDefault = '""'
-					mOcDefault = '@""'
-					mOcObject = true
-					mSnDefault = '""'
+					this.TypeName = "ALPHA"
+					this.CsNumericConvert = ""
+					this.CsDefault = '""'
+					this.VbDefault = '""'
+					this.OcDefault = '@""'
+					this.OcObject = true
+					this.SnDefault = '""'
 				end
 				endusing
 			end
 			(RpsFieldDataType.User),
 			begin
-				mTypeCode = "A"
+				this.TypeCode = "A"
 				using DataTypeSubclass select
 				(RpsFieldSubclass.UserAlpha),
 				begin
-					mTypeName = "USER ALPHA"
-					mCsNumericConvert = ""
-					mCsDefault = '""'
-					mVbDefault = '""'
-					mOcDefault = '@""'
-					mOcObject = true
-					mSnDefault = '""'
+					this.TypeName = "USER ALPHA"
+					this.CsNumericConvert = ""
+					this.CsDefault = '""'
+					this.VbDefault = '""'
+					this.OcDefault = '@""'
+					this.OcObject = true
+					this.SnDefault = '""'
 				end
 				(RpsFieldSubclass.UserNumeric),
 				begin
-					mTypeName = "USER NUMERIC"
-					mCsNumericConvert = ""
-					mCsDefault = '""'
-					mVbDefault = '""'
-					mOcDefault = '@""'
-					mOcObject = true
-					mSnDefault = '""'
+					this.TypeName = "USER NUMERIC"
+					this.CsNumericConvert = ""
+					this.CsDefault = '""'
+					this.VbDefault = '""'
+					this.OcDefault = '@""'
+					this.OcObject = true
+					this.SnDefault = '""'
 				end
 				(RpsFieldSubclass.UserDate),
 				begin
-					mTypeName = "USER DATE"
-					mCsNumericConvert = ""
-					mCsDefault = '""'
-					mVbDefault = '""'
-					mOcDefault = '@""'
-					mOcObject = true
-					mSnDefault = '""'
+					this.TypeName = "USER DATE"
+					this.CsNumericConvert = ""
+					this.CsDefault = '""'
+					this.VbDefault = '""'
+					this.OcDefault = '@""'
+					this.OcObject = true
+					this.SnDefault = '""'
 				end
 				endusing
 			end
 			(RpsFieldDataType.Decimal),
 			begin
-				mTypeCode = "D"
+				this.TypeCode = "D"
 				using DataTypeSubclass select
 				(RpsFieldSubclass.DateYYYYMMDD),
 				begin
-					mTypeName = "DATE"
-					mCsNumericConvert = ""
-					mCsDefault = "new DateTime()"
-					mVbDefault = "New DateTime()"
-					mOcDefault = "[NSDate new]"
-					mOcObject = true
-					mSnDefault = "new DateTime()"
+					this.TypeName = "DATE"
+					this.CsNumericConvert = ""
+					this.CsDefault = "new DateTime()"
+					this.VbDefault = "New DateTime()"
+					this.OcDefault = "[NSDate new]"
+					this.OcObject = true
+					this.SnDefault = "new DateTime()"
 				end
 				(RpsFieldSubclass.DateYYMMDD),
 				begin
-					mTypeName = "DATE"
-					mCsNumericConvert = ""
-					mCsDefault = "new DateTime()"
-					mVbDefault = "New DateTime()"
-					mOcDefault = "[NSDate new]"
-					mOcObject = true
-					mSnDefault = "new DateTime()"
+					this.TypeName = "DATE"
+					this.CsNumericConvert = ""
+					this.CsDefault = "new DateTime()"
+					this.VbDefault = "New DateTime()"
+					this.OcDefault = "[NSDate new]"
+					this.OcObject = true
+					this.SnDefault = "new DateTime()"
 				end
 				(RpsFieldSubclass.DateYYYYJJJ),
 				begin
-					mTypeName = "DATE"
-					mCsNumericConvert = ""
-					mCsDefault = "new DateTime()"
-					mVbDefault = "New DateTime()"
-					mOcDefault = "[NSDate new]"
-					mOcObject = true
-					mSnDefault = "new DateTime()"
+					this.TypeName = "DATE"
+					this.CsNumericConvert = ""
+					this.CsDefault = "new DateTime()"
+					this.VbDefault = "New DateTime()"
+					this.OcDefault = "[NSDate new]"
+					this.OcObject = true
+					this.SnDefault = "new DateTime()"
 				end
 				(RpsFieldSubclass.DateYYJJJ),
 				begin
-					mTypeName = "DATE"
-					mCsNumericConvert = ""
-					mCsDefault = "new DateTime()"
-					mVbDefault = "New DateTime()"
-					mOcDefault = "[NSDate new]"
-					mOcObject = true
-					mSnDefault = "new DateTime()"
+					this.TypeName = "DATE"
+					this.CsNumericConvert = ""
+					this.CsDefault = "new DateTime()"
+					this.VbDefault = "New DateTime()"
+					this.OcDefault = "[NSDate new]"
+					this.OcObject = true
+					this.SnDefault = "new DateTime()"
 				end
 				(RpsFieldSubclass.DateYYYYPP),
 				begin
-					mTypeName = "DATE"
-					mCsNumericConvert = ""
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "DATE"
+					this.CsNumericConvert = ""
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldSubclass.DateYYPP),
 				begin
-					mTypeName = "DATE"
-					mCsNumericConvert = ""
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "DATE"
+					this.CsNumericConvert = ""
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldSubclass.TimeHHMMSS),
 				begin
-					mTypeName = "TIME"
-					mCsNumericConvert = ""
-					mCsDefault = "new DateTime()"
-					mVbDefault = "New DateTime()"
-					mOcDefault = "[NSDate new]"
-					mOcObject = true
-					mSnDefault = "new DateTime()"
+					this.TypeName = "TIME"
+					this.CsNumericConvert = ""
+					this.CsDefault = "new DateTime()"
+					this.VbDefault = "New DateTime()"
+					this.OcDefault = "[NSDate new]"
+					this.OcObject = true
+					this.SnDefault = "new DateTime()"
 				end
 				(RpsFieldSubclass.TimeHHMM),
 				begin
-					mTypeName = "TIME"
-					mCsNumericConvert = ""
-					mCsDefault = "new DateTime()"
-					mVbDefault = "New DateTime()"
-					mOcDefault = "[NSDate new]"
-					mOcObject = true
-					mSnDefault = "new DateTime()"
+					this.TypeName = "TIME"
+					this.CsNumericConvert = ""
+					this.CsDefault = "new DateTime()"
+					this.VbDefault = "New DateTime()"
+					this.OcDefault = "[NSDate new]"
+					this.OcObject = true
+					this.SnDefault = "new DateTime()"
 				end
 				(),
 				begin
 					if (Precision) then
 					begin
-						mTypeName = "IMPLIED"
-						mCsNumericConvert = "decimal.TryParse"
-						mCsDefault = "0"
-						mVbDefault = "0"
-						mOcDefault = "0.0"
-						mOcObject = false
-						mSnDefault = "0.0"
+						this.TypeName = "IMPLIED"
+						this.CsNumericConvert = "decimal.TryParse"
+						this.CsDefault = "0"
+						this.VbDefault = "0"
+						this.OcDefault = "0.0"
+						this.OcObject = false
+						this.SnDefault = "0.0"
 					end
 					else
 					begin
 						if (Size<=9) then
 						begin
-							mTypeName = "DECIMAL"
-							mCsNumericConvert = "int.TryParse"
-							mCsDefault = "0"
-							mVbDefault = "0"
-							mOcDefault = "0"
-							mOcObject = false
-							mSnDefault = "0"
+							this.TypeName = "DECIMAL"
+							this.CsNumericConvert = "int.TryParse"
+							this.CsDefault = "0"
+							this.VbDefault = "0"
+							this.OcDefault = "0"
+							this.OcObject = false
+							this.SnDefault = "0"
 						end
 						else
 						begin
-							mTypeName = "DECIMAL"
-							mCsNumericConvert = "long.TryParse"
-							mCsDefault = "0"
-							mVbDefault = "0"
-							mOcDefault = "0"
-							mOcObject = false
-							mSnDefault = "0"
+							this.TypeName = "DECIMAL"
+							this.CsNumericConvert = "long.TryParse"
+							this.CsDefault = "0"
+							this.VbDefault = "0"
+							this.OcDefault = "0"
+							this.OcObject = false
+							this.SnDefault = "0"
 						end
 					end
 				end
@@ -3022,102 +2308,102 @@ namespace CodeGen.RepositoryAPI
 			end
 			(RpsFieldDataType.Integer),
 			begin
-				mTypeCode = "I"
+				this.TypeCode = "I"
 				using Size select
 				(1,2),
 				begin
-					mTypeName = "INTEGER"
-					mCsNumericConvert = "int.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "INTEGER"
+					this.CsNumericConvert = "int.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(4),
 				begin
-					mTypeName = "INTEGER"
-					mCsNumericConvert = "int.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "INTEGER"
+					this.CsNumericConvert = "int.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(8),
 				begin
-					mTypeName = "INTEGER"
-					mCsNumericConvert = "long.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "INTEGER"
+					this.CsNumericConvert = "long.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				endusing
 			end
 			(RpsFieldDatatype.Boolean),
 			begin
-				mTypeCode = "BOOLEAN"
-				mTypeName = "BOOLEAN"
-				mCsNumericConvert = "bool.TryParse"
-				mCsDefault = "false"
-				mVbDefault = "False"
-				mOcDefault = "NO"
-				mOcObject = false
-				mSnDefault = "false"
+				this.TypeCode = "BOOLEAN"
+				this.TypeName = "BOOLEAN"
+				this.CsNumericConvert = "bool.TryParse"
+				this.CsDefault = "false"
+				this.VbDefault = "False"
+				this.OcDefault = "NO"
+				this.OcObject = false
+				this.SnDefault = "false"
 			end
 			(RpsFieldDataType.Enum),    ;;Can't currently happen because of %CheckStructure
 			begin
-				mTypeName = "ENUM"
-				mCsNumericConvert = ""
-				mCsDefault = ""
-				mVbDefault = ""
-				mOcDefault = ""
-				mOcObject = false
-				mSnDefault = ""
+				this.TypeName = "ENUM"
+				this.CsNumericConvert = ""
+				this.CsDefault = ""
+				this.VbDefault = ""
+				this.OcDefault = ""
+				this.OcObject = false
+				this.SnDefault = ""
 			end
 			(RpsFieldDataType.Binary),  ;;Can't currently happen because of %CheckStructure
 			begin
-				mTypeName = "BINARY"
-				mCsNumericConvert = ""
-				mCsDefault = ""
-				mVbDefault = ""
-				mOcDefault = ""
-				mOcObject = false
-				mSnDefault = ""
+				this.TypeName = "BINARY"
+				this.CsNumericConvert = ""
+				this.CsDefault = ""
+				this.VbDefault = ""
+				this.OcDefault = ""
+				this.OcObject = false
+				this.SnDefault = ""
 			end
 			(RpsFieldDataType.Structfield), ;;Can't currently happen because of %CheckStructure
 			begin
-				mTypeName = "STRUCT FIELD"
-				mCsNumericConvert = ""
-				mCsDefault = ""
-				mVbDefault = ""
-				mOcDefault = ""
-				mOcObject = false
-				mSnDefault = ""
+				this.TypeName = "STRUCT FIELD"
+				this.CsNumericConvert = ""
+				this.CsDefault = ""
+				this.VbDefault = ""
+				this.OcDefault = ""
+				this.OcObject = false
+				this.SnDefault = ""
 			end
 			(RpsFieldDataType.AutoSequence),
 			begin
-				mTypeCode = "I"
-				mTypeName = "AUTO SEQUENCE"
-				mCsNumericConvert = "long.TryParse"
-				mCsDefault = "0"
-				mVbDefault = "0"
-				mOcDefault = "0"
-				mOcObject = false
-				mSnDefault = "0"
+				this.TypeCode = "I"
+				this.TypeName = "AUTO SEQUENCE"
+				this.CsNumericConvert = "long.TryParse"
+				this.CsDefault = "0"
+				this.VbDefault = "0"
+				this.OcDefault = "0"
+				this.OcObject = false
+				this.SnDefault = "0"
 			end
 			(RpsFieldDataType.AutoTime),
 			begin
-				mTypeCode = "I"
-				mTypeName = "AUTO TIMESTAMP"
-				mCsNumericConvert = "long.TryParse"
-				mCsDefault = "0"
-				mVbDefault = "0"
-				mOcDefault = "0"
-				mOcObject = false
-				mSnDefault = "0"
+				this.TypeCode = "I"
+				this.TypeName = "AUTO TIMESTAMP"
+				this.CsNumericConvert = "long.TryParse"
+				this.CsDefault = "0"
+				this.VbDefault = "0"
+				this.OcDefault = "0"
+				this.OcObject = false
+				this.SnDefault = "0"
 			end
 			endusing
 			
@@ -3127,160 +2413,159 @@ namespace CodeGen.RepositoryAPI
 				using CoercedType select
 				(RpsFieldCoercedType.CtByte),
 				begin
-					mTypeName = "BYTE"
-					mCsNumericConvert = "byte.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "BYTE"
+					this.CsNumericConvert = "byte.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldCoercedType.CtShort),
 				begin
-					mTypeName = "SHORT"
-					mCsNumericConvert = "short.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "SHORT"
+					this.CsNumericConvert = "short.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldCoercedType.CtInt),
 				begin
-					mTypeName = "INTEGER"
-					mCsNumericConvert = "int.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "INTEGER"
+					this.CsNumericConvert = "int.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldCoercedType.CtLong),
 				begin
-					mTypeName = "LONG"
-					mCsNumericConvert = "long.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "LONG"
+					this.CsNumericConvert = "long.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldCoercedType.CtSbyte),
 				begin
-					mTypeName = "SBYTE"
-					mCsNumericConvert = "sbyte.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "SBYTE"
+					this.CsNumericConvert = "sbyte.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldCoercedType.CtUshort),
 				begin
-					mTypeName = "USHORT"
-					mCsNumericConvert = "ushort.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "USHORT"
+					this.CsNumericConvert = "ushort.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldCoercedType.CtUint),
 				begin
-					mTypeName = "UINTEGER"
-					mCsNumericConvert = "uint.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "UINTEGER"
+					this.CsNumericConvert = "uint.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldCoercedType.CtUlong),
 				begin
-					mTypeName = "ULONG"
-					mCsNumericConvert = "ulong.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0"
-					mOcObject = false
-					mSnDefault = "0"
+					this.TypeName = "ULONG"
+					this.CsNumericConvert = "ulong.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0"
+					this.OcObject = false
+					this.SnDefault = "0"
 				end
 				(RpsFieldCoercedType.CtBoolean),
 				begin
-					mTypeName = "BOOLEAN"
-					mCsNumericConvert = "bool.TryParse"
-					mCsDefault = "false"
-					mVbDefault = "False"
-					mOcDefault = "NO"
-					mOcObject = false
-					mSnDefault = "false"
+					this.TypeName = "BOOLEAN"
+					this.CsNumericConvert = "bool.TryParse"
+					this.CsDefault = "false"
+					this.VbDefault = "False"
+					this.OcDefault = "NO"
+					this.OcObject = false
+					this.SnDefault = "false"
 				end
 				(RpsFieldCoercedType.CtDouble),
 				begin
-					mTypeName = "DOUBLE"
-					mCsNumericConvert = "double.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0.0"
-					mOcObject = false
-					mSnDefault = "0.0"
+					this.TypeName = "DOUBLE"
+					this.CsNumericConvert = "double.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0.0"
+					this.OcObject = false
+					this.SnDefault = "0.0"
 				end
 				(RpsFieldCoercedType.CtFloat),
 				begin
-					mTypeName = "FLOAT"
-					mCsNumericConvert = "float.TryParse"
-					mCsDefault = "0"
-					mVbDefault = "0"
-					mOcDefault = "0.0"
-					mOcObject = false
-					mSnDefault = "0.0"
+					this.TypeName = "FLOAT"
+					this.CsNumericConvert = "float.TryParse"
+					this.CsDefault = "0"
+					this.VbDefault = "0"
+					this.OcDefault = "0.0"
+					this.OcObject = false
+					this.SnDefault = "0.0"
 				end
 				(RpsFieldCoercedType.CtNullDateTime),
 				begin
-					mTypeName = "NULLABLEDATETIME"
-					mCsNumericConvert = ""
-					mCsDefault = "null"
-					mVbDefault = "Nothing"
-					mOcDefault = "[NSDate new]"
-					mOcObject = true
-					mSnDefault = "^null"
+					this.TypeName = "NULLABLEDATETIME"
+					this.CsNumericConvert = ""
+					this.CsDefault = "null"
+					this.VbDefault = "Nothing"
+					this.OcDefault = "[NSDate new]"
+					this.OcObject = true
+					this.SnDefault = "^null"
 				end
 				endusing
 			end
 			
 			;;Mapped field
-			mMappedField = RpsUtils.GetMappedField(mStructureName,mName,mUserText,mLongDescription)
+			this.MappedField = RpsUtils.GetMappedField(this.StructureName,this.Name,this.UserText,this.LongDescription)
 
 			;;Mapping conversion function
-			mMappingFunction = RpsUtils.GetMappingFunction(mStructureName,mName,mUserText,mLongDescription)
+			this.MappingFunction = RpsUtils.GetMappingFunction(this.StructureName,this.Name,this.UserText,this.LongDescription)
 			
 			;;Mapping unconversion function
-			mUnmappingFunction = RpsUtils.GetUnMappingFunction(mStructureName,mName,mUserText,mLongDescription)
+			this.UnmappingFunction = RpsUtils.GetUnMappingFunction(this.StructureName,this.Name,this.UserText,this.LongDescription)
 			
 			;;Auto incrmenting field
-			mAutoIncrement = false
+			this.AutoIncrement = false
 			begin
 				data pos1, int
-				if (pos1=instr(1,mUserText.ToUpper(),"@AUTOINCREMENT;")) then
-				    mAutoIncrement = true
-			    else if (pos1=instr(1,mLongDescription.ToUpper(),"@AUTOINCREMENT;"))
-				    mAutoIncrement = true
+				if (pos1=instr(1,this.UserText.ToUpper(),"@AUTOINCREMENT;")) then
+					this.AutoIncrement = true
+				else if (pos1=instr(1,this.LongDescription.ToUpper(),"@AUTOINCREMENT;"))
+					this.AutoIncrement = true
 			end
 			
-			mWasArrayElement = false
-			mOriginalElement = new int[4]
-			mOriginalElement[1] = mArrayDimension[1]
-			mOriginalElement[2] = mArrayDimension[2]
-			mOriginalElement[3] = mArrayDimension[3]
-			mOriginalElement[4] = mArrayDimension[4]
+			this.WasArrayElement = false
+			this.OriginalElement[1] = this.ArrayDimension[1]
+			this.OriginalElement[2] = this.ArrayDimension[2]
+			this.OriginalElement[3] = this.ArrayDimension[3]
+			this.OriginalElement[4] = this.ArrayDimension[4]
 			
-			mSqlName = mName
-			mOdbcName = mName
+			this.SqlName = this.Name
+			this.OdbcName = this.Name
 			
 			;;These two are ONLY used WITHIN CodeGen. The values are populated
 			;;by CodeGenEngine.CheckStructure()
-			mFieldNumber = 0
-			mLogicalFieldNumber = 0
+			this.FieldNumber = 0
+			this.LogicalFieldNumber = 0
 
 		endmethod
 		
@@ -3289,35 +2574,35 @@ namespace CodeGen.RepositoryAPI
 			endparams
 		proc
 			;;Clone the CodeGen specific properties
-			mTypeCode               = SourceField.TypeCode
-			mTypeName               = SourceField.TypeName
-			mCsType                 = SourceField.CsType
-			mCsDefault              = SourceField.CsDefault
-			mCsNumericConvert       = SourceField.CsNumericConvert
-			mOcType                 = SourceField.OcType
-			mOcDefault              = SourceField.OcDefault
-			mOcObject               = SourceField.OcObject
-			mVbType                 = SourceField.VbType
-			mVbDefault              = SourceField.VbDefault
-			mSqlType                = SourceField.SqlType
-			mSnType                 = SourceField.SnType
-			mSnDefault              = SourceField.SnDefault
-			mMappedField            = SourceField.MappedField
-			mMappingFunction        = SourceField.MappingFunction
-			mUnmappingFunction      = SourceField.UnmappingFunction
-			mAutoIncrement          = SourceField.AutoIncrement
-			mWasArrayElement        = SourceField.WasArrayElement
-			mSqlName                = SourceField.SqlName
-			mOdbcName               = SourceField.OdbcName
+			this.TypeCode           = SourceField.TypeCode
+			this.TypeName           = SourceField.TypeName
+			this.CsType             = SourceField.CsType
+			this.CsDefault          = SourceField.CsDefault
+			this.CsNumericConvert   = SourceField.CsNumericConvert
+			this.OcType             = SourceField.OcType
+			this.OcDefault          = SourceField.OcDefault
+			this.OcObject           = SourceField.OcObject
+			this.VbType             = SourceField.VbType
+			this.VbDefault          = SourceField.VbDefault
+			this.SqlType            = SourceField.SqlType
+			this.SnType             = SourceField.SnType
+			this.SnDefault          = SourceField.SnDefault
+			this.MappedField        = SourceField.MappedField
+			this.MappingFunction    = SourceField.MappingFunction
+			this.UnmappingFunction  = SourceField.UnmappingFunction
+			this.AutoIncrement      = SourceField.AutoIncrement
+			this.WasArrayElement    = SourceField.WasArrayElement
+			this.SqlName            = SourceField.SqlName
+			this.OdbcName           = SourceField.OdbcName
 			
-			mOriginalElement = new int[4]
-			mOriginalElement[1]     = SourceField.OriginalElement[1]
-			mOriginalElement[2]     = SourceField.OriginalElement[2]
-			mOriginalElement[3]     = SourceField.OriginalElement[3]
-			mOriginalElement[4]     = SourceField.OriginalElement[4]
+			this.OriginalElement    = new int[4]
+			this.OriginalElement[1] = SourceField.OriginalElement[1]
+			this.OriginalElement[2] = SourceField.OriginalElement[2]
+			this.OriginalElement[3] = SourceField.OriginalElement[3]
+			this.OriginalElement[4] = SourceField.OriginalElement[4]
 			
-			mFieldNumber			= SourceField.FieldNumber
-			mLogicalFieldNumber		= SourceField.LogicalFieldNumber
+			this.FieldNumber		= SourceField.FieldNumber
+			this.LogicalFieldNumber	= SourceField.LogicalFieldNumber
 
 		endmethod
 		
@@ -4144,10 +3429,10 @@ namespace CodeGen.RepositoryAPI
 		;; using this class in CodeGen. In most other scenarios these properties
 		;; should be removed.
 		
-
-        {Browsable(false)}
-        
-        protected property FieldData, f_info
+		;;; <summary>
+		;;; 
+		;;; </summary>
+		protected property FieldData, f_info
 			method get
 			proc
 				mreturn mf_info
@@ -4156,337 +3441,109 @@ namespace CodeGen.RepositoryAPI
 
 		{Browsable(false)}
 		
-		public property FieldNumber, int
-			method get
-			proc
-				mreturn mFieldNumber
-			endmethod
-			method set
-			proc
-				mFieldNumber = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; Field number in original repository structure.
+		;;; </summary>
+		public readwrite property FieldNumber, int
 		
 		{Browsable(false)}
 		
-		public property LogicalFieldNumber, int
-			method get
-			proc
-				mreturn mLogicalFieldNumber
-			endmethod
-			method set
-			proc
-				mLogicalFieldNumber = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; Logical field number, after the expansion of arrays and groups.
+		;;; </summary>
+		public readwrite property LogicalFieldNumber, int
 		
-		;; Synergy data type code
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property TypeCode, string
-			method get
-			proc
-				mreturn mTypeCode
-			endmethod
-			method set
-			proc
-				mTypeCode = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; Synergy data type code
+		;;; </summary>
+		public readwrite property TypeCode, string, String.Empty
 		
-		;; Synergy data type name
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property TypeName, string
-			method get
-			proc
-				mreturn mTypeName
-			endmethod
-			method set
-			proc
-				mTypeName = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; A descriptive name of the data type (ALPHA, DECIMAL, INTEGER, etc.)
+		;;; </summary>
+		public readwrite property TypeName, string, String.Empty
 		
-		;; C# data type
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property CsType, string
-			method get
-			proc
-				mreturn mCsType
-			endmethod
-			method set
-			proc
-				mCsType = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; C# data type
+		;;; </summary>
+		public readwrite property CsType, string, String.Empty
 		
-		;; C# numeric conversion function
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property CsNumericConvert, string
-			method get
-			proc
-				mreturn mCsNumericConvert
-			endmethod
-			method set
-			proc
-				mCsNumericConvert = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; C# numeric conversion function
+		;;; </summary>
+		public readwrite property CsNumericConvert, string, String.Empty
 		
-		;; VB data type
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property VbType, string
-			method get
-			proc
-				mreturn mVbType
-			endmethod
-			method set
-			proc
-				mVbType = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; VB data type
+		;;; </summary>
+		public readwrite property VbType, string, String.Empty
 		
-		;; Synergy .NET data type
-		{Category("CodeGen Extensions")}
-		{Description("")}
-		{ReadOnly(true)}
+		;;; <summary>
+		;;; Synergy .NET data type
+		;;; </summary>
+		public readwrite property SnType, string, String.Empty
+
+		;;; <summary>
+		;;; C# default value (based on data type)
+		;;; </summary>
+		public readwrite property CsDefault, string, String.Empty
 		
-		public property SnType, string
-			method get
-			proc
-				mreturn mSnType
-			endmethod
-			method set
-			proc
-				mSnType = value
-			endmethod
-		endproperty
-
-		;; C# default value (based on data type)
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property CsDefault, string
-			method get
-			proc
-				mreturn mCsDefault
-			endmethod
-			method set
-			proc
-				mCsDefault = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; VB default value (based on data type) 
+		;;; </summary>
+		public readwrite property VbDefault, string, String.Empty
 		
-		;; VB default value (based on data type)
+		;;; <summary>
+		;;; Synergy .NET default value (based on data type) 
+		;;; </summary>
+		public readwrite property SnDefault, string, String.Empty
 
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property VbDefault, string
-			method get
-			proc
-				mreturn mVbDefault
-			endmethod
-			method set
-			proc
-				mVbDefault = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; SQL data type
+		;;; </summary>
+		public readwrite property SqlType, string, String.Empty
 		
-		;; Synergy .NET default value (based on data type)
-		{Category("CodeGen Extensions")}
-		{Description("")}
-		{ReadOnly(true)}
+		;;; <summary>
+		;;; Mapped field name
+		;;; </summary>
+		public readwrite property MappedField, string, String.Empty
 		
-		public property SnDefault, string
-			method get
-			proc
-				mreturn mSnDefault
-			endmethod
-			method set
-			proc
-				mSnDefault = value
-			endmethod
-		endproperty
-
-		;; SQL data type (a20)
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property SqlType, string
-			method get
-			proc
-				mreturn mSqlType
-			endmethod
-			method set
-			proc
-				mSqlType = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; Mapping conversion function
+		;;; </summary>
+		public readwrite property MappingFunction, string, String.Empty
 		
-		;; Mapped field name
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property MappedField, string
-			method get
-			proc
-				mreturn mMappedField
-			endmethod
-			method set
-			proc
-				mMappedField = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; Mapping unconversion function
+		;;; </summary>
+		public readwrite property UnmappingFunction, string, String.Empty
 		
-		;; Mapping conversion function
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property MappingFunction, string
-			method get
-			proc
-				mreturn mMappingFunction
-			endmethod
-			method set
-			proc
-				mMappingFunction = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; Auto incrmenting numeric field
+		;;; </summary>
+		public readwrite property AutoIncrement, boolean, false
 		
-		;; Mapping unconversion function
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property UnmappingFunction, string
-			method get
-			proc
-				mreturn mUnmappingFunction
-			endmethod
-			method set
-			proc
-				mUnmappingFunction = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; Objective-C data type
+		;;; </summary>
+		public readwrite property OcType, string, String.Empty
 		
-		;; Auto incrmenting numeric field
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property AutoIncrement, boolean
-			method get
-			proc
-				mreturn mAutoIncrement
-			endmethod
-			method set
-			proc
-				mAutoIncrement = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; Objective-C default value type
+		;;; </summary>
+		public readwrite property OcDefault, string, String.Empty
 		
-		;; Objective-C data type
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property OcType, string
-			method get
-			proc
-				mreturn mOcType
-			endmethod
-			method set
-			proc
-				mOcType = value
-			endmethod
-		endproperty
-		
-		;; Objective-C default value type
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property OcDefault, string
-			method get
-			proc
-				mreturn mOcDefault
-			endmethod
-			method set
-			proc
-				mOcDefault = value
-			endmethod
-		endproperty
-		
-		;; Objective-C data type is an object
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property OcObject, boolean
-			method get
-			proc
-				mreturn mOcObject
-			endmethod
-			method set
-			proc
-				mOcObject = value
-			endmethod
-		endproperty
+		;;; <summary>
+		;;; Objective-C data type is an object
+		;;; </summary>
+		public readwrite property OcObject, boolean, false
 		
 		;;; <summary>
 		;;; (CodeGen Specific)
 		;;; Indicates that the field was created when an array field
 		;;; was expanded into multiple individual fields
 		;;; </summary>
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property WasArrayElement, boolean
-			method get
-			proc
-				mreturn mWasArrayElement
-			endmethod
-			method set
-			proc
-				mWasArrayElement = value
-			endmethod
-		endproperty
+		public readwrite property WasArrayElement, boolean, false
 		
 		;;; <summary>
 		;;; (CodeGen Specific)
@@ -4495,21 +3552,7 @@ namespace CodeGen.RepositoryAPI
 		;;; array element number. A value of 0 indicates that the field
 		;;; is not an expanded array field.
 		;;; </summary>
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property OriginalElement, [#]int
-			method get
-			proc
-				mreturn mOriginalElement
-			endmethod
-			method set
-			proc
-				mOriginalElement = value
-			endmethod
-		endproperty
+		public readwrite property OriginalElement, [#]int, new int[4]
 		
 		;;; <summary>
 		;;; (CodeGen Specific)
@@ -4517,41 +3560,13 @@ namespace CodeGen.RepositoryAPI
 		;;; and other environments where path names and array dimensions
 		;;; are not allowed.
 		;;; </summary>
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property SqlName, string
-			method get
-			proc
-				mreturn mSqlName
-			endmethod
-			method set
-			proc
-				mSqlName = value
-			endmethod
-		endproperty
+		public readwrite property SqlName, string, String.Empty
 		
 		;;; <summary>
 		;;; (CodeGen Specific)
 		;;; A name for the field which is compatible with xfODBC column names.
 		;;; </summary>
-
-        {Category("CodeGen Extensions")}
-        {Description("")}
-        {ReadOnly(true)}
-        
-        public property OdbcName, string
-			method get
-			proc
-				mreturn mOdbcName
-			endmethod
-			method set
-			proc
-				mOdbcName = value
-			endmethod
-		endproperty
+		public readwrite property OdbcName, string, String.Empty
 		
 	endclass
 

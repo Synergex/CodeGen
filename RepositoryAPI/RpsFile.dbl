@@ -54,16 +54,11 @@ namespace CodeGen.RepositoryAPI
 		public override method ToString, String
 			endparams
 		proc
-			mreturn String.Format("RpsFile: {0}",mFileName)
+			mreturn String.Format("RpsFile: {0}",this.Name)
 		endmethod
 		
 		;;File attribute data
         protected mfl_info          ,fl_info
-        protected mFileName         ,String     ;; Repository file name
-        protected mDescription      ,String     ;; Description
-        protected mLongDescription  ,String     ;; Long description
-        protected mUserText         ,String     ;; User text
-        protected mPortableInts     ,String     ;; Portable integer specs
         protected mKeys             ,@RpsKeyCollection
         protected mStructures       ,@RpsStructureCollection
 		protected mStructureNames	,@List<string>
@@ -84,64 +79,52 @@ namespace CodeGen.RepositoryAPI
             endparams
         proc
             ;;Save the file name
-            mFileName = FileName.Trim().ToUpper()
+            this.Name = FileName.Trim().ToUpper()
 
             ;;Load file information
-            dd_file(Repository.RpsControl,DDL_INFO,mFileName,^a(mfl_info))
+            dd_file(Repository.RpsControl,DDL_INFO,this.Name,^a(mfl_info))
             if (Repository.RpsControl.error)
-                throw new RpsFileException("Failed to get information for repository file "+mFileName)
+                throw new RpsFileException("Failed to get information for repository file "+this.Name)
 
             ;;Load description
-            if (mfl_info.fli_desc) then
+            if (mfl_info.fli_desc)
             begin
                 data tmpDescription, a40
                 xcall dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_desc,tmpDescription)
-                if (Repository.RpsControl.error) then
-                    throw new RpsFileException("Failed to get description for repository file "+mFileName)
-                else
-                    mDescription = %atrim(tmpDescription)
+                if (Repository.RpsControl.error)
+                    throw new RpsFileException("Failed to get description for repository file "+this.Name)
+                this.Description = %atrim(tmpDescription)
             end
-            else
-                mDescription = ""
 
             ;;Load long description
-            if (mfl_info.fli_ldesc) then
+            if (mfl_info.fli_ldesc)
             begin
                 data tmpLongDescription, a1800
                 dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_ldesc,tmpLongDescription)
-                if (Repository.RpsControl.error) then
-                    throw new RpsFileException("Failed to get long description for repository file "+mFileName)
-                else
-                    mLongDescription = tmpLongDescription
+                if (Repository.RpsControl.error)
+                    throw new RpsFileException("Failed to get long description for repository file "+this.Name)
+                this.LongDescription = %atrim(tmpLongDescription)
             end
-            else
-                mLongDescription = ""
 
             ;;Load user text
-            if (mfl_info.fli_utext) then
+            if (mfl_info.fli_utext)
             begin
                 data tmpUserText, a60
                 dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_utext,tmpUserText)
-                if (Repository.RpsControl.error) then
-                    throw new RpsFileException("Failed to get user text for repository file "+mFileName)
-                else
-                    mUserText = %atrim(tmpUserText)
+                if (Repository.RpsControl.error)
+                    throw new RpsFileException("Failed to get user text for repository file "+this.Name)
+                this.UserText = %atrim(tmpUserText)
             end
-            else
-                mUserText = ""
 
             ;;Load portable integer specs
-            if (mfl_info.fli_portable) then
+            if (mfl_info.fli_portable)
             begin
                 data tmpPortableInts, a120
                 dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_portable,tmpPortableInts)
-                if (Repository.RpsControl.error) then
-                    throw new RpsFileException("Failed to get portable integer specifications for repository file "+mFileName)
-                else
-                    mPortableInts = %atrim(tmpPortableInts)
+                if (Repository.RpsControl.error)
+                    throw new RpsFileException("Failed to get portable integer specifications for repository file "+this.Name)
+				this.PortableIntsSpecs = %atrim(tmpPortableInts)
             end
-            else
-                mPortableInts = ""
 
 			;;Load structure names and ODBC table names
 			
@@ -183,44 +166,19 @@ namespace CodeGen.RepositoryAPI
         ;;Public properties to expose the files attributes to the outside world
 
         ;; Repository file name
-        public property Name, String
-            method get
-            proc
-                mreturn mFileName
-            endmethod
-        endproperty
+        public readwrite property Name, String, String.Empty
 
         ;; Desctiption
-        public property Description, String
-            method get
-            proc
-                mreturn mDescription
-            endmethod
-        endproperty
+        public readwrite property Description, String, String.Empty
 
         ;; Long description
-        public property LongDescription, String
-            method get
-            proc
-                mreturn mLongDescription
-            endmethod
-        endproperty
+        public readwrite property LongDescription, String, String.Empty
 
         ;; User text string
-        public property UserText, String
-            method get
-            proc
-                mreturn mUserText
-            endmethod
-        endproperty
+        public readwrite property UserText, String, String.Empty
 
         ;; Portable integer specifications
-        public property PortableIntSpecs, String
-            method get
-            proc
-                mreturn mPortableInts
-            endmethod
-        endproperty
+        public readwrite property PortableIntsSpecs, String, String.Empty
 
         ;; Timestamp of last modification
         public property LastModified, String
@@ -361,7 +319,7 @@ namespace CodeGen.RepositoryAPI
             method get
             proc
                 if (mStructures==^null)
-                    mStructures = new RpsStructureCollection(mFileName)
+                    mStructures = new RpsStructureCollection(this.Name)
                 mreturn mStructures
             endmethod
         endproperty
