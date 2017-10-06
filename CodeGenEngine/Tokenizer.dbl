@@ -851,7 +851,6 @@ namespace CodeGen.Engine
 		;;;  <param name="meta">Token metadata object</param>
 		private method addLookupToken, void
 			meta, @TokenMeta 
-			endparams
 		proc
 			if (meta.Modifiers.Count == 0) then
 				modifierLookup.Add(meta.Name, TokenModifier.None)
@@ -891,21 +890,18 @@ namespace CodeGen.Engine
 		
 		private method metaUpper, string
 			name, string 
-			endparams
 		proc
 			mreturn name.ToUpper()
 		endmethod
 		
 		private method metaLower, string
 			name, string 
-			endparams
 		proc
 			mreturn name
 		endmethod
 		
 		private method metaMixed, string
 			name, string 
-			endparams
 		proc
 			mreturn name.First().ToString().ToUpper() + String.Join<char>("", name.Skip(1))
 		endmethod
@@ -913,7 +909,6 @@ namespace CodeGen.Engine
 		private method metaXf, string
 			name, string 
 			index, int 
-			endparams
 		proc
 			if (index == 0) then
 				mreturn name.First().ToString().ToUpper() + String.Join<char>("", name.Skip(1))
@@ -923,7 +918,6 @@ namespace CodeGen.Engine
 		
 		private method metaPascal, string
 			name, string 
-			endparams
 		proc
 			mreturn name.First().ToString().ToUpper() + String.Join<char>("", name.Skip(1))
 		endmethod
@@ -931,7 +925,6 @@ namespace CodeGen.Engine
 		private method metaCamel, string
 			name, string 
 			index, int 
-			endparams
 		proc
 			if (index > 0) then
 				mreturn name.First().ToString().ToUpper() + String.Join<char>("", name.Skip(1))
@@ -952,7 +945,6 @@ namespace CodeGen.Engine
 			aType, TokenType 
 			aValidity, TokenValidity 
 			aRequiresRps, boolean 
-			endparams
 		proc
 			data parts = aName.Split("_")
 
@@ -1002,7 +994,6 @@ namespace CodeGen.Engine
 			aType, TokenType 
 			aValidity, TokenValidity 
 			aRequiresRps, boolean 
-			endparams
 		proc
 			data parts = aName.Split("_")
 
@@ -1034,7 +1025,6 @@ namespace CodeGen.Engine
 		;;;  <returns>Path with logical name specifications expanded</returns>
 		private method expandLogicals, string
 			path, String 
-			endparams
 		proc
 			data newPath, string, path
 			if (FileTools.ExpandLogicalName(newPath)) then
@@ -1053,7 +1043,6 @@ namespace CodeGen.Engine
 		;;;  <returns>Collection of tokens</returns>
 		private method tokenizePreProcessorToken, @List<Token>
 			initialToken, string 
-			endparams
 		proc
 			;; initialToken will contain one of:
 			;; 
@@ -1132,7 +1121,6 @@ namespace CodeGen.Engine
 		;;;  <returns></returns>
 		public method TokenizeCurrentTemplate, boolean
 			out tokens, @List<Token> 
-			endparams
 		proc
 			tokens = Tokenize(context.CurrentTemplate)
 			mreturn (!errorsReported)
@@ -1140,7 +1128,6 @@ namespace CodeGen.Engine
 		
 		private method reportError, void
 			message, string 
-			endparams
 		proc
 			if (context != ^null) then
 				context.CurrentTask.ErrorLog(message)
@@ -1162,9 +1149,8 @@ namespace CodeGen.Engine
 		;;;  <returns>Collection of tokens</returns>
 		public method Tokenize, @List<Token>
 			fileSpecOrTemplateCode, string 
-			endparams
 		proc
-			data text, string
+			data templateCode, string
 			data fileName, string
 
 			;; If we were passed a file spec then we'll try to read data from it.
@@ -1175,7 +1161,7 @@ namespace CodeGen.Engine
 				;; We have a file spec, read template code from the file
 				try
 				begin
-					text = File.ReadAllText(fileSpecOrTemplateCode)
+					templateCode = File.ReadAllText(fileSpecOrTemplateCode)
 					fileName = fileSpecOrTemplateCode
 				end
 				catch (ex, @Exception)
@@ -1187,49 +1173,48 @@ namespace CodeGen.Engine
 			end
 			else
 			begin
-				text = fileSpecOrTemplateCode
+				templateCode = fileSpecOrTemplateCode
 				fileName = ""
 			end
 
-			data lineStarts, [#]int, buildLineStarts(text)
-			data result, @List<Token>, new List<Token>()
-			data ix, int, 0
+			data lineStarts = buildLineStarts(templateCode)
+			data tokens = new List<Token>()
+			data ix = 0
 
-			while (ix < text.Length) do
+			while (ix < templateCode.Length) do
 			begin
-				data nextToken, @PossibleToken, nextPossibleToken(ix, text)
+				data nextToken, @PossibleToken, nextPossibleToken(ix, templateCode)
 
 				if (nextToken == ^null) then
 				begin
-					;; There was no next token, so add the remaining data as a final Text token
-					result.Add(new Token(fileName, ix, text.Length, false, text.Substring(ix), TokenType.Text, TokenModifier.None, ^null, lineStarts, false, false))
+					;; There was no next token, so add the remaining code as a final Text token
+					tokens.Add(new Token(fileName, ix, templateCode.Length, false, templateCode.Substring(ix), TokenType.Text, TokenModifier.None, ^null, lineStarts, false, false))
 					exitloop
 				end
 				else
 				begin
 					;; Remove the <> parts, and an uppercase copy without any leading /
-					data nextTokenValue, string, text.Substring(nextToken.StartsAtPosition + 1, (nextToken.EndsAtPosition - 1) - (nextToken.StartsAtPosition))
-					data nextTokenValueUpper, string, nextTokenValue.ToUpper().TrimStart('/')
+					data nextTokenValue = templateCode.Substring(nextToken.StartsAtPosition + 1, (nextToken.EndsAtPosition - 1) - (nextToken.StartsAtPosition))
+					data nextTokenValueUpper = nextTokenValue.ToUpper().TrimStart('/')
 
 					;; Is the token a closer?
-					data closer, boolean, nextTokenValue.StartsWith("/")
+					data closer = nextTokenValue.StartsWith("/")
 
 					;; The next token isn't here, so we have just text. Add a Text token.
 					if (nextToken.StartsAtPosition != ix)
-						result.Add(new Token(fileName, ix, nextToken.StartsAtPosition - 1, false, text.Substring(ix, nextToken.StartsAtPosition - ix), TokenType.Text, TokenModifier.None, ^null, lineStarts, false, false))
+						tokens.Add(new Token(fileName, ix, nextToken.StartsAtPosition - 1, false, templateCode.Substring(ix, nextToken.StartsAtPosition - ix), TokenType.Text, TokenModifier.None, ^null, lineStarts, false, false))
 					
 					if (nextToken.IsComment) then
 					begin
 						;; It's a template file comment. Ignore it!
 						nop
 					end
-
 					else if (nextToken.IsPreProcessor) then
 					begin
 						;; It's a pre-processor token. Tokenize it's "content".
 						try
 						begin
-							result.AddRange(tokenizePreProcessorToken(nextTokenValue))
+							tokens.AddRange(tokenizePreProcessorToken(nextTokenValue))
 						end
 						catch (ex, @ApplicationException)
 						begin
@@ -1248,15 +1233,14 @@ namespace CodeGen.Engine
 						if (((newToken.TypeOfToken == TokenType.FileHeader) && (newToken.Value == "OPTIONAL_USERTOKEN")) && newToken.Closer)
 						begin
 							;; In most cases the previous token should be a text token, and the
-							;;  one before that should be the matching <OPTIONAL_USERTOKEN>.
-							;; If this is not true then there are probably other tokens in the
-							;; expression!
-							if (((result[result.Count - 2].TypeOfToken == TokenType.FileHeader) && (result[result.Count - 2].Value == "OPTIONAL_USERTOKEN")) && (result[result.Count - 1].TypeOfToken == TokenType.Text)) then
+							;; one before that should be the matching <OPTIONAL_USERTOKEN>.
+							;; If this is not true then there are probably other tokens in the usertoken value!
+							if (((tokens[tokens.Count - 2].TypeOfToken == TokenType.FileHeader) && (tokens[tokens.Count - 2].Value == "OPTIONAL_USERTOKEN")) && (tokens[tokens.Count - 1].TypeOfToken == TokenType.Text)) then
 							begin
-								;; There is only a single text token between the <OPTIONAL_USERTOKEN>
-								;; tags. It should be a NAME=[VALUE] expression.
+								;; There is only a single text token between the <OPTIONAL_USERTOKEN> tags.
+								;; It should be a NAME=VALUE expression.
 								;; Make sure the format looks OK
-								data userTokenExpression, string, result[result.Count - 1].Value
+								data userTokenExpression = tokens[tokens.Count - 1].Value
 
 								if (!userTokenExpression.Contains("=") || userTokenExpression.Trim().StartsWith("="))
 								begin
@@ -1265,7 +1249,7 @@ namespace CodeGen.Engine
 								end
 
 								;; Split the expression into its name and value parts
-								data parts, [#]string, userTokenExpression.Split('=')
+								data parts = userTokenExpression.Split('=')
 								parts[0] = parts[0].ToUpper()
 
 								;; Do we already have a user token with this name?
@@ -1275,22 +1259,18 @@ namespace CodeGen.Engine
 									context.UserTokens.Add(new UserToken(parts[0], parts[1]))
 
 									;; And register it with Tokenizer
-									data newMeta, @TokenMeta, new TokenMeta()
-									newMeta.Name = parts[0]
-									newMeta.TypeOfToken = TokenType.User
-									newMeta.Validity = TokenValidity.Anywhere
-
-									addLookupToken(newMeta)
-
+									addLookupToken(new TokenMeta() { Name = parts[0], TypeOfToken = TokenType.User, Validity = TokenValidity.Anywhere })
 								end
 							end
 							else
 							begin
+								;;It looks like there may be additional tokens within the value of the optional usertokens default value.
+
 								;; Find the index of the opening <OPTIONAL_USERTOKEN> token
-								data index, int, (result.IndexOf(result.Last(lambda (token) {(token.TypeOfToken == TokenType.FileHeader) && (token.Value == "OPTIONAL_USERTOKEN")})))
+								data index, int, (tokens.IndexOf(tokens.Last(lambda (token) {(token.TypeOfToken == TokenType.FileHeader) && (token.Value == "OPTIONAL_USERTOKEN")})))
 
 								;; Extract the subsequent tokens that represent the value for this token
-								data valueTokens, @List<Token>, result.Skip(index + 1).ToList()
+								data valueTokens, @List<Token>, tokens.Skip(index + 1).ToList()
 
 								;; Extract the user token name from the first node
 								data tokenName, string, valueTokens[0].Value.Substring(0, valueTokens[0].Value.IndexOf("="))
@@ -1308,33 +1288,52 @@ namespace CodeGen.Engine
 									;; Add the collection of tokens to the new dictionary
 									optionalUserTokens.Add(tokenName, valueTokens)
 
-									;; Register with Tokenizer, but as a pre-processor type
-									data newMeta, @TokenMeta, new TokenMeta()
-									newMeta.Name = tokenName
-									newMeta.TypeOfToken = TokenType.PreProcessor
-									newMeta.Validity = TokenValidity.Anywhere
-
-									addLookupToken(newMeta)
+									;; And register it with Tokenizer as a pre-processor type
+									addLookupToken(new TokenMeta() { Name = tokenName, TypeOfToken = TokenType.PreProcessor, Validity = TokenValidity.Anywhere })
 
 								end
 							end
 						end
 
-						result.Add(newToken)
+						;;Do we have a user-defined token and are we pre-processing them?
+						if (newToken.TypeOfToken == TokenType.User && context.CurrentTask.PreProcessUserTokens) then
+						begin	
+							;;Pre-processing user defined tokens means that instead of adding the user-defined
+							;;token to the token stream, we will tokenize the value of the user-defined token
+							;;here and now.
+							;;
+							;;In most cases this will result in a single text token being added to the token
+							;;stream. But if the value of the user-defined token happens to include other
+							;;tokens then the value will be expanded out to multiple tokens here.
 
+							;;Get the value of the user-defined token
+							lambda findUserToken(tkn) tkn.Name == newToken.Value
+							data userTokenValue = Context.UserTokens.First(findUserToken).Value
+
+							;;Tokenize the value
+							data userTokenTokens = Tokenize(userTokenValue)
+
+							;;Add the resulting tokens to the token stream
+							tokens.AddRange(userTokenTokens)
+						end
+						else
+						begin
+							;;Add the token to the token stream
+							tokens.Add(newToken)
+						end
 					end
 
 					ix = nextToken.EndsAtPosition + 1
 
 					if (nextToken.IsExpression)
 					begin
-						data nextExpression, @Tuple<int, int, List<TokenValidity>>, nextExpressionToken(ix, text)
+						data nextExpression, @Tuple<int, int, List<TokenValidity>>, nextExpressionToken(ix, templateCode)
 						if (nextExpression != ^null)
 						begin
-							data expressionValue, string, text.Substring(nextExpression.Item1, nextExpression.Item2 - nextExpression.Item1)
+							data expressionValue, string, templateCode.Substring(nextExpression.Item1, nextExpression.Item2 - nextExpression.Item1)
 							;; TODO: Does this expression require repository structure processing?
 							data requiresRps, boolean, false
-							result.Add(new Token(fileName, nextExpression.Item1, nextExpression.Item2, false, expressionValue, TokenType.Expression, TokenModifier.None, nextExpression.Item3, lineStarts, requiresRps, false))
+							tokens.Add(new Token(fileName, nextExpression.Item1, nextExpression.Item2, false, expressionValue, TokenType.Expression, TokenModifier.None, nextExpression.Item3, lineStarts, requiresRps, false))
 							ix = nextExpression.Item2 + 1
 						end
 					end
@@ -1342,28 +1341,27 @@ namespace CodeGen.Engine
 				end
 			end
 
-			mreturn result
+			mreturn tokens
 
 		endmethod
 		
 		;;;  <summary>
 		;;;  Returns an array of the offsets in the template file where new lines start.
 		;;;  </summary>
-		;;;  <param name="text"></param>
+		;;;  <param name="templateCode"></param>
 		;;;  <returns></returns>
 		private static method buildLineStarts, [#]int
-			text, string 
-			endparams
+			templateCode, string 
 		proc
-			data lineStarts, @List<int>, new List<int>()
+			data lineStarts = new List<int>()
 			lineStarts.Add(0)
 			
 			data ix, int
-			for ix from 0 thru text.Length - 1
+			for ix from 0 thru templateCode.Length - 1
 			begin
-				if ((text[ix] == %char(13) && text.Length > ix + 1 && text[ix + 1] == %char(10)) || text[ix] == %char(10))
+				if ((templateCode[ix] == %char(13) && templateCode.Length > ix + 1 && templateCode[ix + 1] == %char(10)) || templateCode[ix] == %char(10))
 				begin
-					if (text[ix] == %char(10)) then
+					if (templateCode[ix] == %char(10)) then
 						lineStarts.Add(ix + 1)
 					else
 					begin
@@ -1396,7 +1394,6 @@ namespace CodeGen.Engine
 				expression, boolean 
 				comment, boolean 
 				preProcessor, boolean 
-				endparams
 			proc
 				StartsAtPosition = startIndex
 				EndsAtPosition = endIndex
@@ -1412,28 +1409,27 @@ namespace CodeGen.Engine
 		;;;  Returns the next possible token in the template text.
 		;;;  </summary>
 		;;;  <param name="searchFrom">Position where to start looking for a possible token.</param>
-		;;;  <param name="templateText">Template text to search.</param>
+		;;;  <param name="templateCode">Template text to search.</param>
 		;;;  <returns>PossibleToken instance, or null if no possible tokens found.</returns>
 		private method nextPossibleToken, @PossibleToken
 			searchFrom, int 
-			templateText, string 
-			endparams
+			templateCode, string 
 		proc
-			data foundPossibleToken, boolean, false
-			data isCloser, boolean, false
-			data isComment, boolean, false
-			data isExpression, boolean, false
+			data foundPossibleToken = false
+			data isCloser = false
+			data isComment = false
+			data isExpression = false
 			data possibleTokenStartsAt, int, -1
 
 			;; Character by character looking for a token
 			data ix, int
-			for ix from searchFrom thru templateText.Length - 1
+			for ix from searchFrom thru templateCode.Length - 1
 			begin
 				;; Did we find a newline?
-				data foundNewLine, boolean, (((templateText[ix] == %char(13)) && (templateText.Length > ix + 1) && (templateText[ix + 1] == %char(10))) || (templateText[ix] == %char(10)))
+				data foundNewLine, boolean, (((templateCode[ix] == %char(13)) && (templateCode.Length > ix + 1) && (templateCode[ix + 1] == %char(10))) || (templateCode[ix] == %char(10)))
 
 				;; Did we find the start of a template file comment (;//)?
-				if (templateText.Length > ix + 2 && templateText[ix] == ';' && templateText[ix + 1] == '/' && templateText[ix + 2] == '/') then
+				if (templateCode.Length > ix + 2 && templateCode[ix] == ';' && templateCode[ix + 1] == '/' && templateCode[ix + 2] == '/') then
 				begin
 					possibleTokenStartsAt = ix
 					isComment = true
@@ -1441,7 +1437,7 @@ namespace CodeGen.Engine
 				else if (isComment && foundNewLine) then
 				begin
 					;; We found the END of a template file comment
-					if ((templateText[ix] == %char(13)) && (templateText.Length > ix + 1) && (templateText[ix + 1] == %char(10)))
+					if ((templateCode[ix] == %char(13)) && (templateCode.Length > ix + 1) && (templateCode[ix + 1] == %char(10)))
 						^incr(ix, true)
 					mreturn new PossibleToken(possibleTokenStartsAt, ix, false, false, true, false)
 				end
@@ -1451,7 +1447,7 @@ namespace CodeGen.Engine
 					;; Move on to the next character.
 					nextloop
 				end
-				else if (foundPossibleToken && (templateText[ix] == '<')) then
+				else if (foundPossibleToken && (templateCode[ix] == '<')) then
 				begin
 					;; Looks like the previous < we found wasn't the start of a token after all!
 					;; Start over with the < that we just found
@@ -1461,7 +1457,7 @@ namespace CodeGen.Engine
 				else if (!foundPossibleToken) then
 				begin
 					;; Still looking for the start of a possible token. Do we have one now?
-					if (templateText[ix] == '<')
+					if (templateCode[ix] == '<')
 					begin
 						;; Yes, this could be the start of a token!
 						isCloser = false
@@ -1474,24 +1470,24 @@ namespace CodeGen.Engine
 					;; We previously found < and we're winding forward to figure out what it is
 					;; Did we find the end of a possible token?
 					;; Or a space MIGHT indicate an expression
-					if ((templateText[ix] == '/') && ((ix - possibleTokenStartsAt) == 1)) then
+					if ((templateCode[ix] == '/') && ((ix - possibleTokenStartsAt) == 1)) then
 					begin
 						;; It's a / and it's next to the <. so it's a possible closer token
 						isCloser = true
 					end
-					else if (char.IsControl(templateText[ix])) then
+					else if (char.IsControl(templateCode[ix])) then
 					begin
 						;; It's a control character, so the token we were looking at can't be a token
 						foundPossibleToken = false
 						possibleTokenStartsAt = -1
 						isExpression = false
 					end
-					else if ((templateText[ix] == '>') || (templateText[ix] == ' '))
+					else if ((templateCode[ix] == '>') || (templateCode[ix] == ' '))
 					begin
 						;; So we found a > or a space after an <
 
 						;; For it to be a POSSIBLE expression the previous two characters need to be IF
-						if ((templateText[ix] == ' ') && (ix >= 2) && (templateText[ix - 2] == 'I') && (templateText[ix - 1] == 'F'))
+						if ((templateCode[ix] == ' ') && (ix >= 2) && (templateCode[ix - 2] == 'I') && (templateCode[ix - 1] == 'F'))
 							isExpression = true
 
 						;; Get the start and end indexes of the VALUE of the possible token (withoit the < > or " ")
@@ -1503,7 +1499,7 @@ namespace CodeGen.Engine
 						;; Make sure we aren't looking at a > or " " immediately after the <
 						if ((realEndIndex - realStartIndex + 1) > 0) then
 						begin
-							data nextToken, string, templateText.Substring(realStartIndex, realEndIndex - realStartIndex + 1)
+							data nextToken, string, templateCode.Substring(realStartIndex, realEndIndex - realStartIndex + 1)
 							if (nextToken.Contains(':') && (nextToken != ":")) then
 							begin
 								nextToken = nextToken.Split(':')[0]
@@ -1553,7 +1549,6 @@ namespace CodeGen.Engine
 		;;;  <returns>true if the value is the name of a token, otherwise false</returns>
 		private method isValidToken, boolean
 			tokenValue, string 
-			endparams
 		proc
 			if (tokenValue.StartsWith("/")) then
 				mreturn closerLookup.Contains(tokenValue.ToUpper())
@@ -1589,7 +1584,6 @@ namespace CodeGen.Engine
 		;;;  <returns>true if the value is the name of a pre-processor token, otherwise false</returns>
 		private method isPreProcessorToken, boolean
 			tokenValue, string 
-			endparams
 		proc
 			if (typeLookup.ContainsKey(tokenValue.ToUpper())) then
 				mreturn (typeLookup[tokenValue.ToUpper()] == TokenType.PreProcessor)
@@ -1601,22 +1595,21 @@ namespace CodeGen.Engine
 		;;;  
 		;;;  </summary>
 		;;;  <param name="startIndex"></param>
-		;;;  <param name="text"></param>
+		;;;  <param name="templateCode"></param>
 		;;;  <returns></returns>
 		private method nextExpressionToken, @Tuple<int, int, List<TokenValidity>>
 			startIndex, int 
-			text, string 
-			endparams
+			templateCode, string 
 		proc
 			data startedToken, boolean, false
 			data startedTokenIndex, int, -1
 			data ix, int
 
-			for ix from startIndex thru text.Length - 1
+			for ix from startIndex thru templateCode.Length - 1
 			begin
 				if (!startedToken) then
 				begin
-					if (char.IsLetter(text[ix]))
+					if (char.IsLetter(templateCode[ix]))
 					begin
 						startedToken = true
 						startedTokenIndex = ix
@@ -1624,14 +1617,14 @@ namespace CodeGen.Engine
 				end
 				else
 				begin
-					if (char.IsLetterOrDigit(text[ix]) || (text[ix] == '_')) then
+					if (char.IsLetterOrDigit(templateCode[ix]) || (templateCode[ix] == '_')) then
 					begin
 						nextloop
 					end
-					else if ((text[ix] == ' ') || (text[ix] == '>')) then
+					else if ((templateCode[ix] == ' ') || (templateCode[ix] == '>')) then
 					begin
 						data expressionType, @List<TokenValidity>
-						data expstring, string, text.Substring(startedTokenIndex, ix - startedTokenIndex)
+						data expstring, string, templateCode.Substring(startedTokenIndex, ix - startedTokenIndex)
 
 						if (expressionLookup.TryGetValue(expstring, expressionType)) then
 						begin
@@ -1669,7 +1662,7 @@ namespace CodeGen.Engine
 							exitloop
 						end
 					end
-					else if (char.IsControl(text[ix])) then
+					else if (char.IsControl(templateCode[ix])) then
 						exitloop
 					else
 					begin
@@ -1692,7 +1685,6 @@ namespace CodeGen.Engine
 		public static method WriteTokensToFile, boolean
 			tokens, @List<Token> 
 			fileSpec, string 
-			endparams
 		proc
 			try
 			begin
@@ -1711,7 +1703,6 @@ namespace CodeGen.Engine
 		endmethod
 		
 		private method loadUserTokens, void
-			endparams
 		proc
 			;; Plug in any user-defined tokens
 			if ((context.UserTokens != ^null) && (context.UserTokens.Count > 0))
@@ -1729,7 +1720,6 @@ namespace CodeGen.Engine
 		endmethod
 		
 		private method loadCustomExpanders, void
-			endparams
 		proc
 			;; Plug in any custom token expanders
 			if ((context.CustomTokenExpanders != ^null) && (context.CustomTokenExpanders.Count > 0))
@@ -1916,7 +1906,6 @@ namespace CodeGen.Engine
 		endmethod
 		
 		private method loadCustomEvaluators, void
-			endparams
 		proc
 			;; Plug in custom expression evaluators
 			if ((context.CustomExpressionEvaluators != ^null) && (context.CustomExpressionEvaluators.Count > 0))

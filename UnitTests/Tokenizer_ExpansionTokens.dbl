@@ -1600,16 +1600,38 @@ namespace UnitTests
 .region "User-defined tokens"
 		
 		{TestMethod}
-		{TestCategory("Tokenizer - Expansion Tokens")}
+		{TestCategory("Tokenizer - User Defined Tokens")}
 		public method UserToken1, void
 		proc
-			data taskset, @CodeGenTaskSet, new CodeGenTaskSet()
-			taskset.Tasks.Add(new CodeGenTask())
-			data context, @CodeGenContext, new CodeGenContext(taskset)
+			data task = new CodeGenTask()
+			data taskset = new CodeGenTaskSet()
+			taskset.Tasks.Add(task)
+			data context = new CodeGenContext(taskset)
+			context.CurrentTask = task
 			context.UserTokens.Add(new UserToken("USER_DEFINED_TOKEN_1","Hello Tokenizer"))
 			
 			data tokens, @List<Token>, new Tokenizer(context).Tokenize("<USER_DEFINED_TOKEN_1>")
 			Assert.IsTrue(tokens[0].TypeOfToken == TokenType.User)
+		endmethod
+
+		{TestMethod}
+		{TestCategory("Tokenizer - User Defined Tokens")}
+		public method UserToken2, void
+		proc
+			data task = new CodeGenTask() { PreProcessUserTokens=true }
+			data taskset = new CodeGenTaskSet()
+			taskset.Tasks.Add(task)
+			data context = new CodeGenContext(taskset)
+			context.CurrentTask = task
+			context.UserTokens.Add(new UserToken("MYTOKEN",'%SomeFunction("<FILE_NAME>")'))
+			
+			data tokens = new Tokenizer(context).Tokenize("<MYTOKEN>")
+			Assert.IsTrue(
+			&	tokens.Count==3
+			&	&& tokens[0].TypeOfToken == TokenType.Text
+			&	&& tokens[1].TypeOfToken == TokenType.StructureInfo
+			&	&& tokens[1].Value == "FILE_NAME"
+			&	&& tokens[2].TypeOfToken == TokenType.Text)
 		endmethod
 		
 .endregion
