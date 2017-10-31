@@ -1,0 +1,273 @@
+import System
+import System.Collections.Generic
+import System.ComponentModel
+import System.Data
+import System.Drawing
+import System.IO
+import System.Windows.Forms
+import CodeConverterInterface
+
+namespace CodeConverter
+	
+	public partial class MainForm extends System.Windows.Forms.Form
+
+		private const heading, string, "Synergy/DE Code Converter"
+		private filesToProcess, @List<String>, new List<String>()
+
+		public method MainForm
+		proc
+			this.InitializeComponent()
+		endmethod
+		
+		private method MainForm_Shown, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+			this.Text = heading
+
+			loadToolsAssemblies()
+			calculateMatchingFiles()
+			
+			lblResultMessage.Text = String.Empty
+			activityLabel.Text = String.Empty
+
+			while (Properties.Settings.Default.AppSettings.SourceExtensions.Count == 0)
+				manageSourceExtensions()
+
+			while (Properties.Settings.Default.AppSettings.SourceFolders.Count == 0)
+				manageSourceFolders()
+
+			while (Properties.Settings.Default.AppSettings.ToolAssemblies.Count == 0)
+				manageConversionTools()
+
+		endmethod
+		
+		private method calculateMatchingFiles, void
+		proc
+			this.Cursor = Cursors.WaitCursor
+
+			activityLabel.Text = "Counting matching files..."
+
+			this.Refresh()
+
+			if ((Properties.Settings.Default.AppSettings.SourceFolders.Count > 0) && (Properties.Settings.Default.AppSettings.SourceExtensions.Count > 0)) then
+			begin
+				filesToProcess.Clear()
+				data folder, @SourceFolder
+				foreach folder in Properties.Settings.Default.AppSettings.SourceFolders
+				begin
+					data fileExtension, String
+					foreach fileExtension in Properties.Settings.Default.AppSettings.SourceExtensions
+					begin
+						data searchMode, SearchOption, (folder.IncludeSubFolders) ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly
+						try
+						begin
+							filesToProcess.AddRange(Directory.GetFiles(folder.FolderName,fileExtension,searchMode))
+						end
+						catch (e, @UnauthorizedAccessException)
+						begin
+							nop
+						end
+						endtry
+					end
+				end
+				this.Text = String.Format("{0} [{1} source files selected].",heading,filesToProcess.Count)
+			end
+			else
+				this.Text = String.Format("{0} [No source files selected].",heading,filesToProcess.Count)
+
+			grpConvertOptions.Enabled = (filesToProcess.Count>0)
+
+			activityLabel.Text = String.Empty
+			this.Cursor = Cursors.Default
+
+		endmethod
+		
+		private method lstConvertOptions_SelectedIndexChanged, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+			btnConvert.Enabled = lstConvertOptions.SelectedIndex != -1
+			operationResultBindingSource.Clear()
+			lblResultMessage.Text = string.Empty
+		endmethod
+		
+		private method btnConvert_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+
+			if (!chkTestMode.Checked)
+				if (MessageBox.Show("You are NOT IN TEST MODE and your SOURCE CODE WILL BE ALTERED! Are you sure you want to continue?","Confirmation Required",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)==DialogResult.No)
+					mreturn
+			
+			operationResultBindingSource.Clear()
+			lblResultMessage.Text = string.Empty
+
+			;data tool = (@IConversionTool)toolsBindingSource.Current
+			data tool = ^as(toolsBindingSource.Current, @IConversionTool)
+			
+			this.Cursor = Cursors.WaitCursor
+
+			data summaryMessage, String
+			data results = tool.DoConvert(filesToProcess,chkTestMode.Checked,chkCreateTestFiles.Checked,summaryMessage)
+
+			this.Cursor = Cursors.Default
+
+			lblResultMessage.Text = summaryMessage
+
+			operationResultBindingSource.DataSource = results
+			
+		endmethod
+		
+		private method editCurrentRowFile, void
+			sender, @object 
+			e, @System.Windows.Forms.DataGridViewCellEventArgs 
+		proc
+			;;Make sure there is a selected item
+			if (operationResultBindingSource.Current == ^null)
+				mreturn
+			
+			;;Get the result associated with the selected item
+			data result = ^as(operationResultBindingSource.Current, OperationResult)
+			
+			;;Make sure we have a file spec
+			if (string.IsNullOrWhiteSpace(result.FileSpec))
+			begin
+				MessageBox.Show("The selected result does not specify a file spec to edit!","No File Spec",MessageBoxButtons.OK,MessageBoxIcon.Exclamation)
+				mreturn
+			end
+			
+			;;Do we have Workbench?
+			data editorPath, String
+			if (Environment.Is64BitOperatingSystem) then
+				editorPath = "C:\Program Files (x86)\Synergex\SynergyDE\Workbench\win\vs.exe"
+			else
+				editorPath = "C:\Program Files\Synergex\SynergyDE\Workbench\win\vs.exe"
+			if (!File.Exists(editorPath))
+			begin
+				MessageBox.Show("Can't edit file because Workbench is not available!","No Workbench",MessageBoxButtons.OK,MessageBoxIcon.Exclamation)
+				mreturn
+			end
+			
+			;;Configure a process to start Workbench
+			data prc, @System.Diagnostics.Process, new System.Diagnostics.Process()
+			prc.StartInfo.FileName = editorPath
+			
+			;;Add the file specification
+			if (result.LineNumber != 0) then
+				prc.StartInfo.Arguments = string.Format('"{0}" -#{1}',result.FileSpec,result.LineNumber)
+			else 
+				prc.StartInfo.Arguments = string.Format('"{0}"',result.FileSpec)
+			
+			;;Launch Workbench			
+			try
+			begin
+				prc.Start()				
+			end
+			catch (e, @Exception)
+			begin
+				MessageBox.Show("Failed to launch Workbench!","Error",MessageBoxButtons.OK,MessageBoxIcon.Error)
+			end
+			endtry
+
+		endmethod
+
+		private method chkTestMode_CheckedChanged, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+			chkCreateTestFiles.Enabled = chkTestMode.Checked
+		endmethod
+		
+		private method loadToolsAssemblies, void
+		proc
+			this.Cursor = Cursors.WaitCursor
+
+			activityLabel.Text = "Loading conversion tools..."
+
+			this.Refresh()
+
+			toolsBindingSource.Clear()
+			toolsBindingSource.DataSource = new List<IConversionTool>()
+
+			data fileSpec, string
+			foreach fileSpec in Properties.Settings.Default.AppSettings.ToolAssemblies
+			begin
+				data candidateAssembly = new ToolsAssembly(fileSpec)
+				if (candidateAssembly.Tools.Count > 0)
+				begin
+					data tool, @IConversionTool
+					foreach tool in candidateAssembly.Tools
+						toolsBindingSource.Add(tool)
+				end
+			end
+
+			if (toolsBindingSource.Count > 0)
+				toolsBindingSource.MoveFirst()
+
+			this.Cursor = Cursors.Default
+
+		endmethod
+		
+		private method exitToolStripMenuItem_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+			Application.Exit()
+		endmethod
+		
+		private method manageFileExtensionsToolStripMenuItem_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+			manageSourceExtensions()
+		endmethod
+		
+		private method manageSourceExtensions, void
+		proc
+			disposable data dlg = new ManageFileExtensionsForm()
+			dlg.ShowDialog(this)
+			calculateMatchingFiles()
+		endmethod
+
+		private method manageConversionToolsToolStripMenuItem_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+			manageConversionTools()
+		endmethod
+		
+		private method manageConversionTools, void
+		proc
+			disposable data dlg = new ManageToolsForm()
+			dlg.ShowDialog(this)
+			loadToolsAssemblies()
+		endmethod
+
+		private method manageSourceCodeFoldersToolStripMenuItem_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+			manageSourceFolders()
+		endmethod
+		
+		private method manageSourceFolders, void
+		proc
+			disposable data dlg = new ManageSourceFoldersForm()
+			dlg.ShowDialog(this)
+			calculateMatchingFiles()
+		endmethod
+		
+		
+		private method viewSourceFilesToolStripMenuItem_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+			disposable data dlg = new ViewSourceFilesListForm(filesToProcess)
+			dlg.ShowDialog()
+		endmethod
+		
+	endclass
+	
+endnamespace

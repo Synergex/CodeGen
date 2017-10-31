@@ -1,0 +1,137 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeConverterInterface
+
+.array 0
+
+namespace CodeConverterSampleTasks
+	
+	public class ChangeScreenForms implements IConversionTool
+		
+		public readonly property Description, string, "Change Terminal FORMS"
+
+		public method DoConvert, @List<OperationResult>
+			files, @List<String> 
+			testMode, Boolean 
+			createFilesInTestMode, Boolean 
+			out summaryMessage, String 
+			endparams
+		proc
+			data results, @List<OperationResult>, new List<OperationResult>()
+			data filesModified, int
+			data linesModified, int
+			data totalChanges, int
+			
+			data filename, String
+			foreach filename in files
+			begin
+				data fileModified, boolean, false
+				
+				;;Get the data for the file
+				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
+				
+				data sourceline, String
+				data sourceLineIndex, int, -1
+				
+				while ((sourceLineIndex += 1) < sourcelines.Count)
+				begin
+					sourceline = sourcelines[sourceLineIndex]
+					
+					;;Skip blank lines
+					if (string.IsNullOrWhiteSpace(sourceline))
+						nextloop
+					
+					if (sourceline.ToUpper().Contains("FORMS(15,"))
+					begin
+						data startPos, int, sourceline.ToUpper().IndexOf("FORMS(15,")
+						data endPos, int, startPos + 8
+						sourceline = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"FORMS (15,")
+					end
+					
+					;FORMS (15,nval)
+					
+					data ix, int
+					
+					if (sourceline.ToUpper().Contains("FORMS (15,")) then
+					begin
+						data startPos, int, sourceline.ToUpper().IndexOf("FORMS (15,")
+						data endPos, int, -1
+						data startVariablePos, int, startPos + 10
+						data endVariablePos, int
+						data parenDepth, int, 0
+						
+						;;Wind forward until we find the )
+						for ix from startVariablePos thru sourceLine.Length - 1
+						begin
+							if ((sourceline.Substring(ix,1)==",")&&(parenDepth==0)) then
+								exitloop
+							else if (sourceline.Substring(ix,1)=="(") then
+								parenDepth += 1
+							else if (sourceline.Substring(ix,1)==")")
+							begin
+								if (parenDepth>0) then
+									parenDepth -= 1
+								else
+								begin
+									endPos = ix
+									endVariablePos = ix - 1
+									exitloop
+								end
+							end
+						end
+						if (endPos==-1)
+							nextloop
+						sourceline = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),String.Format("UI.Forms({0})",sourceline.Substring(startVariablePos,endVariablePos-startVariablePos+1)))
+						sourcelines[sourceLineIndex] = sourceline
+					end
+					else
+						nextloop
+					
+					linesModified += 1
+					totalChanges += 1
+					fileModified = true
+				end
+				
+				if (fileModified)
+				begin
+					filesModified += 1
+					if (testMode) then
+					begin
+						data testFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".TEST")
+						if (createFilesInTestMode) then
+						begin
+							File.WriteAllLines(testFile,sourcelines)
+							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: OUTPUT SAVED TO {0}",testFile)))
+						end
+						else
+							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: WOULD HAVE MODIFIED {0}",filename)))
+					end	
+					else
+					begin
+						data saveFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".SAVE")
+						try
+						begin
+							File.Copy(filename,saveFile)
+							File.WriteAllLines(filename,sourcelines)
+							results.Add(new OperationResult(filename,0,string.Format("MODIFIED {0}. Original code saved in {1}.",filename,saveFile)))
+						end
+						catch (e, @Exception)
+						begin
+							results.Add(new OperationResult(filename,0,string.Format("FAILED TO MODIFY OR BACKUP {0}.",filename)))
+						end
+						endtry
+					end				
+				end
+			end
+			
+			summaryMessage = String.Format("Processed {0} files. Made {1} changes to {2} lines in {3} files.",files.Count,totalChanges,linesModified,filesModified)
+			
+			mreturn results
+			
+		endmethod
+		
+	endclass
+	
+endnamespace

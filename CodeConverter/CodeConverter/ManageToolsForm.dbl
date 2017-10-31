@@ -1,0 +1,111 @@
+
+import System
+import System.Collections.Generic
+import System.ComponentModel
+import System.Data
+import System.Drawing
+import System.Windows.Forms
+import CodeConverterInterface
+
+namespace CodeConverter
+
+    public partial class ManageToolsForm extends System.Windows.Forms.Form
+    
+        public method ManageToolsForm
+        endparams
+        proc
+            this.InitializeComponent()
+
+			data fileSpec, string
+			foreach fileSpec in Properties.Settings.Default.AppSettings.ToolAssemblies
+			begin
+				data candidateAssembly = new ToolsAssembly(fileSpec)
+				if (candidateAssembly.Tools.Count > 0) then
+				begin
+					lstAssemblies.Items.Add(fileSpec)
+				end
+				else
+				begin
+					Properties.Settings.Default.AppSettings.ToolAssemblies.Remove(fileSpec)
+					Properties.Settings.Default.Save()
+				end
+
+				if (lstAssemblies.Items.Count > 0)
+					lstAssemblies.SelectedIndex = 0
+			end
+
+        endmethod
+		
+		private method btnClose_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			this.Close()
+		endmethod
+		
+		private method btnRemove_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			;;The button can only be pressed when an item is selected
+
+			data removedIndex, int, lstAssemblies.SelectedIndex
+			data removedItem = ^as(lstAssemblies.SelectedItem, String)
+
+			lstAssemblies.Items.RemoveAt(removedIndex)
+
+			Properties.Settings.Default.AppSettings.ToolAssemblies.Remove(removedItem)
+			Properties.Settings.Default.Save()
+
+			if (lstAssemblies.Items.Count>0)
+			begin
+				if (removedIndex <= (lstAssemblies.Items.Count-1)) then
+					lstAssemblies.SelectedIndex = removedIndex
+				else
+					lstAssemblies.SelectedIndex = removedIndex-1
+			end
+
+		endmethod
+		
+		private method lstAssemblies_SelectedIndexChanged, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			btnRemove.Enabled = lstAssemblies.SelectedIndex >= 0
+		endmethod
+		
+		
+		private method btnAdd_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			disposable data dialog = new OpenFileDialog() { Filter="Assembly Files (*.dll)|*.dll|All files (*.*)|*.*", FilterIndex=1, RestoreDirectory=true }
+			if(dialog.ShowDialog() == DialogResult.OK)
+				addToolsAssembly(dialog.FileName)
+		endmethod
+		
+		private method addToolsAssembly, void
+			required in fileSpec, string
+		proc
+			data fileSpecLower = fileSpec.ToLower()
+
+			if (Properties.Settings.Default.AppSettings.ToolAssemblies.Contains(fileSpecLower))
+				mreturn
+
+			data candidateAssembly = new ToolsAssembly(fileSpecLower)
+
+			if (candidateAssembly.Tools.Count > 0)
+			begin
+				lstAssemblies.SelectedIndex = lstAssemblies.Items.Add(fileSpecLower)
+				Properties.Settings.Default.AppSettings.ToolAssemblies.Add(fileSpecLower)
+				Properties.Settings.Default.Save()
+			end
+		endmethod
+
+
+    endclass
+endnamespace

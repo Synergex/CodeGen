@@ -1,0 +1,99 @@
+;;*****************************************************************************
+;;
+;; Title:       ToolsAssembly.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents an assembly declared as containing conversion tools
+;;
+;; Date:        27th October 2017
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2017, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Text
+import CodeConverterInterface
+import System.Reflection
+
+namespace CodeConverter
+
+	;;; <summary>
+	;;; This class represents an external assembly that has been declared to CodeConverter as containing
+	;;; code conversion tools. We will locate these tools by using Reflection to locate any classes
+	;;; within the assambly that implement the CodeConverterInterface.IConversionTool interface.
+	;;; </summary>
+
+	public class ToolsAssembly
+	
+		public setprivate property AssemblyPath, string
+		public readonly property Tools, @List<IConversionTool>, new List<IConversionTool>()
+
+		public method ToolsAssembly
+			required in path, String
+		proc
+			this.AssemblyPath = path
+
+			;;Open the assembly
+			data asm = Assembly.LoadFrom(path)
+
+			;;Look through all the types in the assembly searching for types that
+			;;implement IConversionTool, recording each one that we find.
+			
+			data discoveredType, @Type
+
+			foreach discoveredType in asm.GetTypes()
+			begin
+				data discoveredInterfaces, [#]@Type, discoveredType.GetInterfaces()
+				if (discoveredInterfaces.Length)
+				begin
+					;;The type we found implements at least one interface
+					data interfaceType, @Type
+					foreach interfaceType in discoveredInterfaces
+					begin
+						;;If the type implements IMenuView and has a default constructor then we can launch it
+						if (interfaceType==^typeof(IConversionTool)&&(discoveredType.GetConstructor(Type.EmptyTypes)!=^null))
+						begin
+							data tool, @IConversionTool, (@IConversionTool)Activator.CreateInstance(discoveredType)
+							this.Tools.Add(tool)
+							exitloop
+						end
+					end
+				end
+			end
+
+		endmethod
+
+	endclass
+
+endnamespace

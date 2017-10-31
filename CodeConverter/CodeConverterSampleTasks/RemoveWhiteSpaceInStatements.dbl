@@ -1,0 +1,165 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeConverterInterface
+
+namespace CodeConverterSampleTasks
+	
+	public class RemoveWhiteSpaceInStatements implements IConversionTool
+		
+		public readonly property Description, string, "Remove white space from parameter lists"
+
+		public method DoConvert, @List<OperationResult>
+			required in  files, @List<String> 
+			required in  testMode, Boolean 
+			required in  createFilesInTestMode, Boolean 
+			required out summaryMessage, String
+			endparams
+		proc
+			data results, @List<OperationResult>, new List<OperationResult>()
+			data filesModified, int
+			data linesModified, int
+			data totalChanges, int
+			
+			data filename, String
+			foreach filename in files
+			begin
+				data fileModified, boolean, false
+				
+				;;Get the data for the file
+				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
+				
+				data sourceline, String
+				data sourceLineIndex, int, -1
+				
+				while ((sourceLineIndex += 1) < sourcelines.Count)
+				begin
+					sourceline = sourcelines[sourceLineIndex]
+					
+					data lineModified, boolean, false
+					
+					;;Skip blank lines
+					if (string.IsNullOrWhiteSpace(sourceline))
+						nextloop
+					
+					;;Skip lines that only have a comment
+					if (sourceline.Trim().StartsWith(";"))
+						nextloop
+					
+					;;Find the first non-whitespace character
+					data firstCharacterIndex, int, -1
+					repeat
+					begin
+						firstCharacterIndex+=1
+						if (sourceline.Substring(firstCharacterIndex,1)!=" " && sourceline.Substring(firstCharacterIndex,1)!="	")
+							exitloop
+					end
+					
+					;;Remove any whitespace characters that are not in quoted strings
+					data inQuotedString, boolean, false
+					data quotedStringDouble, boolean
+					data parenDepth, int, 0
+					
+					data characterIndex, int, firstCharacterIndex - 1
+					while ((characterIndex += 1) < sourceline.Length)
+					begin
+						using sourceline.Substring(characterIndex,1) select
+						('"'),
+						begin
+							if (inQuotedString && quotedStringDouble) then
+								inQuotedString = false
+							else if (!inQuotedString)
+							begin
+								inQuotedString = true
+								quotedStringDouble = true
+							end
+						end
+						("'"),
+							if (inQuotedString && !quotedStringDouble) then
+								inQuotedString = false
+							else if (!inQuotedString)
+							begin
+								inQuotedString = true
+								quotedStringDouble = false
+							end
+						("("),
+							parenDepth += 1
+						(")"),
+							parenDepth -= 1
+						(";"),
+							if (!inQuotedString)
+							begin
+								;;Found the start of a comment, leave the rest of the line alone.
+								exitloop
+							end
+						(" ","	"),
+						begin
+							if (!inQuotedString && (parenDepth>0))
+							begin
+								;;Make sure the preceding three characters were not a "new" statement
+								if ((characterIndex>=3)&&(sourceline.Substring(characterIndex-3,3).ToLower()=="new"))
+									nextloop
+								
+								;;Found a whitespace character - discard it
+								sourceline = sourceline.Remove(characterIndex,1)
+								
+								;;Process the same index again
+								characterIndex -= 1
+								lineModified = true
+								totalChanges += 1
+							end
+						end
+						endusing
+					end
+					
+					;;If the line was modoified, save it
+					if (lineModified)
+					begin
+						sourcelines[sourceLineIndex] = sourceline
+						linesModified += 1
+						fileModified = true
+					end					
+				end
+				
+				if (fileModified)
+				begin
+					filesModified += 1
+					if (testMode) then
+					begin
+						data testFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".TEST")
+						if (createFilesInTestMode) then
+						begin
+							File.WriteAllLines(testFile,sourcelines)
+							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: OUTPUT SAVED TO {0}",testFile)))
+						end
+						else
+							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: WOULD HAVE MODIFIED {0}",filename)))
+					end	
+					else
+					begin
+						data saveFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".SAVE")
+						try
+						begin
+							File.Copy(filename,saveFile)
+							File.WriteAllLines(filename,sourcelines)
+							results.Add(new OperationResult(filename,0,string.Format("MODIFIED {0}. Original code saved in {1}.",filename,saveFile)))
+						end
+						catch (e, @Exception)
+						begin
+							results.Add(new OperationResult(filename,0,string.Format("FAILED TO MODIFY OR BACKUP {0}.",filename)))
+						end
+						endtry
+					end				
+				end
+			end
+			
+			summaryMessage = String.Format("Processed {0} files. Made {1} changes to {2} lines in {3} files.",files.Count,totalChanges,linesModified,filesModified)
+			
+			mreturn results
+			
+		endmethod
+		
+	endclass
+	
+endnamespace

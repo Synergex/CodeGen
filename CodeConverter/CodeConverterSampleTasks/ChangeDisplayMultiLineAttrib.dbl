@@ -1,0 +1,134 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeConverterInterface
+
+.array 0
+
+namespace CodeConverterSampleTasks
+	
+	public class ChangeDisplayMultiLineAttrib implements IConversionTool
+		
+		public readonly property Description, string, "Change Multi-Line Attribute Commands"
+
+		public method DoConvert, @List<OperationResult>
+			files, @List<String> 
+			testMode, Boolean 
+			createFilesInTestMode, Boolean 
+			out summaryMessage, String 
+			endparams
+		proc
+			data results, @List<OperationResult>, new List<OperationResult>()
+			data filesModified, int
+			data linesModified, int
+			data totalChanges, int
+			
+			data filename, String
+			foreach filename in files
+			begin
+				data fileModified, boolean, false
+				
+				;;Get the data for the file
+				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
+				
+				data sourceline, String
+				data sourceLineIndex, int, -1
+				
+				while ((sourceLineIndex += 1) < sourcelines.Count)
+				begin
+					sourceline = sourcelines[sourceLineIndex]
+					
+					;;Skip blank lines
+					if (string.IsNullOrWhiteSpace(sourceline))
+						nextloop
+					
+					if (!sourceline.ToLower().Contains("display (15,27,'[0')"))
+						nextloop
+					
+					data startPos, int, sourceline.ToLower().IndexOf("display (15,27,'[0')")
+					data endPos, int, startPos + 19
+					data removeLines, int, 0
+
+					if (((sourceLineIndex+2)<=sourcelines.Count-1) && (sourcelines[sourceLineIndex+1].ToUpper().Contains("DISPLAY (15,';1')")) && (sourcelines[sourceLineIndex+2].ToUpper().Contains("DISPLAY (15,'M')"))) then
+					begin
+						;;It's a multi-line "Bold On"
+						sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"UI.Bold()")
+						removeLines = 2
+					end
+					else if (((sourceLineIndex+2)<=sourcelines.Count-1) && (sourcelines[sourceLineIndex+1].ToUpper().Contains("DISPLAY (15,';4')")) && (sourcelines[sourceLineIndex+2].ToUpper().Contains("DISPLAY (15,'M')"))) then
+					begin
+						;;It's a multi-line "Underline On"
+						sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"UI.Underline()")
+						removeLines = 2
+					end
+					else if (((sourceLineIndex+2)<=sourcelines.Count-1) && (sourcelines[sourceLineIndex+1].ToUpper().Contains("DISPLAY (15,';5')")) && (sourcelines[sourceLineIndex+2].ToUpper().Contains("DISPLAY (15,'M')"))) then
+					begin
+						;;It's a multi-line "Blink On"
+						sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"UI.Blink()")
+						removeLines = 2
+					end
+					else if (((sourceLineIndex+2)<=sourcelines.Count-1) && (sourcelines[sourceLineIndex+1].ToUpper().Contains("DISPLAY (15,';7')")) && (sourcelines[sourceLineIndex+2].ToUpper().Contains("DISPLAY (15,'M')"))) then
+					begin
+						;;It's a multi-line "Reverse On"
+						sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"UI.Reverse()")
+						removeLines = 2
+					end
+					else if (((sourceLineIndex+3)<=sourcelines.Count-1) && (sourcelines[sourceLineIndex+1].ToUpper().Contains("DISPLAY (15,';1')")) && (sourcelines[sourceLineIndex+2].ToUpper().Contains("DISPLAY (15,';7')")) && (sourcelines[sourceLineIndex+3].ToUpper().Contains("DISPLAY (15,'M')"))) then
+					begin
+						;;It's a multi-line "Bold And Reverse On"
+						sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"UI.BoldReverse()")
+						removeLines = 3
+					end
+					else
+						nextloop
+
+					data ix, int
+					for ix from 1 thru removeLines
+						sourcelines.RemoveAt(sourceLineIndex+1)
+					linesModified += 1
+					totalChanges += 1
+					fileModified = true
+				end
+				
+				if (fileModified)
+				begin
+					filesModified += 1
+					if (testMode) then
+					begin
+						data testFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".TEST")
+						if (createFilesInTestMode) then
+						begin
+							File.WriteAllLines(testFile,sourcelines)
+							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: OUTPUT SAVED TO {0}",testFile)))
+						end
+						else
+							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: WOULD HAVE MODIFIED {0}",filename)))
+					end	
+					else
+					begin
+						data saveFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".SAVE")
+						try
+						begin
+							File.Copy(filename,saveFile)
+							File.WriteAllLines(filename,sourcelines)
+							results.Add(new OperationResult(filename,0,string.Format("MODIFIED {0}. Original code saved in {1}.",filename,saveFile)))
+						end
+						catch (e, @Exception)
+						begin
+							results.Add(new OperationResult(filename,0,string.Format("FAILED TO MODIFY OR BACKUP {0}.",filename)))
+						end
+						endtry
+					end				
+				end
+			end
+			
+			summaryMessage = String.Format("Processed {0} files. Made {1} changes to {2} lines in {3} files.",files.Count,totalChanges,linesModified,filesModified)
+			
+			mreturn results
+			
+		endmethod
+		
+	endclass
+	
+endnamespace

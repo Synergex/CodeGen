@@ -1,0 +1,152 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeConverterInterface
+
+namespace CodeConverterSampleTasks
+
+	public class AddLogicalsToIncludes implements IConversionTool
+		
+		public readonly property Description, string, "Add INC: to include statements with no logical name specified"
+
+		public method DoConvert, @List<OperationResult>
+			required in  files, @List<String> 
+			required in  testMode, Boolean 
+			required in  createFilesInTestMode, Boolean 
+			required out summaryMessage, String
+			endparams
+		proc
+			data trimChars, [#]char, new char[2]
+			trimChars[1] = %char(32)
+			trimChars[2] = %char(9)
+			
+			data results, @List<OperationResult>, new List<OperationResult>()
+			data totalIncludes, int, 0
+			data repositoryIncludes, int, 0
+			data includesWithoutLogicals, int, 0
+			data updated, int, 0
+			data notupdated, int, 0
+			
+			data sourcefile, String
+			foreach sourcefile in files
+			begin
+				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(sourcefile))
+				data sourceline, String
+				data fileUpdated, boolean, false
+				data sourceIndex, int, -1
+				
+				while ((sourceIndex+=1) < sourcelines.Count)
+				begin
+					sourceline = sourcelines[sourceIndex]
+					
+					;;Do we have a .INCLUDE?
+					if (!sourceline.Trim(trimChars).ToUpper().StartsWith(".INCLUDE"))
+						nextloop
+					
+					totalIncludes += 1
+					
+					;;Make sure it's not a repository include
+					if (sourceline.ToUpper().Contains("REPOSITORY") || sourceline.ToUpper().Contains("DICTIONARY"))
+					begin
+						repositoryIncludes += 1
+						nextloop
+					end
+					
+					;;Does the line already have a : in it?
+					if (sourceline.Contains(":"))
+						nextloop
+					
+					includesWithoutLogicals += 1
+					
+					data openQuote, int
+					data closeQuote, int
+					data newSourceLine, String, string.Empty
+					
+					;;Are there double quotes in the string?
+					openQuote = sourceline.IndexOf('"')
+					if (openQuote != -1) then
+					begin
+						closeQuote = sourceline.IndexOf('"',openQuote+1)
+						if (closeQuote != -1)
+							newSourceLine = sourceline.Substring(0,openQuote+1) + "INC:" + sourceline.Substring(openQuote+1,sourceline.Length-openQuote-1)
+					end
+					else
+					begin
+						;;Are there single quotes in the string?
+						openQuote = sourceline.IndexOf("'")
+						if (openQuote != -1) then
+						begin
+							closeQuote = sourceline.IndexOf("'",openQuote+1)
+							if (closeQuote != -1)
+								newSourceLine = sourceline.Substring(0,openQuote+1) + "INC:" + sourceline.Substring(openQuote+1,sourceline.Length-openQuote-1)
+						end
+						else
+						begin
+							;;No quotes
+							data includeStart, int, sourceline.ToUpper().IndexOf(".INCLUDE")
+							data filePart, String, sourceline.Substring(includeStart+8,sourceline.Length - includeStart - 8)
+							newSourceLine = sourceline.Substring(0,includeStart+8) + " 'DEF:" + filePart.Trim() + "'"
+						end
+					end
+					
+					if (!string.IsNullOrWhiteSpace(newSourceLine)) then
+					begin
+						sourcelines[sourceIndex] = newSourceLine
+						updated += 1
+						fileUpdated = true
+					end
+					else
+					begin
+						notUpdated += 1
+					end
+				end
+				
+				if (fileUpdated)
+				begin
+					if (testMode) then
+					begin
+						data testFileSpec, String, Path.Combine(Path.GetDirectoryName(sourcefile),Path.GetFileNameWithoutExtension(sourcefile)+".TEST")
+						try
+						begin
+							if (createFilesInTestMode) then
+							begin
+								File.WriteAllLines(testFileSpec,sourcelines)
+								results.Add(new OperationResult(sourcefile,sourceIndex+1,string.Format("TEST MODE: CREATED {0}",testFileSpec)))
+							end
+							else
+								results.Add(new OperationResult(sourcefile,sourceIndex+1,string.Format("TEST MODE: WOULD HAVE UPDATED {0}",sourcefile)))
+						end
+						catch (e, @Exception)
+						begin
+							results.Add(new OperationResult(sourcefile,sourceIndex+1,string.Format("TEST MODE: FAILED TO CREATE ",testFileSpec)))
+						end
+						endtry
+					end
+					else
+					begin
+						data saveFileSpec, String, Path.Combine(Path.GetDirectoryName(sourcefile),Path.GetFileNameWithoutExtension(sourcefile)+".SAVE")
+						try
+						begin
+							File.Copy(sourcefile,saveFileSpec)
+							File.WriteAllLines(sourcefile,sourcelines)
+							results.Add(new OperationResult(sourcefile,sourceIndex+1,string.Format("UPDATED {0}. Original code was saved to {1}.",sourcefile,saveFileSpec)))
+						end
+						catch (e, @Exception)
+						begin
+							results.Add(new OperationResult(sourcefile,sourceIndex+1,string.Format("FAILED UPDATE OR BACKUP {0}",sourcefile)))
+						end
+						endtry
+					end
+				end
+			end	
+			
+			summaryMessage = String.Format("Searched {0} files, found {1} includes. {2} were RPS includes. {3} didn't include a logical. {4} were updated, {5} updates failed.",files.Count,totalIncludes,repositoryIncludes,includesWithoutLogicals, updated, notupdated)
+			
+			mreturn results
+			
+		endmethod
+		
+	endclass
+
+endnamespace

@@ -1,0 +1,548 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeConverterInterface
+
+.array 0
+
+namespace CodeConverterSampleTasks
+	
+	public class ChangeDisplayMultiPurpose implements IConversionTool
+		
+		public readonly property Description, string, "Change Terminal DISPLAY"
+
+		public method DoConvert, @List<OperationResult>
+			files, @List<String> 
+			testMode, Boolean 
+			createFilesInTestMode, Boolean 
+			out summaryMessage, String 
+			endparams
+		proc
+			data results, @List<OperationResult>, new List<OperationResult>()
+			data filesModified, int
+			data linesModified, int
+			data totalChanges, int
+			
+			data filename, String
+			foreach filename in files
+			begin
+				data fileModified, boolean, false
+				data fileContainsStatementExplosion, boolean, false
+				
+				;;Get the data for the file
+				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
+				
+				data sourceline, String
+				data sourceLineIndex, int, -1
+				
+				while ((sourceLineIndex += 1) < sourcelines.Count)
+				begin
+					sourceline = sourcelines[sourceLineIndex]
+					
+					data outputWasOptimized, boolean, false
+
+					;;Skip blank lines
+					if (string.IsNullOrWhiteSpace(sourceline))
+						nextloop
+					
+;					;;For this one, skip commented lines
+;					if (sourceline.Trim().StartsWith(";"))
+;						nextloop
+
+					if (sourceline.ToUpper().Contains("WRITES(15,"))
+					begin
+						data startPos, int, sourceline.ToUpper().IndexOf("WRITES(15,")
+						data endPos, int, startPos + 9
+						sourceline = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"WRITES (15,")
+					end
+
+					;;For this one we're only processing lines where the DISPLAY is the only statement on the line					
+;					if (!sourceline.Trim().ToUpper().StartsWith("DISPLAY (15,"))
+;						nextloop
+					if (!sourceline.Trim().ToUpper().Contains("DISPLAY (15,"))
+						nextloop
+					
+					;;DISPLAY (15,$SCR_POS(row,col),$SCR_ATT(attr),'literal')   , etc.
+					
+					data startPos, int, sourceline.ToUpper().IndexOf("DISPLAY (15,")
+					data ix, int
+					data parenDepth, int
+					data inSingleQuotedString, boolean, false
+					data inDoubleQuotedString, boolean, false
+
+					;;Find the ) that represents the end of the statement
+					data endPos, int, -1
+					for ix from startPos + 11 thru sourceLine.Length - 1
+					begin
+						if (sourceline.Substring(ix,1)=="(") then
+						begin
+							if (!inSingleQuotedString && !inDoubleQuotedString)
+							begin
+								parenDepth += 1
+							end
+						end
+						else if (sourceline.Substring(ix,1)=="'") then
+						begin
+							if (inSingleQuotedString) then
+								inSingleQuotedString = false
+							else if (inDoubleQuotedString) then
+								nop
+							else
+								inSingleQuotedString = true
+						end
+						else if (sourceline.Substring(ix,1)=='"') then
+						begin
+							if (inDoubleQuotedString) then
+								inDoubleQuotedString = false
+							else if (inSingleQuotedString) then
+								nop
+							else
+								inDoubleQuotedString = true
+						end
+						else if (sourceline.Substring(ix,1)==",") then
+						begin
+							;;Replace commas that are not in quotes or parens with ~ so we can split on them later
+							if ((!inSingleQuotedString)&&(!inDoubleQuotedString)&&(parenDepth==0))
+								sourceline = sourceline.Substring(0,ix) + "~" + sourceline.Substring(ix+1,sourceline.Length-ix-1)
+						end
+						else if (sourceline.Substring(ix,1)==")")
+						begin
+							if (inSingleQuotedString || inDoubleQuotedString) then
+								nop
+							else if (parenDepth > 0) then
+								parenDepth -= 1
+							else
+							begin
+								;;Found the end!!!
+								endPos = ix
+							end
+						end
+					end
+
+					if (endPos==-1)
+						nextloop
+
+					;;So it looks like we have a complete statement
+
+					data newStatements, @List<String>, new List<String>()
+					data unprocessedParts, int, 0
+					
+					data from, int, startPos+12
+					data len, int, endPos-from
+					data newstr, String, sourceline.Substring(from,len)
+					data parts, [#]String, newstr.Split("~")
+
+					data part, String
+					foreach part in parts
+					begin
+						if (part.ToUpper().StartsWith("$SCR_POS")) then
+						begin
+							;;Position cursor command
+							data openParenPos, int, part.IndexOf("(")
+							data closeParenPos, int, part.IndexOf(")")
+							data posList, [#]String, part.Substring(openParenPos+1,closeParenPos-openParenPos-1).Trim().Split(",")
+							newStatements.Add(string.Format("UI.PositionCursor({0},{1})",posList[0],posList[1]))
+						end
+						else if (part.ToUpper().StartsWith("$SCR_MOV")) then
+						begin
+							;;Move cursor command
+							data openParenPos, int, part.IndexOf("(")
+							data closeParenPos, int, part.IndexOf(")")
+							data movList, [#]String, part.Substring(openParenPos+1,closeParenPos-openParenPos-1).Trim().Split(",")
+							newStatements.Add(string.Format("UI.MoveCursor({0},{1})",movList[0],movList[1]))
+						end
+						else if (part.ToUpper().StartsWith("$SCR_CLR")) then
+						begin
+							;;Clear screen command
+							data openParenPos, int, part.IndexOf("(")
+							data closeParenPos, int, part.IndexOf(")")
+							data clearCommand, String, part.Substring(openParenPos+1,closeParenPos-openParenPos-1).Trim().ToUpper()
+							using clearCommand select
+							("SCREEN"),
+								newStatements.Add("UI.ClearScreen()")
+							("EOL"),
+								newStatements.Add("UI.ClearToEndOfLine()")
+							("EOS"),
+								newStatements.Add("UI.ClearToEndOfScreen()")
+							("LINE"),
+								newStatements.Add("UI.ClearLine()")
+							("BOL"),
+								newStatements.Add("UI.ClearToBeginningOfLine()")
+							("BOS"),
+								newStatements.Add("UI.ClearToBeginningOfScreen()")
+							endusing
+						end
+						else if (part.ToUpper().StartsWith("$SCR_ATT")) then
+						begin
+							;;Attributes command (could be multiple attributes)
+							data openParenPos, int, part.IndexOf("(")
+							data closeParenPos, int, part.IndexOf(")")
+							data attrList, String, part.Substring(openParenPos+1,closeParenPos-openParenPos-1).Trim().ToUpper()
+							data attrCommand, String
+							foreach attrCommand in attrList.Split(",")
+							begin
+								using attrCommand select
+								("CLEAR"),
+									newStatements.Add("UI.ClearAttributes()")
+								("BOLD"),
+									newStatements.Add("UI.Bold()")
+								("UNDER"),
+									newStatements.Add("UI.Underline()")
+								("BLINK"),
+									newStatements.Add("UI.Blink()")
+								("REVERSE"),
+									newStatements.Add("UI.Reverse()")
+								("GON"),
+									newStatements.Add("UI.GraphicsOn()")
+								("GOFF"),
+									newStatements.Add("UI.GraphicsOff()")
+								("SAVE"),
+									unprocessedParts += 1
+								("RESTORE"),
+									unprocessedParts += 1
+								endusing
+							end
+						end
+						else if (part.StartsWith("'") || part.StartsWith('"')) then
+						begin
+							;;Quoted string
+							newStatements.Add(string.Format("UI.DisplayText({0})",part))
+						end
+						else
+						begin
+							;;Variable or numeric literal
+							data theNumber, int
+							if (int.TryParse(part,theNumber)) then
+							begin
+								using theNumber select
+								(7),
+									newStatements.Add("UI.Beep()")
+								(),
+									newStatements.Add(string.Format("UI.DisplayText(%char({0}))",theNumber))
+								endusing
+							end
+							else
+								newStatements.Add(string.Format("UI.DisplayText({0})",part))
+						end
+					end
+
+					;;General optimizations
+
+					;;Remove multiple beeps
+					ix = -1
+					while ((ix+=1)<=(newStatements.Count-1))
+					begin
+						if ((newStatements[ix]=="UI.Beep()")&&((ix+1)<=(newStatements.Count-1))&&(newStatements[ix+1]=="UI.Beep()"))
+						begin
+							newStatements.RemoveAt(ix+1)
+							ix-=1
+						end
+					end
+					
+					;;Optimize multiple DisplayText() statements into one
+					ix = -1
+					while ((ix+=1)<=(newStatements.Count-1))
+					begin
+						if ( newStatements[ix].StartsWith("UI.DisplayText(") && (ix+1) <= (newStatements.Count-1) && newStatements[ix+1].StartsWith("UI.DisplayText(") ) 
+						begin
+							;;Reduce the first DisplayText to the value being displayed
+							newStatements[ix] = newStatements[ix].Replace("UI.DisplayText(","")
+							newStatements[ix] = newStatements[ix].Substring(0,newStatements[ix].LastIndexOf(")"))
+							;;Reduce the second DisplayText to the value being displayed
+							newStatements[ix+1] = newStatements[ix+1].Replace("UI.DisplayText(","")
+							newStatements[ix+1] = newStatements[ix+1].Substring(0,newStatements[ix+1].LastIndexOf(")"))
+							;;Add the new combined statement
+							newStatements[ix] = String.Format("UI.DisplayText({0}+{1})",newStatements[ix],newStatements[ix+1])							
+							;;Remove the additional line we just combined
+							newStatements.RemoveAt(ix+1)
+							;;Process the same statement again incase there is another one following
+							ix-=1
+						end
+					end
+
+					;;Optimize DisplayText(%char(13)+%char(10)) to DisplayLine('')
+					ix = -1
+					while ((ix+=1)<=(newStatements.Count-1))
+					begin
+						if (newStatements[ix] == "UI.DisplayText(%char(13)+%char(10))")
+							newStatements[ix] = "UI.DisplayLine('')"
+					end
+
+					;;Optimize DisplayText(%char(13)+%char(10)+data) to DisplayTextOnNextLine('')
+					ix = -1
+					while ((ix+=1)<=(newStatements.Count-1))
+					begin
+						if (newStatements[ix].StartsWith("UI.DisplayText(%char(13)+%char(10)+"))
+							newStatements[ix] = newStatements[ix].Replace("UI.DisplayText(%char(13)+%char(10)+","UI.DisplayTextOnNextLine(")
+					end
+					
+					;;Optimize PositionCursor() followed by DisplayText()
+					ix = -1
+					while ((ix+=1)<=(newStatements.Count-1))
+					begin
+						if ((newStatements[ix].StartsWith("UI.PositionCursor("))&&((ix+1)<=(newStatements.Count-1))&&(newStatements[ix+1].StartsWith("UI.DisplayText(")))
+						begin
+							;;Extract the position data
+							newStatements[ix] = newStatements[ix].Replace("UI.PositionCursor(","")
+							newStatements[ix] = newStatements[ix].Substring(0,newStatements[ix].LastIndexOf(")"))
+							;;Extract the text being displayed
+							newStatements[ix+1] = newStatements[ix+1].Replace("UI.DisplayText(","")
+							newStatements[ix+1] = newStatements[ix+1].Substring(0,newStatements[ix+1].LastIndexOf(")"))
+							;;Define the new statement
+							newStatements[ix] = string.Format("UI.DisplayTextAt({0},{1})",newStatements[ix],newStatements[ix+1])
+							;;Remove the merged statement
+							newStatements.RemoveAt(ix+1)
+						end
+					end
+
+					;;Optimize DisplayText() followed by DisplayLine('')
+					ix = -1
+					while ((ix+=1)<=(newStatements.Count-1))
+					begin
+						if ((newStatements[ix].StartsWith("UI.DisplayText("))&&((ix+1)<=(newStatements.Count-1))&&(newStatements[ix+1]=="UI.DisplayLine('')"))
+						begin
+							newStatements[ix] = newStatements[ix].Replace("UI.DisplayText(","UI.DisplayLine(")
+							newStatements.RemoveAt(ix+1)
+						end
+					end
+					
+					;;Optimize UI.DisplayText with a trailing +%char(13)+%char(10))
+					ix = -1
+					while ((ix+=1)<=(newStatements.Count-1))
+					begin
+						if ((newStatements[ix].StartsWith("UI.DisplayText("))&&(newStatements[ix].EndsWith("+%char(13)+%char(10))")))
+							newStatements[ix] = newStatements[ix].Replace("UI.DisplayText(","UI.DisplayLine(").Replace("+%char(13)+%char(10))",")")
+					end
+
+					;;Specific OPTIMIZATIONS
+
+
+
+					using newStatements.Count select
+					(2),
+					begin
+						if		(newStatements[0]=="UI.Beep()"
+						&	&&   newStatements[1].StartsWith("UI.DisplayText(")) then
+						begin
+							newStatements.RemoveAt(0)
+							newStatements[0] = newStatements[0].Replace("UI.DisplayText(","UI.DisplayTextAndBeep(")
+							outputWasOptimized = true
+						end
+						else if		(newStatements[0]=="UI.Beep()"
+						&	&&   newStatements[1].StartsWith("UI.DisplayTextAt(")) then
+						begin
+							newStatements.RemoveAt(0)
+							newStatements[0] = newStatements[0].Replace("UI.DisplayTextAt(","UI.DisplayTextAtAndBeep(")
+							outputWasOptimized = true
+						end
+						else if	(newStatements[0]=="UI.Beep()"
+						&	&&   newStatements[1].StartsWith("UI.DisplayTextOnNextLine(")) then
+						begin
+							newStatements.RemoveAt(0)
+							newStatements[0] = newStatements[0].Replace("UI.DisplayTextOnNextLine(","UI.DisplayTextOnNextLineAndBeep(")
+							outputWasOptimized = true
+						end
+						else if (newStatements[0].StartsWith("UI.PositionCursor(")
+						&	&&	 newStatements[1]=="UI.ClearLine()") then
+						begin
+							newStatements.RemoveAt(1)
+							newStatements[0] = newStatements[0].Replace("UI.PositionCursor(","UI.PositionCursorAndClearLine(")
+							outputWasOptimized = true
+						end
+						else if (newStatements[0]=="UI.DisplayLine('')"
+						&	&&   newStatements[1].StartsWith("UI.DisplayText(")) then
+						begin
+							newStatements.RemoveAt(0)
+							newStatements[0] = newStatements[0].Replace("UI.DisplayText(","UI.DisplayTextOnNextLine(")
+							outputWasOptimized = true
+						end
+						else if	(newStatements[0]=="UI.Bold()"
+						&	&&   newStatements[1].StartsWith("UI.DisplayText("))
+						begin
+							newStatements.RemoveAt(0)
+							newStatements[0] = newStatements[0].Replace("UI.DisplayText(","UI.DisplayTextBold(")
+							outputWasOptimized = true
+						end
+					end
+					(3),
+					begin
+						if (	newStatements[0].StartsWith("UI.PositionCursor(")
+						&	&&	newStatements[1]=="UI.Bold()"
+						&	&&	newStatements[2].StartsWith("UI.DisplayText(")) then
+						begin
+							data openParenPos, int, newStatements[0].IndexOf("(")
+							data closeParenPos, int, newStatements[0].IndexOf(")")
+							data posList, [#]String, newStatements[0].Substring(openParenPos+1,closeParenPos-openParenPos-1).Trim().Split(",")
+							newStatements.RemoveRange(0,2)
+							newStatements[0] = newStatements[0].Replace("UI.DisplayText(",string.Format("UI.DisplayBoldTextAt({0},{1},",posList[0],posList[1]))
+							outputWasOptimized = true
+						end
+						else if (	newStatements[0].StartsWith("UI.PositionCursor(")
+						&	&&	newStatements[1]=="UI.Reverse()"
+						&	&&	newStatements[2].StartsWith("UI.DisplayText(")) then
+						begin
+							data openParenPos, int, newStatements[0].IndexOf("(")
+							data closeParenPos, int, newStatements[0].IndexOf(")")
+							data posList, [#]String, newStatements[0].Substring(openParenPos+1,closeParenPos-openParenPos-1).Trim().Split(",")
+							newStatements.RemoveRange(0,2)
+							newStatements[0] = newStatements[0].Replace("UI.DisplayText(",string.Format("UI.DisplayReverseTextAt({0},{1},",posList[0],posList[1]))
+							outputWasOptimized = true
+						end
+						else if (newStatements[0]=="UI.Bold()"
+						&	&&	 newStatements[1]=="UI.Blink()"
+						&	&&	 newStatements[2].StartsWith("UI.DisplayText(")) then
+						begin
+							newStatements.RemoveRange(0,2)
+							newStatements[0] = newStatements[0].Replace("UI.DisplayText(","UI.DisplayTextBoldBlink(")
+							outputWasOptimized = true
+						end
+						else if (newStatements[0]=="UI.DisplayLine('')"
+						&	&&	 newStatements[1]=="UI.DisplayLine('')"
+						&	&&	 newStatements[2].StartsWith("UI.DisplayText(")) then
+						begin
+							newStatements.RemoveAt(0)
+							newStatements[1] = newStatements[1].Replace("UI.DisplayText(","UI.DisplayTextOnNextLine(")
+							outputWasOptimized = true
+						end
+						else if	(newStatements[0]=="UI.Beep()"
+						&	&&	 newStatements[1]=="UI.DisplayLine('')"
+						&	&&	 newStatements[2].StartsWith("UI.DisplayText(")) then
+						begin
+							newStatements[2] = newStatements[2].Replace("UI.DisplayText(","")
+							newStatements[2] = newStatements[2].Substring(0,newStatements[2].LastIndexOf(")"))
+							newStatements.Add(String.Format("UI.DisplayTextOnNextLineAndBeep({0})",newStatements[2]))
+							newStatements.RemoveRange(0,3)
+							outputWasOptimized = true
+						end
+						else if	(newStatements[0]=="UI.Beep()"
+						&	&&	 newStatements[1]=="UI.ClearScreen()"
+						&	&&	 newStatements[2].StartsWith("UI.DisplayTextAt(")) then
+						begin
+							newStatements[2] = newStatements[2].Replace("UI.DisplayTextAt(","UI.DisplayTextAtAndBeep(")
+							newStatements.RemoveAt(0)
+							outputWasOptimized = true
+						end
+						else if	(newStatements[0].StartsWith("UI.DisplayText(")
+						&	&&	 newStatements[1]=="UI.Beep()"
+						&	&&	 newStatements[2].StartsWith("UI.DisplayText(")) then
+						begin
+							newStatements[0] = newStatements[0].Replace("UI.DisplayText(","")
+							newStatements[0] = newStatements[0].Substring(0,newStatements[0].LastIndexOf(")"))
+							newStatements[2] = newStatements[2].Replace("UI.DisplayText(","")
+							newStatements[2] = newStatements[2].Substring(0,newStatements[2].LastIndexOf(")"))
+							newStatements.Add(String.Format("UI.DisplayTextAndBeep({0}+{1})",newStatements[0],newStatements[2]))
+							newStatements.RemoveRange(0,3)
+							outputWasOptimized = true
+						end
+						else if	(newStatements[0]=="UI.DisplayLine('')"
+						&	&&	 newStatements[1]=="UI.Beep()"
+						&	&&	 newStatements[2].StartsWith("UI.DisplayText("))
+						begin
+							newStatements[2] = newStatements[2].Replace("UI.DisplayText(","")
+							newStatements[2] = newStatements[2].Substring(0,newStatements[2].LastIndexOf(")"))
+							newStatements.Add(String.Format("UI.DisplayTextOnNextLineAndBeep({0})",newStatements[2]))
+							newStatements.RemoveRange(0,3)
+							outputWasOptimized = true
+						end
+						
+					end
+					(4),
+					begin
+						if (newStatements[0]=="UI.ClearScreen()"
+						&	&&	 newStatements[1].StartsWith("UI.PositionCursor(")
+						&	&&	 newStatements[2]=="UI.Bold()"
+						&	&&	 newStatements[3].StartsWith("UI.DisplayText("))
+						begin
+							data openParenPos, int, newStatements[1].IndexOf("(")
+							data closeParenPos, int, newStatements[1].IndexOf(")")
+							data posList, [#]String, newStatements[1].Substring(openParenPos+1,closeParenPos-openParenPos-1).Trim().Split(",")
+							newStatements.RemoveRange(1,2)
+							newStatements[1] = newStatements[1].Replace("UI.DisplayText(",string.Format("UI.DisplayBoldTextAt({0},{1},",posList[0],posList[1]))
+							outputWasOptimized = true
+						end
+						
+					end
+					(5),
+					begin
+						nop
+					end
+					(6),
+					begin
+						nop
+					end
+					(7),
+					begin
+						nop
+					end
+					(8),
+					begin
+						nop
+					end
+					endusing
+
+					;;Add any required indent before the new statements
+					if (startPos>0)
+					begin
+						data indentText, String, sourceline.Substring(0,startPos)
+						data ix, int
+						for ix from 0 thru newStatements.Count - 1
+							newStatements[ix] = indentText + newStatements[ix]
+					end
+
+					;;Remove the original statement
+					sourcelines.RemoveAt(sourceLineIndex)
+
+					;;Add the new statements
+					sourcelines.InsertRange(sourceLineIndex,newStatements)
+
+					;;Set the new index
+					sourceLineIndex += (newStatements.Count - 1)
+
+					linesModified += 1
+					totalChanges += newStatements.Count
+					fileModified = true
+
+				end
+				
+				if (fileModified)
+				begin
+					filesModified += 1
+					if (testMode) then
+					begin
+						data testFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".TEST")
+						if (createFilesInTestMode) then
+						begin
+							File.WriteAllLines(testFile,sourcelines)
+							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: OUTPUT SAVED TO {0}",testFile)))
+						end
+						else
+							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: WOULD HAVE MODIFIED {0}",filename)))
+					end	
+					else
+					begin
+						data saveFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".SAVE")
+						try
+						begin
+							File.Copy(filename,saveFile)
+							File.WriteAllLines(filename,sourcelines)
+							results.Add(new OperationResult(filename,0,string.Format("MODIFIED {0}. Original code saved in {1}.",filename,saveFile)))
+						end
+						catch (e, @Exception)
+						begin
+							results.Add(new OperationResult(filename,0,string.Format("FAILED TO MODIFY OR BACKUP {0}.",filename)))
+						end
+						endtry
+					end				
+				end
+			end
+			
+			summaryMessage = String.Format("Processed {0} files. Made {1} changes to {2} lines in {3} files.",files.Count,totalChanges,linesModified,filesModified)
+			
+			mreturn results
+			
+		endmethod
+		
+	endclass
+	
+endnamespace
