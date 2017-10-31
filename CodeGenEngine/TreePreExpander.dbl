@@ -49,188 +49,196 @@ import System.Linq
 
 namespace CodeGen.Engine
 
-    ;;;  <summary>
-    ;;;  This class is used to pre-process the tree that was created by Parser and tag various nodes as
-    ;;;  not being part of the final output stream.
-    ;;;  </summary>
-    public class TreePreExpander implements ITreeNodeVisitor
+	;;; <summary>
+	;;; This class is used to pre-process the tree that was created by Parser
+	;;; and tag various nodes as not being part of the final output stream.
+	;;; </summary>
+	public class TreePreExpander implements ITreeNodeVisitor
 
-        ;;;  <summary>
-        ;;;  Pre-processes a collection of nodes, generally from the Body of another node.
-        ;;;  </summary>
-        ;;;  <param name="nodes">Collection of tree nodes to process.</param>
-        private method TagPriorToControlBody, void
-            nodes, @List<ITreeNode> 
-        proc
+		;;; <summary>
+		;;; Pre-processes a collection of nodes, generally from the Body of another node.
+		;;; </summary>
+		;;; <param name="nodes">Collection of tree nodes to process.</param>
+		private method TagPriorToControlBody, void
+			required in nodes, @List<ITreeNode> 
+		proc
+			data node, @ITreeNode
+			data previousNode, @ITreeNode
+			data nextNode, @ITreeNode
 			data ix, int
 
-            for ix from 0 thru nodes.Count - 1
-            begin
-                if ((nodes[ix] .is. ControlNode) && (ix > 0) && (nodes[ix - 1] .is. TextNode))
-                begin
-                    data cnode, @ControlNode, ^as(nodes[ix], ControlNode)
-                    if ((cnode.CloseToken != ^null) && (cnode.OpenToken.StartLineNumber != cnode.CloseToken.EndLineNumber))
-                    begin
-                        data tnode, @TextNode, ^as(nodes[ix - 1], TextNode)
-                        tnode.LastLineNotInResult = true
-                    end
-                end
+			for ix from 0 thru nodes.Count - 1
+			begin
+				node = nodes[ix]
+				previousNode = (ix > 0) ? nodes[ix-1] : ^null
+				nextNode = (ix < (nodes.Count - 1)) ? nodes[ix+1] : ^null
 
-                if ((nodes[ix] .is. ControlNode) && (ix < (nodes.Count - 1)) && (nodes[ix + 1] .is. TextNode))
-                begin
-                    data cnode, @ControlNode, ^as(nodes[ix], ControlNode)
-                    if ((cnode.CloseToken != ^null) && (cnode.OpenToken.StartLineNumber != cnode.CloseToken.EndLineNumber))
-                    begin
-                        data tnode, @TextNode, ^as(nodes[ix + 1], TextNode)
-                        tnode.FirstLineNotInResult = true
-                    end
-                end
+				if ((node.is.ControlNode) && (previousNode != ^null) && (previousNode.is.TextNode))
+				begin
+					data cnode = ^as(node, ControlNode)
+					if ((cnode.CloseToken != ^null) && (cnode.OpenToken.StartLineNumber != cnode.CloseToken.EndLineNumber))
+					begin
+						data tnode = ^as(previousNode, TextNode)
+						tnode.LastLineNotInResult = true
+					end
+				end
+
+				if ((node .is. ControlNode) && (nextNode != ^null) && (nextNode .is. TextNode))
+				begin
+					data cnode = ^as(node, ControlNode)
+					if ((cnode.CloseToken != ^null) && (cnode.OpenToken.StartLineNumber != cnode.CloseToken.EndLineNumber))
+					begin
+						data tnode = ^as(nextNode, TextNode)
+						tnode.FirstLineNotInResult = true
+					end
+				end
 				
-				;; also do expansion tokens like Counters
-                if ((nodes[ix] .is. ExpansionNode) && (ix > 0) && (nodes[ix - 1] .is. TextNode))
-                begin
-                    data cnode, @ExpansionNode, ^as(nodes[ix], ExpansionNode)
-                    if (cnode.Value.TypeOfToken == TokenType.CounterInstruction)
-                    begin
-                        data tnode, @TextNode, ^as(nodes[ix - 1], TextNode)
-                        tnode.LastLineNotInResult = true
-                    end
-                end
+				;; Also process expansion tokens like Counters
 
-                if ((nodes[ix] .is. ExpansionNode) && (ix < (nodes.Count - 1)) && (nodes[ix + 1] .is. TextNode))
-                begin
-                    data cnode, @ExpansionNode, ^as(nodes[ix], ExpansionNode)
-                    if (cnode.Value.TypeOfToken == TokenType.CounterInstruction)
-                    begin
-                        data tnode, @TextNode, ^as(nodes[ix + 1], TextNode)
-                        tnode.FirstLineNotInResult = true
-                    end
-                end
-            end
+				if ((node .is. ExpansionNode) && (previousNode != ^null) && (previousNode .is. TextNode))
+				begin
+					data cnode = ^as(node, ExpansionNode)
+					if (cnode.Value.TypeOfToken == TokenType.CounterInstruction)
+					begin
+						data tnode = ^as(previousNode, TextNode)
+						tnode.LastLineNotInResult = true
+					end
+				end
+
+				if ((node .is. ExpansionNode) && (nextNode != ^null) && (nextNode .is. TextNode))
+				begin
+					data cnode = ^as(node, ExpansionNode)
+					if (cnode.Value.TypeOfToken == TokenType.CounterInstruction)
+					begin
+						data tnode = ^as(nextNode, TextNode)
+						tnode.FirstLineNotInResult = true
+					end
+				end
+			end
 		
 		endmethod
 
-        ;;;  <summary>
-        ;;;  Pre-processes control nodes, setting the FirstLineNotInResult and LastLineNotInResult properties of
-        ;;;  various nodes based on the location of the control node. Control nodes include all LOOP, IF and ELSE nodes.
-        ;;;  </summary>
-        ;;;  <param name="cnode">Control node to process. </param>
-        private method TagFirstLastControlBody, void
-            cnode, @ControlNode 
-        proc
-            ;; If there is a close token (there always should be) and the open and close tokens are not on the same line
-            ;; then we'll park the 
-            if ((cnode.CloseToken != ^null) && (cnode.OpenToken.StartLineNumber != cnode.CloseToken.EndLineNumber))
-            begin
-                data firstTextNode, @TextNode, ^as(cnode.Body.First(), TextNode)
-				data lastTextNode, @TextNode, ^as(cnode.Body.Last(), TextNode)
+		;;; <summary>
+		;;; Pre-processes control nodes, setting the FirstLineNotInResult and LastLineNotInResult properties of
+		;;; various nodes based on the location of the control node. Control nodes include all LOOP, IF and ELSE nodes.
+		;;; </summary>
+		;;; <param name="cnode">Control node to process. </param>
+		private method TagFirstLastControlBody, void
+			required in cnode, @ControlNode 
+		proc
+			;; If there is a close token (there always should be) and the open and close tokens are not on the same line
+			;; then we'll park the 
+			if ((cnode.CloseToken != ^null) && (cnode.OpenToken.StartLineNumber != cnode.CloseToken.EndLineNumber))
+			begin
+				data firstTextNode = ^as(cnode.Body.First(), TextNode)
+				data lastTextNode = ^as(cnode.Body.Last(), TextNode)
 
-                if (firstTextNode != ^null)
-                    firstTextNode.FirstLineNotInResult = true
+				if (firstTextNode != ^null)
+					firstTextNode.FirstLineNotInResult = true
 				
 				if (lastTextNode != ^null)
-                    lastTextNode.LastLineNotInResult = true
+					lastTextNode.LastLineNotInResult = true
 			end
 
-        endmethod
+		endmethod
 
-        ;;;  <summary>
-        ;;;  Called by the consumer application to prepare the tree for expansion.
-        ;;;  Removes new lines around loop tokens, etc.
-        ;;;  </summary>
-        ;;;  <param name="node">Tree to generate output from.</param>
-        public method Visit, void
-            node, @FileNode 
-        proc
-            Visit(node.Body)
-        endmethod
+		;;; <summary>
+		;;; Called by the consumer application to prepare the tree for expansion.
+		;;; Removes new lines around loop tokens, etc.
+		;;; </summary>
+		;;; <param name="node">Tree to generate output from.</param>
+		public method Visit, void
+			required in node, @FileNode 
+		proc
+			Visit(node.Body)
+		endmethod
 
-        ;;;  <summary>
-        ;;;  Visit a collection of nodes
-        ;;;  </summary>
-        ;;;  <param name="nodes"></param>
-        private method Visit, void
-            nodes, @List<ITreeNode> 
-        proc
-            TagPriorToControlBody(nodes)
+		;;; <summary>
+		;;; Visit a collection of nodes
+		;;; </summary>
+		;;; <param name="nodes"></param>
+		private method Visit, void
+			required in nodes, @List<ITreeNode> 
+		proc
+			TagPriorToControlBody(nodes)
 			data node, @ITreeNode
 			foreach node in nodes
 				node.Accept(this)
-        endmethod
+		endmethod
 
-        ;;;  <summary>
-        ;;;  Visit any LOOP node.
-        ;;;  </summary>
-        ;;;  <param name="loop"></param>
-        public method Visit, void
-            loop, @LoopNode 
-        proc
-            TagFirstLastControlBody(loop)
-            Visit(loop.Body)
-        endmethod
+		;;; <summary>
+		;;; Visit any LOOP node.
+		;;; </summary>
+		;;; <param name="loop"></param>
+		public method Visit, void
+			required in loop, @LoopNode 
+		proc
+			TagFirstLastControlBody(loop)
+			Visit(loop.Body)
+		endmethod
 
-        ;;;  <summary>
-        ;;;  Visit an IF node
-        ;;;  </summary>
-        ;;;  <param name="node"></param>
-        public method Visit, void
-            node, @IfNode 
-        proc
-            if (node.Expression == ^null)
+		;;; <summary>
+		;;; Visit an IF node
+		;;; </summary>
+		;;; <param name="node"></param>
+		public method Visit, void
+			required in node, @IfNode 
+		proc
+			if (node.Expression == ^null)
 				throw new ApplicationException("CODEGEN BUG: TreePreExpander.Visit(IfNode) encountered an IfNode without an associated ExpressionNode. This indicates a Parser bug!")
 
-            TagFirstLastControlBody(node)
-            Visit(node.Body)
+			TagFirstLastControlBody(node)
+			Visit(node.Body)
 			
 			if (node.Else != ^null)
-            begin
-                TagFirstLastControlBody(node.Else)
-                Visit(node.Else.Body)
+			begin
+				TagFirstLastControlBody(node.Else)
+				Visit(node.Else.Body)
 			end
 
-        endmethod
+		endmethod
 
-        ;;;  <summary>
-        ;;;  Visit an EXPRESSION node. In theory this should never happen because expression nodes
-        ;;;  are processed as part of an enclosing IF node.
-        ;;;  </summary>
-        ;;;  <param name="node"></param>
-        public method Visit, void
-            node, @ExpressionNode 
-        proc
-            throw new ApplicationException("CODEGEN BUG: TreePreExpander.Visit(ExpressionNode) should not be called. This indicates a Parser bug.")
-        endmethod
+		;;; <summary>
+		;;; Visit an EXPRESSION node. In theory this should never happen because expression nodes
+		;;; are processed as part of an enclosing IF node.
+		;;; </summary>
+		;;; <param name="node"></param>
+		public method Visit, void
+			required in node, @ExpressionNode 
+		proc
+			throw new ApplicationException("CODEGEN BUG: TreePreExpander.Visit(ExpressionNode) should not be called. This indicates a Parser bug.")
+		endmethod
 
-        ;;;  <summary>
-        ;;;  Visit an ELSE node. In theory this should never happen because else nodes
-        ;;;  are processed as part of an associated IF node.
-        ;;;  </summary>
-        ;;;  <param name="node"></param>
-        public method Visit, void
-            node, @ElseNode 
-        proc
-            throw new ApplicationException("CODEGEN BUG: TreePreExpander.Visit(ElseNode) should not be called. This indicates a Parser bug.")
-        endmethod
+		;;; <summary>
+		;;; Visit an ELSE node. In theory this should never happen because else nodes
+		;;; are processed as part of an associated IF node.
+		;;; </summary>
+		;;; <param name="node"></param>
+		public method Visit, void
+			required in node, @ElseNode 
+		proc
+			throw new ApplicationException("CODEGEN BUG: TreePreExpander.Visit(ElseNode) should not be called. This indicates a Parser bug.")
+		endmethod
 
-        ;;;  <summary>
-        ;;;  Visit an EXPANSION node.
-        ;;;  </summary>
-        ;;;  <param name="node"></param>
-        public method Visit, void
-            node, @ExpansionNode 
-        proc
+		;;; <summary>
+		;;; Visit an EXPANSION node.
+		;;; </summary>
+		;;; <param name="node"></param>
+		public method Visit, void
+			required in node, @ExpansionNode 
+		proc
 			nop
-        endmethod
+		endmethod
 
-        ;;;  <summary>
-        ;;;  Visit a TEXT node.
-        ;;;  </summary>
-        ;;;  <param name="node"></param>
-        public method Visit, void
-            node, @TextNode 
-        proc
+		;;; <summary>
+		;;; Visit a TEXT node.
+		;;; </summary>
+		;;; <param name="node"></param>
+		public method Visit, void
+			required in node, @TextNode 
+		proc
 			nop
-        endmethod
+		endmethod
 	
 	endclass
 

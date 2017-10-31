@@ -73,11 +73,10 @@ namespace CodeGen.Engine
 
 		public method CodeGenTaskSet
 		proc
-			mTasks = new ObservableCollection<CodeGenTask>()
 			mMessages = new ObservableCollection<String>()
 
 			;;Whenever a new task is added, set it's logging level to the task set logging level
-			mTasks.CollectionChanged += tasksChanged
+			this.Tasks.CollectionChanged += tasksChanged
 
 		endmethod
 		
@@ -98,58 +97,26 @@ namespace CodeGen.Engine
 
 .region "TaskSet configuration properties"
 
-		private mDescription,			String,								"New Task Set"
+		;;;	<summary>
+		;;;	Description of the task set.
+		;;;	</summary>
+		public readwrite property Description, String, "New Task Set"
 
-		;;Provide defaults for each task
-		private mRepositoryMainFile,	String
-		private mRepositoryTextFile,	String
-		private mTemplateFolder,		String																;; -i / CODEGEN_TPLDIR:
-		private mOutputFolder,			String																;; -o / CODEGEN_OUTDIR:
+		;;;	<summary>
+		;;;	The repository main file to use (optional).
+		;;;	</summary>
+		public readwrite property RepositoryMainFile, String
 		
-		;;Specific to the task set
-		private mTasks,					@ObservableCollection<CodeGenTask>
-		private mLoggingLevel,			LoggingLevel,						LoggingLevel.Normal				;; -v -d, etc.
-		private mListGeneratedFiles,	boolean,							false							;;-lf
-		private mEchoCommands,			boolean,							false							;; -e
-		private mLogTokenizerResults,	boolean,							false							;; -dt
-		private mContinueAfterError,	boolean,							false							;; -c
-		private mDataMappingsFile,		String																;; -cdm
-		private mDefines,				@List<String>,						new List<String>()				;; -define
-		private mDatabaseType,			SqlDatabaseType,					SqlDatabaseType.SQLServer		;; -database <type>
-		
-		public property Description, String
-			method get
-			proc
-				mreturn mDescription
-			endmethod
-			method set
-			proc
-				mDescription = value
-			endmethod
-		endproperty
+		;;;	<summary>
+		;;;	The repository text file to use (optional).
+		;;;	</summary>
+		public readwrite property RepositoryTextFile, String
 
-		public property RepositoryMainFile, String
-			method get
-			proc
-				mreturn mRepositoryMainFile
-			endmethod
-			method set
-			proc
-				mRepositoryMainFile = value
-			endmethod
-		endproperty
-		
-		public property RepositoryTextFile, String
-			method get
-			proc
-				mreturn mRepositoryTextFile
-			endmethod
-			method set
-			proc
-				mRepositoryTextFile = value
-			endmethod
-		endproperty
-
+		;;;	<summary>
+		;;;	The folder containing template files (optional).
+		;;; Setting this property is equivalent to using the -i command line option.
+		;;; If not set then the location specified by the environment variable CODEGEN_TPLDIR will be used.
+		;;; </summary>
 		public property TemplateFolder, String
 			method get
 			proc
@@ -163,6 +130,13 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 
+		private mTemplateFolder, String
+
+		;;;	<summary>
+		;;;	The folder where output files should be created (optional).
+		;;; Setting this property is equivalent to using the -o command line option.
+		;;; If not set then the location specified by the environment variable CODEGEN_OUTDIR will be used.
+		;;;	</summary>
 		public property OutputFolder, String
 			method get
 			proc
@@ -176,117 +150,61 @@ namespace CodeGen.Engine
 			endmethod
 		endproperty
 		
-		public property Tasks, @ObservableCollection<CodeGenTask>
-			method get
-			proc
-				mreturn mTasks
-			endmethod
-		endproperty
+		private mOutputFolder, String
+
+		;;;	<summary>
+		;;;	The tasks to be processed by the task set.
+		;;;	</summary>
+		public readonly property Tasks, @ObservableCollection<CodeGenTask>, new ObservableCollection<CodeGenTask>()
 		
-		public property LoggingLevel, LoggingLevel
-			method get
-			proc
-				mreturn mLoggingLevel
-			endmethod
-			method set
-			proc
-				mLoggingLevel = value
-			endmethod
-		endproperty
+		;;;	<summary>
+		;;;	The logging level to use during processing.
+		;;; Setting this property is equivalent to using command line options -v or -d.
+		;;;	</summary>
+		public readwrite property LoggingLevel, LoggingLevel, LoggingLevel.Normal
 		
-		public property ListGeneratedFiles, Boolean
-			method get
-			proc
-				mreturn mListGeneratedFiles
-			endmethod
-			method set
-			proc
-				mListGeneratedFiles = value
-			endmethod
-		endproperty
+		;;;	<summary>
+		;;;	List the names of the output files generated.
+		;;; Setting this property to true is equivalent to using the -lf command line option.
+		;;;	</summary>
+		public readwrite property ListGeneratedFiles, Boolean
 		
 		;;; <summary>
-		;;;  Echo the command line to the output log
+		;;; Echo the command line to the output log.
+		;;; Setting this property to true is equivalent to using the -e command line option.
 		;;; </summary>
-		public property EchoCommands, Boolean
-			method get
-			proc
-				mreturn mEchoCommands
-			endmethod
-			method set
-			proc
-				mEchoCommands = value
-			endmethod
-		endproperty
+		public readwrite property EchoCommands, Boolean
 		
 		;;; <summary>
 		;;; Write the results of tokenization to a log file.
+		;;; Setting this property to true is equivalent to using the -dt command line option.
 		;;; </summary>
-		public property LogTokenizerResults, Boolean
-			method get
-			proc
-				mreturn mLogTokenizerResults
-			endmethod
-			method set
-			proc
-				mLogTokenizerResults = value
-			endmethod
-		endproperty
+		public readwrite property LogTokenizerResults, Boolean
 
 		;;; <summary>
 		;;; Continue processing even after an error.
+		;;; Setting this property to true is equivalent to using the -c command line option.
 		;;; </summary>
-		public property ContinueAfterError, Boolean
-			method get
-			proc
-				mreturn mContinueAfterError
-			endmethod
-			method set
-			proc
-				mContinueAfterError = value
-			endmethod
-		endproperty		
+		public readwrite property ContinueAfterError, Boolean
 		
-		public property DataMappingsFile, String
-			method get
-			proc
-				mreturn mDataMappingsFile
-			endmethod
-			method set
-			proc
-				mDataMappingsFile = value
-			endmethod
-		endproperty
+		;;;	<summary>
+		;;;	The name of a custom data mappings file to be used.
+		;;; Setting this property is equivalent to using the -cdm command line option.
+		;;;	</summary>
+		public readwrite property DataMappingsFile, String
 		
 		;;; <summary>
 		;;;	Defined identifiers.
-		;;; Setting this property is equivalent to using the -define command line option.
+		;;; Adding values to this collection is equivalent to using the -define command line option.
 		;;; </summary>
-		public property Defines, @List<String>
-			method get
-			proc
-				mreturn mDefines
-			endmethod
-			method set
-			proc
-				mDefines = value
-			endmethod
-		endproperty
+		public readwrite property Defines, @List<String>, new List<String>()
 		
 		;;; <summary>
-		;;; Database type.
-		;;; Setting this property is equivalent to using the -database <type> command line option.
+		;;; Database to target (with the SQL_ field loop replacement tokens).
+		;;; Setting this property is equivalent to using the -database command line option.
+		;;; The default database targeted is Microsoft SQL Server.
 		;;; </summary>
-		public property DatabaseType, SqlDatabaseType
-			method get
-			proc
-				mreturn mDatabaseType
-			endmethod
-			method set
-			proc
-				mDatabaseType = value
-			endmethod
-		endproperty
+		public readwrite property DatabaseType, SqlDatabaseType, SqlDatabaseType.SQLServer
 
 .endregion
 
@@ -364,16 +282,16 @@ namespace CodeGen.Engine
 		
 .region "Public methods"
 
-		internal method Log				,void
-			required in text			,String
+		internal method Log, void
+			required in text, String
 		proc
 			Messages.Add(text)
 		endmethod
 		
-		internal method Log				,void
-			required in text			,String
-			required in blankLineBefore	,boolean
-			required in blankLineAfter	,boolean
+		internal method Log, void
+			required in text, String
+			required in blankLineBefore, boolean
+			required in blankLineAfter, boolean
 		proc
 			if (blankLineBefore)
 				Messages.Add("")
@@ -382,12 +300,12 @@ namespace CodeGen.Engine
 				Messages.Add("")
 		endmethod
 		
-		internal method VerboseLog		,void
-			required in text			,String
-			required in blankLineBefore	,boolean
-			required in blankLineAfter	,boolean
+		internal method VerboseLog, void
+			required in text, String
+			required in blankLineBefore, boolean
+			required in blankLineAfter, boolean
 		proc
-			if ((int)mLoggingLevel>=(int)LoggingLevel.Verbose)
+			if ((int)this.LoggingLevel>=(int)LoggingLevel.Verbose)
 			begin
 				if (blankLineBefore)
 					Messages.Add("")
@@ -397,33 +315,33 @@ namespace CodeGen.Engine
 			end
 		endmethod
 		
-		internal method VerboseLog		,void
-			required in text			,String
+		internal method VerboseLog	, void
+			required in text, String
 		proc
-			if ((int)mLoggingLevel>=(int)LoggingLevel.Verbose)
+			if ((int)this.LoggingLevel>=(int)LoggingLevel.Verbose)
 				Messages.Add(text)
 		endmethod
 		
-		internal method ErrorLog			,boolean
-			required in text			,String
+		internal method ErrorLog, boolean
+			required in text, String
 		proc
 			Messages.Add(String.Format("ERROR: {0}",text))
 			LastErrorMessage = text
 			mreturn true
 		endmethod
 		
-		internal method Warning			,void
-			required in text			,String
+		internal method Warning, void
+			required in text, String
 		proc
 			Messages.Add(String.Format("WARNING: {0}",text))
 		endmethod
 		
-		internal method DebugLog			,void
-			required in text			,String
-			required in blankLineBefore	,boolean
-			required in blankLineAfter	,boolean
+		internal method DebugLog, void
+			required in text, String
+			required in blankLineBefore, boolean
+			required in blankLineAfter, boolean
 		proc
-			if ((int)mLoggingLevel>=(int)LoggingLevel.Debug)
+			if ((int)this.LoggingLevel>=(int)LoggingLevel.Debug)
 			begin
 				if (blankLineBefore)
 					Messages.Add("")
@@ -433,30 +351,30 @@ namespace CodeGen.Engine
 			end
 		endmethod
 		
-		internal method DebugLog			,void
-			required in text			,String
+		internal method DebugLog, void
+			required in text, String
 		proc
-			if ((int)mLoggingLevel>=(int)LoggingLevel.Debug)
+			if ((int)this.LoggingLevel>=(int)LoggingLevel.Debug)
 				Messages.Add(text)
 		endmethod
 
-		internal method DevDebugLog		,void
-			required in text			,String
+		internal method DevDebugLog, void
+			required in text, String
 		proc
-			if (mLoggingLevel==LoggingLevel.DeveloperDebug)
+			if (this.LoggingLevel==LoggingLevel.DeveloperDebug)
 				Messages.Add(string.Format("DEVDBG: {0}",text))
 		endmethod
 		
-		public method SaveToFile		,boolean
-			required in fileSpec		,String
+		public method SaveToFile, boolean
+			required in fileSpec, String
 		proc
-			data ok, boolean, true
+			data ok = true
 			try
 			begin
 				disposable data stm, @StreamWriter, File.CreateText(fileSpec)
 				if(stm!=^null)
 				begin
-					data xs, @XmlSerializer, new XmlSerializer(this.GetType())
+					data xs = new XmlSerializer(this.GetType())
 					xs.Serialize(stm,this)
 					stm.Close()
 				end
@@ -470,18 +388,18 @@ namespace CodeGen.Engine
 		endmethod
 		
 		public static method LoadFromFile, boolean
-			required in fileSpec		,String
-			required out taskSet		,@CodeGenTaskSet
+			required in fileSpec, String
+			required out taskSet, @CodeGenTaskSet
 		proc
-			data ok, boolean, true
-			disposable data stm, @StreamReader
+			data ok = true
+			
 			try
 			begin
-				stm = File.OpenText(fileSpec)
+				disposable data stm = File.OpenText(fileSpec)
 				if (stm!=^null)
 				begin
-					data xs, @XmlSerializer, new XmlSerializer(^typeof(CodeGenTaskSet))
-					data xr, @XmlReader, new XmlTextReader(stm)
+					data xs = new XmlSerializer(^typeof(CodeGenTaskSet))
+					data xr = new XmlTextReader(stm)
 					taskSet = (CodeGenTaskSet)xs.Deserialize(xr)
 					stm.Close()
 				end

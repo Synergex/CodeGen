@@ -50,58 +50,59 @@ import CodeGen.Engine
 
 namespace CodeGen.Engine
 	
-	;;;  <summary>
-	;;;  The current processing state of the parser
-	;;;  </summary>
+	;;; <summary>
+	;;; The current processing state of the parser
+	;;; </summary>
 	public enum ParserState
-		;;;  <summary>
-		;;;  Nothing special, just processing.
-		;;;  </summary>
+		;;; <summary>
+		;;; Nothing special, just processing.
+		;;; </summary>
 		None
-		;;;  <summary>
-		;;;  Processing a loop structure.
-		;;;  </summary>
+		;;; <summary>
+		;;; Processing a loop structure.
+		;;; </summary>
 		ProcessingLoop
-		;;;  <summary>
-		;;;  Processing an expression, looking for a possible else expression.
-		;;;  </summary>
+		;;; <summary>
+		;;; Processing an expression, looking for a possible else expression.
+		;;; </summary>
 		LookingForElseToken
-		;;;  <summary>
-		;;;  Looking for a matching closer token.
-		;;;  </summary>
+		;;; <summary>
+		;;; Looking for a matching closer token.
+		;;; </summary>
 		LookingForCloserToken
-		;;;  <summary>
-		;;;  Looking for file header tokens.
-		;;;  </summary>
+		;;; <summary>
+		;;; Looking for file header tokens.
+		;;; </summary>
 		LookingForFileHeaderToken
 	endenum
 	
-	;;;  <summary>
-	;;;  
-	;;;  </summary>
+	;;; <summary>
+	;;; Parses the stream of tokens created by Tokenizer into a heairachical
+	;;; tree representing the structure of the original template file. 
+	;;; </summary>
 	public class Parser
 		
-		;;;  <summary>
-		;;;  Parser wrapper used by CodeGenerator class. This method writes error messages to the current
-		;;;  CodeGenTask as well as returning a fail status.
-		;;;  </summary>
-		;;;  <param name="context">Current CodeGen context (for provisioning of user tokens, extensions, etc.)</param>
-		;;;  <param name="tokens">Collection of tokens to be parsed.</param>
-		;;;  <param name="file">Returned tree of tokens represented by a FileNode object.</param>
-		;;;  <returns>Returns true if the parse was successful, otherwise false and reports errors via context.CurrentTask.Messages.</returns>
+		;;; <summary>
+		;;; This method writes error messages to the current CodeGenTask as well as returning a fail status.
+		;;; This method is used by the CodeGenerator class.
+		;;; </summary>
+		;;; <param name="context">Current CodeGen context (for provisioning of user tokens, extensions, etc.)</param>
+		;;; <param name="tokens">Collection of tokens to be parsed.</param>
+		;;; <param name="template">Returned tree of tokens represented by a FileNode object.</param>
+		;;; <returns>Returns true if the parse was successful, otherwise false and reports errors via context.CurrentTask.Messages.</returns>
 		public static method Parse, boolean
-			context, @CodeGenContext 
-			tokens, @List<Token> 
-			inout file, @FileNode 
+			required in  context,	@CodeGenContext 
+			required in  tokens,	@List<Token> 
+			required out template,	@FileNode 
 		proc
-			data errors, @List<Tuple<int, int, String>>, ^null
+			data errors, @List<Tuple<int, int, String>>
 			
-			file = Parser.Parse(tokens, errors)
+			template = Parser.Parse(tokens, errors)
 			
 			if ((errors == ^null) || (errors.Count == 0)) then
 			begin
-				;; Associate the provided context with the file node
-				file.Context = context
+				;; Associate the provided context with the FileNode
+				template.Context = context
 				errors = ^null
 				mreturn true
 			end
@@ -118,21 +119,21 @@ namespace CodeGen.Engine
 			
 		endmethod
 		
-		;;;  <summary>
-		;;;  This overload is used by the Parse method above, and also by unit tests.
-		;;;  </summary>
-		;;;  <param name="tokens">Collection of tokens to be parsed.</param>
-		;;;  <param name="errors">Returned collection of errors that occurred during the parse.</param>
-		;;;  <returns>Tree of tokens represented by a FileNode</returns>
+		;;; <summary>
+		;;; This overload is used by the Parse method above, and also by unit tests.
+		;;; </summary>
+		;;; <param name="tokens">Collection of tokens to be parsed.</param>
+		;;; <param name="errors">Returned collection of errors that occurred during the parse.</param>
+		;;; <returns>Tree of tokens represented by a FileNode</returns>
 		public static method Parse, @FileNode
-			tokens, @List<Token> 
-			inout errors, @List<Tuple<int, int, String>> 
+			required in    tokens, @List<Token> 
+			required inout errors, @List<Tuple<int, int, String>> 
 		proc
 			;; Create the FileNode
-			data topLevelNode, @FileNode, new FileNode() { Body = new List<ITreeNode>() }
+			data topLevelNode = new FileNode() { Body = new List<ITreeNode>() }
 			
 			;; Initialize the state stack
-			data state, @Stack<ParserState>, new Stack<ParserState>()
+			data state = new Stack<ParserState>()
 			state.Push(ParserState.None)
 			state.Push(ParserState.LookingForFileHeaderToken)
 			
@@ -146,14 +147,15 @@ namespace CodeGen.Engine
 			data ix, int
 			for ix from 0 thru tokens.Count - 1
 			begin
-				data tkn, @Token, tokens[ix]
+				data tkn = tokens[ix]
 
 				using (state.Peek()) select
+
 				(ParserState.LookingForFileHeaderToken),
 				begin
 					if (tkn.TypeOfToken == TokenType.FileHeader) then
 					begin
-						data endOfTag, int, getTagContentBounds(tokens, ix + 1)
+						data endOfTag = getTagContentBounds(tokens, ix + 1)
 						if (endOfTag != -1)
 						begin
 							using (tkn.Value) select
@@ -205,7 +207,7 @@ namespace CodeGen.Engine
 							begin
 								if (topLevelNode.RequiredOptions == ^null)
 									topLevelNode.RequiredOptions = new List<string>()
-								data optionValue, string, tokens[ix + 1].Value.Trim().ToUpper()
+								data optionValue = tokens[ix + 1].Value.Trim().ToUpper()
 								using optionValue select
 								("FL", "FO", "FR", "FT", "FW", "MS", "PREFIX", "SUBSET", "TF"),
 									topLevelNode.RequiredOptions.Add(optionValue)
@@ -399,12 +401,14 @@ namespace CodeGen.Engine
 						state.Pop()
 					end
 				end
+
 				(ParserState.ProcessingLoop, ParserState.LookingForElseToken, ParserState.LookingForCloserToken, ParserState.None),
 				begin
-					data endIndex, int, process(topLevelNode.Body, tokens, ix, state, errors, ^null)
+					data endIndex = process(topLevelNode.Body, tokens, ix, state, errors, ^null)
 					if (endIndex != -1)
 						ix = endIndex
 				end
+
 				endusing
 			end
 			
@@ -415,81 +419,86 @@ namespace CodeGen.Engine
 
 		endmethod
 		
-		;;;  <summary>
-		;;;  Adds an error to the collection of errors generated by the current parse
-		;;;  </summary>
-		;;;  <param name="errors">Collection of errors</param>
-		;;;  <param name="tkn">Token being processes</param>
-		;;;  <param name="message">Error message</param>
+		;;; <summary>
+		;;; Adds an error to the collection of errors generated by the current parse
+		;;; </summary>
+		;;; <param name="errors">Collection of errors</param>
+		;;; <param name="tkn">Token being processes</param>
+		;;; <param name="message">Error message</param>
 		private static method reportParserError, void
-			inout errors, @List<Tuple<int, int, string>> 
-			tkn, @Token 
-			message, string 
+			required inout errors,	@List<Tuple<int, int, string>> 
+			required in tkn,		@Token 
+			required in message,	string 
 		proc
 			if (errors == ^null)
 				errors = new List<Tuple<int, int, string>>()
 			errors.Add(Tuple.Create(tkn.StartLineNumber, tkn.StartColumn, message))
 		endmethod
 		
-		;;;  <summary>
-		;;;  
-		;;;  </summary>
-		;;;  <param name="list"></param>
-		;;;  <param name="tokens"></param>
-		;;;  <param name="startIndex"></param>
-		;;;  <param name="state"></param>
-		;;;  <param name="errors"></param>
-		;;;  <param name="currentIfNode"></param>
-		;;;  <returns></returns>
+		;;; <summary>
+		;;; 
+		;;; </summary>
+		;;; <param name="list"></param>
+		;;; <param name="tokens"></param>
+		;;; <param name="startIndex"></param>
+		;;; <param name="state"></param>
+		;;; <param name="errors"></param>
+		;;; <param name="currentIfNode"></param>
+		;;; <returns></returns>
 		private static method process, int
-			list, @List<ITreeNode> 
-			tokens, @List<Token> 
-			startIndex, int 
-			state, @Stack<ParserState> 
-			inout errors, @List<Tuple<int, int, String>> 
-			currentIfNode, @IfNode 
+			required in    list,			@List<ITreeNode> 
+			required in    tokens,			@List<Token> 
+			required in    startIndex,		int 
+			required in    state,			@Stack<ParserState> 
+			required inout errors,			@List<Tuple<int, int, String>> 
+			required in    currentIfNode,	@IfNode 
 		proc
 			data ix, int
 			for ix from startIndex thru tokens.Count - 1
 			begin
-				data tkn, @Token, tokens[ix]
+				data tkn = tokens[ix]
+
 				if (tkn.Closer)
 					mreturn ix
-				;; change state if we see a loop token or a control token
+
+				;; Change state if we see a loop token or a control token
 				using (tkn.TypeOfToken) select
+
 				(TokenType.Loop),
 				begin
-					data endOfLoop, int, processLoop(list, tokens, ix, state, errors)
+					data endOfLoop = processLoop(list, tokens, ix, state, errors)
 					if (endOfLoop != -1)
 						ix = endOfLoop
 					exit
 				end
+
 				(TokenType.Control),
 				begin
+					if (tkn.Value == "ELSE") then
 					begin
-						if (tokens[ix].Value == "ELSE") then
+						;; int endOfElse = processElse(list, tokens, ix, state, ref errors);
+						data endOfElse = processElse(currentIfNode, tokens, ix, state, errors)
+						if (endOfElse != -1)
 						begin
-							;; int endOfElse = processElse(list, tokens, ix, state, ref errors);
-							data endOfElse, int, processElse(currentIfNode, tokens, ix, state, errors)
-							if (endOfElse != -1)
-							begin
-								ix = endOfElse
-								if ((state.Count > 0) && (state.First() == ParserState.LookingForElseToken))
-									mreturn ix
-							end
-						end
-						else
-						begin
-							data endOfControl, int, processControl(list, tokens, ix, state, errors)
-							if (endOfControl != -1)
-								ix = endOfControl
+							ix = endOfElse
+							if ((state.Count > 0) && (state.First() == ParserState.LookingForElseToken))
+								mreturn ix
 						end
 					end
+					else
+					begin
+						data endOfControl = processControl(list, tokens, ix, state, errors)
+						if (endOfControl != -1)
+							ix = endOfControl
+					end
 				end
+
 				(TokenType.Text),
 					list.Add(new TextNode() { Value = tkn })
+
 				(),
 					list.Add(new ExpansionNode() { Value = tkn })
+
 				endusing
 			end
 
@@ -498,44 +507,56 @@ namespace CodeGen.Engine
 		endmethod
 		
 		private static method processLoop, int
-			list, @List<ITreeNode> 
-			tokens, @List<Token> 
-			startIndex, int 
-			state, @Stack<ParserState> 
-			inout errors, @List<Tuple<int, int, String>> 
+			required in    list,		@List<ITreeNode> 
+			required in    tokens,		@List<Token> 
+			required in    startIndex,	int 
+			required in    state,		@Stack<ParserState> 
+			required inout errors,		@List<Tuple<int, int, String>> 
 		proc
 			data loop, @LoopNode
 
 			using (tokens[startIndex].Value) select
+
 			("FIELD_LOOP"),
 				loop = new FieldLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("SELECTION_LOOP"),
 				loop = new SelectionLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("KEY_LOOP", "ALTERNATE_KEY_LOOP", "PRIMARY_KEY", "UNIQUE_KEY"),
 				loop = new KeyLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("SEGMENT_LOOP", "SEGMENT_LOOP_FILTER", "FIRST_SEGMENT", "SECOND_SEGMENT"),
 				loop = new SegmentLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("ENUM_LOOP", "ENUM_LOOP_STRUCTURE"),
 				loop = new EnumLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("ENUM_MEMBER_LOOP"),
 				loop = new EnumMemberLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("RELATION_LOOP"),
 				loop = new RelationLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("BUTTON_LOOP"),
 				loop = new ButtonLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("FILE_LOOP"),
 				loop = new FileLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("TAG_LOOP"),
 				loop = new TagLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			("STRUCTURE_LOOP"),
 				loop = new StructureLoopNode() {OpenToken = tokens[startIndex], Body = new List<ITreeNode>()}
+
 			(),
 				loop = ^null
 			endusing
 
 			list.Add(loop)
 
-			data closer, int, process(loop.Body, tokens, startIndex + 1, state, errors, ^null)
+			data closer = process(loop.Body, tokens, startIndex + 1, state, errors, ^null)
 
 			if ((closer != -1) && (closer != tokens.Count))
 			begin
@@ -557,13 +578,13 @@ namespace CodeGen.Engine
 		endmethod
 		
 		private static method processControl, int
-			list, @List<ITreeNode> 
-			tokens, @List<Token> 
-			startIndex, int 
-			state, @Stack<ParserState> 
-			inout errors, @List<Tuple<int, int, String>> 
+			required in    list,		@List<ITreeNode> 
+			required in    tokens,		@List<Token> 
+			required in    startIndex,	int 
+			required in    state,		@Stack<ParserState> 
+			required inout errors,		@List<Tuple<int, int, String>> 
 		proc
-			data ctrlNode, @IfNode, new IfNode() {Body = new List<ITreeNode>(), OpenToken = tokens[startIndex]}
+			data ctrlNode = new IfNode() {Body = new List<ITreeNode>(), OpenToken = tokens[startIndex]}
 
 			list.Add(ctrlNode)
 			
@@ -572,6 +593,7 @@ namespace CodeGen.Engine
 			try
 			begin
 				data ix, int
+
 				for ix from startIndex + 1 thru tokens.Count - 1
 				begin
 					tkn = tokens[ix]
@@ -586,7 +608,7 @@ namespace CodeGen.Engine
 						state.Push(ParserState.LookingForElseToken)
 						try
 						begin
-							data endOfProcessed, int, process(ctrlNode.Body, tokens, ix, state, errors, ctrlNode)
+							data endOfProcessed = process(ctrlNode.Body, tokens, ix, state, errors, ctrlNode)
 
 							if ((endOfProcessed != -1) && tokens[endOfProcessed].Closer)
 								ctrlNode.CloseToken = tokens[endOfProcessed]
@@ -621,32 +643,35 @@ namespace CodeGen.Engine
 		endmethod
 		
 		private static method processElse, int
-			ctrlNode, @IfNode 
-			tokens, @List<Token> 
-			startIndex, int 
-			state, @Stack<ParserState> 
-			inout errors, @List<Tuple<int, int, String>> 
+			required in    ctrlNode,	@IfNode 
+			required in    tokens,		@List<Token> 
+			required in    startIndex,	int 
+			required in    state,		@Stack<ParserState> 
+			required inout errors,		@List<Tuple<int, int, String>> 
 		proc
 			data ix, int
 			for ix from startIndex thru tokens.Count - 1
 			begin
-				data tkn, @Token, tokens[ix]
+				data tkn = tokens[ix]
 
 				if ((tkn.TypeOfToken == TokenType.Control) && (tkn.Value == "ELSE")) then
 				begin
 					ctrlNode.Else = new ElseNode() {OpenToken = tkn, Body = new List<ITreeNode>()}
 
-					data endOfProcessed, int, process(ctrlNode.Else.Body, tokens, ix + 1, state, errors, ^null)
+					data endOfProcessed = process(ctrlNode.Else.Body, tokens, ix + 1, state, errors, ^null)
 
 					if (((endOfProcessed != -1) && (endOfProcessed < tokens.Count)) && tokens[endOfProcessed].Closer)
 						set ctrlNode.CloseToken, ctrlNode.Else.CloseToken = tokens[endOfProcessed]
 
 					mreturn endOfProcessed
 				end
-				else if (tkn.TypeOfToken == TokenType.Text) then
-					nextloop
 				else
-					exitloop
+				begin
+					if (tkn.TypeOfToken == TokenType.Text) then
+						nextloop
+					else
+						exitloop
+				end
 			end
 			
 			mreturn startIndex
@@ -674,11 +699,11 @@ namespace CodeGen.Engine
 		;; }
 		
 		private static method nodesFromTokens, @List<ITreeNode>
-			tokens, @List<Token> 
-			startIndex, int 
-			endIndex, int 
+			required in tokens,		@List<Token> 
+			required in startIndex,	int 
+			required in endIndex,	int 
 		proc
-			data results, @List<ITreeNode>, new List<ITreeNode>()
+			data results = new List<ITreeNode>()
 			data ix, int
 			
 			for ix from startIndex thru endIndex - 1
@@ -694,8 +719,8 @@ namespace CodeGen.Engine
 		endmethod
 
 		private static method getTagContentBounds, int
-			tokens, @List<Token> 
-			startIndex, int 
+			required in tokens,		@List<Token> 
+			required in startIndex,	int 
 		proc
 			data ix, int
 			for ix from startIndex thru tokens.Count - 1

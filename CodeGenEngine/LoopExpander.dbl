@@ -50,13 +50,15 @@ import CodeGen.RepositoryAPI
 
 namespace CodeGen.Engine
 
-	public class LoopExpander
+	public static class LoopExpander
 
         private static loopProcessors, @Dictionary<string, Action<LoopNode, FileNode, IEnumerable<LoopNode>, ITreeNodeVisitor>>
 
         static method LoopExpander
         proc
+
             loopProcessors = new Dictionary<string, Action<LoopNode, FileNode, IEnumerable<LoopNode>, ITreeNodeVisitor>>()
+
             loopProcessors.Add("FIELD_LOOP", processFieldLoop)
             loopProcessors.Add("KEY_LOOP", processKeyLoop)
             loopProcessors.Add("ALTERNATE_KEY_LOOP", processAlternateKeyLoop)
@@ -75,48 +77,49 @@ namespace CodeGen.Engine
             loopProcessors.Add("SECOND_SEGMENT", ProcessSecondKeySegmentLoop)
             loopProcessors.Add("ENUM_MEMBER_LOOP", processEnumMemberLoop)
             loopProcessors.Add("STRUCTURE_LOOP", processStructureLoop)
+
         endmethod
 
-        ;;;  <summary>
-        ;;;  This method is called by TreeExpander whenever a loop node is encountered in the tree.
-        ;;;  It determines which method should be used to expand the loop and calls that method.
-        ;;;  </summary>
-        ;;;  <param name="node"></param>
-        ;;;  <param name="file"></param>
-        ;;;  <param name="loopContext"></param>
-        ;;;  <param name="visitor"></param>
+        ;;; <summary>
+        ;;; This method is called by TreeExpander whenever a loop node is encountered in the tree.
+        ;;; It determines which method should be used to expand the loop and calls that method.
+        ;;; </summary>
+        ;;; <param name="node"></param>
+        ;;; <param name="file"></param>
+        ;;; <param name="loopContext"></param>
+        ;;; <param name="visitor"></param>
         public static method ProcessLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loopContext, @IEnumerable<LoopNode> 
-            visitor, @ITreeNodeVisitor 
+            required in node,			@LoopNode 
+			required in tpl,			@FileNode 
+			required in loopContext,	@IEnumerable<LoopNode> 
+			required in visitor,		@ITreeNodeVisitor 
         proc
             if (loopProcessors.ContainsKey(node.OpenToken.Value)) then
-                loopProcessors[node.OpenToken.Value](node, file, loopContext, visitor)
+                loopProcessors[node.OpenToken.Value](node, tpl, loopContext, visitor)
             else
                 throw new ApplicationException(String.Format("CODEGEN BUG: LoopExpander doesn't define a processor for <{0}>!", node.OpenToken.Value))
         endmethod
 
         private static method processFieldLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data loop, @FieldLoopNode, ^as(node, FieldLoopNode)
-            data context, @CodeGenContext, file.Context
+            data loop = ^as(node, FieldLoopNode)
+            data context = template.Context
 			
-			if (file.Context.CurrentStructure.Fields.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no fields!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, file.Context.CurrentStructure.Name))
+			if (template.Context.CurrentStructure.Fields.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no fields!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
 			
-			loop.MaxIndex = file.Context.CurrentStructure.Fields.Count - 1
+			loop.MaxIndex = template.Context.CurrentStructure.Fields.Count - 1
 			
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} fields", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 			
 			data ix, int
-			for ix from 0 thru file.Context.CurrentStructure.Fields.Count - 1
+			for ix from 0 thru template.Context.CurrentStructure.Fields.Count - 1
 			begin
-				loop.CurrentField = file.Context.CurrentStructure.Fields[ix]
+				loop.CurrentField = template.Context.CurrentStructure.Fields[ix]
 				loop.CurrentIndex = ix
 
 				data child, @ITreeNode
@@ -127,29 +130,29 @@ namespace CodeGen.Engine
 		endmethod
 
         private static method processKeyLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data loop, @KeyLoopNode, ^as(node, KeyLoopNode)
-			data context, @CodeGenContext, file.Context
+            data loop = ^as(node, KeyLoopNode)
+			data context = template.Context
 
-            if (file.Context.CurrentStructure.Keys.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, file.Context.CurrentStructure.Name))
+            if (template.Context.CurrentStructure.Keys.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
 			
-			loop.MaxIndex = file.Context.CurrentStructure.Keys.Count - 1
+			loop.MaxIndex = template.Context.CurrentStructure.Keys.Count - 1
 			
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 			
 			data ix, int
-			for ix from 0 thru file.Context.CurrentStructure.Keys.Count - 1
+			for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
 			begin
 				;;Skip any Foreign keys
-				if (file.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+				if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
 					nextloop
 
-				loop.CurrentKey = file.Context.CurrentStructure.Keys[ix]
+				loop.CurrentKey = template.Context.CurrentStructure.Keys[ix]
 				loop.CurrentIndex = ix
 
 				data child, @ITreeNode
@@ -160,30 +163,30 @@ namespace CodeGen.Engine
 		endmethod
 
         private static method processAlternateKeyLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data loop, @KeyLoopNode, ^as(node, KeyLoopNode)
-            data context, @CodeGenContext, file.Context
+            data loop = ^as(node, KeyLoopNode)
+            data context = template.Context
 			
-			if (file.Context.CurrentStructure.Keys.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, file.Context.CurrentStructure.Name))
+			if (template.Context.CurrentStructure.Keys.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
 			
-			loop.MaxIndex = file.Context.CurrentStructure.Keys.Count - 1
+			loop.MaxIndex = template.Context.CurrentStructure.Keys.Count - 1
 
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
 			data ix, int
-			for ix from 0 thru file.Context.CurrentStructure.Keys.Count - 1
+			for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
 			begin
 				;; Skip the first key and any alternate keys
-				if ((ix == 0) || (file.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
+				if ((ix == 0) || (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
 					nextloop
 
 				;; Then process as normal
-				loop.CurrentKey = file.Context.CurrentStructure.Keys[ix]
+				loop.CurrentKey = template.Context.CurrentStructure.Keys[ix]
 				loop.CurrentIndex = ix
 
 				data child, @ITreeNode
@@ -194,23 +197,23 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processPrimaryKeyLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data loop, @KeyLoopNode, ^as(node, KeyLoopNode)
-			data context, @CodeGenContext, file.Context
+			data loop = ^as(node, KeyLoopNode)
+			data context = template.Context
 
-            if (file.Context.CurrentStructure.Keys.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, file.Context.CurrentStructure.Name))
+            if (template.Context.CurrentStructure.Keys.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
 			
-			if ((file.Context.CurrentTask.PrimaryKeyNumber > 0) && (file.Context.CurrentTask.PrimaryKeyNumber > (file.Context.CurrentStructure.Keys.Count - 1)))
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed using alternate key {3} because structure {4} only has {5} keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, file.Context.CurrentTask.PrimaryKeyNumber, file.Context.CurrentStructure.Name, file.Context.CurrentStructure.Keys.Count + 1))
+			if ((template.Context.CurrentTask.PrimaryKeyNumber > 0) && (template.Context.CurrentTask.PrimaryKeyNumber > (template.Context.CurrentStructure.Keys.Count - 1)))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed using alternate key {3} because structure {4} only has {5} keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentTask.PrimaryKeyNumber, template.Context.CurrentStructure.Name, template.Context.CurrentStructure.Keys.Count + 1))
 			
-			loop.CurrentKey = file.Context.CurrentStructure.Keys[file.Context.CurrentTask.PrimaryKeyNumber]
-            loop.CurrentIndex = file.Context.CurrentTask.PrimaryKeyNumber
-			loop.MaxIndex = file.Context.CurrentTask.PrimaryKeyNumber
+			loop.CurrentKey = template.Context.CurrentStructure.Keys[template.Context.CurrentTask.PrimaryKeyNumber]
+            loop.CurrentIndex = template.Context.CurrentTask.PrimaryKeyNumber
+			loop.MaxIndex = template.Context.CurrentTask.PrimaryKeyNumber
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> 1 key", string.Format("<{0}>", loop.OpenToken.Value)))
 			
@@ -221,22 +224,22 @@ namespace CodeGen.Engine
         endmethod
 
 		private static method processUniqueKeyLoop, void
-			node, @LoopNode 
-			file, @FileNode 
-			loops, @IEnumerable<LoopNode> 
-			expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
 		proc
-			data loop, @KeyLoopNode, ^as(node, KeyLoopNode)
-			data context, @CodeGenContext, file.Context
+			data loop = ^as(node, KeyLoopNode)
+			data context = template.Context
 			
-			if (file.Context.CurrentStructure.Keys.Count == 0)
-				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, file.Context.CurrentStructure.Name))
+			if (template.Context.CurrentStructure.Keys.Count == 0)
+				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
 			
-			if (!file.Context.CurrentStructure.Keys.Any(lambda (k) {(k.Duplicates == RpsKeyDuplicates.NoDuplicates) && (k.KeyType == RpsKeyType.Access)}))
-				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no unique keys!",node.OpenToken.Value,node.OpenToken.StartLineNumber,file.Context.CurrentTemplateBaseName,file.Context.CurrentStructure.Name))
+			if (!template.Context.CurrentStructure.Keys.Any(lambda (k) {(k.Duplicates == RpsKeyDuplicates.NoDuplicates) && (k.KeyType == RpsKeyType.Access)}))
+				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no unique keys!",node.OpenToken.Value,node.OpenToken.StartLineNumber,template.Context.CurrentTemplateBaseName,template.Context.CurrentStructure.Name))
 			
-			loop.CurrentKey = file.Context.CurrentStructure.Keys.First(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates})
-			loop.CurrentIndex = file.Context.CurrentStructure.Keys.IndexOf(loop.CurrentKey)
+			loop.CurrentKey = template.Context.CurrentStructure.Keys.First(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates})
+			loop.CurrentIndex = template.Context.CurrentStructure.Keys.IndexOf(loop.CurrentKey)
 			loop.MaxIndex = loop.CurrentIndex
 			
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> 1 key", string.Format("<{0}>", loop.OpenToken.Value)))
@@ -248,25 +251,25 @@ namespace CodeGen.Engine
 		endmethod
 		
 		private static method processEnumLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data loop, @EnumLoopNode, ^as(node, EnumLoopNode)
-			data context, @CodeGenContext, file.Context
+            data loop = ^as(node, EnumLoopNode)
+			data context = template.Context
 
-            if (file.Context.Enumerations.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName))
+            if (template.Context.Enumerations.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
 			
-			loop.MaxIndex = file.Context.Enumerations.Count - 1
+			loop.MaxIndex = template.Context.Enumerations.Count - 1
 
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} enums", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
 			data ix, int
-			for ix from 0 thru file.Context.Enumerations.Count - 1
+			for ix from 0 thru template.Context.Enumerations.Count - 1
 			begin
-				loop.CurrentEnumeration = file.Context.Enumerations[ix]
+				loop.CurrentEnumeration = template.Context.Enumerations[ix]
 				loop.CurrentIndex = ix
 
 				data child, @ITreeNode
@@ -277,29 +280,29 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processStructureEnumLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data loop, @EnumLoopNode, ^as(node, EnumLoopNode)
-			data context, @CodeGenContext, file.Context
+            data loop = ^as(node, EnumLoopNode)
+			data context = template.Context
 
-            if (file.Context.Enumerations.Count == 0)
-				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName))
+            if (template.Context.Enumerations.Count == 0)
+				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
 
             ;; TODO: Needs work because we don't visit all enumerations in the collection!
-            loop.MaxIndex = file.Context.Enumerations.Count - 1
+            loop.MaxIndex = template.Context.Enumerations.Count - 1
 			
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} enums", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 			
 			data ix, int
-			for ix from 0 thru file.Context.Enumerations.Count - 1
+			for ix from 0 thru template.Context.Enumerations.Count - 1
 			begin
-				loop.CurrentEnumeration = file.Context.Enumerations[ix]
+				loop.CurrentEnumeration = template.Context.Enumerations[ix]
 				
 				data field, @RpsField
-				foreach field in file.Context.CurrentStructure.Fields
+				foreach field in template.Context.CurrentStructure.Fields
 				begin
 					if ((field.DataType == RpsFieldDataType.Enum) && (field.EnumName == loop.CurrentEnumeration.Name))
 					begin
@@ -315,25 +318,25 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processRelationLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data loop, @RelationLoopNode, ^as(node, RelationLoopNode)
-            data context, @CodeGenContext, file.Context
+            data loop = ^as(node, RelationLoopNode)
+            data context = template.Context
 			
-			if (file.Context.CurrentStructure.Relations.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no relations!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, file.Context.CurrentStructure.Name))
+			if (template.Context.CurrentStructure.Relations.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no relations!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
 			
-			loop.MaxIndex = file.Context.CurrentStructure.Relations.Count - 1
+			loop.MaxIndex = template.Context.CurrentStructure.Relations.Count - 1
 
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} relations", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
 			data ix, int
-			for ix from 0 thru file.Context.CurrentStructure.Relations.Count - 1
+			for ix from 0 thru template.Context.CurrentStructure.Relations.Count - 1
 			begin
-				loop.CurrentRelation = file.Context.CurrentStructure.Relations[ix]
+				loop.CurrentRelation = template.Context.CurrentStructure.Relations[ix]
 				loop.CurrentIndex = ix
 
 				data child, @ITreeNode
@@ -344,29 +347,29 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processButtonLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
             ;; TODO: Button loops need context data
 			
-			data loop, @ButtonLoopNode, ^as(node, ButtonLoopNode)
-            data context, @CodeGenContext, file.Context
+			data loop = ^as(node, ButtonLoopNode)
+            data context = template.Context
 			
-			file.Context.Buttons = new WscButtonCollection()
+			template.Context.Buttons = new WscButtonCollection()
 			
-			if ((file.Context.Buttons == ^null) || (file.Context.Buttons.Count == 0))
+			if ((template.Context.Buttons == ^null) || (template.Context.Buttons.Count == 0))
 				mreturn
 
-            loop.MaxIndex = file.Context.Buttons.Count - 1
+            loop.MaxIndex = template.Context.Buttons.Count - 1
 			
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} buttons", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 			
 			data ix, int
-			for ix from 0 thru file.Context.Buttons.Count - 1
+			for ix from 0 thru template.Context.Buttons.Count - 1
 			begin
-				loop.CurrentButton = file.Context.Buttons[ix]
+				loop.CurrentButton = template.Context.Buttons[ix]
 				loop.CurrentIndex = ix
 
 				data child, @ITreeNode
@@ -377,16 +380,16 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processFileLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data loop, @FileLoopNode, ^as(node, FileLoopNode)
-            data context, @CodeGenContext, file.Context
+            data loop = ^as(node, FileLoopNode)
+            data context = template.Context
 			
 			if (context.CurrentStructure.Files.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} is not assigned to any files!", node.OpenToken.Value, node.OpenToken.StartLineNumber, file.Context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} is not assigned to any files!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, context.CurrentStructure.Name))
 			
 			loop.MaxIndex = context.CurrentStructure.Files.Count - 1
 
@@ -406,23 +409,23 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processTagLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data loop, @TagLoopNode, ^as(node, TagLoopNode)
-            data context, @CodeGenContext, file.Context
+            data loop = ^as(node, TagLoopNode)
+            data context = template.Context
 			
-			loop.MaxIndex = file.Context.CurrentStructure.Tags.Count - 1
+			loop.MaxIndex = template.Context.CurrentStructure.Tags.Count - 1
 			
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} tags", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 			
 			;; Tag loops just do nothing if no tags are defined!
 			data ix, int
-			for ix from 0 thru file.Context.CurrentStructure.Tags.Count - 1
+			for ix from 0 thru template.Context.CurrentStructure.Tags.Count - 1
 			begin
-				loop.CurrentTag = file.Context.CurrentStructure.Tags[ix]
+				loop.CurrentTag = template.Context.CurrentStructure.Tags[ix]
 				loop.CurrentIndex = ix
 				
 				data child, @ITreeNode
@@ -434,14 +437,14 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processFieldSelectionLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data outerLoop, @FieldLoopNode, ^as(loops.First(lambda (loopnode) {loopnode .is. FieldLoopNode}), FieldLoopNode)
-            data loop, @SelectionLoopNode, ^as(node, SelectionLoopNode)
-			data context, @CodeGenContext, file.Context
+            data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. FieldLoopNode}), FieldLoopNode)
+            data loop = ^as(node, SelectionLoopNode)
+			data context = template.Context
 
             if (outerLoop.CurrentField.SelectionList.Count > 0)
             begin
@@ -466,14 +469,14 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processKeySegmentLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data outerLoop, @KeyLoopNode, ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
-            data loop, @SegmentLoopNode, ^as(node, SegmentLoopNode)
-			data context, @CodeGenContext, file.Context
+            data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
+            data loop = ^as(node, SegmentLoopNode)
+			data context = template.Context
 
             if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
@@ -519,14 +522,14 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processKeySegmentFilterLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data outerLoop, @KeyLoopNode, ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
-            data loop, @SegmentLoopNode, ^as(node, SegmentLoopNode)
-            data context, @CodeGenContext, file.Context
+            data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
+            data loop = ^as(node, SegmentLoopNode)
+            data context = template.Context
 			
 			if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
@@ -553,14 +556,14 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processFirstKeySegmentLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data outerLoop, @KeyLoopNode, ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
-            data loop, @SegmentLoopNode, ^as(node, SegmentLoopNode)
-            data context, @CodeGenContext, file.Context
+            data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
+            data loop = ^as(node, SegmentLoopNode)
+            data context = template.Context
 			
 			if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
@@ -581,14 +584,14 @@ namespace CodeGen.Engine
         endmethod
 
         private static method ProcessSecondKeySegmentLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data outerLoop, @KeyLoopNode, ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
-            data loop, @SegmentLoopNode, ^as(node, SegmentLoopNode)
-			data context, @CodeGenContext, file.Context
+            data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
+            data loop = ^as(node, SegmentLoopNode)
+			data context = template.Context
 
             if (outerLoop.CurrentKey.Segments.Count > 1)
             begin
@@ -609,14 +612,14 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processEnumMemberLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
         proc
-            data outerLoop, @EnumLoopNode, ^as(loops.First(lambda (loopnode) {loopnode .is. EnumLoopNode}), EnumLoopNode)
-            data loop, @EnumMemberLoopNode, ^as(node, EnumMemberLoopNode)
-			data context, @CodeGenContext, file.Context
+            data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. EnumLoopNode}), EnumLoopNode)
+            data loop = ^as(node, EnumMemberLoopNode)
+			data context = template.Context
 
             loop.CurrentEnumeration = outerLoop.CurrentEnumeration
 			loop.MaxIndex = outerLoop.CurrentEnumeration.Members.Count - 1
@@ -637,14 +640,14 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processStructureLoop, void
-            node, @LoopNode 
-            file, @FileNode 
-            loops, @IEnumerable<LoopNode> 
-            expander, @ITreeNodeVisitor 
+			required in node, @LoopNode 
+			required in template, @FileNode 
+			required in loops, @IEnumerable<LoopNode> 
+			required in expander, @ITreeNodeVisitor 
         proc
-            data loop, @StructureLoopNode, ^as(node, StructureLoopNode)
-            data context, @CodeGenContext, file.Context
-            data task, @CodeGenTask, context.CurrentTask
+            data loop = ^as(node, StructureLoopNode)
+            data context = template.Context
+            data task = context.CurrentTask
 			
 			if (!context.MultiStructureMode)
                 throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because multi-structure mode (-ms) has not been enabled!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
