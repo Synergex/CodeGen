@@ -25,21 +25,94 @@ namespace CodeConverter
 		proc
 			this.Text = heading
 
+			validateSavedSettings()
+
 			loadToolsAssemblies()
-			calculateMatchingFiles()
 			
 			lblSearchResultMessage.Text = String.Empty
 			lblResultMessage.Text = String.Empty
 			activityLabel.Text = String.Empty
 
-			while (Properties.Settings.Default.AppSettings.SourceExtensions.Count == 0)
-				manageSourceExtensions()
+			calculateMatchingFiles()
 
-			while (Properties.Settings.Default.AppSettings.SourceFolders.Count == 0)
-				manageSourceFolders()
+		endmethod
+		
+		private method validateSavedSettings, void
+		proc
+			data settingsChanged = false
 
-			while (Properties.Settings.Default.AppSettings.ToolAssemblies.Count == 0)
-				manageConversionTools()
+
+			if (Properties.Settings.Default.AppSettings.SourceFolders.Count > 0)
+			begin
+				data ix = 0
+				for ix from Properties.Settings.Default.AppSettings.SourceFolders.Count thru 1 by -1
+				begin
+					data folder = Properties.Settings.Default.AppSettings.SourceFolders[ix-1]
+					if (!Directory.Exists(folder.FolderName))
+					begin
+						Properties.Settings.Default.AppSettings.SourceFolders.Remove(folder)
+						settingsChanged = true
+					end
+				end
+			end
+
+			if (Properties.Settings.Default.AppSettings.ToolAssemblies.Count > 0)
+			begin
+				data ix = 0
+				for ix from Properties.Settings.Default.AppSettings.ToolAssemblies.Count thru 1 by -1
+				begin
+					data toolAssembly = Properties.Settings.Default.AppSettings.ToolAssemblies[ix-1]
+					if (!File.Exists(toolAssembly))
+					begin
+						Properties.Settings.Default.AppSettings.ToolAssemblies.Remove(toolAssembly)
+						settingsChanged = true
+					end
+				end
+			end
+
+			if (settingsChanged)
+			begin
+				MessageBox.Show("One or more saved source code folders or tool assemblies was not found and has been removed.","Settings Updated",MessageBoxButtons.OK,MessageBoxIcon.Information)
+				Properties.Settings.Default.Save()
+			end
+
+		endmethod
+
+		private method loadToolsAssemblies, void
+		proc
+			this.Cursor = Cursors.WaitCursor
+
+			activityLabel.Text = "Loading tools..."
+
+			this.Refresh()
+
+			searchToolsBindingSource.Clear()
+			searchToolsBindingSource.DataSource = new List<ISearchTool>()
+
+			conversionToolsBindingSource.Clear()
+			conversionToolsBindingSource.DataSource = new List<IConversionTool>()
+
+			data fileSpec, string
+			foreach fileSpec in Properties.Settings.Default.AppSettings.ToolAssemblies
+			begin
+				data candidateAssembly = new ToolsAssembly(fileSpec)
+
+				if (candidateAssembly.SearchTools.Count > 0)
+				begin
+					data tool, @ISearchTool
+					foreach tool in candidateAssembly.SearchTools
+						searchToolsBindingSource.Add(tool)
+				end
+
+				if (candidateAssembly.ConversionTools.Count > 0)
+				begin
+					data tool, @IConversionTool
+					foreach tool in candidateAssembly.ConversionTools
+						conversionToolsBindingSource.Add(tool)
+				end
+			end
+
+			this.Cursor = Cursors.Default
 
 		endmethod
 		
@@ -286,44 +359,6 @@ namespace CodeConverter
 			e, @System.EventArgs 
 		proc
 			chkCreateTestFiles.Enabled = chkTestMode.Checked
-		endmethod
-		
-		private method loadToolsAssemblies, void
-		proc
-			this.Cursor = Cursors.WaitCursor
-
-			activityLabel.Text = "Loading tools..."
-
-			this.Refresh()
-
-			searchToolsBindingSource.Clear()
-			searchToolsBindingSource.DataSource = new List<ISearchTool>()
-
-			conversionToolsBindingSource.Clear()
-			conversionToolsBindingSource.DataSource = new List<IConversionTool>()
-
-			data fileSpec, string
-			foreach fileSpec in Properties.Settings.Default.AppSettings.ToolAssemblies
-			begin
-				data candidateAssembly = new ToolsAssembly(fileSpec)
-
-				if (candidateAssembly.SearchTools.Count > 0)
-				begin
-					data tool, @ISearchTool
-					foreach tool in candidateAssembly.SearchTools
-						searchToolsBindingSource.Add(tool)
-				end
-
-				if (candidateAssembly.ConversionTools.Count > 0)
-				begin
-					data tool, @IConversionTool
-					foreach tool in candidateAssembly.ConversionTools
-						conversionToolsBindingSource.Add(tool)
-				end
-			end
-
-			this.Cursor = Cursors.Default
-
 		endmethod
 		
 		private method exitToolStripMenuItem_Click, void
