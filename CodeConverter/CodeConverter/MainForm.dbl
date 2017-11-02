@@ -26,8 +26,7 @@ namespace CodeConverter
 			this.Text = heading
 
 			validateSavedSettings()
-
-			loadToolsAssemblies()
+			loadTools()
 			
 			lblSearchResultMessage.Text = String.Empty
 			lblResultMessage.Text = String.Empty
@@ -40,7 +39,6 @@ namespace CodeConverter
 		private method validateSavedSettings, void
 		proc
 			data settingsChanged = false
-
 
 			if (Properties.Settings.Default.AppSettings.SourceFolders.Count > 0)
 			begin
@@ -78,11 +76,11 @@ namespace CodeConverter
 
 		endmethod
 
-		private method loadToolsAssemblies, void
+		private method loadTools, void
 		proc
 			this.Cursor = Cursors.WaitCursor
 
-			activityLabel.Text = "Loading tools..."
+			activityLabel.Text = "Loading external tools..."
 
 			this.Refresh()
 
@@ -91,6 +89,8 @@ namespace CodeConverter
 
 			conversionToolsBindingSource.Clear()
 			conversionToolsBindingSource.DataSource = new List<IConversionTool>()
+
+			loadBuiltinTools()
 
 			data fileSpec, string
 			foreach fileSpec in Properties.Settings.Default.AppSettings.ToolAssemblies
@@ -116,6 +116,39 @@ namespace CodeConverter
 
 		endmethod
 		
+		private method loadBuiltinTools, void
+		proc
+			this.Cursor = Cursors.WaitCursor
+
+			if (Properties.Settings.Default.AppSettings.LoadBuiltinSearchTools || Properties.Settings.Default.AppSettings.LoadBuiltinConversionTools)
+			begin
+				data runningAssembly = new ToolsAssembly()
+
+				if (Properties.Settings.Default.AppSettings.LoadBuiltinSearchTools)
+				begin
+					if (runningAssembly.SearchTools.Count > 0)
+					begin
+						data tool, @ISearchTool
+						foreach tool in runningAssembly.SearchTools
+							searchToolsBindingSource.Add(tool)
+					end
+				end
+
+				if (Properties.Settings.Default.AppSettings.LoadBuiltinConversionTools)
+				begin
+					if (runningAssembly.ConversionTools.Count > 0)
+					begin
+						data tool, @IConversionTool
+						foreach tool in runningAssembly.ConversionTools
+							conversionToolsBindingSource.Add(tool)
+					end
+				end
+			end
+
+			this.Cursor = Cursors.Default
+
+		endmethod
+
 		private method calculateMatchingFiles, void
 		proc
 			this.Cursor = Cursors.WaitCursor
@@ -361,6 +394,15 @@ namespace CodeConverter
 			chkCreateTestFiles.Enabled = chkTestMode.Checked
 		endmethod
 		
+		private method optionsToolStripMenuItem_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			disposable data dlg = new OptionsForm()
+			dlg.ShowDialog(this)
+		endmethod
+
 		private method exitToolStripMenuItem_Click, void
 			sender, @object 
 			e, @System.EventArgs 
@@ -393,7 +435,7 @@ namespace CodeConverter
 		proc
 			disposable data dlg = new ManageToolsForm()
 			dlg.ShowDialog(this)
-			loadToolsAssemblies()
+			loadTools()
 		endmethod
 
 		private method manageSourceCodeFoldersToolStripMenuItem_Click, void
