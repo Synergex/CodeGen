@@ -250,8 +250,8 @@ namespace CodeConverter
 			e, @System.EventArgs 
 		proc
 
-			if (!chkTestMode.Checked)
-				if (MessageBox.Show("You are NOT IN TEST MODE and your SOURCE CODE WILL BE ALTERED! Are you sure you want to continue?","Confirmation Required",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)==DialogResult.No)
+			if (!chkTestMode.Checked && !Properties.Settings.Default.AppSettings.SaveCopiesWhenConverting)
+				if (MessageBox.Show("You are NOT IN TEST MODE and you have chosen NOT TO COPY the original source code. Your source code WILL BE CHANGED! Are you sure you want to continue?","Confirmation Required",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)==DialogResult.No)
 					mreturn
 			
 			operationResultBindingSource.Clear()
@@ -288,7 +288,7 @@ namespace CodeConverter
 					if (chkTestMode.Checked) then
 					begin
 						;;We're in test mode
-						if (chkCreateTestFiles.Checked)
+						if (Properties.Settings.Default.AppSettings.CreateFilesInTestMode)
 						begin
 							;;Create a "test" output file
 							data testFile = Path.Combine(Path.GetDirectoryName(filename),Path.GetFileName(filename)+".TEST")
@@ -300,10 +300,13 @@ namespace CodeConverter
 					end
 					else
 					begin
-						;;We're doing this for real - first rename the original file
-						data saveFile = Path.Combine(Path.GetDirectoryName(filename),Path.GetFileName(filename)+".SAVE")
-						File.Copy(filename,saveFile)
-						;;Then write the new file
+						;;We're doing this for real - should we first save the original file?
+						if (Properties.Settings.Default.AppSettings.SaveCopiesWhenConverting)
+						begin
+							data saveFile = Path.Combine(Path.GetDirectoryName(filename),Path.GetFileName(filename)+".SAVE")
+							File.Copy(filename,saveFile)
+						end
+						;;Overwrite the source file
 						if (result == ConversionResult.AllFileContentModified) then
 							File.WriteAllText(filename,allFileData)
 						else
@@ -387,13 +390,6 @@ namespace CodeConverter
 
 		endmethod
 
-		private method chkTestMode_CheckedChanged, void
-			sender, @object 
-			e, @System.EventArgs 
-		proc
-			chkCreateTestFiles.Enabled = chkTestMode.Checked
-		endmethod
-		
 		private method optionsToolStripMenuItem_Click, void
 			sender, @object 
 			e, @System.EventArgs 
@@ -402,6 +398,7 @@ namespace CodeConverter
 			disposable data dlg = new OptionsForm()
 			dlg.ShowDialog(this)
 			loadTools()
+			calculateMatchingFiles()
 		endmethod
 
 		private method exitToolStripMenuItem_Click, void
@@ -410,35 +407,6 @@ namespace CodeConverter
 		proc
 			Application.Exit()
 		endmethod
-		
-		private method manageConversionToolsToolStripMenuItem_Click, void
-			sender, @object 
-			e, @System.EventArgs 
-		proc
-			manageConversionTools()
-		endmethod
-		
-		private method manageConversionTools, void
-		proc
-			disposable data dlg = new ManageToolsForm()
-			dlg.ShowDialog(this)
-			loadTools()
-		endmethod
-
-		private method manageSourceCodeFoldersToolStripMenuItem_Click, void
-			sender, @object 
-			e, @System.EventArgs 
-		proc
-			manageSourceFolders()
-		endmethod
-		
-		private method manageSourceFolders, void
-		proc
-			disposable data dlg = new ManageSourceFoldersForm()
-			dlg.ShowDialog(this)
-			calculateMatchingFiles()
-		endmethod
-		
 		
 		private method viewSourceFilesToolStripMenuItem_Click, void
 			sender, @object 
