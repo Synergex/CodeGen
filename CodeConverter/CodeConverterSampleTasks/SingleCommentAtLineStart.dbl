@@ -1,10 +1,7 @@
 
 import System
 import System.Collections.Generic
-import System.IO
 import CodeConverterInterface
-
-.array 0
 
 namespace CodeConverterSampleTasks
 	
@@ -12,85 +9,33 @@ namespace CodeConverterSampleTasks
 
 		public readonly property Description, string, "Remove only comment at line start"
 
-		public method DoConvert, @List<OperationResult>
-			files, @List<String> 
-			testMode, Boolean 
-			createFilesInTestMode, Boolean 
-			out summaryMessage, String 
-			endparams
+		public method DoConvert, ConversionResult
+			required in    fileSpec, String
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
+			required out   changeCount, int
 		proc
-			data results, @List<OperationResult>, new List<OperationResult>()
-			data filesModified, int
-			data linesModified, int
-			data totalChanges, int
-			
-			data filename, String
-			foreach filename in files
+				
+			data sourceline, String
+			data ix, int, -1
+				
+			while ((ix += 1) < sourcelines.Count)
 			begin
-				data fileModified, boolean, false
-				
-				;;Get the data for the file
-				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
-				
-				data sourceline, String
-				data sourceLineIndex, int, -1
-				
-				while ((sourceLineIndex += 1) < sourcelines.Count)
-				begin
-					sourceline = sourcelines[sourceLineIndex]
-					
-					;;Skip blank lines
-					if (string.IsNullOrWhiteSpace(sourceline))
-						nextloop
+				;;Skip blank lines
+				if (String.IsNullOrWhiteSpace(sourceLines[ix]))
+					nextloop
 
-					sourceline = sourceline.TrimEnd()
+				sourceline = sourceLines[ix].TrimEnd()
 
-					if ((sourceline.Length==1) && (sourceline.Substring(0,1)==";"))
-					begin
-						;;All we have is a comment in the first character!
-						sourcelines[sourceLineIndex] = string.Empty
-						linesModified += 1
-						totalChanges += 1
-						fileModified = true
-					end
-					
-				end
-				
-				if (fileModified)
+				if ((sourceline.Length==1) && (sourceline.Substring(0,1)==";"))
 				begin
-					filesModified += 1
-					if (testMode) then
-					begin
-						data testFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".TEST")
-						if (createFilesInTestMode) then
-						begin
-							File.WriteAllLines(testFile,sourcelines)
-							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: OUTPUT SAVED TO {0}",testFile)))
-						end
-						else
-							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: WOULD HAVE MODIFIED {0}",filename)))
-					end	
-					else
-					begin
-						data saveFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".SAVE")
-						try
-						begin
-							File.Copy(filename,saveFile)
-							File.WriteAllLines(filename,sourcelines)
-							results.Add(new OperationResult(filename,0,string.Format("MODIFIED {0}. Original code saved in {1}.",filename,saveFile)))
-						end
-						catch (e, @Exception)
-						begin
-							results.Add(new OperationResult(filename,0,string.Format("FAILED TO MODIFY OR BACKUP {0}.",filename)))
-						end
-						endtry
-					end				
+					;;All we have is a comment in the first character!
+					sourcelines[ix] = String.Empty
+					changeCount += 1
 				end
 			end
 			
-			summaryMessage = String.Format("Processed {0} files. Made {1} changes to {2} lines in {3} files.",files.Count,totalChanges,linesModified,filesModified)
-			
-			mreturn results
+			mreturn (changeCount == 0) ? ConversionResult.NoChanges : ConversionResult.SourceLinesModified
 			
 		endmethod
 		

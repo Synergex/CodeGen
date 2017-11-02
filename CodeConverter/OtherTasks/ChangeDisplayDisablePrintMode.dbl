@@ -8,9 +8,9 @@ import CodeConverterInterface
 
 namespace CodeConverterSampleTasks
 	
-	public class ChangeReadsTerminal implements IConversionTool
+	public class ChangeDisplayDisablePrintMode implements IConversionToolOld
 		
-		public readonly property Description, string, "Change Terminal READS"
+		public readonly property Description, string, "Change PrintModeOff DISPLAY (15,27,'[4i')"
 
 		public method DoConvert, @List<OperationResult>
 			files, @List<String> 
@@ -43,53 +43,13 @@ namespace CodeConverterSampleTasks
 					if (string.IsNullOrWhiteSpace(sourceline))
 						nextloop
 					
-					if (sourceline.ToUpper().Contains("READS(15,"))
-					begin
-						data startPos, int, sourceline.ToUpper().IndexOf("READS(15,")
-						data endPos, int, startPos + 8
-						sourceline = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"READS (15,")
-					end
-					
-					;READS (15,PLINE)
-					;WRITES (15,PLINE(1,98))
-					
-					data ix, int
-					
-					if (sourceline.ToUpper().Contains("READS (15,")) then
-					begin
-						data startPos, int, sourceline.ToUpper().IndexOf("READS (15,")
-						data endPos, int, -1
-						data startVariablePos, int, startPos + 10
-						data endVariablePos, int
-						data parenDepth, int, 0
-
-						;;Wind forward until we find the )
-						for ix from startVariablePos thru sourceLine.Length - 1
-						begin
-							if ((sourceline.Substring(ix,1)==",")&&(parenDepth==0)) then
-								exitloop
-							else if (sourceline.Substring(ix,1)=="(") then
-								parenDepth += 1
-							else if (sourceline.Substring(ix,1)==")")
-							begin
-								if (parenDepth>0) then
-									parenDepth -= 1
-								else
-								begin
-									endPos = ix
-									endVariablePos = ix - 1
-									exitloop
-								end
-							end
-						end
-						if (endPos==-1)
-							nextloop
-						sourceline = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),String.Format("UI.EnterField({0})",sourceline.Substring(startVariablePos,endVariablePos-startVariablePos+1)))
-						sourcelines[sourceLineIndex] = sourceline
-					end
-					else
+					if (!sourceline.ToLower().Contains("display (15,27,'[4i')"))
 						nextloop
 					
+					data startPos, int, sourceline.ToLower().IndexOf("display (15,27,'[4i')")
+					data endPos, int, startPos + 20
+					
+					sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"UI.EndPrintMode() ;Output file name can be found in UI.PrintFile")
 					linesModified += 1
 					totalChanges += 1
 					fileModified = true
@@ -136,3 +96,4 @@ namespace CodeConverterSampleTasks
 	endclass
 	
 endnamespace
+

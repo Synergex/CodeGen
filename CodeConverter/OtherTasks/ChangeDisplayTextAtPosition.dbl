@@ -7,10 +7,10 @@ import CodeConverterInterface
 .array 0
 
 namespace CodeConverterSampleTasks
-	
-	public class ChangeDisplayBoldOn implements IConversionTool
+
+	public class ChangeDisplayTextAtPosition implements IConversionToolOld
 		
-		public readonly property Description, string, "Change Bold On      DISPLAY (15,27,'[0;1m')"
+		public readonly property Description, string, "Change DISPLAY (15,$SCR_POS(r,c),'text')"
 
 		public method DoConvert, @List<OperationResult>
 			files, @List<String> 
@@ -43,13 +43,57 @@ namespace CodeConverterSampleTasks
 					if (string.IsNullOrWhiteSpace(sourceline))
 						nextloop
 					
-					if (!sourceline.ToLower().Contains("display (15,27,'[1m')") && !sourceline.ToLower().Contains("display (15,27,'[0;1m')"))
+					;;Skip lines that only have a comment
+					if (sourceline.Trim().StartsWith(";"))
+						nextloop
+
+					;;DISPLAY (15,$SCR_POS(14,1),'18.VDSt')
+
+					if (!sourceline.Trim().ToUpper().Contains("DISPLAY (15,$SCR_POS("))
 						nextloop
 					
-					data startPos, int, sourceline.ToLower().IndexOf("display (15,27,")
-					data endPos, int, sourceline.IndexOf("1m')",startPos) + 3
+					data startPos, int, sourceline.ToUpper().IndexOf("DISPLAY (15,$SCR_POS(")
+					data rowPos,   int, sourceline.ToUpper().IndexOf("$SCR_POS(") + 9
+					data colPos,   int, sourceline.IndexOf(",",rowPos+1) + 1
+					data endOfPos, int, sourceline.IndexOf(")",colPos+1)
+
+					;;Make sure we're looking good so far
+					if ((rowPos==-1)||(colPos==-1)||(endOfPos==-1))
+						nextloop
+
+					;;The character after the end of position ) should be a comma
+					if (sourceline.Substring(endOfPos+1,1)!=",")
+						nextloop
+
+					;;The character after that should be a ' or "
+					data openQuotePos, int, endOfPos + 2
+					data closeQuotePos, int
+					if (sourceline.Substring(openQuotePos,1)=='"')  then
+					begin
+						;;Found a double quote quoted string
+						closeQuotePos = sourceline.IndexOf('"',openQuotePos+1)
+					end
+					else if (sourceline.Substring(openQuotePos,1)=="'") then
+					begin
+						;;Found a single quote quoted string
+						closeQuotePos = sourceline.IndexOf("'",openQuotePos+1)
+					end
+					else
+						nextloop
+
+					;;Did we find the end of the quoted string?
+					if (closeQuotePos==-1)
+						nextloop
+
+					;;The next character should be a )
+					if (sourceline.Substring(closeQuotePos+1,1)!=")")
+						nextloop
 					
-					sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"UI.Bold()")
+					data row, string, sourceline.Substring(rowPos,colPos-rowPos-1)
+					data col, string, sourceline.Substring(colPos,endOfPos-colPos)
+					data text, String, sourceline.Substring(opEnQuotePos,closeQuotePos-openQuotePos+1)
+
+					sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,closeQuotePos-startPos+2),String.Format("UI.DisplayTextAt({0},{1},{2})",row,col,text))
 					linesModified += 1
 					totalChanges += 1
 					fileModified = true
@@ -92,7 +136,7 @@ namespace CodeConverterSampleTasks
 			mreturn results
 			
 		endmethod
-		
+				
 	endclass
-	
+
 endnamespace

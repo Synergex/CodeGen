@@ -3,6 +3,7 @@ import System
 import System.Collections.Generic
 import System.IO
 import CodeConverterInterface
+import System.Text
 
 namespace CodeConverterSampleTasks
 	
@@ -10,117 +11,62 @@ namespace CodeConverterSampleTasks
 		
 		public readonly property Description, string, "Uppercase all $SCR functions"
 
-		public virtual method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
+		public method DoConvert, ConversionResult
+			required in    fileSpec, String
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
+			required out   changeCount, int
 		proc
-			data results, @List<OperationResult>, new List<OperationResult>()
-			data filesModified, int
-			data linesModified, int
-			data totalChanges, int
-			
-			data lookingFor, @List<String>, new List<String>() {"$SCR_POS", "$SCR_CLR", "$SCR_CLR(SCREEN)", "$SCR_CLR(EOL)", "$SCR_CLR(EOS)", "$SCR_CLR(LINE)", "$SCR_CLR(BOL)", "$SCR_CLR(BOS)", "$SCR_MOV", "$SCR_ATT", "$SCR_ATT(CLEAR)", "$SCR_ATT(BOLD)", "$SCR_ATT(UNDER)", "$SCR_ATT(BLINK)", "$SCR_ATT(REVERSE)", "$SCR_ATT(GON)", "$SCR_ATT(GOFF)"}
-			
-			data filename, String
-			foreach filename in files
+			;;Does the text $SCR_ appear in the file?
+			if (!allFileContent.ToUpper().Contains("$SCR_"))
+				mreturn ConversionResult.NoChanges
+				
+			data ix, int, -1
+				
+			while ((ix += 1) < sourceLines.Count)
 			begin
-				
-				;;Does the text $SCR_ appear in the file?
-				if (!File.ReadAllText(filename).ToUpper().Contains("$SCR_"))
+				;;Skip blank lines
+				if (string.IsNullOrWhiteSpace(sourceLines[ix]))
 					nextloop
-				
-				data fileModified, boolean, false
-				
-				;;Get the data for the file
-				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
-				
-				data sourceline, String
-				data sourceLineIndex, int, -1
-				
-				while ((sourceLineIndex += 1) < sourcelines.Count)
+					
+				;;Skip lines that only have a comment
+				if (sourceLines[ix].Trim().StartsWith(";"))
+					nextloop
+					
+				;;Ignore lines that don't contain $SCR_
+				if  (!sourceLines[ix].ToUpper().Contains("$SCR_"))
+					nextloop
+					
+				data lookingFor = new List<String>() {"$SCR_CLR(SCREEN)", "$SCR_CLR(EOL)", "$SCR_CLR(EOS)", "$SCR_CLR(LINE)", "$SCR_CLR(BOL)", "$SCR_CLR(BOS)", "$SCR_ATT(CLEAR)", "$SCR_ATT(BOLD)", "$SCR_ATT(UNDER)", "$SCR_ATT(BLINK)", "$SCR_ATT(REVERSE)", "$SCR_ATT(GON)", "$SCR_ATT(GOFF)", "$SCR_POS", "$SCR_CLR", "$SCR_MOV", "$SCR_ATT"}
+				data sourceLineUpper = sourceLines[ix].ToUpper()
+				data sb, @StringBuilder
+				data startPos = 0
+				data lookFor = String.Empty
+
+				foreach lookFor in lookingFor
 				begin
-					sourceline = sourcelines[sourceLineIndex]
-					
-					data lineModified, boolean, false
-					
-					;;Skip blank lines
-					if (string.IsNullOrWhiteSpace(sourceline))
-						nextloop
-					
-					;;Skip lines that only have a comment
-					if (sourceline.Trim().StartsWith(";"))
-						nextloop
-					
-					;;Ignore lines that don't contain $SCR_
-					if  (!sourceline.ToUpper().Contains("$SCR_"))
-						nextloop
-					
-					data upstring, String, sourceline.ToUpper()
-					
-					data lookFor, String
-					foreach lookFor in lookingFor
+					startPos = 0
+					while ((startPos = sourceLineUpper.IndexOf(lookFor,startPos)) != -1)
 					begin
-						data tmpAlpha, a32768, sourceline
-						data startPos, int, 0
-						while (startPos = %instr(startPos+1,upstring,lookFor))
+						data foundString = sourceLines[ix].Substring(startPos,lookFor.Length)
+
+						if (foundString != lookFor)
 						begin
-							if (tmpAlpha(startPos:lookFor.Length) != lookFor)
-							begin
-								tmpAlpha(startPos:lookFor.Length) = (a)lookFor	;TODO: The (a) cast is because of a 10.2.3i compiler bug
-								lineModified = true
-								totalChanges += 1
-							end
+							if (sb == ^null)
+								sb = new StringBuilder(sourceLines[ix])
+							sb.Remove(startPos,lookFor.Length)
+							sb.Insert(startPos,lookFor)
+							changeCount += 1
 						end
-						sourceline = %atrim(tmpAlpha)
+						startPos += 1
 					end
-					
-					;;If the line was modoified, save it
-					if (lineModified)
-					begin
-						sourcelines[sourceLineIndex] = sourceline
-						linesModified += 1
-						fileModified = true
-					end					
 				end
-				
-				if (fileModified)
-				begin
-					filesModified += 1
-					if (testMode) then
-					begin
-						data testFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".TEST")
-						if (createFilesInTestMode) then
-						begin
-							File.WriteAllLines(testFile,sourcelines)
-							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: OUTPUT SAVED TO :0}",testFile)))
-						end
-						else
-							results.Add(new OperationResult(filename,0,string.Format("TEST MODE: WOULD HAVE MODIFIED {0}",filename)))
-					end	
-					else
-					begin
-						data saveFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".SAVE")
-						try
-						begin
-							File.Copy(filename,saveFile)
-							File.WriteAllLines(filename,sourcelines)
-							results.Add(new OperationResult(filename,0,string.Format("MODIFIED {0}. Original code saved in {1}",filename,saveFile)))
-						end
-						catch (e, @Exception)
-						begin
-							results.Add(new OperationResult(filename,0,string.Format("FAILED TO COPY OR MODIFY {0}.",filename)))
-						end
-						endtry
-					end				
-				end
+
+				if (sb != ^null)
+					sourceLines[ix] = sb.ToString()
 			end
 			
-			summaryMessage = String.Format("Processed {0} files. Made {1} changes to {2} lines in {3} files.",files.Count,totalChanges,linesModified,filesModified)
-			
-			mreturn results
+			mreturn (changeCount == 0) ? ConversionResult.NoChanges : ConversionResult.SourceLinesModified
 			
 		endmethod
 		

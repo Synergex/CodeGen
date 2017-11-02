@@ -7,244 +7,200 @@ namespace CodeConverterInterface
 	
 	public class SearchHelpers
 	
-		public static method SearchForExternalSubroutine, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  routineName, String
-			required in  allowOmitXCALL, boolean
-			required out summaryMessage, String
-			endparams
+		public static method SearchForExternalSubroutine, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<String>
+			required in    routineNames, @List<String>
 		proc
-			
-			data results, @List<OperationResult>, new List<OperationResult>()
-			data matchingFiles, int, 0
-			data thisFileRecorded, boolean, false
-			
-			data theRoutine, String, routineName.Trim().ToUpper()
-			
-			data sourcefile, String
-			foreach sourcefile in files
-			begin
-				;;Does the file even contain the name of the routine we're looking for ?
-				if (!File.ReadAllText(sourcefile).ToUpper().Contains(theRoutine))
-					nextloop
-				
-				;;We have a file that contains the name of the routine we're looking for
-				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(sourcefile))
-				thisFileRecorded = false
-				
-				data sourceindex, int, -1
-				while ((sourceindex+=1) < sourcelines.Count)
-				begin
-					data sourceline, String, sourcelines[sourceindex]
-					
-					;;Subroutines:
-					;;	Starts with XCALL, whitespace routine name
-					;;	Starts with routine name followed by optional whitespace and open paren
-					
-					data tmpString, String, StringTools.CondenseWhiteSpace(sourceline.ToUpper().Trim())
-					tmpString = " " + StringTools.EnsureSpaceBeforeOpenParen(tmpString) + " "
+			data results = new List<SearchResult>()
 
-					if (
-					&	tmpString.StartsWith(string.Format(" XCALL {0} ",theRoutine))
-					&	|| (allowOmitXCALL && tmpString.StartsWith(string.Format(" {0} (",theRoutine)))
-					&	)
-					begin
-						;;Got one!
-						results.Add(new OperationResult(sourcefile,sourceindex+1,sourceline))
-						if (!thisFileRecorded)
-						begin
-							matchingFiles += 1
-							thisFileRecorded = true
-						end
-					end
+			;;We have a file that contains the name of the routine we're looking for
+				
+			data ix = -1
+			while ((ix+=1) < sourcelines.Count)
+			begin
+				;;Subroutines:
+				;;	Starts with XCALL <whitespace> <routine name>
+				;;	Starts with <routine name> <optional whitespace> <open paren>
+					
+				data tmpString = StringTools.CondenseWhiteSpace(sourcelines[ix].ToUpper().Trim())
+				tmpString = " " + StringTools.EnsureSpaceBeforeOpenParen(tmpString) + " "
+
+				data routineName = String.Empty
+				foreach routineName in routineNames
+				begin
+					routineName = routineName.Trim().ToUpper()
+					if (tmpString.StartsWith(String.Format(" XCALL {0} ",routineName))) then
+						results.Add(new SearchResult() { File=filespec, Token=String.Format("XCALL {0}",routineName), Line= ix + 1})
+					else if (tmpString.StartsWith(String.Format(" {0} (",routineName)))
+						results.Add(new SearchResult() { File=filespec, Token=String.Format(" {0}()",routineName), Line= ix + 1})
 				end
 			end
-			
-			summaryMessage = string.Format("Searched {0} files. Found {1} uses of subroutine {2} in {3} files.",files.Count,results.Count,theRoutine,matchingFiles)
-			
+
 			mreturn results
-			
+
 		endmethod
 
-		public static method SearchForSubroutineOrFunction, @List<OperationResult>
-			required in  files, @List<String> 
-			required in routineName, String
-			required out summaryMessage, String
-			endparams
+		public static method SearchForSubroutineOrFunction, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<String>
+			required in    routineNames, @List<String>
 		proc
+			data results = new List<SearchResult>()
 			
-			data results, @List<OperationResult>, new List<OperationResult>()
-			data matchingFiles, int, 0
-			data thisFileRecorded, boolean, false
-			
-			data theRoutine, String, routineName.Trim().ToUpper()
-			
-			data sourcefile, String
-			foreach sourcefile in files
+			data ix = -1
+			while ((ix+=1) < sourcelines.Count)
 			begin
-				;;Does the file even contain the name of the routine we're looking for ?
-				if (!File.ReadAllText(sourcefile).ToUpper().Contains(theRoutine))
-					nextloop
-				
-				;;We have a file that contains the name of the routine we're looking for
-				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(sourcefile))
-				thisFileRecorded = false
-				
-				data sourceindex, int, -1
-				while ((sourceindex+=1) < sourcelines.Count)
+				data sourceline, String, sourcelines[ix]
+					
+				;;Subroutines:
+				;;	Starts with XCALL <whitespace> <routine name>
+				;;	Starts with <routine name> <optional whitespace> <open paren>
+				;;Functions
+				;;	Contains % <routine name>
+				;;  Contains <routine name> <optional whitespace> <open paren>
+					
+				data tmpString = " " + StringTools.CondenseWhiteSpace(sourceline.ToUpper().Trim()) + " "
+
+				data routineName = String.Empty
+				data token = String.Empty
+
+				foreach routineName in routineNames
 				begin
-					data sourceline, String, sourcelines[sourceindex]
-					
-					;;Subroutines:
-					;;	Starts with XCALL, whitespace routine name
-					;;	Starts with routine name followed by optional whitespace and open paren
-					;;Functions
-					;;	Contains % followed by routine name
-					;;  Contains routine name followed by optional whitespace and open paren
-					
-					data tmpString, String, " " + StringTools.CondenseWhiteSpace(sourceline.ToUpper().Trim()) + " "
+					routineName = routineName.Trim().ToUpper()
 
 					;;TODO: Needs WAY more work. Detecting external function use is really hard!!!
-					
-					if (
-					&	tmpString.StartsWith(string.Format(" XCALL {0}",theRoutine))
-					&	|| tmpString.StartsWith(string.Format(" {0}(",theRoutine))
-					&	|| tmpString.StartsWith(string.Format(" {0} (",theRoutine))
-					&	|| tmpString.Contains(string.Format("%{0} ",theRoutine))
-					&	|| tmpString.Contains(string.Format("{0}(",theRoutine))
-					&	)
+
+					if (tmpString.StartsWith(token=String.Format(" XCALL {0}",routineName))) then
+						results.Add(new SearchResult() {File=filespec, Token=token, Line=ix+1})
+					else if (tmpString.StartsWith(token=String.Format(" {0}(",routineName))) then
+						results.Add(new SearchResult() {File=filespec, Token=token, Line=ix+1})
+					else if (tmpString.StartsWith(token=String.Format(" {0} (",routineName))) then
+						results.Add(new SearchResult() {File=filespec, Token=token, Line=ix+1})
+					else if (tmpString.Contains(token=String.Format("%{0} ",routineName))) then
+						results.Add(new SearchResult() {File=filespec, Token=token, Line=ix+1})
+					else if (tmpString.Contains(token=String.Format("{0}(",routineName)))
+						results.Add(new SearchResult() {File=filespec, Token=token, Line=ix+1})
+				end
+			end
+			
+			mreturn results
+
+		endmethod
+		
+;		public static method SearchForStatementAndContains, @List<OperationResult>
+;			required in  files, @List<String> 
+;			required in statement, String
+;			required in searchString, String
+;			required out summaryMessage, String
+;			endparams
+;		proc
+;			
+;			data results, @List<OperationResult>, new List<OperationResult>()
+;			data matchingFiles, int, 0
+;			data thisFileRecorded, boolean, false
+;			
+;			data theStatement, String, statement.Trim().ToUpper()
+;			data theSearchString, String, searchString.Trim().ToUpper()
+;			
+;			data sourcefile, String
+;			foreach sourcefile in files
+;			begin
+;				;;Does the file even contain the search string ?
+;				data fileContent, String, File.ReadAllText(sourcefile).ToUpper()
+;				if (!fileContent.Contains(theStatement) || !fileContent.Contains(theSearchString))
+;					nextloop
+;				
+;				;;We have a file that contains what we're looking for (upper, lower or mixed case)
+;				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(sourcefile))
+;				thisFileRecorded = false
+;				
+;				data sourceindex, int, -1
+;				while ((sourceindex+=1) < sourcelines.Count)
+;				begin
+;					data sourceline, String, sourcelines[sourceindex]
+;					
+;					data tmpString, String, sourceline.Trim().ToUpper()
+;					if ((tmpString.StartsWith(theStatement + " ") || tmpString.StartsWith(theStatement + "	")) && tmpString.Contains(theSearchString))
+;					begin
+;						;;Got one!
+;						results.Add(new OperationResult(sourcefile,sourceindex+1,sourceline))
+;						if (!thisFileRecorded)
+;						begin
+;							matchingFiles += 1
+;							thisFileRecorded = true
+;						end
+;					end
+;				end
+;			end
+;			
+;			summaryMessage = string.Format("Searched {0} files. Found {1} {2} statements containing {3} in {4} files.",files.Count,results.Count,theStatement,theSearchString,matchingFiles)
+;			
+;			mreturn results
+;			
+;		endmethod
+		
+		public static method SearchForString, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<String>
+			required in    searchStrings, @List<String>
+		proc
+			data allFileContentUpper = allFileContent.ToUpper()
+			data searchString = String.Empty
+			data results = new List<SearchResult>()
+
+			foreach searchString in searchStrings
+			begin
+				searchString = searchString.Trim().ToUpper()
+
+				if (allFileContentUpper.Contains(searchString))
+				begin
+					data ix = -1
+					while ((ix+=1) < sourceLines.Count)
 					begin
-						;;Got one!
-						results.Add(new OperationResult(sourcefile,sourceindex+1,sourceline))
-						if (!thisFileRecorded)
+						if (sourceLines[ix].ToUpper().Contains(searchString))
 						begin
-							matchingFiles += 1
-							thisFileRecorded = true
+							results.Add(new SearchResult() {File=filespec, Token=searchString, Line=ix+1})
 						end
 					end
 				end
 			end
-			
-			summaryMessage = string.Format("Searched {0} files. Found {1} uses of routine {2} in {3} files.",files.Count,results.Count,theRoutine,matchingFiles)
-			
+
 			mreturn results
 			
 		endmethod
 		
-		public static method SearchForStatementAndContains, @List<OperationResult>
-			required in  files, @List<String> 
-			required in statement, String
-			required in searchString, String
-			required out summaryMessage, String
-			endparams
+		public static method SearchForNonPrintableCharacter, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<String>
+			required in    searchCharacter, Char
+			required in    displayAs, string
 		proc
-			
-			data results, @List<OperationResult>, new List<OperationResult>()
-			data matchingFiles, int, 0
-			data thisFileRecorded, boolean, false
-			
-			data theStatement, String, statement.Trim().ToUpper()
-			data theSearchString, String, searchString.Trim().ToUpper()
-			
-			data sourcefile, String
-			foreach sourcefile in files
+			data allFileContentUpper = allFileContent.ToUpper()
+			data results = new List<SearchResult>()
+
+			if (allFileContent.IndexOf(searchCharacter)!=-1)
 			begin
-				;;Does the file even contain the search string ?
-				data fileContent, String, File.ReadAllText(sourcefile).ToUpper()
-				if (!fileContent.Contains(theStatement) || !fileContent.Contains(theSearchString))
-					nextloop
-				
-				;;We have a file that contains what we're looking for (upper, lower or mixed case)
-				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(sourcefile))
-				thisFileRecorded = false
-				
-				data sourceindex, int, -1
-				while ((sourceindex+=1) < sourcelines.Count)
+				data ix = -1
+				data iy, int
+				while ((ix+=1) < sourceLines.Count)
 				begin
-					data sourceline, String, sourcelines[sourceindex]
-					
-					data tmpString, String, sourceline.Trim().ToUpper()
-					if ((tmpString.StartsWith(theStatement + " ") || tmpString.StartsWith(theStatement + "	")) && tmpString.Contains(theSearchString))
+					iy = sourceLines[ix].IndexOf(searchCharacter)
+					if (iy!=-1)
 					begin
-						;;Got one!
-						results.Add(new OperationResult(sourcefile,sourceindex+1,sourceline))
-						if (!thisFileRecorded)
-						begin
-							matchingFiles += 1
-							thisFileRecorded = true
-						end
+						results.Add(new SearchResult() {File=filespec, Token=displayAs, Line=ix+1, Position=iy+1})
 					end
 				end
 			end
-			
-			summaryMessage = string.Format("Searched {0} files. Found {1} {2} statements containing {3} in {4} files.",files.Count,results.Count,theStatement,theSearchString,matchingFiles)
-			
-			mreturn results
-			
-		endmethod
-		
-		public static method SearchForString, @List<OperationResult>
-			required in  files, @List<String>
-			required in  lookFor, String
-			required out summaryMessage, String
-			endparams
-		proc
-			data results, @List<OperationResult>, new List<OperationResult>()
-			data searchText, String, lookFor.Trim().ToUpper()
 
-			data sourcefile, String
-			foreach sourcefile in files
-			begin
-				;;Does the file even contain the string?
-				if (!File.ReadAllText(sourcefile).ToUpper().Contains(searchText))
-					nextloop
+			mreturn results
+			
+		endmethod
 
-				data sourceLines, @List<String>, new List<String>(File.ReadAllLines(sourcefile))
-				data lineNumber, int, -1
-				while ((lineNumber+=1) < sourceLines.Count)
-				begin
-					if (sourceLines[lineNumber].ToUpper().Contains(searchText))
-					begin
-						results.Add(new OperationResult(sourcefile,lineNumber+1,sourceLines[lineNumber]))
-					end
-				end
-			end	
-			
-			summaryMessage = string.Format("Processed {0} files. Found {1} instances of {2}.",files.Count,results.Count,lookFor)
-			
-			mreturn results
-			
-		endmethod
-		
-		public static method SearchForNonPrintableCharacter, @List<OperationResult>
-			required in  files, @List<String>
-			required in  lookFor, String
-			required in  displayAs, String
-			required out summaryMessage, String
-			endparams
-		proc
-			data results, @List<OperationResult>, new List<OperationResult>()
-			data sourcefile, String
-			
-			foreach sourcefile in files
-			begin
-				data sourceLines, @List<String>, new List<String>(File.ReadAllLines(sourcefile))
-				data lineNumber, int, -1
-				while ((lineNumber+=1) < sourceLines.Count)
-				begin
-					if (sourceLines[lineNumber].Contains(lookFor))
-					begin
-						results.Add(new OperationResult(sourcefile,lineNumber+1,sourceLines[lineNumber].Replace(lookFor,displayAs)))
-					end
-				end
-			end	
-			
-			summaryMessage = string.Format("Processed {0} files and found {1} instances of {2}.",files.Count,results.Count,displayAs)
-			
-			mreturn results
-			
-		endmethod
-		
 	endclass
 	
 	

@@ -28,6 +28,7 @@ namespace CodeConverter
 			loadToolsAssemblies()
 			calculateMatchingFiles()
 			
+			lblSearchResultMessage.Text = String.Empty
 			lblResultMessage.Text = String.Empty
 			activityLabel.Text = String.Empty
 
@@ -76,11 +77,21 @@ namespace CodeConverter
 			else
 				this.Text = String.Format("{0} [No source files selected].",heading,filesToProcess.Count)
 
+			grpSearchOptions.Enabled = (filesToProcess.Count>0)
 			grpConvertOptions.Enabled = (filesToProcess.Count>0)
 
 			activityLabel.Text = String.Empty
 			this.Cursor = Cursors.Default
 
+		endmethod
+		
+		private method lstSearchTools_SelectedIndexChanged, void
+			sender, @object 
+			e, @System.EventArgs 
+		proc
+			btnSearch.Enabled = lstSearchTools.SelectedIndex != -1
+			searchResultBindingSource.Clear()
+			lblSearchResultMessage.Text = String.Empty
 		endmethod
 		
 		private method lstConvertOptions_SelectedIndexChanged, void
@@ -90,6 +101,42 @@ namespace CodeConverter
 			btnConvert.Enabled = lstConvertOptions.SelectedIndex != -1
 			operationResultBindingSource.Clear()
 			lblResultMessage.Text = string.Empty
+		endmethod
+		
+		private method btnSearch_Click, void
+			sender, @object 
+			e, @System.EventArgs 
+			endparams
+		proc
+			this.Cursor = Cursors.WaitCursor
+
+			searchResultBindingSource.Clear()
+			lblSearchResultMessage.Text = string.Empty
+
+			data tool = ^as(searchToolsBindingSource.Current, @ISearchTool)
+			data allResults = new List<SearchResult>()
+			data filename, string
+
+			foreach filename in filesToProcess
+			begin
+				;;Read the file into a string
+				data allFileData = File.ReadAllText(filename)
+
+				;;Read the file into a collection of records
+				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
+
+				;;Call the search tool for the current file
+				data results = tool.DoSearch(filename,allFileData,sourcelines)
+
+				allResults.AddRange(results)			
+			end
+
+			searchResultBindingSource.DataSource = allResults
+
+			lblResultMessage.Text = String.Format("Processed {0} files, found {1} matches.", filesToProcess.Count, allResults.Count)
+			
+			this.Cursor = Cursors.Default
+
 		endmethod
 		
 		private method btnConvert_Click, void
@@ -104,17 +151,83 @@ namespace CodeConverter
 			operationResultBindingSource.Clear()
 			lblResultMessage.Text = string.Empty
 
-			;data tool = (@IConversionTool)toolsBindingSource.Current
-			data tool = ^as(toolsBindingSource.Current, @IConversionTool)
+			;data tool = (@IConversionTool)conversionToolsBindingSource.Current
+			data tool = ^as(conversionToolsBindingSource.Current, @IConversionTool)
+			data results = new List<OperationResult>()
+
+			data successCount = 0
+			data failureCount = 0
+			data totalChangesCount = 0
 			
 			this.Cursor = Cursors.WaitCursor
 
-			data summaryMessage, String
-			data results = tool.DoConvert(filesToProcess,chkTestMode.Checked,chkCreateTestFiles.Checked,summaryMessage)
+			data filename, string
+			foreach filename in filesToProcess
+			begin
+				;;Read the file into a string
+				data allFileData = File.ReadAllText(filename)
+
+				;;Read the file into a collection of records
+				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
+
+				data changes = 0
+
+				;;Call the conversion tool for the current file
+				data result = tool.DoConvert(filename,allFileData,sourcelines,changes)
+				data resultData = new OperationResult() {FileSpec=filename, Changes=changes}
+
+				using result select
+				(ConversionResult.AllFileContentModified, ConversionResult.SourceLinesModified),
+				begin
+					if (chkTestMode.Checked) then
+					begin
+						;;We're in test mode
+						if (chkCreateTestFiles.Checked)
+						begin
+							;;Create a "test" output file
+							data testFile = Path.Combine(Path.GetDirectoryName(filename),Path.GetFileName(filename)+".TEST")
+							if (result == ConversionResult.AllFileContentModified) then
+								File.WriteAllText(testFile,allFileData)
+							else
+								File.WriteAllLines(testFile,sourcelines)						
+						end
+					end
+					else
+					begin
+						;;We're doing this for real - first rename the original file
+						data saveFile = Path.Combine(Path.GetDirectoryName(filename),Path.GetFileName(filename)+".SAVE")
+						File.Copy(filename,saveFile)
+						;;Then write the new file
+						if (result == ConversionResult.AllFileContentModified) then
+							File.WriteAllText(filename,allFileData)
+						else
+							File.WriteAllLines(filename,sourcelines)						
+					end
+
+					resultData.Message = "File changed."
+
+					successCount += 1
+					totalChangesCount += changes
+				end
+				(ConversionResult.NoChanges),
+				begin
+					resultData.Message = "No changes."
+					successCount += 1
+				end
+				(ConversionResult.Failure),
+				begin
+					resultData.Message = "Failed."
+					failureCount += 1
+				end
+				endusing
+
+				results.Add(resultData)
+				
+			end
 
 			this.Cursor = Cursors.Default
 
-			lblResultMessage.Text = summaryMessage
+			lblResultMessage.Text = String.Format("Processed {0} files, {1} success, {2} failures, {3} total changes.", filesToProcess.Count, successCount, failureCount, totalChangesCount)
 
 			operationResultBindingSource.DataSource = results
 			
@@ -151,14 +264,9 @@ namespace CodeConverter
 			end
 			
 			;;Configure a process to start Workbench
-			data prc, @System.Diagnostics.Process, new System.Diagnostics.Process()
+			data prc = new System.Diagnostics.Process()
 			prc.StartInfo.FileName = editorPath
-			
-			;;Add the file specification
-			if (result.LineNumber != 0) then
-				prc.StartInfo.Arguments = string.Format('"{0}" -#{1}',result.FileSpec,result.LineNumber)
-			else 
-				prc.StartInfo.Arguments = string.Format('"{0}"',result.FileSpec)
+			prc.StartInfo.Arguments = string.Format('"{0}"',result.FileSpec)
 			
 			;;Launch Workbench			
 			try
@@ -184,27 +292,35 @@ namespace CodeConverter
 		proc
 			this.Cursor = Cursors.WaitCursor
 
-			activityLabel.Text = "Loading conversion tools..."
+			activityLabel.Text = "Loading tools..."
 
 			this.Refresh()
 
-			toolsBindingSource.Clear()
-			toolsBindingSource.DataSource = new List<IConversionTool>()
+			searchToolsBindingSource.Clear()
+			searchToolsBindingSource.DataSource = new List<ISearchTool>()
+
+			conversionToolsBindingSource.Clear()
+			conversionToolsBindingSource.DataSource = new List<IConversionTool>()
 
 			data fileSpec, string
 			foreach fileSpec in Properties.Settings.Default.AppSettings.ToolAssemblies
 			begin
 				data candidateAssembly = new ToolsAssembly(fileSpec)
-				if (candidateAssembly.Tools.Count > 0)
+
+				if (candidateAssembly.SearchTools.Count > 0)
+				begin
+					data tool, @ISearchTool
+					foreach tool in candidateAssembly.SearchTools
+						searchToolsBindingSource.Add(tool)
+				end
+
+				if (candidateAssembly.ConversionTools.Count > 0)
 				begin
 					data tool, @IConversionTool
-					foreach tool in candidateAssembly.Tools
-						toolsBindingSource.Add(tool)
+					foreach tool in candidateAssembly.ConversionTools
+						conversionToolsBindingSource.Add(tool)
 				end
 			end
-
-			if (toolsBindingSource.Count > 0)
-				toolsBindingSource.MoveFirst()
 
 			this.Cursor = Cursors.Default
 
@@ -266,6 +382,69 @@ namespace CodeConverter
 		proc
 			disposable data dlg = new ViewSourceFilesListForm(filesToProcess)
 			dlg.ShowDialog()
+		endmethod
+		
+		
+		
+		
+		
+		private method grdSearchResults_CellDoubleClick, void
+			sender, @object 
+			e, @System.Windows.Forms.DataGridViewCellEventArgs 
+			endparams
+		proc
+			;;Make sure there is a selected item
+			if (searchResultBindingSource.Current == ^null)
+				mreturn
+			
+			;;Get the result associated with the selected item
+			data result = ^as(searchResultBindingSource.Current, SearchResult)
+			
+			;;Make sure we have a file spec
+			if (String.IsNullOrWhiteSpace(result.File))
+			begin
+				MessageBox.Show("The selected result does not specify a file spec to edit!","No File Spec",MessageBoxButtons.OK,MessageBoxIcon.Exclamation)
+				mreturn
+			end
+			
+			;;Do we have Workbench?
+			data editorPath, String
+			if (Environment.Is64BitOperatingSystem) then
+				editorPath = "C:\Program Files (x86)\Synergex\SynergyDE\Workbench\win\vs.exe"
+			else
+				editorPath = "C:\Program Files\Synergex\SynergyDE\Workbench\win\vs.exe"
+			if (!File.Exists(editorPath))
+			begin
+				MessageBox.Show("Can't edit file because Workbench is not available!","No Workbench",MessageBoxButtons.OK,MessageBoxIcon.Exclamation)
+				mreturn
+			end
+			
+			;;Configure a process to start Workbench
+			data prc = new System.Diagnostics.Process()
+			prc.StartInfo.FileName = editorPath
+
+			;;Add the file specification
+			if (result.Line==0) then
+				prc.StartInfo.Arguments = String.Format('"{0}"',result.File)
+			else
+			begin
+				if (result.Position==0) then
+					prc.StartInfo.Arguments = String.Format('"{0}" -#{1}',result.File,result.Line)
+				else
+					prc.StartInfo.Arguments = String.Format('"{0}" -#{1} "-#goto-col {2}"',result.File,result.Line,result.Position)
+			end
+	
+			;;Launch Workbench			
+			try
+			begin
+				prc.Start()				
+			end
+			catch (e, @Exception)
+			begin
+				MessageBox.Show("Failed to launch Workbench!","Error",MessageBoxButtons.OK,MessageBoxIcon.Error)
+			end
+			endtry
+			
 		endmethod
 		
 	endclass

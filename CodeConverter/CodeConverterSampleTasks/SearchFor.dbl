@@ -5,159 +5,127 @@ import CodeConverterInterface
 
 namespace CodeConverterSampleTasks
 
-	public class SearchForVmsSpecificRoutines implements IConversionTool
+	public class SearchForVmsSpecificRoutines implements ISearchTool
 
 		public readonly property Description, string, "Find OpenVMS specific routines"
 
-		public method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
+		public method DoSearch, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
 		proc
-			data results, @List<OperationResult>, new List<OperationResult>()
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"ASTRST",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"ASTSAV",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"CREMBX",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"DBL$DEVCLT",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"DBL$EXECUTE_IMAGE_ROUTINE",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"DBL$SETKRF",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"DBL$SNDOPR",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"DELMBX",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"EMPBUF",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"ENDFL",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"FXSUBR",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"GETCM",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"PURGE",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"PUTCM",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"SETCTL",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"SORT",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"TT_NAME_TO_NUMBER",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"TT_NUMBER_TO_NAME",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"TTBRDCST",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"TTCHAR",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"TTMBX",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"VMCMD",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForExternalSubroutine(files,"VMMSG",false,summaryMessage))
-			results.AddRange(SearchHelpers.SearchForString(files,"^XTRNL",summaryMessage))
 
-			;TODO: When we have a reliable way of searching for external functions we should also check:
-			;	%FSTAT
-			;	%SUCCESS
+			data tokens = new List<String>() {"ASTRST","ASTSAV","CREMBX","DBL$DEVCLT","DBL$EXECUTE_IMAGE_ROUTINE","DBL$SETKRF","DBL$SNDOPR","DELMBX","EMPBUF","ENDFL","FXSUBR","GETCM","PURGE","PUTCM","SETCTL","SORT","TT_NAME_TO_NUMBER","TT_NUMBER_TO_NAME","TTBRDCST","TTCHAR","TTMBX","VMCMD","VMMSG"}
+			data results = SearchHelpers.SearchForExternalSubroutine(filespec,allFileContent,sourceLines,tokens)
 
+			tokens = new List<String>() {"^XTRNL"}
+			results.AddRange(SearchHelpers.SearchForString(filespec,allFileContent,sourceLines,tokens))
 
-
-			summaryMessage = String.Format("Searched {0} files for OpenVMS specific routines. Found {1} matches.",files.Count,results.Count)
+			tokens = new List<String>() {"FSTAT", "SUCCESS"}
+			results.AddRange(SearchHelpers.SearchForSubroutineOrFunction(filespec,allFileContent,sourceLines,tokens))
 
 			mreturn results
 
 		endmethod
 	endclass
 	
-	public class SearchForOpenPipe implements IConversionTool
+;	public class SearchForOpenPipe implements IConversionToolOld
+;
+;		public readonly property Description, string, "Find open pipe commands"
+;
+;		public method DoConvert, @List<OperationResult>
+;			required in  files, @List<String> 
+;			required in  testMode, Boolean 
+;			required in  createFilesInTestMode, Boolean 
+;			required out summaryMessage, String
+;			endparams
+;		proc
+;			mreturn SearchHelpers.SearchForStatementAndContains(files,"OPEN","|",summaryMessage)
+;		endmethod
+;	endclass
+;	
+;	public class SearchForOpenTerminal implements IConversionToolOld
+;
+;		public readonly property Description, string, "Find open terminal statements"
+;
+;		public method DoConvert, @List<OperationResult>
+;			required in  files, @List<String> 
+;			required in  testMode, Boolean 
+;			required in  createFilesInTestMode, Boolean 
+;			required out summaryMessage, String
+;			endparams
+;		proc
+;			mreturn SearchHelpers.SearchForStatementAndContains(files,"OPEN","TT:",summaryMessage)
+;		endmethod
+;	endclass
+	
+	public class SearchForShellSpawn implements ISearchTool
 
-		public readonly property Description, string, "Find open pipe commands"
+		public readonly property Description, string, "Find XCALL SHELL and SPAWN"
 
-		public method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
+		public method DoSearch, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
 		proc
-			mreturn SearchHelpers.SearchForStatementAndContains(files,"OPEN","|",summaryMessage)
+			data tokens = new List<String>() {"SHELL", "SPAWN"}
+			data results = SearchHelpers.SearchForExternalSubroutine(filespec,allFileContent,sourceLines,tokens)
+			mreturn results
 		endmethod
+
 	endclass
 	
-	public class SearchForOpenTerminal implements IConversionTool
-
-		public readonly property Description, string, "Find open terminal statements"
-
-		public method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
-		proc
-			mreturn SearchHelpers.SearchForStatementAndContains(files,"OPEN","TT:",summaryMessage)
-		endmethod
-	endclass
-	
-	public class SearchForXcallShell implements IConversionTool
-
-		public readonly property Description, string, "Find XCALL SHELL"
-
-		public method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
-		proc
-			mreturn SearchHelpers.SearchForExternalSubroutine(files,"SHELL",false,summaryMessage)
-		endmethod
-	endclass
-	
-	public class SearchForXcallSpawn implements IConversionTool
-
-		public readonly property Description, string, "Find XCALL SPAWN"
-
-		public method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
-		proc
-			mreturn SearchHelpers.SearchForExternalSubroutine(files,"SPAWN",false,summaryMessage)
-		endmethod
-	endclass
-	
-	public class SearchForEscape implements IConversionTool
+	public class SearchForEscape implements ISearchTool
 
 		public readonly property Description, string, "Find <ESC> characters in source code"
 
-		public method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
+		public method DoSearch, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
 		proc
-			mreturn SearchHelpers.SearchForNonPrintableCharacter(files,%char(27),"<ESC>",summaryMessage)
+			mreturn SearchHelpers.SearchForNonPrintableCharacter(filespec,allFileContent,sourceLines,(Char)%char(27),"<ESC>")
 		endmethod
 	endclass
 
-	public class SearchForLineFeed implements IConversionTool
+	public class SearchForLineFeed implements ISearchTool
 
 		public readonly property Description, string, "Find <LF> characters in source code"
 
-		public method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
+		public method DoSearch, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
 		proc
-			mreturn SearchHelpers.SearchForNonPrintableCharacter(files,%char(10),"<LF>",summaryMessage)
+			mreturn SearchHelpers.SearchForNonPrintableCharacter(filespec,allFileContent,sourceLines,(Char)%char(10),"<LF>")
 		endmethod
 	endclass
 	
-	public class SearchForFormFeed implements IConversionTool
+	public class SearchForFormFeed implements ISearchTool
 
 		public readonly property Description, string, "Find <FF> characters in source code"
 
-		public method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
+		public method DoSearch, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
 		proc
-			mreturn SearchHelpers.SearchForNonPrintableCharacter(files,%char(12),"<FF>",summaryMessage)
+			mreturn SearchHelpers.SearchForNonPrintableCharacter(filespec,allFileContent,sourceLines,(Char)%char(12),"<FF>")
 		endmethod
 	endclass
+
+	public class SearchForA implements ISearchTool
+
+		public readonly property Description, string, "Find A characters in source code"
+
+		public method DoSearch, @List<SearchResult>
+			required in    filespec, string
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
+		proc
+			mreturn SearchHelpers.SearchForNonPrintableCharacter(filespec,allFileContent,sourceLines,(Char)%char(65),"A")
+		endmethod
+	endclass
+
 	
 endnamespace

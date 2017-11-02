@@ -7,10 +7,10 @@ import CodeConverterInterface
 .array 0
 
 namespace CodeConverterSampleTasks
-
-	public class ChangeDisplayTextAtPosition implements IConversionTool
+	
+	public class ChangeScreenForms implements IConversionToolOld
 		
-		public readonly property Description, string, "Change DISPLAY (15,$SCR_POS(r,c),'text')"
+		public readonly property Description, string, "Change Terminal FORMS"
 
 		public method DoConvert, @List<OperationResult>
 			files, @List<String> 
@@ -43,57 +43,52 @@ namespace CodeConverterSampleTasks
 					if (string.IsNullOrWhiteSpace(sourceline))
 						nextloop
 					
-					;;Skip lines that only have a comment
-					if (sourceline.Trim().StartsWith(";"))
-						nextloop
-
-					;;DISPLAY (15,$SCR_POS(14,1),'18.VDSt')
-
-					if (!sourceline.Trim().ToUpper().Contains("DISPLAY (15,$SCR_POS("))
-						nextloop
-					
-					data startPos, int, sourceline.ToUpper().IndexOf("DISPLAY (15,$SCR_POS(")
-					data rowPos,   int, sourceline.ToUpper().IndexOf("$SCR_POS(") + 9
-					data colPos,   int, sourceline.IndexOf(",",rowPos+1) + 1
-					data endOfPos, int, sourceline.IndexOf(")",colPos+1)
-
-					;;Make sure we're looking good so far
-					if ((rowPos==-1)||(colPos==-1)||(endOfPos==-1))
-						nextloop
-
-					;;The character after the end of position ) should be a comma
-					if (sourceline.Substring(endOfPos+1,1)!=",")
-						nextloop
-
-					;;The character after that should be a ' or "
-					data openQuotePos, int, endOfPos + 2
-					data closeQuotePos, int
-					if (sourceline.Substring(openQuotePos,1)=='"')  then
+					if (sourceline.ToUpper().Contains("FORMS(15,"))
 					begin
-						;;Found a double quote quoted string
-						closeQuotePos = sourceline.IndexOf('"',openQuotePos+1)
+						data startPos, int, sourceline.ToUpper().IndexOf("FORMS(15,")
+						data endPos, int, startPos + 8
+						sourceline = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"FORMS (15,")
 					end
-					else if (sourceline.Substring(openQuotePos,1)=="'") then
+					
+					;FORMS (15,nval)
+					
+					data ix, int
+					
+					if (sourceline.ToUpper().Contains("FORMS (15,")) then
 					begin
-						;;Found a single quote quoted string
-						closeQuotePos = sourceline.IndexOf("'",openQuotePos+1)
+						data startPos, int, sourceline.ToUpper().IndexOf("FORMS (15,")
+						data endPos, int, -1
+						data startVariablePos, int, startPos + 10
+						data endVariablePos, int
+						data parenDepth, int, 0
+						
+						;;Wind forward until we find the )
+						for ix from startVariablePos thru sourceLine.Length - 1
+						begin
+							if ((sourceline.Substring(ix,1)==",")&&(parenDepth==0)) then
+								exitloop
+							else if (sourceline.Substring(ix,1)=="(") then
+								parenDepth += 1
+							else if (sourceline.Substring(ix,1)==")")
+							begin
+								if (parenDepth>0) then
+									parenDepth -= 1
+								else
+								begin
+									endPos = ix
+									endVariablePos = ix - 1
+									exitloop
+								end
+							end
+						end
+						if (endPos==-1)
+							nextloop
+						sourceline = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),String.Format("UI.Forms({0})",sourceline.Substring(startVariablePos,endVariablePos-startVariablePos+1)))
+						sourcelines[sourceLineIndex] = sourceline
 					end
 					else
 						nextloop
-
-					;;Did we find the end of the quoted string?
-					if (closeQuotePos==-1)
-						nextloop
-
-					;;The next character should be a )
-					if (sourceline.Substring(closeQuotePos+1,1)!=")")
-						nextloop
 					
-					data row, string, sourceline.Substring(rowPos,colPos-rowPos-1)
-					data col, string, sourceline.Substring(colPos,endOfPos-colPos)
-					data text, String, sourceline.Substring(opEnQuotePos,closeQuotePos-openQuotePos+1)
-
-					sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,closeQuotePos-startPos+2),String.Format("UI.DisplayTextAt({0},{1},{2})",row,col,text))
 					linesModified += 1
 					totalChanges += 1
 					fileModified = true
@@ -136,7 +131,7 @@ namespace CodeConverterSampleTasks
 			mreturn results
 			
 		endmethod
-				
+		
 	endclass
-
+	
 endnamespace

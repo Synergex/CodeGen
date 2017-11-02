@@ -8,9 +8,9 @@ import CodeConverterInterface
 
 namespace CodeConverterSampleTasks
 	
-	public class ChangeScreenForms implements IConversionTool
+	public class ChangeDisplayAttributesOff implements IConversionToolOld
 		
-		public readonly property Description, string, "Change Terminal FORMS"
+		public readonly property Description, string, "Change Reset Attrib DISPLAY (15,27,'[0m')"
 
 		public method DoConvert, @List<OperationResult>
 			files, @List<String> 
@@ -43,52 +43,13 @@ namespace CodeConverterSampleTasks
 					if (string.IsNullOrWhiteSpace(sourceline))
 						nextloop
 					
-					if (sourceline.ToUpper().Contains("FORMS(15,"))
-					begin
-						data startPos, int, sourceline.ToUpper().IndexOf("FORMS(15,")
-						data endPos, int, startPos + 8
-						sourceline = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"FORMS (15,")
-					end
-					
-					;FORMS (15,nval)
-					
-					data ix, int
-					
-					if (sourceline.ToUpper().Contains("FORMS (15,")) then
-					begin
-						data startPos, int, sourceline.ToUpper().IndexOf("FORMS (15,")
-						data endPos, int, -1
-						data startVariablePos, int, startPos + 10
-						data endVariablePos, int
-						data parenDepth, int, 0
-						
-						;;Wind forward until we find the )
-						for ix from startVariablePos thru sourceLine.Length - 1
-						begin
-							if ((sourceline.Substring(ix,1)==",")&&(parenDepth==0)) then
-								exitloop
-							else if (sourceline.Substring(ix,1)=="(") then
-								parenDepth += 1
-							else if (sourceline.Substring(ix,1)==")")
-							begin
-								if (parenDepth>0) then
-									parenDepth -= 1
-								else
-								begin
-									endPos = ix
-									endVariablePos = ix - 1
-									exitloop
-								end
-							end
-						end
-						if (endPos==-1)
-							nextloop
-						sourceline = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),String.Format("UI.Forms({0})",sourceline.Substring(startVariablePos,endVariablePos-startVariablePos+1)))
-						sourcelines[sourceLineIndex] = sourceline
-					end
-					else
+					if (!sourceline.ToLower().Contains("display (15,27,'[m')") && !sourceline.ToLower().Contains("display (15,27,'[0m')"))
 						nextloop
 					
+					data startPos, int, sourceline.ToLower().IndexOf("display (15,27,")
+					data endPos, int, sourceline.IndexOf("m')",startPos) + 2
+					
+					sourcelines[sourceLineIndex] = sourceline.Replace(sourceline.Substring(startPos,endPos-startPos+1),"UI.ClearAttributes()")
 					linesModified += 1
 					totalChanges += 1
 					fileModified = true

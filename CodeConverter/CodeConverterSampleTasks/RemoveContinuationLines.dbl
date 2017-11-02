@@ -8,136 +8,86 @@ namespace CodeConverterSampleTasks
 	
 	public class RemoveContinuationLines implements IConversionTool
 		
-		public readonly property Description, string, "Remove continuation lines"
+		public readonly property Description, String, "Remove continuation lines"
 
-		public method DoConvert, @List<OperationResult>
-			required in  files, @List<String> 
-			required in  testMode, Boolean 
-			required in  createFilesInTestMode, Boolean 
-			required out summaryMessage, String
-			endparams
+		public method DoConvert, ConversionResult
+			required in    fileSpec, String
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
+			required out   changeCount, int
 		proc
-			data results, @List<OperationResult>, new List<OperationResult>()
-			data filesProcessed, int, 0
-			data filesWithContinuationLines, int, 0
-			data continuationLinesRemoved, int, 0
-			
-			data filename, String
-			foreach filename in files
-			begin
-				filesProcessed += 1
-				data fileModified, boolean, false
+			;;Does the file even have any & characters in it?
+			if (!allFileContent.Contains("&"))
+				mreturn ConversionResult.NoChanges
 				
-				;;Does the file even have any & characters in it?
-				if (!File.ReadAllText(filename).Contains("&"))
-					nextloop
+			data previousLine = String.Empty
+			data currentLine =  String.Empty
 				
-				;;Get the data for the file
-				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
-				
-				data previousLine, String
-				data currentLine, String
-				
-				data ix, int, 0 ;First line can't be a continuation!
-				while ((ix+=1)<sourcelines.Count)
-				begin
-					previousLine = sourcelines[ix-1]
-					currentLine = sourcelines[ix]
-					
-					if (!currentLine.Trim().StartsWith("&"))
-						nextloop
-					
-					;;We have a continuation line
-					filesWithContinuationLines += 1
-					
-					;;Remove any trailing comments from the previous line
-					data inQuotedString, boolean, false
-					data quotedStringDouble, boolean
-					data iy, int
-					for iy from 0 thru previousLine.Length-1
-					begin
-						using previousLine.Substring(iy,1) select
-						('"'),
-						begin
-							if (inQuotedString && quotedStringDouble) then
-								inQuotedString = false
-							else if (!inQuotedString)
-							begin
-								inQuotedString = true
-								quotedStringDouble = true
-							end
-						end
-						("'"),
-							if (inQuotedString && !quotedStringDouble) then
-								inQuotedString = false
-							else if (!inQuotedString)
-							begin
-								inQuotedString = true
-								quotedStringDouble = false
-							end
-						(";"),
-						begin
-							if (!inQuotedString)
-							begin
-								;;Found a comment - discard the rest of the line.
-								if (iy>0) then
-									previousLine = previousLine.Substring(0,iy)
-								else
-									previousLine = string.Empty
-								exitloop
-							end
-						end
-						endusing
-					end
-					
-					;;Add the current line's code to the end of the previous line
-					data ampPos, int, currentLine.IndexOf("&")
-					previousLine = previousLine.TrimEnd() + " " + currentLine.Substring(ampPos+1,currentLine.Length - ampPos - 1).Trim()
-					
-					;;Store the new previous line
-					sourcelines[ix-1] = previousLine
-					
-					;;Remove the current line
-					sourcelines.RemoveAt(ix)
-					ix -= 1					
-					continuationLinesRemoved += 1
-					fileModified = true
-				end
-				
-				if (fileModified)
-				begin
-					if (testMode) then
-					begin
-						data testFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".TEST")
-						if (createFilesInTestMode) then
-						begin
-							File.WriteAllLines(testFile,sourcelines)
-							results.Add(new OperationResult(filename,0,string.Format("CREATED {0}",testFile)))
-						end
-						else
-							results.Add(new OperationResult(filename,0,string.Format("WOULD UPDATE {0}",filename)))
-					end	
-					else
-					begin
-						data saveFile, String, Path.Combine(Path.GetDirectoryName(filename),Path.GetFileNameWithoutExtension(filename)+".SAVE")
-						try
-						begin
-							File.Copy(filename,saveFile)
-							File.WriteAllLines(filename,sourcelines)
-							results.Add(new OperationResult(filename,0,string.Format("MODIFIED {0}. Original code saved in {1}",filename,saveFile)))
-						end
-						catch (e, @Exception)
-						begin
-							results.Add(new OperationResult(filename,0,string.Format("FAILED TO MODIFY OR BACKUP {0}.",filename)))
-						end
-						endtry
-					end				
-				end
-			end
+			data ix, int, 0 ;Zero because the first line can't be a continuation
 
-			summaryMessage = string.Format("Processed {0} files and found continuation lines in {1}. Removed {2} continuation lines from code.",filesProcessed,filesWithContinuationLines,continuationLinesRemoved)
-			
-			mreturn results
+			while ((ix += 1) < sourceLines.Count)
+			begin
+				previousLine = sourceLines[ix-1]
+				currentLine = sourceLines[ix]
+					
+				if (!currentLine.Trim().StartsWith("&"))
+					nextloop
+					
+				;;We have a continuation line. First remove any trailing comments from the previous line
+
+				data inQuotedString = false
+				data quotedStringDouble = false
+
+				data iy, int
+				for iy from 0 thru previousLine.Length-1
+				begin
+					using previousLine.Substring(iy,1) select
+					('"'),
+					begin
+						if (inQuotedString && quotedStringDouble) then
+							inQuotedString = false
+						else if (!inQuotedString)
+						begin
+							inQuotedString = true
+							quotedStringDouble = true
+						end
+					end
+					("'"),
+						if (inQuotedString && !quotedStringDouble) then
+							inQuotedString = false
+						else if (!inQuotedString)
+						begin
+							inQuotedString = true
+							quotedStringDouble = false
+						end
+					(";"),
+					begin
+						if (!inQuotedString)
+						begin
+							;;Found a comment - discard the rest of the line.
+							if (iy > 0) then
+								previousLine = previousLine.Substring(0,iy)
+							else
+								previousLine = String.Empty
+							exitloop
+						end
+					end
+					endusing
+				end
+					
+				;;Add the current line's code to the end of the previous line
+				data ampPos = currentLine.IndexOf("&")
+				previousLine = previousLine.TrimEnd() + " " + currentLine.Substring(ampPos + 1,currentLine.Length - ampPos - 1).Trim()
+					
+				;;Store the new previous line, remove the current line and reset context
+				sourceLines[ix-1] = previousLine
+				sourceLines.RemoveAt(ix)
+				ix -= 1					
+
+				changeCount += 1
+			end
+	
+			mreturn (changeCount == 0) ? ConversionResult.NoChanges : ConversionResult.sourceLinesModified
 			
 		endmethod
 		
