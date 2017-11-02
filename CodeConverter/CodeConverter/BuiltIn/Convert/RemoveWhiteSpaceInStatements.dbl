@@ -1,0 +1,104 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeConverterInterface
+
+namespace CodeConverter.BuiltIn.Convert
+	
+	public class RemoveWhiteSpaceInStatements implements IConversionTool
+		
+		public readonly property Description, string, "Remove excess white space from statements"
+
+		public method DoConvert, ConversionResult
+			required in    fileSpec, String
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
+			required out   changeCount, int
+		proc
+			data ix, int, -1
+				
+			while ((ix += 1) < sourcelines.Count)
+			begin
+					
+				;;Skip blank lines
+				if (string.IsNullOrWhiteSpace(sourceLines[ix]))
+					nextloop
+					
+				;;Skip lines that only have a comment
+				if (sourceLines[ix].Trim().StartsWith(";"))
+					nextloop
+					
+				;;Find the first non-whitespace character
+				data firstCharacterIndex, int, -1
+				repeat
+				begin
+					firstCharacterIndex+=1
+					if (sourceLines[ix].Substring(firstCharacterIndex,1)!=" " && sourceLines[ix].Substring(firstCharacterIndex,1)!="	")
+						exitloop
+				end
+					
+				;;Remove any whitespace characters that are not in quoted strings
+				data inQuotedString, boolean, false
+				data quotedStringDouble, boolean
+				data parenDepth, int, 0
+					
+				data characterIndex, int, firstCharacterIndex - 1
+				while ((characterIndex += 1) < sourceLines[ix].Length)
+				begin
+					using sourceLines[ix].Substring(characterIndex,1) select
+					('"'),
+					begin
+						if (inQuotedString && quotedStringDouble) then
+							inQuotedString = false
+						else if (!inQuotedString)
+						begin
+							inQuotedString = true
+							quotedStringDouble = true
+						end
+					end
+					("'"),
+						if (inQuotedString && !quotedStringDouble) then
+							inQuotedString = false
+						else if (!inQuotedString)
+						begin
+							inQuotedString = true
+							quotedStringDouble = false
+						end
+					("("),
+						parenDepth += 1
+					(")"),
+						parenDepth -= 1
+					(";"),
+						if (!inQuotedString)
+						begin
+							;;Found the start of a comment, leave the rest of the line alone.
+							exitloop
+						end
+					(" ","	"),
+					begin
+						if (!inQuotedString && (parenDepth>0))
+						begin
+							;;Make sure the preceding three characters were not a "new" statement
+							if ((characterIndex>=3)&&(sourceLines[ix].Substring(characterIndex-3,3).ToLower()=="new"))
+								nextloop
+								
+							;;Found an excess whitespace character - remove it
+							sourceLines[ix] = sourceLines[ix].Remove(characterIndex,1)
+							changeCount += 1
+								
+							;;Process the same index again
+							characterIndex -= 1
+						end
+					end
+					endusing
+				end
+			end
+							
+			mreturn (changeCount == 0) ? ConversionResult.NoChanges : ConversionResult.SourceLinesModified
+			
+		endmethod
+		
+	endclass
+	
+endnamespace

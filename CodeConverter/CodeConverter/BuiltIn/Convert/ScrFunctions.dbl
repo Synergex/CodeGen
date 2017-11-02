@@ -1,0 +1,75 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeConverterInterface
+import System.Text
+
+namespace CodeConverter.BuiltIn.Convert
+	
+	public class UpperCaseScrFunctions implements IConversionTool
+		
+		public readonly property Description, string, "Uppercase all $SCR functions"
+
+		public method DoConvert, ConversionResult
+			required in    fileSpec, String
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
+			required out   changeCount, int
+		proc
+			;;Does the text $SCR_ appear in the file?
+			if (!allFileContent.ToUpper().Contains("$SCR_"))
+				mreturn ConversionResult.NoChanges
+				
+			data ix, int, -1
+				
+			while ((ix += 1) < sourceLines.Count)
+			begin
+				;;Skip blank lines
+				if (string.IsNullOrWhiteSpace(sourceLines[ix]))
+					nextloop
+					
+				;;Skip lines that only have a comment
+				if (sourceLines[ix].Trim().StartsWith(";"))
+					nextloop
+					
+				;;Ignore lines that don't contain $SCR_
+				if  (!sourceLines[ix].ToUpper().Contains("$SCR_"))
+					nextloop
+					
+				data lookingFor = new List<String>() {"$SCR_CLR(SCREEN)", "$SCR_CLR(EOL)", "$SCR_CLR(EOS)", "$SCR_CLR(LINE)", "$SCR_CLR(BOL)", "$SCR_CLR(BOS)", "$SCR_ATT(CLEAR)", "$SCR_ATT(BOLD)", "$SCR_ATT(UNDER)", "$SCR_ATT(BLINK)", "$SCR_ATT(REVERSE)", "$SCR_ATT(GON)", "$SCR_ATT(GOFF)", "$SCR_POS", "$SCR_CLR", "$SCR_MOV", "$SCR_ATT"}
+				data sourceLineUpper = sourceLines[ix].ToUpper()
+				data sb, @StringBuilder
+				data startPos = 0
+				data lookFor = String.Empty
+
+				foreach lookFor in lookingFor
+				begin
+					startPos = 0
+					while ((startPos = sourceLineUpper.IndexOf(lookFor,startPos)) != -1)
+					begin
+						data foundString = sourceLines[ix].Substring(startPos,lookFor.Length)
+
+						if (foundString != lookFor)
+						begin
+							if (sb == ^null)
+								sb = new StringBuilder(sourceLines[ix])
+							sb.Remove(startPos,lookFor.Length)
+							sb.Insert(startPos,lookFor)
+							changeCount += 1
+						end
+						startPos += 1
+					end
+				end
+
+				if (sb != ^null)
+					sourceLines[ix] = sb.ToString()
+			end
+			
+			mreturn (changeCount == 0) ? ConversionResult.NoChanges : ConversionResult.SourceLinesModified
+			
+		endmethod
+		
+	endclass
+	
+endnamespace

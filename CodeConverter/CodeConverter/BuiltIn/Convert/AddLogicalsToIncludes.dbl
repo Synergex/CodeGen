@@ -1,0 +1,82 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeConverterInterface
+
+namespace CodeConverter.BuiltIn.Convert
+
+	public class AddLogicalsToIncludes implements IConversionTool
+		
+		public readonly property Description, string, "Add INC: to include statements with no logical name"
+
+		public method DoConvert, ConversionResult
+			required in    fileSpec, String
+			required inout allFileData, String
+			required inout sourceLines, @List<string>
+			required out   changeCount, int
+		proc
+			data trimChars, [#]char, new char[2]
+			trimChars[1] = %char(32)
+			trimChars[2] = %char(9)
+			
+			data ix,int, -1
+			while ((ix+=1) < sourcelines.Count)
+			begin
+				;;Do we have a .INCLUDE?
+				if (!sourcelines[ix].Trim(trimChars).ToUpper().StartsWith(".INCLUDE"))
+					nextloop
+					
+				;;Make sure it's not a repository include
+				if (sourcelines[ix].ToUpper().Contains("REPOSITORY") || sourcelines[ix].ToUpper().Contains("DICTIONARY"))
+					nextloop
+					
+				;;Does the line already have a : in it?
+				if (sourcelines[ix].Contains(":"))
+					nextloop
+					
+				data openQuote, int
+				data closeQuote, int
+				data newSourceLine, String, string.Empty
+					
+				;;Are there double quotes in the string?
+				openQuote = sourcelines[ix].IndexOf('"')
+				if (openQuote != -1) then
+				begin
+					closeQuote = sourcelines[ix].IndexOf('"',openQuote+1)
+					if (closeQuote != -1)
+						newSourceLine = sourcelines[ix].Substring(0,openQuote+1) + "INC:" + sourcelines[ix].Substring(openQuote+1,sourcelines[ix].Length-openQuote-1)
+				end
+				else
+				begin
+					;;Are there single quotes in the string?
+					openQuote = sourcelines[ix].IndexOf("'")
+					if (openQuote != -1) then
+					begin
+						closeQuote = sourcelines[ix].IndexOf("'",openQuote+1)
+						if (closeQuote != -1)
+							newSourceLine = sourcelines[ix].Substring(0,openQuote+1) + "INC:" + sourcelines[ix].Substring(openQuote+1,sourcelines[ix].Length-openQuote-1)
+					end
+					else
+					begin
+						;;No quotes
+						data includeStart = sourcelines[ix].ToUpper().IndexOf(".INCLUDE")
+						data filePart = sourcelines[ix].Substring(includeStart+8,sourcelines[ix].Length - includeStart - 8)
+						newSourceLine = sourcelines[ix].Substring(0,includeStart+8) + " 'DEF:" + filePart.Trim() + "'"
+					end
+				end
+					
+				if (!String.IsNullOrWhiteSpace(newSourceLine))
+				begin
+					sourcelines[ix] = newSourceLine
+					changeCount += 1
+				end
+			end
+			
+			mreturn (changeCount == 0) ? ConversionResult.NoChanges : ConversionResult.SourceLinesModified
+			
+		endmethod
+		
+	endclass
+
+endnamespace

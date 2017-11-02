@@ -1,0 +1,96 @@
+
+import System
+import System.Collections.Generic
+import System.IO
+import CodeConverterInterface
+
+namespace CodeConverter.BuiltIn.Convert
+	
+	public class RemoveContinuationLines implements IConversionTool
+		
+		public readonly property Description, String, "Remove continuation lines"
+
+		public method DoConvert, ConversionResult
+			required in    fileSpec, String
+			required inout allFileContent, String
+			required inout sourceLines, @List<string>
+			required out   changeCount, int
+		proc
+			;;Does the file even have any & characters in it?
+			if (!allFileContent.Contains("&"))
+				mreturn ConversionResult.NoChanges
+				
+			data previousLine = String.Empty
+			data currentLine =  String.Empty
+				
+			data ix, int, 0 ;Zero because the first line can't be a continuation
+
+			while ((ix += 1) < sourceLines.Count)
+			begin
+				previousLine = sourceLines[ix-1]
+				currentLine = sourceLines[ix]
+					
+				if (!currentLine.Trim().StartsWith("&"))
+					nextloop
+					
+				;;We have a continuation line. First remove any trailing comments from the previous line
+
+				data inQuotedString = false
+				data quotedStringDouble = false
+
+				data iy, int
+				for iy from 0 thru previousLine.Length-1
+				begin
+					using previousLine.Substring(iy,1) select
+					('"'),
+					begin
+						if (inQuotedString && quotedStringDouble) then
+							inQuotedString = false
+						else if (!inQuotedString)
+						begin
+							inQuotedString = true
+							quotedStringDouble = true
+						end
+					end
+					("'"),
+						if (inQuotedString && !quotedStringDouble) then
+							inQuotedString = false
+						else if (!inQuotedString)
+						begin
+							inQuotedString = true
+							quotedStringDouble = false
+						end
+					(";"),
+					begin
+						if (!inQuotedString)
+						begin
+							;;Found a comment - discard the rest of the line.
+							if (iy > 0) then
+								previousLine = previousLine.Substring(0,iy)
+							else
+								previousLine = String.Empty
+							exitloop
+						end
+					end
+					endusing
+				end
+					
+				;;Add the current line's code to the end of the previous line
+				data ampPos = currentLine.IndexOf("&")
+				previousLine = previousLine.TrimEnd() + " " + currentLine.Substring(ampPos + 1,currentLine.Length - ampPos - 1).Trim()
+					
+				;;Store the new previous line, remove the current line and reset context
+				sourceLines[ix-1] = previousLine
+				sourceLines.RemoveAt(ix)
+				ix -= 1					
+
+				changeCount += 1
+			end
+	
+			mreturn (changeCount == 0) ? ConversionResult.NoChanges : ConversionResult.sourceLinesModified
+			
+		endmethod
+		
+	endclass
+	
+endnamespace
