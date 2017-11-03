@@ -29,7 +29,7 @@ namespace CodeConverter
 			loadTools()
 			
 			lblSearchResultMessage.Text = String.Empty
-			lblResultMessage.Text = String.Empty
+			lblConvertResultMessage.Text = String.Empty
 			activityLabel.Text = String.Empty
 
 			calculateMatchingFiles()
@@ -81,7 +81,6 @@ namespace CodeConverter
 			this.Cursor = Cursors.WaitCursor
 
 			activityLabel.Text = "Loading external tools..."
-
 			this.Refresh()
 
 			searchToolsBindingSource.Clear()
@@ -187,6 +186,7 @@ namespace CodeConverter
 			grpConvertOptions.Enabled = (filesToProcess.Count>0)
 
 			activityLabel.Text = String.Empty
+
 			this.Cursor = Cursors.Default
 
 		endmethod
@@ -206,7 +206,7 @@ namespace CodeConverter
 		proc
 			btnConvert.Enabled = lstConvertOptions.SelectedIndex != -1
 			operationResultBindingSource.Clear()
-			lblResultMessage.Text = string.Empty
+			lblConvertResultMessage.Text = String.Empty
 		endmethod
 		
 		private method btnSearch_Click, void
@@ -217,14 +217,21 @@ namespace CodeConverter
 			this.Cursor = Cursors.WaitCursor
 
 			searchResultBindingSource.Clear()
-			lblSearchResultMessage.Text = string.Empty
 
 			data tool = ^as(searchToolsBindingSource.Current, @ISearchTool)
 			data allResults = new List<SearchResult>()
 			data filename, string
 
+			lblSearchResultMessage.Text = String.Format("Executing {0} in {1} files ...",tool.Description,filesToProcess.Count)
+			this.Refresh()
+
+			progressBar.Maximum = filesToProcess.Count
+			progressBar.Value = 0
+
 			foreach filename in filesToProcess
 			begin
+				progressBar.Value += 1
+
 				;;Read the file into a string
 				data allFileData = File.ReadAllText(filename)
 
@@ -237,9 +244,22 @@ namespace CodeConverter
 				allResults.AddRange(results)			
 			end
 
+			progressBar.Value = 0
+
+			using allResults.Count select
+			(0),
+				lblSearchResultMessage.Text = "No matches"
+			(1),
+				lblSearchResultMessage.Text = "1 match"
+			(),
+				lblSearchResultMessage.Text = String.Format("{0} matches",allResults.Count)	
+			endusing
+			
+			this.Refresh()
+
 			searchResultBindingSource.DataSource = allResults
 
-			lblResultMessage.Text = String.Format("Processed {0} files, found {1} matches.", filesToProcess.Count, allResults.Count)
+			lblConvertResultMessage.Text = String.Format("Processed {0} files, found {1} matches.", filesToProcess.Count, allResults.Count)
 			
 			this.Cursor = Cursors.Default
 
@@ -254,22 +274,29 @@ namespace CodeConverter
 				if (MessageBox.Show("You are NOT IN TEST MODE and you have chosen NOT TO COPY the original source code. Your source code WILL BE CHANGED! Are you sure you want to continue?","Confirmation Required",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)==DialogResult.No)
 					mreturn
 			
-			operationResultBindingSource.Clear()
-			lblResultMessage.Text = string.Empty
+			this.Cursor = Cursors.WaitCursor
 
-			;data tool = (@IConversionTool)conversionToolsBindingSource.Current
+			operationResultBindingSource.Clear()
+
 			data tool = ^as(conversionToolsBindingSource.Current, @IConversionTool)
 			data results = new List<OperationResult>()
 
 			data successCount = 0
 			data failureCount = 0
 			data totalChangesCount = 0
-			
-			this.Cursor = Cursors.WaitCursor
 
 			data filename, string
+
+			lblConvertResultMessage.Text = String.Format("Executing {0} in {1} files ...",tool.Description,filesToProcess.Count)
+			this.Refresh()
+			
+			progressBar.Maximum = filesToProcess.Count
+			progressBar.Value = 0
+
 			foreach filename in filesToProcess
 			begin
+				progressBar.Value += 1
+
 				;;Read the file into a string
 				data allFileData = File.ReadAllText(filename)
 
@@ -334,12 +361,14 @@ namespace CodeConverter
 				
 			end
 
-			this.Cursor = Cursors.Default
+			progressBar.Value = 0
 
-			lblResultMessage.Text = String.Format("Processed {0} files, {1} success, {2} failures, {3} total changes.", filesToProcess.Count, successCount, failureCount, totalChangesCount)
+			lblConvertResultMessage.Text = String.Format("Processed {0} files, {1} success, {2} failures, {3} total changes.", filesToProcess.Count, successCount, failureCount, totalChangesCount)
 
 			operationResultBindingSource.DataSource = results
 			
+			this.Cursor = Cursors.Default
+
 		endmethod
 		
 		private method editCurrentRowFile, void
