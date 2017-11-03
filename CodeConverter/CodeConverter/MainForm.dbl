@@ -9,7 +9,7 @@ import CodeConverterInterface
 
 namespace CodeConverter
 	
-	public partial class MainForm extends System.Windows.Forms.Form
+	public partial class MainForm extends Form
 
 		private const heading, string, "Code Converter"
 		private filesToProcess, @List<String>, new List<String>()
@@ -238,10 +238,17 @@ namespace CodeConverter
 				;;Read the file into a collection of records
 				data sourcelines, @List<String>, new List<String>(File.ReadAllLines(filename))
 
-				;;Call the search tool for the current file
-				data results = tool.DoSearch(filename,allFileData,sourcelines)
-
-				allResults.AddRange(results)			
+				;;Call the search tool
+				try
+				begin
+					data results = tool.DoSearch(filename,allFileData,sourcelines)
+					allResults.AddRange(results)
+				end
+				catch (ex, @Exception)
+				begin
+					allResults.Add(new SearchResult() { File=filename, Token=String.Format("Search tool crashed with error: {0}", ex.Message)})
+				end
+				endtry
 			end
 
 			progressBar.Value = 0
@@ -306,59 +313,69 @@ namespace CodeConverter
 				data changes = 0
 
 				;;Call the conversion tool for the current file
-				data result = tool.DoConvert(filename,allFileData,sourcelines,changes)
-				data resultData = new OperationResult() {FileSpec=filename, Changes=changes}
+				data result, ConversionResult 
+				data resultData = new OperationResult() {FileSpec=filename}
 
-				using result select
-				(ConversionResult.AllFileContentModified, ConversionResult.SourceLinesModified),
+				try
 				begin
-					if (chkTestMode.Checked) then
+					result = tool.DoConvert(filename,allFileData,sourcelines,changes)
+					resultData.Changes = changes
+					using result select
+					(ConversionResult.AllFileContentModified, ConversionResult.SourceLinesModified),
 					begin
-						;;We're in test mode
-						if (Properties.Settings.Default.AppSettings.CreateFilesInTestMode)
+						if (chkTestMode.Checked) then
 						begin
-							;;Create a "test" output file
-							data testFile = Path.Combine(Path.GetDirectoryName(filename),Path.GetFileName(filename)+".TEST")
-							if (result == ConversionResult.AllFileContentModified) then
-								File.WriteAllText(testFile,allFileData)
-							else
-								File.WriteAllLines(testFile,sourcelines)						
+							;;We're in test mode
+							if (Properties.Settings.Default.AppSettings.CreateFilesInTestMode)
+							begin
+								;;Create a "test" output file
+								data testFile = Path.Combine(Path.GetDirectoryName(filename),Path.GetFileName(filename)+".TEST")
+								if (result == ConversionResult.AllFileContentModified) then
+									File.WriteAllText(testFile,allFileData)
+								else
+									File.WriteAllLines(testFile,sourcelines)						
+							end
 						end
-					end
-					else
-					begin
-						;;We're doing this for real - should we first save the original file?
-						if (Properties.Settings.Default.AppSettings.SaveCopiesWhenConverting)
-						begin
-							data saveFile = Path.Combine(Path.GetDirectoryName(filename),Path.GetFileName(filename)+".SAVE")
-							File.Copy(filename,saveFile)
-						end
-						;;Overwrite the source file
-						if (result == ConversionResult.AllFileContentModified) then
-							File.WriteAllText(filename,allFileData)
 						else
-							File.WriteAllLines(filename,sourcelines)						
+						begin
+							;;We're doing this for real - should we first save the original file?
+							if (Properties.Settings.Default.AppSettings.SaveCopiesWhenConverting)
+							begin
+								data saveFile = Path.Combine(Path.GetDirectoryName(filename),Path.GetFileName(filename)+".SAVE")
+								File.Copy(filename,saveFile)
+							end
+							;;Overwrite the source file
+							if (result == ConversionResult.AllFileContentModified) then
+								File.WriteAllText(filename,allFileData)
+							else
+								File.WriteAllLines(filename,sourcelines)						
+						end
+
+						resultData.Message = "File changed."
+
+						successCount += 1
+						totalChangesCount += changes
 					end
-
-					resultData.Message = "File changed."
-
-					successCount += 1
-					totalChangesCount += changes
+					(ConversionResult.NoChanges),
+					begin
+						resultData.Message = "No changes."
+						successCount += 1
+					end
+					(ConversionResult.Failure),
+					begin
+						resultData.Message = "Failed."
+						failureCount += 1
+					end
+					endusing
 				end
-				(ConversionResult.NoChanges),
+				catch (ex, @Exception)
 				begin
-					resultData.Message = "No changes."
-					successCount += 1
-				end
-				(ConversionResult.Failure),
-				begin
-					resultData.Message = "Failed."
+					resultData.Message = "Conversion tool crashed with error " + ex.Message
 					failureCount += 1
 				end
-				endusing
+				endtry
 
 				results.Add(resultData)
-				
 			end
 
 			progressBar.Value = 0
@@ -422,7 +439,6 @@ namespace CodeConverter
 		private method optionsToolStripMenuItem_Click, void
 			sender, @object 
 			e, @System.EventArgs 
-			endparams
 		proc
 			disposable data dlg = new OptionsForm()
 			dlg.ShowDialog(this)
@@ -445,14 +461,9 @@ namespace CodeConverter
 			dlg.ShowDialog()
 		endmethod
 		
-		
-		
-		
-		
 		private method grdSearchResults_CellDoubleClick, void
 			sender, @object 
 			e, @System.Windows.Forms.DataGridViewCellEventArgs 
-			endparams
 		proc
 			;;Make sure there is a selected item
 			if (searchResultBindingSource.Current == ^null)
