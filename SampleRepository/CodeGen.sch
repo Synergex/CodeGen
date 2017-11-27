@@ -1,13 +1,13 @@
  
 ;  SYNERGY DATA LANGUAGE OUTPUT
 ;
-;  REPOSITORY     : SampleRepository\rpsmain.ism
-;                 : SampleRepository\rpstext.ism
+;  REPOSITORY     : C:\DEV\SYNERGEX\CodeGen\SampleRepository\rpsmain.ism
+;                 : C:\DEV\SYNERGEX\CodeGen\SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
-;  GENERATED      : 07-NOV-2016, 16:02:37
-;                 : Version 10.3.3a
-;  EXPORT OPTIONS : [ALL-K-R-A] 
+;  GENERATED      : 27-NOV-2017, 09:38:35
+;                 : Version 10.3.3d
+;  EXPORT OPTIONS : [ALL] 
  
  
 Format COST_PRICE   Type NUMERIC   "$$,$$X.XXXX"   Justify RIGHT
@@ -203,6 +203,36 @@ Key AUTO_TIMESTAMP_CREATED   ACCESS   Order ASCENDING   Dups NO   Krf 001
 Key AUTO_TIMESTAMP_UPDATED   ACCESS   Order ASCENDING   Dups NO   Krf 002
    Description "Auto timestamp key (time updated)"
    Segment FIELD   AUTO_TIMESTAMP_UPDATED  SegType TIMESTAMP
+ 
+Structure AUTO_SEQUENCE   DBL ISAM
+   Description "Auto sequence key"
+ 
+Field SEQUENCE   Type AUTOSEQ   Size 8
+   Description "Auto sequence"
+   Readonly
+   Nonull
+ 
+Field DATA   Type ALPHA   Size 92
+   Description "Other data"
+ 
+Key SEQUENCE   ACCESS   Order ASCENDING   Dups NO
+   Description "Auto sequence"
+   Segment FIELD   SEQUENCE  SegType SEQUENCE
+ 
+Structure AUTO_TIMESTAMP   DBL ISAM
+   Description "Auto timestamp key"
+ 
+Field TIMESTAMP   Type AUTOTIME   Size 8
+   Description "Auto timestamp key"
+   Readonly
+   Nonull
+ 
+Field DATA   Type ALPHA   Size 92
+   Description "Other data"
+ 
+Key TIMESTAMP   ACCESS   Order ASCENDING   Dups NO
+   Description "Atoo timestamp key"
+   Segment FIELD   TIMESTAMP  SegType TIMESTAMP
  
 Structure BINARY_EMUM_STRUCT   DBL ISAM
    Description "Binary, enum and strut fields"
@@ -1525,6 +1555,14 @@ Key KEY1   ACCESS   Order ASCENDING   Dups YES   Insert END   Modifiable YES
    Krf 001
    Description "Key 1"
    Segment FIELD   FIELD2
+ 
+File AUTO_SEQUENCE   DBL ISAM   "DAT:sequence.ism"
+   Description "File with auto sequence key"
+   Assign AUTO_SEQUENCE
+ 
+File AUTO_TIMESTAMP   DBL ISAM   "DAT:timestamp.ism"
+   Description "File with auto timestamp key"
+   Assign AUTO_TIMESTAMP
  
 File CUSMAS   DBL ISAM   "DAT:cusmas.ism"
    Description "Customer master file"
