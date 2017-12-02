@@ -62,93 +62,70 @@ namespace CodeGen.Engine
 			required in  a_opt          ,String			;;Option string to search for
 			required out a_optvals      ,@List<String>	;;Returned option values
 			
-			.define MAXARGS 256
-			
-			stack record localData
-				fstatus         ,boolean				;;Function return status
-				command         ,a8192					;;Whole command line
-				num_args        ,i4						;;Number of arguments in whole command line
-				arg_pos         ,[MAXARGS] i4			;;Positions of arguments in whole command line
-				arg_len         ,[MAXARGS] i4			;;Lengths of arguments in whole command line
-				current_arg     ,i4						;;Index of current argument being processed
-				opt_char        ,a1						;;Character that precedes options (- or /)
-			endrecord
-			
-			.undefine MAXARGS
-			
 		proc
-			init localData
-			data option_value, String
-
-			fstatus = false
 			a_optvals = new List<String>()
-			
-			if (%option(34)) then
-				opt_char = '/'
-			else
-				opt_char = '-'
-			
-			xcall cmdln(command, num_args, arg_pos, arg_len)
-			
-			for current_arg from 1 thru num_args
-			begin
-				if (arg_pos[current_arg]&&arg_len[current_arg]) then
-					option_value = command(arg_pos[current_arg]:arg_len[current_arg])
-				else
-					option_value = ""
-				
-				;;Is this the requested option?
-				if (option_value.eqs.(opt_char+a_opt))
-					call process_argument
-			end
-			
-			mreturn fstatus
-			
-		process_argument,
-			
-			;;Found requested option
-			fstatus = true
-			
-			;;Process next argument
-			current_arg += 1
-			
-			if (arg_pos[current_arg]&&arg_len[current_arg]) then
-				option_value = command(arg_pos[current_arg]:arg_len[current_arg])
-			else
-				option_value = opt_char
-			
-			;;DO NOT CHANGE THE .ne. OPERATOR to != ... THEY ARE NOT THE SAME THING WITH STRING!
-			while(option_value.ne.opt_char)
-			begin
-				;;Strip leading and trailing quote characters
-				using option_value select
-				("'", '"'),
-				begin
-					if ((option_value.Length>1)&&(option_value(option_value.Length:1)==option_value(1:1)))
-					begin
-						if (option_value.Length>2) then
-							option_value = option_value(2,option_value.Length-1)
-						else
-							option_value = ""
-					end
-				end
-				endusing
 
-				;;Add the value to the returned collection
-				a_optvals.Add(option_value)
-				
-				;;Process next argument
-				current_arg+=1
-				
-				if (arg_pos[current_arg]&&arg_len[current_arg]) then
-					option_value = command(arg_pos[current_arg]:arg_len[current_arg])
-				else
-					option_value = opt_char
-			end
+			data optionFound = false
+			data optionCharacter = %option(34) ? "/" : "-"
 			
-			;;Adjust counter to stay in correct position in loop
-			current_arg -= 1
-			return
+			data args = Environment.GetCommandLineArgs()
+
+			if (args.Length > 1)
+			begin
+				data ix, int
+				data option_value, String
+				for ix from 2 thru args.Length
+				begin
+					option_value = args[ix]
+
+					;;Is this the requested option?
+					if (option_value.eqs.(optionCharacter+a_opt))
+					begin
+						;;Found requested option
+						optionFound = true
+
+						;;Are we out of arguments?
+						if (ix == args.Length)
+							exitloop
+
+						;;Move on to the next argument
+						option_value = args[ix+=1]
+			
+						;;DO NOT CHANGE THE .ne. OPERATOR to != ... THEY ARE NOT THE SAME THING WITH STRING!
+						while(!option_value.StartsWith(optionCharacter))
+						begin
+							;;Strip leading and trailing quote characters
+							using option_value select
+							("'", '"'),
+							begin
+								if ((option_value.Length>1)&&(option_value(option_value.Length:1)==option_value(1:1)))
+								begin
+									if (option_value.Length>2) then
+										option_value = option_value(2,option_value.Length-1)
+									else
+										option_value = ""
+								end
+							end
+							endusing
+
+							;;Add the value to the returned collection
+							a_optvals.Add(option_value)
+
+							;;Are we out of arguments?
+							if (ix == args.Length)
+								exitloop
+				
+							;;Move on to the next argument
+							option_value = args[ix+=1]
+						end
+			
+						;;Adjust counter to stay in correct position in loop
+						ix -= 1
+					end
+				end				
+			end
+
+			mreturn optionFound
 			
 		endmethod
 		
