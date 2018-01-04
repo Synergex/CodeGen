@@ -38,7 +38,12 @@ echo.
 for %%F in ("%FILE_TO_SIGN%") do echo Signing %%~nxF
 
 rem Should be able to use %WindowsSdkDir% but it looks like Visual Studio clears it for some reason!
-"C:\Program Files (x86)\Windows Kits\10\bin\10.0.16299.0\x86\signtool.exe" sign /f "%CODE_SIGN_CERT%" /p %PASSWORD% /t %TIMESTAMP_URL% /fd SHA256 /q "%FILE_TO_SIGN%"
+
+rem This was the command used with the PFX file in previous years.
+rem "C:\Program Files (x86)\Windows Kits\10\bin\10.0.16299.0\x86\signtool.exe" sign /f "%CODE_SIGN_CERT%" /p %PASSWORD% /t %TIMESTAMP_URL% /fd SHA256 /q "%FILE_TO_SIGN%"
+
+rem This is the command used with the certificate on the physical USB device.
+"C:\Program Files (x86)\Windows Kits\10\bin\10.0.16299.0\x86\signtool.exe" sign /fd SHA256 /t http://timestamp.entrust.net/TSS/AuthenticodeTS /q "%FILE_TO_SIGN%"
 
 if "%ERRORLEVEL%"=="0" (
   echo SUCCESS!
