@@ -6,7 +6,7 @@ rem is currently in the Bin\Release folder. Running this script will override an
 rem that might be installed on the system.
 rem
 
-call "%VS140COMNTOOLS%vsvars32.bat"
+call "%VS150COMNTOOLS%VsDevCmd.bat"
 call "%SYNERGYDE64%dbl\dblvars64.bat" > nul
 
 set CODEGEN_ROOT=%~dp0
