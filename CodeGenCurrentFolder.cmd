@@ -27,5 +27,3 @@ echo Repository         : %RPSMFIL% and %RPSTFIL%
 echo Template folder    : %CODEGEN_TPLDIR%
 echo Output folder      : %CODEGEN_OUTDIR%
 echo.
-
-cd /d C:\DEV
