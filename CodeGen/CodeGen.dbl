@@ -44,8 +44,11 @@ import System.Collections.Generic
 import System.Collections.ObjectModel
 import System.Collections.Specialized
 import System.Diagnostics
+import System.IO
+import System.Linq
 import CodeGen
 import CodeGen.Engine
+import CodeGen.MethodCatalogAPI
 import CodeGen.RepositoryAPI
 
 .array 0
@@ -971,6 +974,87 @@ proc
 		end
 	end
 	
+	;;-------------------------------------------------------------------------
+	;;Are we being asked to process a "Synergy Method Catalog" XML file?
+
+	if (ok)
+	begin
+		if (CommandLineParser.Parse("smc",ClValues))
+		begin
+			if (!ClValues.Count) then
+			begin
+				Console.WriteLine("ERROR: No SMC export file specified after the -smc option!")
+				ok = false
+				exitCode = 1
+			end
+			else if (ClValues.Count > 1) then
+			begin
+				Console.WriteLine("ERROR: Only one SMC export file may be specified after the -smc option!")
+				ok = false
+				exitCode = 1
+			end
+			else if (!File.Exists(ClValues[0])) then
+			begin
+				Console.WriteLine("ERROR: Specified SMC export file was not found!")
+				ok = false
+				exitCode = 1
+			end
+			else
+			begin
+				try
+				begin
+					taskSet.MethodCatalog = new Smc(ClValues[0])
+				end
+				catch (ex, @Exception)
+				begin
+					Console.WriteLine(ex.Message)
+					ok = false
+					exitCode = 1
+				end
+				endtry
+			end
+		end
+	end
+
+	;;-------------------------------------------------------------------------
+	;;Are we being asked to process a "Synergy Method Catalog" XML file?
+
+	if (ok)
+	begin
+		if (CommandLineParser.Parse("interface",ClValues))
+		begin
+
+			if (taskSet.MethodCatalog == ^null) then
+			begin
+				Console.WriteLine("ERROR: The -interface may not be used without the -smc option!")
+				ok = false
+				exitCode = 1
+			end
+			else if (!ClValues.Count) then
+			begin
+				Console.WriteLine("ERROR: No interface name specified after the -interface option!")
+				ok = false
+				exitCode = 1
+			end
+			else if (ClValues.Count > 1) then
+			begin
+				Console.WriteLine("ERROR: Only one interface name may be specified after the -interface option!")
+				ok = false
+				exitCode = 1
+			end
+			else if (taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.Equals(ClValues[0])}) == ^null) then
+			begin
+				Console.WriteLine("ERROR: Interface {0} was not found in the method catalog export file!",ClValues[0])
+				ok = false
+				exitCode = 1
+			end
+			else
+			begin
+				taskSet.Interface = ClValues[0]
+			end
+		end
+	end
+
 	;;-------------------------------------------------------------------------
 	;;Do we have any button processing settings?
 	

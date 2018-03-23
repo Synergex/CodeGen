@@ -1,0 +1,247 @@
+;; *****************************************************************************
+;; 
+;;  Title:       ExpressionEvaluatorMethodLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Evaluates method loop expression nodes
+;; 
+;;  Date:        21st March 2018
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2018, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+import CodeGen.RepositoryAPI
+import System.IO
+import CodeGen.MethodCatalogAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+	public partial class ExpressionEvaluator
+
+		private methodLoopExpressionEvaluators, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
+
+		private method registerMethodLoopExpressions, void
+		proc
+			methodLoopExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
+			methodLoopExpressionEvaluators.Add("COMMENT", evaluateMethodComment)
+			methodLoopExpressionEvaluators.Add("ENCRYPT", evaluateMethodEncrypt)
+			methodLoopExpressionEvaluators.Add("FUNCTION", evaluateMethodFunction)
+			methodLoopExpressionEvaluators.Add("PARAMETERS", evaluateMethodParameters)
+			methodLoopExpressionEvaluators.Add("SUBROUTINE", evaluateMethodSubroutine)
+
+			methodLoopExpressionEvaluators.Add("RETURN_NONE", evaluateMethodReturnType)
+			methodLoopExpressionEvaluators.Add("RETURN_ALPHA", evaluateMethodReturnType)
+			methodLoopExpressionEvaluators.Add("RETURN_DECIMAL", evaluateMethodReturnType)
+			methodLoopExpressionEvaluators.Add("RETURN_IMPLIED", evaluateMethodReturnType)
+			methodLoopExpressionEvaluators.Add("RETURN_INTEGER", evaluateMethodReturnType)
+			methodLoopExpressionEvaluators.Add("RETURN_HATVAL", evaluateMethodReturnType)
+			methodLoopExpressionEvaluators.Add("RETURN_STRING", evaluateMethodReturnType)
+			methodLoopExpressionEvaluators.Add("RETURN_ENUM", evaluateMethodReturnType)
+
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED", evaluateMethodReturnCoerced)
+
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_BOOLEAN", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_BYTE", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_DATETIME", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_DATETIME_NULLABLE", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_DECIMAL", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_DECIMAL_NULLABLE", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_DOUBLE", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_FLOAT", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_INT", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_LONG", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_SBYTE", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_SHORT", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_UINT", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_ULONG", evaluateMethodReturnCorecedType)
+			methodLoopExpressionEvaluators.Add("RETURN_COERCED_USHORT", evaluateMethodReturnCorecedType)
+
+		endmethod
+
+		;; -------------------------------------------------------------------------------------------------------------------------------
+		;;; <summary>
+		;;; 
+		;;; </summary>
+		;;; <param name="tkn"></param>
+		;;; <param name="template"></param>
+		;;; <param name="loops"></param>
+		;;; <param name="specific"></param>
+		;;; <returns></returns>
+		public static method EvaluateMethodLoopExpression, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			specific, @Func<SmcInterface, SmcMethod, int, boolean> 
+		proc
+			lambda isMethodLoop(node) (node .is. MethodLoopNode)
+			data loop, @MethodLoopNode, ^as(loops.First(isMethodLoop), MethodLoopNode)
+			mreturn specific(loop.CurrentInterface, loop.CurrentMethod, loop.CurrentIndex)
+		endmethod
+		
+		;; -------------------------------------------------------------------------------------------------------------------------------
+
+		private static method evaluateMethodComment, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, index) (!String.IsNullOrWhiteSpace(meth.Comment))
+			mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateMethodEncrypt, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, index) (meth.Encrypt)
+			mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateMethodFunction, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, index) (meth.MethodType == MethodType.Function)
+			mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateMethodParameters, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, index) (meth.Parameters.Count > 0)
+			mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateMethodSubroutine, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, index) (meth.MethodType == MethodType.Subroutine)
+			mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateMethodReturnType, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			data searchForType, ReturnType 
+			using tkn.Value select
+			("RETURN_ALPHA"),
+				searchForType = ReturnType.Alpha
+			("RETURN_DECIMAL"),
+				searchForType = ReturnType.Decimal
+			("RETURN_ENUM"),
+				searchForType = ReturnType.Enumeration
+			("RETURN_HATVAL"),
+				searchForType = ReturnType.HatVal
+			("RETURN_IMPLIED"),
+				searchForType = ReturnType.ImpliedDecimal
+			("RETURN_INTEGER"),
+				searchForType = ReturnType.Integer
+			("RETURN_NONE"),
+				searchForType = ReturnType.None
+			("RETURN_STRING"),
+				searchForType = ReturnType.String
+			endusing
+			lambda doEvaluate(iface, meth, index) (meth.ReturnValue.Type == searchForType)
+			mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateMethodReturnCoerced, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, index) (meth.ReturnValue.CoerceType != CoerceType.None)
+			mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateMethodReturnCorecedType, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			data searchForType, CoerceType
+			using tkn.Value select
+			("RETURN_COERCED_BOOLEAN"),
+				searchForType = CoerceType.Boolean
+			("RETURN_COERCED_BYTE"),
+				searchForType = CoerceType.Byte
+			("RETURN_COERCED_DATETIME"),
+				searchForType = CoerceType.DateTime
+			("RETURN_COERCED_DATETIME_NULLABLE"),
+				searchForType = CoerceType.DateTimeNullable
+			("RETURN_COERCED_DECIMAL"),
+				searchForType = CoerceType.Decimal
+			("RETURN_COERCED_DECIMAL_NULLABLE"),
+				searchForType = CoerceType.DecimalNullable
+			("RETURN_COERCED_DOUBLE"),
+				searchForType = CoerceType.Double
+			("RETURN_COERCED_FLOAT"),
+				searchForType = CoerceType.Float
+			("RETURN_COERCED_INT"),
+				searchForType = CoerceType.Int
+			("RETURN_COERCED_LONG"),
+				searchForType = CoerceType.Long
+			("RETURN_COERCED_SBYTE"),
+				searchForType = CoerceType.Sbyte
+			("RETURN_COERCED_SHORT"),
+				searchForType = CoerceType.Short
+			("RETURN_COERCED_UINT"),
+				searchForType = CoerceType.Uint
+			("RETURN_COERCED_ULONG"),
+				searchForType = CoerceType.Ulong
+			("RETURN_COERCED_USHORT"),
+				searchForType = CoerceType.Ushort
+			endusing
+			lambda doEvaluate(iface, meth, index) (meth.ReturnValue.CoerceType == searchForType)
+			mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+	endclass
+
+endnamespace
+

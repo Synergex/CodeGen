@@ -1,0 +1,281 @@
+;; *****************************************************************************
+;; 
+;;  Title:       TokenExpanderParameterLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Expands parameter loop token nodes
+;; 
+;;  Date:        20th March 2018
+;; 
+;;  Author:      Steve Ives, Synergex Professional Services Group
+;;               http://www.synergex.com
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2018, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+import CodeGen.Engine
+import CodeGen.MethodCatalogAPI
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+	public partial class TokenExpander
+
+		parameterLoopTokenExpanders, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>
+
+		private method registerParameterLoopTokens, void
+			endparams
+		proc
+			parameterLoopTokenExpanders = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>()
+			parameterLoopTokenExpanders.Add("PARAMETER_NAME", expandParameterName)
+			parameterLoopTokenExpanders.Add("PARAMETER_COMMENT", expandParameterComment)
+			parameterLoopTokenExpanders.Add("PARAMETER_TYPE", expandParameterType)
+			parameterLoopTokenExpanders.Add("PARAMETER_DEFINITION", expandParameterDefinition)
+			parameterLoopTokenExpanders.Add("PARAMETER_SIZE", expandParameterSize)
+			parameterLoopTokenExpanders.Add("PARAMETER_PRECISION", expandParameterPrecision)
+			parameterLoopTokenExpanders.Add("PARAMETER_ENUM", expandParameterEnum)
+			parameterLoopTokenExpanders.Add("PARAMETER_STRUCTURE", expandParameterStructure)
+			parameterLoopTokenExpanders.Add("PARAMETER_COERCE_TYPE", expandParameterCoerceType)
+			parameterLoopTokenExpanders.Add("PARAMETER_DATE_FORMAT", expandParameterDateFormat)
+			parameterLoopTokenExpanders.Add("PARAMETER_COLLECTION_TYPE", expandParameterCollectionType)
+			parameterLoopTokenExpanders.Add("PARAMETER_DATA_TABLE", expandParameterDataTable)
+			parameterLoopTokenExpanders.Add("PARAMETER_DIRECTION", expandParameterDirection)
+			parameterLoopTokenExpanders.Add("PARAMETER_PASS_BY", expandParameterPassBy)
+			parameterLoopTokenExpanders.Add("PARAMETER_REQUIRED", expandParameterRequired)
+		endmethod
+
+		public static method ExpandParameterLoopToken, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			specific, @Func<Smc, SmcInterface, SmcMethod, SmcParameter, string> 
+			endparams
+		proc
+			lambda isParameterLoop(node) node .is. ParameterLoopNode
+			data loop, @ParameterLoopNode, ^as(loops.First(isParameterLoop), ParameterLoopNode)
+			mreturn specific(template.Context.Taskset.MethodCatalog,loop.CurrentInterface, loop.CurrentMethod, loop.CurrentParameter)
+		endmethod
+
+		private static method expandParameterName, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.Name
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterComment, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.Comment
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterType, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.Type.ToString()
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterDefinition, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param)
+			begin
+				using param.Type select
+				(ParameterType.Alpha),
+				begin
+					mreturn String.Format("A{0}",param.Size)
+				end
+				(ParameterType.Decimal),
+				begin
+					mreturn String.Format("D{0}",param.Size)
+				end
+				(ParameterType.Enumeration),
+				begin
+					mreturn param.EnumName
+				end
+				(ParameterType.Handle, ParameterType.BinaryHandle),
+				begin
+					mreturn "D_HANDLE"
+				end
+				(ParameterType.ImpliedDecimal),
+				begin
+					mreturn String.Format("D{0}.{1}",param.Size,param.Precision)
+				end
+				(ParameterType.Integer),
+				begin
+					mreturn String.Format("I{0}",param.Size)
+				end
+				(ParameterType.String),
+				begin
+					mreturn "STRING"
+				end
+				(ParameterType.Structure),
+				begin
+					mreturn String.Format(param.StructureName)
+				end
+				endusing
+			end
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+
+		private static method expandParameterSize, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.Size.ToString()
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterPrecision, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.Precision > 0 ? param.Precision.ToString() : String.Empty
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterEnum, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.EnumName
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterStructure, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.StructureName
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterCoerceType, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.CoerceType.ToString()
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterDateFormat, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.DateFormat.ToString()
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterCollectionType, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.CollectionType.ToString()
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterDataTable, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.DataTable.ToString()
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterDirection, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.Direction.ToString().PadRight(5)
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+				
+		private static method expandParameterPassBy, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.PassBy.ToString()
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+		
+		private static method expandParameterRequired, string
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doExpand(catalog,iface,meth,param) param.Required ? "REQUIRED" : "OPTIONAL"
+			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+		endmethod
+
+	endclass
+
+endnamespace
