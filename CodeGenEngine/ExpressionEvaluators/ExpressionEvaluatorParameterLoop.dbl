@@ -61,6 +61,63 @@ namespace CodeGen.Engine
 		proc
 			parameterLoopExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
 			parameterLoopExpressionEvaluators.Add("COMMENT", evaluateParameterComment)
+			parameterLoopExpressionEvaluators.Add("DATATABLE", evaluateParameterDataTable)
+
+			parameterLoopExpressionEvaluators.Add("DATE", evaluateParameterDate)
+			parameterLoopExpressionEvaluators.Add("DATE_YYYYMMDD", evaluateParameterDateType)
+			parameterLoopExpressionEvaluators.Add("DATE_YYMMDD", evaluateParameterDateType)
+			parameterLoopExpressionEvaluators.Add("DATE_YYJJJ", evaluateParameterDateType)
+			parameterLoopExpressionEvaluators.Add("DATE_YYYYJJJ", evaluateParameterDateType)
+			parameterLoopExpressionEvaluators.Add("DATE_YYYYMMDDHHMMSS", evaluateParameterDateType)
+
+			parameterLoopExpressionEvaluators.Add("TIME", evaluateParameterTime)
+			parameterLoopExpressionEvaluators.Add("TIME_HHMM", evaluateParameterTimeType)
+			parameterLoopExpressionEvaluators.Add("TIME_HHMMSS", evaluateParameterTimeType)
+
+
+			;;Parameter required
+			parameterLoopExpressionEvaluators.Add("REQUIRED", evaluateParameterRequired)
+			parameterLoopExpressionEvaluators.Add("OPTIONAL", evaluateParameterRequired)
+
+			;;Parameter direction
+			parameterLoopExpressionEvaluators.Add("IN", evaluateParameterDirection)
+			parameterLoopExpressionEvaluators.Add("OUT", evaluateParameterDirection)
+			parameterLoopExpressionEvaluators.Add("INOUT", evaluateParameterDirection)
+
+			;;Parameter passing mechanism
+			parameterLoopExpressionEvaluators.Add("DESCRIPTOR", evaluateParameterPassedBy)
+			parameterLoopExpressionEvaluators.Add("REFERENCE", evaluateParameterPassedBy)
+			parameterLoopExpressionEvaluators.Add("VALUE", evaluateParameterPassedBy)
+
+			;;Parameter type
+			parameterLoopExpressionEvaluators.Add("ALPHA", evaluateParameterType)
+			parameterLoopExpressionEvaluators.Add("BINARY_HANDLE", evaluateParameterType)
+			parameterLoopExpressionEvaluators.Add("DECIMAL", evaluateParameterType)
+			parameterLoopExpressionEvaluators.Add("ENUM", evaluateParameterType)
+			parameterLoopExpressionEvaluators.Add("HANDLE", evaluateParameterType)
+			parameterLoopExpressionEvaluators.Add("IMPLIED", evaluateParameterType)
+			parameterLoopExpressionEvaluators.Add("INTEGER", evaluateParameterType)
+			parameterLoopExpressionEvaluators.Add("STRING", evaluateParameterType)
+			parameterLoopExpressionEvaluators.Add("STRUCTURE", evaluateParameterType)
+
+			;;Parameter type coercion
+			parameterLoopExpressionEvaluators.Add("COERCE", evaluateParameterCoerce)
+			parameterLoopExpressionEvaluators.Add("COERCE_BOOLEAN", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_BYTE", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_DATETIME", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_DATETIME_NULLABLE", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_DECIMAL", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_DECIMAL_NULLABLE", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_DOUBLE", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_FLOAT", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_INT", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_LONG", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_SBYTE", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_SHORT", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_UINT", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_ULONG", evaluateParameterCoerceType)
+			parameterLoopExpressionEvaluators.Add("COERCE_USHORT", evaluateParameterCoerceType)
+
 		endmethod
 
 		;; -------------------------------------------------------------------------------------------------------------------------------
@@ -91,6 +148,206 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 		proc
 			lambda doEvaluate(iface, meth, param, index) (!String.IsNullOrWhiteSpace(param.Comment))
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterDataTable, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, param, index) (param.DataTable == true)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterDate, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, param, index) (param.DateFormat == DateFormat.YYJJJ || param.DateFormat == DateFormat.YYMMDD || param.DateFormat == DateFormat.YYYYJJJ || param.DateFormat == DateFormat.YYYYMMDD || param.DateFormat == DateFormat.YYYYMMDDHHMISS)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterDateType, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			data searchForType, DateFormat
+			using tkn.Value select
+			("DATE_YYYYMMDD"),
+				searchForType = DateFormat.YYYYMMDD
+			("DATE_YYMMDD"),
+				searchForType = DateFormat.YYMMDD
+			("DATE_YYJJJ"),
+				searchForType = DateFormat.YYJJJ
+			("DATE_YYYYJJJ"),
+				searchForType = DateFormat.YYYYJJJ
+			("DATE_YYYYMMDDHHMMSS"),
+				searchForType = DateFormat.YYYYMMDDHHMISS
+			endusing
+			lambda doEvaluate(iface, meth, param, index) (param.DateFormat == searchForType)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterTime, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, param, index) (param.DateFormat == DateFormat.HHMM || param.DateFormat == DateFormat.HHMMSS)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterTimeType, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			data searchForType, DateFormat
+			using tkn.Value select
+			("TIME_HHMM"),
+				searchForType = DateFormat.HHMM
+			("TIME_HHMMSS"),
+				searchForType = DateFormat.HHMMSS
+			endusing
+			lambda doEvaluate(iface, meth, param, index) (param.DateFormat == searchForType)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterRequired, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			data searchForType, boolean
+			using tkn.Value select
+			("REQUIRED"),
+				searchForType = true
+			("OPTIONAL"),
+				searchForType = false
+			endusing
+			lambda doEvaluate(iface, meth, param, index) (param.Required == searchForType)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterDirection, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			data searchForType, ParameterDirection
+			using tkn.Value select
+			("IN"),
+				searchForType = ParameterDirection.In
+			("OUT"),
+				searchForType = ParameterDirection.Out
+			("INOUT"),
+				searchForType = ParameterDirection.InOut
+			endusing
+			lambda doEvaluate(iface, meth, param, index) (param.Direction == searchForType)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterPassedBy, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			data searchForType, ParameterPassBy
+			using tkn.Value select
+			("DESCRIPTOR"),
+				searchForType = ParameterPassBy.Descriptor
+			("REFERENCE"),
+				searchForType = ParameterPassBy.Reference
+			("VALUE"),
+				searchForType = ParameterPassBy.Value
+			endusing
+			lambda doEvaluate(iface, meth, param, index) (param.PassBy == searchForType)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		;; -------------------------------------------------------------------------------------------------------------------------------
+
+		private static method evaluateParameterType, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			data searchForType, ParameterType
+			using tkn.Value select
+			("ALPHA"),
+				searchForType = ParameterType.Alpha
+			("BINARY_HANDLE"),
+				searchForType = ParameterType.BinaryHandle
+			("DECIMAL"),
+				searchForType = ParameterType.Decimal
+			("ENUM"),
+				searchForType = ParameterType.Enumeration
+			("HANDLE"),
+				searchForType = ParameterType.Handle
+			("IMPLIED"),
+				searchForType = ParameterType.ImpliedDecimal
+			("INTEGER"),
+				searchForType = ParameterType.Integer
+			("STRING"),
+				searchForType = ParameterType.String
+			("STRUCTURE"),
+				searchForType = ParameterType.Structure
+			endusing
+			lambda doEvaluate(iface, meth, param, index) (param.Type == searchForType)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterCoerce, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, param, index) (param.CoerceType != CoerceType.None)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterCoerceType, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			data searchForType, CoerceType
+			using tkn.Value select
+			("COERCE_BOOLEAN"),
+				searchForType = CoerceType.Boolean
+			("COERCE_BYTE"),
+				searchForType = CoerceType.Byte
+			("COERCE_DATETIME"),
+				searchForType = CoerceType.DateTime
+			("COERCE_DATETIME_NULLABLE"),
+				searchForType = CoerceType.DateTimeNullable
+			("COERCE_DECIMAL"),
+				searchForType = CoerceType.Decimal
+			("COERCE_DECIMAL_NULLABLE"),
+				searchForType = CoerceType.DecimalNullable
+			("COERCE_DOUBLE"),
+				searchForType = CoerceType.Double
+			("COERCE_FLOAT"),
+				searchForType = CoerceType.Float
+			("COERCE_INT"),
+				searchForType = CoerceType.Int
+			("COERCE_LONG"),
+				searchForType = CoerceType.Long
+			("COERCE_SBYTE"),
+				searchForType = CoerceType.Sbyte
+			("COERCE_SHORT"),
+				searchForType = CoerceType.Short
+			("COERCE_UINT"),
+				searchForType = CoerceType.Uint
+			("COERCE_ULONG"),
+				searchForType = CoerceType.Ulong
+			("COERCE_USHORT"),
+				searchForType = CoerceType.Ushort
+			endusing
+			lambda doEvaluate(iface, meth, param, index) (param.CoerceType == searchForType)
 			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 	
