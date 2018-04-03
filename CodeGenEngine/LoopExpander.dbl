@@ -113,17 +113,23 @@ namespace CodeGen.Engine
             data loop = ^as(node, FieldLoopNode)
             data context = template.Context
 			
-			if (template.Context.CurrentStructure.Fields.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no fields!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+			;;Make sure we have a current structure. We could get here at runtime if the developer tries to use a field loop
+			;;within a parameter loop, with a non-structure parameter!
+			if (context.CurrentStructure == ^null)
+				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because there is no current structure!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
+
+			;;Make sure the current structure has fields
+			if (context.CurrentStructure.Fields.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no fields!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
 			
-			loop.MaxIndex = template.Context.CurrentStructure.Fields.Count - 1
+			loop.MaxIndex = context.CurrentStructure.Fields.Count - 1
 			
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} fields", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 			
 			data ix, int
-			for ix from 0 thru template.Context.CurrentStructure.Fields.Count - 1
+			for ix from 0 thru context.CurrentStructure.Fields.Count - 1
 			begin
-				loop.CurrentField = template.Context.CurrentStructure.Fields[ix]
+				loop.CurrentField = context.CurrentStructure.Fields[ix]
 				loop.CurrentIndex = ix
 
 				data child, @ITreeNode
@@ -776,6 +782,10 @@ namespace CodeGen.Engine
 			data taskSet = context.Taskset
 			data task = context.CurrentTask
 			data currentInterface, @SmcInterface
+
+			;;Get a handle on the current SMC Interface. This is either the current interface being processed in
+			;;an outer interface loop, or the interface specified via the -interface command line option if no
+			;;interface loop is being used.
 			try
 			begin
 				data outerOuterLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. InterfaceLoopNode}), InterfaceLoopNode)
@@ -817,10 +827,29 @@ namespace CodeGen.Engine
 				loop.CurrentParameter = outerLoop.CurrentMethod.Parameters[ix]
 				loop.CurrentIndex = ix
 
+				;;If the parameter being processed is a structure paramerter then make the structure data available
+				if (loop.CurrentParameter.Type == ParameterType.Structure) then
+				begin
+					try
+					begin
+						context.CurrentStructure = new RpsStructure(loop.CurrentParameter.StructureName)
+					end
+					catch (ex, @Exception)
+					begin
+						throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because method {3} parameter {4} ({5}) refers to repository structure {6} which was not found!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, loop.CurrentMethod.Name, ix+1, loop.CurrentParameter.Name, loop.CurrentParameter.StructureName))
+					end
+					endtry
+				end
+				else
+					context.CurrentStructure = ^null
+
 				data child, @ITreeNode
 				foreach child in node.Body
 					child.Accept(expander)
 			end
+
+			;;Make sure we don't leave a current structure behind
+			context.CurrentStructure = ^null
 		
 		endmethod
 
