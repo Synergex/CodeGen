@@ -62,6 +62,50 @@ namespace CodeGen.Engine
 			
 			relationLoopExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
 		
+			relationLoopExpressionEvaluators.Add("FROM_ACCESS", evaluateRelationFromKeyType)
+			relationLoopExpressionEvaluators.Add("FROM_FOREIGN", evaluateRelationFromKeyType)
+			relationLoopExpressionEvaluators.Add("ONE_TO_MANY", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("ONE_TO_ONE", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("TO_LONGER", evaluateRelationCompareSize)
+			relationLoopExpressionEvaluators.Add("TO_SAME_SIZE", evaluateRelationCompareSize)
+			relationLoopExpressionEvaluators.Add("TO_SHORTER", evaluateRelationCompareSize)
+
+			relationLoopExpressionEvaluators.Add("FROM_ASCENDING", evaluateRelationFromAscending)
+			relationLoopExpressionEvaluators.Add("FROM_AUTO_SEQUENCE", evaluateRelationFromAutoSequence)
+			relationLoopExpressionEvaluators.Add("FROM_AUTO_TIMESTAMP", evaluateRelationFromAutoTimestamp)
+			relationLoopExpressionEvaluators.Add("FROM_AUTO_TIMESTAMP_CREATED", evaluateRelationFromAutoTimestampCreated)
+			relationLoopExpressionEvaluators.Add("FROM_AUTO_TIMESTAMP_UPDATED", evaluateRelationFromAutoTimestampUpdated)
+			relationLoopExpressionEvaluators.Add("FROM_CHANGES", evaluateRelationFromChanges)
+			relationLoopExpressionEvaluators.Add("FROM_DESCENDING", evaluateRelationFromDescending)
+			relationLoopExpressionEvaluators.Add("FROM_DUPLICATES", evaluateRelationFromDups)
+			relationLoopExpressionEvaluators.Add("FROM_DUPLICATESATEND", evaluateRelationFromDupsAtEnd)
+			relationLoopExpressionEvaluators.Add("FROM_DUPLICATESATFRONT", evaluateRelationFromDupsAtFront)
+			relationLoopExpressionEvaluators.Add("FROM_FIRST_SEG_NOCASE", evaluateRelationFromFirstSegNoCase)
+			relationLoopExpressionEvaluators.Add("FROM_MULTIPLE_SEGMENTS", evaluateRelationFromMultipleSegs)
+			relationLoopExpressionEvaluators.Add("FROM_NOCHANGES", evaluateRelationFromNoChanges)
+			relationLoopExpressionEvaluators.Add("FROM_NODUPLICATES", evaluateRelationFromNoDups)
+			relationLoopExpressionEvaluators.Add("FROM_NULLKEY", evaluateRelationFromNullKey)
+			relationLoopExpressionEvaluators.Add("FROM_NULLVALUE", evaluateRelationFromNullValue)
+			relationLoopExpressionEvaluators.Add("FROM_SINGLE_SEGMENT", evaluateRelationFromSingleSegment)
+
+			relationLoopExpressionEvaluators.Add("TO_ASCENDING", evaluateRelationToAscending)
+			relationLoopExpressionEvaluators.Add("TO_AUTO_SEQUENCE", evaluateRelationToAutoSequence)
+			relationLoopExpressionEvaluators.Add("TO_AUTO_TIMESTAMP", evaluateRelationToAutoTimestamp)
+			relationLoopExpressionEvaluators.Add("TO_AUTO_TIMESTAMP_CREATED", evaluateRelationToAutoTimestampCreated)
+			relationLoopExpressionEvaluators.Add("TO_AUTO_TIMESTAMP_UPDATED", evaluateRelationToAutoTimestampUpdated)
+			relationLoopExpressionEvaluators.Add("TO_CHANGES", evaluateRelationToChanges)
+			relationLoopExpressionEvaluators.Add("TO_DESCENDING", evaluateRelationToDescending)
+			relationLoopExpressionEvaluators.Add("TO_DUPLICATES", evaluateRelationToDups)
+			relationLoopExpressionEvaluators.Add("TO_DUPLICATESATEND", evaluateRelationToDupsAtEnd)
+			relationLoopExpressionEvaluators.Add("TO_DUPLICATESATFRONT", evaluateRelationToDupsAtFront)
+			relationLoopExpressionEvaluators.Add("TO_FIRST_SEG_NOCASE", evaluateRelationToFirstSegNoCase)
+			relationLoopExpressionEvaluators.Add("TO_MULTIPLE_SEGMENTS", evaluateRelationToMultipleSegs)
+			relationLoopExpressionEvaluators.Add("TO_NOCHANGES", evaluateRelationToNoChanges)
+			relationLoopExpressionEvaluators.Add("TO_NODUPLICATES", evaluateRelationToNoDups)
+			relationLoopExpressionEvaluators.Add("TO_NULLKEY", evaluateRelationToNullKey)
+			relationLoopExpressionEvaluators.Add("TO_NULLVALUE", evaluateRelationToNullValue)
+			relationLoopExpressionEvaluators.Add("TO_SINGLE_SEGMENT", evaluateRelationToSingleSegment)
+
 		endmethod
 	
 		;; -------------------------------------------------------------------------------------------------------------------------------
@@ -77,17 +121,421 @@ namespace CodeGen.Engine
 			tkn, @Token 
 			template, @FileNode 
 			loops, @IEnumerable<LoopNode> 
-			specific, @Func<RpsStructure, RpsRelation, int, boolean> 
+			specific, @Func<RpsStructure, RpsRelation, int, RpsKey, RpsStructure, RpsKey, boolean> 
 			endparams
 		proc
 			lambda isRelationLoop(node) node .is. RelationLoopNode
 			data loop, @RelationLoopNode, ^as(loops.First(isRelationLoop), RelationLoopNode)
-			mreturn specific(template.Context.CurrentStructure, loop.CurrentRelation, loop.CurrentIndex)
+			mreturn specific(template.Context.CurrentStructure, loop.CurrentRelation, loop.CurrentIndex, loop.FromKey, loop.ToStructure, loop.ToKey)
 		endmethod
 		
 		;; -------------------------------------------------------------------------------------------------------------------------------
 
+		private static method evaluateRelationFromKeyType, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str, relation, index, fromkey, tostr, tokey)
+			begin
+				using tkn.Value select
+				("FROM_ACCESS"),
+					mreturn fromkey.KeyType == RpsKeyType.Access
+				("FROM_FOREIGN"),
+					mreturn fromkey.KeyType == RpsKeyType.Foreign
+				endusing
+				;;Should never get here!
+				mreturn false
+			end
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
 
+		private static method evaluateRelationCompareSize, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey)
+			begin
+				using tkn.Value select
+				("TO_LONGER"),
+					mreturn tokey.Size > fromkey.Size
+				("TO_SAME_SIZE"),
+					mreturn tokey.Size == fromkey.Size
+				("TO_SHORTER"),
+					mreturn tokey.Size < fromkey.Size
+				endusing
+				;;Should never get here!
+				mreturn false
+			end
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationType, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey)
+			begin
+				using tkn.Value select
+				("ONE_TO_MANY"),
+					mreturn ((tokey.Size > fromkey.Size) || (tokey.Size == fromkey.Size && tokey.Duplicates == RpsKeyDuplicates.Duplicates))
+				("ONE_TO_ONE"),
+					mreturn ((tokey.Size < fromkey.Size) || (tokey.Size == fromkey.Size && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates))
+				endusing
+				;;Should never get here!
+				mreturn false
+			end
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		;;From key expressions
+
+		private static method evaluateRelationFromAscending, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.SortOrder == RpsKeyOrder.Ascending
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromAutoSequence, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoSequence
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromAutoTimestamp, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated || fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromAutoTimestampCreated, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromAutoTimestampUpdated, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromChanges, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Modifiable
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromDescending, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.SortOrder == RpsKeyOrder.Descending
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromDups, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Duplicates == RpsKeyDuplicates.Duplicates
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromDupsAtEnd, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.InsertDuplicates == RpsKeyInsertDups.AtEnd
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromDupsAtFront, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.InsertDuplicates == RpsKeyInsertDups.AtFront
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromFirstSegNoCase, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) (fromkey.Segments[0].SegmentType == RpsKeySegmentType.Field) && (fromkey.Segments[0].DataType == RpsKeySegmentDataType.NoCaseAlpha)
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromMultipleSegs, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments.Count > 1
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromNoChanges, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Modifiable == false
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromNoDups, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Duplicates == RpsKeyDuplicates.NoDuplicates
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromNullKey, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.NullKey != RpsKeyNullType.None
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromNullValue, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) !String.IsNullOrWhiteSpace(fromkey.NullKeyValue)
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationFromSingleSegment, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments.Count == 1
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		;;To key expressions
+
+		private static method evaluateRelationToAscending, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.SortOrder == RpsKeyOrder.Ascending
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToAutoSequence, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoSequence
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToAutoTimestamp, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated || tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToAutoTimestampCreated, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToAutoTimestampUpdated, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToChanges, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Modifiable
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToDescending, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.SortOrder == RpsKeyOrder.Descending
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToDups, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Duplicates == RpsKeyDuplicates.Duplicates
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToDupsAtEnd, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.InsertDuplicates == RpsKeyInsertDups.AtEnd
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToDupsAtFront, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.InsertDuplicates == RpsKeyInsertDups.AtFront
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToFirstSegNoCase, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) (tokey.Segments[0].SegmentType == RpsKeySegmentType.Field) && (tokey.Segments[0].DataType == RpsKeySegmentDataType.NoCaseAlpha)
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToMultipleSegs, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments.Count > 1
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToNoChanges, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Modifiable == false
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToNoDups, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Duplicates == RpsKeyDuplicates.NoDuplicates
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToNullKey, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.NullKey != RpsKeyNullType.None
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToNullValue, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) !String.IsNullOrWhiteSpace(tokey.NullKeyValue)
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateRelationToSingleSegment, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments.Count == 1
+			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
 
 	endclass
 
