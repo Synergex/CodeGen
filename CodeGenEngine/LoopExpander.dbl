@@ -70,7 +70,7 @@ namespace CodeGen.Engine
             loopProcessors.Add("RELATION_LOOP", processRelationLoop)
             loopProcessors.Add("BUTTON_LOOP", processButtonLoop)
             loopProcessors.Add("FILE_LOOP", processFileLoop)
-            loopProcessors.Add("TAG_LOOP", processTagLoop)
+			loopProcessors.Add("TAG_LOOP", processTagLoop)
             loopProcessors.Add("SELECTION_LOOP", processFieldSelectionLoop)
             loopProcessors.Add("SEGMENT_LOOP", processKeySegmentLoop)
             loopProcessors.Add("SEGMENT_LOOP_FILTER", processKeySegmentFilterLoop)
@@ -269,17 +269,20 @@ namespace CodeGen.Engine
             data loop = ^as(node, EnumLoopNode)
 			data context = template.Context
 
-            if (template.Context.Enumerations.Count == 0)
+			if (template.Context.Repository == ^null)
+				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no repository is being processed!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+			
+			if (template.Context.Repository.Enumerations.Count == 0)
                 throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
 			
-			loop.MaxIndex = template.Context.Enumerations.Count - 1
+			loop.MaxIndex = template.Context.Repository.Enumerations.Count - 1
 
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} enums", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
 			data ix, int
-			for ix from 0 thru template.Context.Enumerations.Count - 1
+			for ix from 0 thru template.Context.Repository.Enumerations.Count - 1
 			begin
-				loop.CurrentEnumeration = template.Context.Enumerations[ix]
+				loop.CurrentEnumeration = template.Context.Repository.Enumerations[ix]
 				loop.CurrentIndex = ix
 
 				data child, @ITreeNode
@@ -298,31 +301,29 @@ namespace CodeGen.Engine
             data loop = ^as(node, EnumLoopNode)
 			data context = template.Context
 
-            if (template.Context.Enumerations.Count == 0)
+			if (template.Context.Repository.Enumerations.Count == 0)
 				throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
 
-            ;; TODO: Needs work because we don't visit all enumerations in the collection!
-            loop.MaxIndex = template.Context.Enumerations.Count - 1
-			
-			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} enums", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
-			
-			data ix, int
-			for ix from 0 thru template.Context.Enumerations.Count - 1
-			begin
-				loop.CurrentEnumeration = template.Context.Enumerations[ix]
-				
-				data field, @RpsField
-				foreach field in template.Context.CurrentStructure.Fields
-				begin
-					if ((field.DataType == RpsFieldDataType.Enum) && (field.EnumName == loop.CurrentEnumeration.Name))
-					begin
-						loop.CurrentIndex = ix
+			;;Build a collection of enums that are referred to by the current structure
+			data enumsToProcess = new RpsEnumCollection(template.Context.CurrentStructure.Name)
 
-						data child, @ITreeNode
-						foreach child in node.Body
-							child.Accept(expander)
-					end
-				end
+			loop.MaxIndex = enumsToProcess.Count - 1
+			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} enums", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+
+			;;Anything to do?
+			if (loop.MaxIndex == -1)
+				mreturn
+
+			;;Yes, process the subset of enumerations
+			data ix, int
+			for ix from 0 thru loop.MaxIndex
+			begin
+				loop.CurrentEnumeration = enumsToProcess[ix]
+				loop.CurrentIndex = ix
+
+				data child, @ITreeNode
+				foreach child in node.Body
+					child.Accept(expander)
 			end
 			
         endmethod
