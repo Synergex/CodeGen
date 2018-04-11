@@ -478,25 +478,19 @@ namespace CodeGen.Engine
 				context.CurrentTask.EchoCommand()
 			
 			;;-------------------------------------------------------------------------
-			;;If we have structures then open the tasks repository and load enums and
-			;;files into context
+			;;Try to load the entire repository into the current task context
 			
-			if (context.CurrentTask.Structures.Count > 0)
+			try
 			begin
-				disposable data rps, @Repository
-				
-				try
-				begin
-					rps = new Repository()
-					context.Enumerations = rps.Enumerations
-					context.Files = rps.Files
-				end
-				catch (ex, @RpsException)
-				begin
-					errStatus = context.CurrentTask.ErrorLog(ex.Message)
-				end
-				endtry
+				context.Repository = new Repository()
 			end
+			catch (ex, @RpsException)
+			begin
+				;;Failed to load a repository. If we're processing structures we're dead!
+				if (context.CurrentTask.Structures.Count > 0)
+					errStatus = context.CurrentTask.ErrorLog(ex.Message)
+			end
+			endtry
 			
 			;;-------------------------------------------------------------------------
 			;;Do we have a custom data mappings file specified?
