@@ -46,6 +46,7 @@ import System.Collections
 import System.Collections.Generic
 import System.Collections.ObjectModel
 import System.IO
+import System.Linq
 import System.Reflection
 import System.Text
 import CodeGen.Engine
@@ -97,7 +98,13 @@ namespace CodeGen.Engine
 			.include "CODEGEN_SRC:codegen.def"
 		proc
 			;;Explicitly set CODEGEN_EXE to the path containing this code (CodeGenEngine.dll).
+			.ifdef D_PORTABLE
+			;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
+			data sts, i4
+			xcall setlog("CODEGEN_EXE",Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(^typeof(CodeGenerator)).Location),sts)
+			.else
 			Environment.SetEnvironmentVariable("CODEGEN_EXE",Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(^typeof(CodeGenerator)).Location))
+			.endc
 			
 			;;Make the current version number available in the expander
 			context.Version = CODEGEN_VERSION
@@ -112,7 +119,13 @@ namespace CodeGen.Engine
 				if (!String.IsNullOrWhiteSpace(templateFolder)) then
 				begin
 					;;Found it
+					.ifdef D_PORTABLE
+					;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
+					data sts, i4
+					xcall setlog("CODEGEN_TPLDIR",templateFolder.Trim(),sts)
+					.else
 					Environment.SetEnvironmentVariable("CODEGEN_TPLDIR",templateFolder.Trim())
+					.endc
 				end
 				else if (Environment.Is64BitProcess)
 				begin
@@ -121,7 +134,13 @@ namespace CodeGen.Engine
 					if (!String.IsNullOrWhiteSpace(templateFolder))
 					begin
 						;;Found it
+						.ifdef D_PORTABLE
+						;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
+						data sts, i4
+						xcall setlog("CODEGEN_TPLDIR",templateFolder.Trim(),sts)
+						.else
 						Environment.SetEnvironmentVariable("CODEGEN_TPLDIR",templateFolder.Trim())
+						.endc
 					end
 				end
 			end
@@ -422,21 +441,59 @@ namespace CodeGen.Engine
 				;;Otherwise, reset the repository to the way it was on entry
 				if (!String.IsNullOrWhiteSpace(task.RepositoryMainFile) && !String.IsNullOrWhiteSpace(task.RepositoryTextFile)) then
 				begin
+					if (context.DeveloperDebugLoggingEnabled)
+					begin
+						task.DevDebugLog("Repository set by TASK")
+						task.DevDebugLog(String.Format(" - Main file {0}",task.RepositoryMainFile))
+						task.DevDebugLog(String.Format(" - Text file {0}",task.RepositoryTextFile))
+					end
+					.ifdef D_PORTABLE
+					;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
+					data sts, i4
+					xcall setlog("RPSMFIL",task.RepositoryMainFile,sts)
+					xcall setlog("RPSTFIL",task.RepositoryTextFile,sts)
+					.else
 					Environment.SetEnvironmentVariable("RPSMFIL",task.RepositoryMainFile)
 					Environment.SetEnvironmentVariable("RPSTFIL",task.RepositoryTextFile)
-					task.DevDebugLog("Using the respository specified by the TASK")
+					.endc
 				end
 				else if (!String.IsNullOrWhiteSpace(context.Taskset.RepositoryMainFile) && !String.IsNullOrWhiteSpace(context.Taskset.RepositoryTextFile)) then
 				begin
+					if (context.DeveloperDebugLoggingEnabled)
+					begin
+						task.DevDebugLog("Repository set by TASK SET")
+						task.DevDebugLog(String.Format(" - Main file {0}",context.Taskset.RepositoryMainFile))
+						task.DevDebugLog(String.Format(" - Text file {0}",context.Taskset.RepositoryTextFile))
+					end
+					.ifdef D_PORTABLE
+					;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
+					data sts, i4
+					xcall setlog("RPSMFIL",context.Taskset.RepositoryMainFile,sts)
+					xcall setlog("RPSTFIL",context.Taskset.RepositoryTextFile,sts)
+					.else
 					Environment.SetEnvironmentVariable("RPSMFIL",context.Taskset.RepositoryMainFile)
 					Environment.SetEnvironmentVariable("RPSTFIL",context.Taskset.RepositoryTextFile)
-					task.DevDebugLog("Using the respository specified by the TASK SET")
+					.endc
 				end
 				else
 				begin
-					Environment.SetEnvironmentVariable("RPSMFIL",originalRpsmain)
-					Environment.SetEnvironmentVariable("RPSTFIL",originalRpstext)
-					task.DevDebugLog("Repository not specified by task or task set. Using repository environment defined on entry.")
+					data mainFile = String.IsNullOrWhiteSpace(originalRpsmain) ? String.Empty : originalRpsmain
+					data textFile = String.IsNullOrWhiteSpace(originalRpstext) ? String.Empty : originalRpstext
+					if (context.DeveloperDebugLoggingEnabled)
+					begin
+						task.DevDebugLog("Repository NOT specified by TASK or TASK SET")
+						task.DevDebugLog(String.Format(" - Main file {0}",mainFile))
+						task.DevDebugLog(String.Format(" - Text file {0}",textFile))
+					end
+					.ifdef D_PORTABLE
+					;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
+					data sts, i4
+					xcall setlog("RPSMFIL",mainFile,sts)
+					xcall setlog("RPSTFIL",textFile,sts)
+					.else
+					Environment.SetEnvironmentVariable("RPSMFIL",mainFile)
+					Environment.SetEnvironmentVariable("RPSTFIL",textFile)
+					.endc
 				end
 				
 				;;Generate code
@@ -483,6 +540,12 @@ namespace CodeGen.Engine
 			try
 			begin
 				context.Repository = new Repository()
+				if (context.DeveloperDebugLoggingEnabled)
+				begin
+					context.CurrentTask.DevDebugLog("Repository opened")
+					context.CurrentTask.DevDebugLog(String.Format(" - Main file {0}",context.Repository.MainFile))
+					context.CurrentTask.DevDebugLog(String.Format(" - Text file {0}",context.Repository.TextFile))
+				end
 			end
 			catch (ex, @RpsException)
 			begin
@@ -510,7 +573,13 @@ namespace CodeGen.Engine
 							errStatus = context.CurrentTask.Errorlog(string.Format("Failed to open custom data mappings file {0}", context.Taskset.DataMappingsFile))
 						else
 						begin
+							.ifdef D_PORTABLE
+							;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
+							data sts, i4
+							xcall setlog("CODEGEN_DATAMAPPING_FILE",mappingFile,sts)
+							.else
 							Environment.SetEnvironmentVariable("CODEGEN_DATAMAPPING_FILE",mappingFile)
+							.endc
 							context.CurrentTask.DevDebugLog("Custom data mapping file set to " + mappingFile)
 						end
 					end
@@ -524,7 +593,13 @@ namespace CodeGen.Engine
 			begin
 				if (context.Taskset.DatabaseType != SqlDatabaseType.SQLServer)
 				begin
+					.ifdef D_PORTABLE
+					;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
+					data sts, i4
+					xcall setlog("CODEGEN_DATABASE_TYPE",context.Taskset.DatabaseType.ToString(),sts)
+					.else
 					Environment.SetEnvironmentVariable("CODEGEN_DATABASE_TYPE",context.Taskset.DatabaseType.ToString())
+					.endc
 				end
 			end
 			
@@ -1017,28 +1092,18 @@ namespace CodeGen.Engine
 					data subsetField, @Tuple<String, String>
 					foreach subsetField in context.CurrentTask.SubsetFields
 					begin
-						;;Is the structure being processed?
-						data foundStructure = false
-						data foundField = false
 						data str, @RpsStructure
-						foreach str in context.Structures
-						begin
-							if (str.Name == subsetField.Item1)
-							begin
-								foundStructure = true
-								data fld, @RpsField
-								foreach fld in str.Fields
-								begin
-									if (fld.Name == subsetField.Item2)
-									begin
-										foundField = true
-										exitloop
-									end
-								end
-								exitloop
-							end
-						end
-						if (!foundStructure||!foundField)
+						data fld, @RpsField
+
+						lambda matchStructure(str) str.Name == subsetField.Item1
+						lambda matchField(fld) fld.Name == subsetField.Item2
+
+						str = context.Structures.FirstOrDefault(matchStructure)
+
+						if (str != ^null)
+							fld = str.Fields.FirstOrDefault(matchField)
+
+						if (str == ^null || fld == ^null)
 						begin
 							;;Report the issue, but continue processing for now, so that we report all errors not just one
 							errStatus = context.CurrentTask.ErrorLog(string.Format("An invalid subset field {0}.{1} was requested!",subsetField.Item1,subsetField.Item2))
