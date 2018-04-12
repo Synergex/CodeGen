@@ -16,7 +16,7 @@ set RPSDAT=%CODEGEN_ROOT%\SampleRepository
 set RPSMFIL=%CODEGEN_ROOT%\SampleRepository\rpsmain.ism
 set RPSTFIL=%CODEGEN_ROOT%\SampleRepository\rpstext.ism
 
-PATH=%CODEGEN_ROOT%\DotNetCore\CodeGen\bin\release\netcoreapp2.0;%PATH%
+PATH=%CODEGEN_ROOT%\DotNetCore\distribution\windows\release;%PATH%
 
 cd /d %CODEGEN_OUTDIR%
 
@@ -24,7 +24,7 @@ cls
 echo.
 codegen -version
 echo.
-echo CodeGen Executable : %CODEGEN_ROOT%\DotNetCore\CodeGen\bin\release\netcoreapp2.0\CodeGen.exe
+echo CodeGen Executable : %CODEGEN_ROOT%\DotNetCore\distribution\windows\release\CodeGen.exe
 echo Repository         : %RPSMFIL%
 echo Template folder    : %CODEGEN_TPLDIR%
 echo Output folder      : %CODEGEN_OUTDIR%
