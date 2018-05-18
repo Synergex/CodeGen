@@ -172,7 +172,21 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doExpand(catalog,iface,meth,param) param.Size.ToString()
+			lambda doExpand(catalog,iface,meth,param)
+			begin
+				using param.Type select
+				(ParameterType.Alpha,ParameterType.Decimal,ParameterType.ImpliedDecimal,ParameterType.Integer,ParameterType.Enumeration),
+					mreturn param.Size.ToString()
+				(ParameterType.Handle,ParameterType.BinaryHandle,ParameterType.String),
+					mreturn 0
+				(ParameterType.Structure),
+				begin
+					lambda isParameterLoop(node) (node .is. ParameterLoopNode)
+					data loop, @ParameterLoopNode, ^as(loops.First(isParameterLoop), ParameterLoopNode)
+					mreturn loop.CurrentStructure.Length.ToString()
+				end
+				endusing
+			end
 			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
 		endmethod
 				
