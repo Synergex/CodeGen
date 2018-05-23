@@ -40,54 +40,50 @@
 ;;
 ;;*****************************************************************************
 ;;
-namespace CreateFile
-	
-	function CreateFileFromRpsFile, boolean
-		required in  a_dcs          ,a			;;Repository control data
-		required in  a_filename     ,String		;;Repository file definition name
-		required in  a_overwrite    ,boolean	;;Overwrite file if found
-		required in  a_filespec     ,String		;;Filename to create
-		required out a_filecreated  ,String		;;File name created
-		required out a_errtxt       ,String		;;Error text
-		endparams
+function CreateFileFromRpsFile, boolean
+	required in  a_dcs          ,a			;;Repository control data
+	required in  a_filename     ,String		;;Repository file definition name
+	required in  a_overwrite    ,boolean	;;Overwrite file if found
+	required in  a_filespec     ,String		;;Filename to create
+	required out a_filecreated  ,String		;;File name created
+	required out a_errtxt       ,String		;;Error text
+	endparams
 		
-		.include "RPSLIB:ddinfo.def"
+	.include "RPSLIB:ddinfo.def"
 		
-		stack record
-			ok						,boolean
-			filename				,string
-		endrecord
+	stack record
+		ok						,boolean
+		filename				,string
+	endrecord
 		
-	proc
+proc
 		
-		ok = true
-		dcs = a_dcs
-		a_filecreated = ""
-		a_errtxt = ""
-		filename = a_filename.ToUpper()
+	ok = true
+	dcs = a_dcs
+	a_filecreated = ""
+	a_errtxt = ""
+	filename = a_filename.ToUpper()
 		
-		;;Get the file information
-		xcall dd_file(dcs,DDL_INFO,filename,fl_info)
-		if (dcs.error) then
+	;;Get the file information
+	xcall dd_file(dcs,DDL_INFO,filename,fl_info)
+	if (dcs.error) then
+	begin
+		ok = false
+		a_errtxt = "Repository file " + filename + " not found!"
+	end
+	else
+	begin
+		;;Make sure the file is assigned to at least one structure
+		if (!fli_nmstructs||!fli_struct)
 		begin
 			ok = false
-			a_errtxt = "Repository file " + filename + " not found!"
+			a_errtxt = "Repository file " + filename + " has no assigned structures!"
 		end
-		else
-		begin
-			;;Make sure the file is assigned to at least one structure
-			if (!fli_nmstructs||!fli_struct)
-			begin
-				ok = false
-				a_errtxt = "Repository file " + filename + " has no assigned structures!"
-			end
-		end
+	end
 		
-		if (ok)
-			ok = DoCreateFile(dcs,filename,a_filespec,a_overwrite,a_filecreated,a_errtxt)
+	if (ok)
+		ok = %DoCreateFile(dcs,filename,a_filespec,a_overwrite,a_filecreated,a_errtxt)
 
-		freturn ok
+	freturn ok
 		
-	endfunction
-	
-endnamespace
+endfunction
