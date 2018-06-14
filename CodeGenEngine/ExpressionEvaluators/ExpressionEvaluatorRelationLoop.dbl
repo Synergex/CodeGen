@@ -64,8 +64,10 @@ namespace CodeGen.Engine
 		
 			relationLoopExpressionEvaluators.Add("FROM_ACCESS", evaluateRelationFromKeyType)
 			relationLoopExpressionEvaluators.Add("FROM_FOREIGN", evaluateRelationFromKeyType)
-			relationLoopExpressionEvaluators.Add("ONE_TO_MANY", evaluateRelationType)
-			relationLoopExpressionEvaluators.Add("ONE_TO_ONE", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("TWO_WAY_ONE_TO_MANY", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("TWO_WAY_ONE_TO_ONE", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("ONE_WAY_ONE_TO_MANY", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("ONE_WAY_ONE_TO_ONE", evaluateRelationType)
 			relationLoopExpressionEvaluators.Add("TO_LONGER", evaluateRelationCompareSize)
 			relationLoopExpressionEvaluators.Add("TO_SAME_SIZE", evaluateRelationCompareSize)
 			relationLoopExpressionEvaluators.Add("TO_SHORTER", evaluateRelationCompareSize)
@@ -146,6 +148,7 @@ namespace CodeGen.Engine
 					mreturn fromkey.KeyType == RpsKeyType.Foreign
 				endusing
 				;;Should never get here!
+				throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationFromKeyType()",tkn.Value))
 				mreturn false
 			end
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
@@ -168,6 +171,7 @@ namespace CodeGen.Engine
 					mreturn tokey.Size < fromkey.Size
 				endusing
 				;;Should never get here!
+				throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationCompareSize()",tkn.Value))
 				mreturn false
 			end
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
@@ -181,13 +185,22 @@ namespace CodeGen.Engine
 		proc
 			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey)
 			begin
+				data isOneToOne = ((tokey.Size < fromkey.Size) || (tokey.Size == fromkey.Size && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates))
+				data isBackRelation = tostr.Relations.FirstOrDefault(lambda (relation) { relation.ToStructure == fromStructure.Name && relation.ToKey == fromkey.Name })
+				data hasBackRelation = (isBackRelation != ^null)
+
 				using tkn.Value select
-				("ONE_TO_MANY"),
-					mreturn ((tokey.Size > fromkey.Size) || (tokey.Size == fromkey.Size && tokey.Duplicates == RpsKeyDuplicates.Duplicates))
-				("ONE_TO_ONE"),
-					mreturn ((tokey.Size < fromkey.Size) || (tokey.Size == fromkey.Size && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates))
+				("TWO_WAY_ONE_TO_MANY"),
+					mreturn (!isOneToOne && hasBackRelation)
+				("TWO_WAY_ONE_TO_ONE"),
+					mreturn (isOneToOne && hasBackRelation)
+				("ONE_WAY_ONE_TO_ONE"),
+					mreturn (isOneToOne && !hasBackRelation)
+				("ONE_WAY_ONE_TO_MANY"),
+					mreturn (!isOneToOne && !hasBackRelation)
 				endusing
 				;;Should never get here!
+				throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationType()",tkn.Value))
 				mreturn false
 			end
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
