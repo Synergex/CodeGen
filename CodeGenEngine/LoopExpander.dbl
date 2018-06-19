@@ -831,6 +831,9 @@ namespace CodeGen.Engine
 			
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} parameters", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
+			;;Maintain a list of the structures we have already encountered so we can support <IF FIRST_INSTANCE_OF_STRUCTURE>
+			data processedStructures = new List<string>()
+
 			data ix, int
 			for ix from 0 thru outerLoop.CurrentMethod.Parameters.Count - 1
 			begin
@@ -838,19 +841,28 @@ namespace CodeGen.Engine
 				loop.CurrentMethod = outerLoop.CurrentMethod
 				loop.CurrentParameter = outerLoop.CurrentMethod.Parameters[ix]
 				loop.CurrentIndex = ix
+				loop.FirstStructureInstance = false
 
 				;;If the parameter being processed is a structure paramerter then make the structure data available
 				if (loop.CurrentParameter.Type == ParameterType.Structure) then
 				begin
+					data structureName = loop.CurrentParameter.StructureName
+
+					;;Is this the first time we have encountered this structure?
+					loop.FirstStructureInstance = !processedStructures.Contains(structureName)
+
 					try
 					begin
-						loop.CurrentStructure = new RpsStructure(loop.CurrentParameter.StructureName)
+						loop.CurrentStructure = new RpsStructure(structureName)
 					end
 					catch (ex, @Exception)
 					begin
-						throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because method {3} parameter {4} ({5}) refers to repository structure {6} which was not found!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, loop.CurrentMethod.Name, ix+1, loop.CurrentParameter.Name, loop.CurrentParameter.StructureName))
+						throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because method {3} parameter {4} ({5}) refers to repository structure {6} which was not found!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, loop.CurrentMethod.Name, ix+1, loop.CurrentParameter.Name, structureName))
 					end
 					endtry
+
+					;;Record that we have processed this structure
+					processedStructures.Add(structureName)
 				end
 				else
 					loop.CurrentStructure = ^null
