@@ -69,6 +69,8 @@ namespace CodeGen.Engine
 			parameterLoopTokenExpanders.Add("PARAMETER_PRECISION", expandParameterPrecision)
 			parameterLoopTokenExpanders.Add("PARAMETER_ENUM", expandParameterEnum)
 			parameterLoopTokenExpanders.Add("PARAMETER_STRUCTURE", expandParameterStructure)
+			parameterLoopTokenExpanders.Add("PARAMETER_STRUCTURE_NOPLURAL", expandParameterStructure)
+			parameterLoopTokenExpanders.Add("PARAMETER_STRUCTURE_PLURAL", expandParameterStructure)
 			parameterLoopTokenExpanders.Add("PARAMETER_COERCE_TYPE", expandParameterCoerceType)
 			parameterLoopTokenExpanders.Add("PARAMETER_DATE_FORMAT", expandParameterDateFormat)
 			parameterLoopTokenExpanders.Add("PARAMETER_COLLECTION_TYPE", expandParameterCollectionType)
@@ -216,7 +218,17 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doExpand(catalog,iface,meth,param) param.StructureName
+			lambda doExpand(catalog,iface,meth,param)
+			begin
+				using tkn.Value select
+				("PARAMETER_STRUCTURE_NOPLURAL"),
+					mreturn param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName
+				("PARAMETER_STRUCTURE_PLURAL"),
+					mreturn param.StructureName.EndsWith("S") ? param.StructureName : String.Format("{0}S",param.StructureName)
+				(),
+					mreturn param.StructureName
+				endusing
+			end
 			mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
 		endmethod
 				

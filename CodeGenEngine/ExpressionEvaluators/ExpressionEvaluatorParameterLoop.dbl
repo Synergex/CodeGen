@@ -74,7 +74,6 @@ namespace CodeGen.Engine
 			parameterLoopExpressionEvaluators.Add("TIME_HHMM", evaluateParameterTimeType)
 			parameterLoopExpressionEvaluators.Add("TIME_HHMMSS", evaluateParameterTimeType)
 
-
 			;;Parameter required
 			parameterLoopExpressionEvaluators.Add("REQUIRED", evaluateParameterRequired)
 			parameterLoopExpressionEvaluators.Add("OPTIONAL", evaluateParameterRequired)
@@ -117,6 +116,12 @@ namespace CodeGen.Engine
 			parameterLoopExpressionEvaluators.Add("COERCE_UINT", evaluateParameterCoerceType)
 			parameterLoopExpressionEvaluators.Add("COERCE_ULONG", evaluateParameterCoerceType)
 			parameterLoopExpressionEvaluators.Add("COERCE_USHORT", evaluateParameterCoerceType)
+
+			;;Parameter collection types
+			parameterLoopExpressionEvaluators.Add("COLLECTION", evaluateParameterCollection)
+			parameterLoopExpressionEvaluators.Add("COLLECTION_ARRAY", evaluateParameterCollection)
+			parameterLoopExpressionEvaluators.Add("COLLECTION_HANDLE", evaluateParameterCollection)
+			parameterLoopExpressionEvaluators.Add("COLLECTION_ARRAYLIST", evaluateParameterCollection)
 
 		endmethod
 
@@ -348,6 +353,27 @@ namespace CodeGen.Engine
 				searchForType = CoerceType.Ushort
 			endusing
 			lambda doEvaluate(iface, meth, param, index) (param.CoerceType == searchForType)
+			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+	
+		private static method evaluateParameterCollection, boolean
+			tkn, @Token
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+		proc
+			lambda doEvaluate(iface, meth, param, index)
+			begin
+				using tkn.Value select
+				("COLLECTION_ARRAY"),
+					mreturn param.CollectionType == ParameterCollectionType.Array
+				("COLLECTION_HANDLE"),
+					mreturn param.CollectionType == ParameterCollectionType.MemoryHandle
+				("COLLECTION_ARRAYLIST"),
+					mreturn param.CollectionType == ParameterCollectionType.ArrayList
+				("COLLECTION"),
+					mreturn param.CoerceType != ParameterCollectionType.None
+				endusing
+			end
 			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 	
