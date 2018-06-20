@@ -831,7 +831,8 @@ namespace CodeGen.Engine
 			
 			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} parameters", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
-			;;Maintain a list of the structures we have already encountered so we can support <IF FIRST_INSTANCE_OF_STRUCTURE>
+			;;Maintain lists of the enums and structures we have already encountered so we can support <IF FIRST_INSTANCE_OF_...>
+			data processedEnums = new List<string>()
 			data processedStructures = new List<string>()
 
 			data ix, int
@@ -841,7 +842,32 @@ namespace CodeGen.Engine
 				loop.CurrentMethod = outerLoop.CurrentMethod
 				loop.CurrentParameter = outerLoop.CurrentMethod.Parameters[ix]
 				loop.CurrentIndex = ix
+				loop.FirstEnumInstance = false
 				loop.FirstStructureInstance = false
+
+				;;If the parameter being processed is an enum paramerter then make the enum data available
+				if (loop.CurrentParameter.Type == ParameterType.Structure) then
+				begin
+					data enumName = loop.CurrentParameter.EnumName
+
+					;;Is this the first time we have encountered this structure?
+					loop.FirstEnumInstance = !processedEnums.Contains(enumName)
+
+					try
+					begin
+						loop.CurrentEnum = new RpsEnum(enumName)
+					end
+					catch (ex, @Exception)
+					begin
+						throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because method {3} parameter {4} ({5}) refers to repository enum {6} which was not found!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, loop.CurrentMethod.Name, ix+1, loop.CurrentParameter.Name, enumName))
+					end
+					endtry
+
+					;;Record that we have processed this structure
+					processedEnums.Add(enumName)
+				end
+				else
+					loop.CurrentEnum = ^null
 
 				;;If the parameter being processed is a structure paramerter then make the structure data available
 				if (loop.CurrentParameter.Type == ParameterType.Structure) then
