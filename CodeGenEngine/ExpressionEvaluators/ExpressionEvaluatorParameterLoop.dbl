@@ -80,8 +80,10 @@ namespace CodeGen.Engine
 
 			;;Parameter direction
 			parameterLoopExpressionEvaluators.Add("IN", evaluateParameterDirection)
-			parameterLoopExpressionEvaluators.Add("OUT", evaluateParameterDirection)
 			parameterLoopExpressionEvaluators.Add("INOUT", evaluateParameterDirection)
+			parameterLoopExpressionEvaluators.Add("IN_OR_INOUT", evaluateParameterDirection)
+			parameterLoopExpressionEvaluators.Add("OUT", evaluateParameterDirection)
+			parameterLoopExpressionEvaluators.Add("OUT_OR_INOUT", evaluateParameterDirection)
 
 			;;Parameter passing mechanism
 			parameterLoopExpressionEvaluators.Add("DESCRIPTOR", evaluateParameterPassedBy)
@@ -244,16 +246,21 @@ namespace CodeGen.Engine
 			template, @FileNode 
 			loops, @IEnumerable<LoopNode> 
 		proc
-			data searchForType, ParameterDirection
-			using tkn.Value select
-			("IN"),
-				searchForType = ParameterDirection.In
-			("OUT"),
-				searchForType = ParameterDirection.Out
-			("INOUT"),
-				searchForType = ParameterDirection.InOut
-			endusing
-			lambda doEvaluate(iface, meth, param, index) (param.Direction == searchForType)
+			lambda doEvaluate(iface, meth, param, index)
+			begin
+				using tkn.Value select
+				("IN_OR_INOUT"),
+					mreturn param.Direction == ParameterDirection.In || param.Direction == ParameterDirection.InOut
+				("INOUT"),
+					mreturn param.Direction == ParameterDirection.InOut
+				("IN"),
+					mreturn param.Direction == ParameterDirection.In
+				("OUT_OR_INOUT"),
+					mreturn param.Direction == ParameterDirection.Out || param.Direction == ParameterDirection.InOut
+				("OUT"),
+					mreturn param.Direction == ParameterDirection.Out
+				endusing
+			end
 			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 	
@@ -282,28 +289,29 @@ namespace CodeGen.Engine
 			template, @FileNode 
 			loops, @IEnumerable<LoopNode> 
 		proc
-			data searchForType, ParameterType
-			using tkn.Value select
-			("ALPHA"),
-				searchForType = ParameterType.Alpha
-			("BINARY_HANDLE"),
-				searchForType = ParameterType.BinaryHandle
-			("DECIMAL"),
-				searchForType = ParameterType.Decimal
-			("ENUM"),
-				searchForType = ParameterType.Enumeration
-			("HANDLE"),
-				searchForType = ParameterType.Handle
-			("IMPLIED"),
-				searchForType = ParameterType.ImpliedDecimal
-			("INTEGER"),
-				searchForType = ParameterType.Integer
-			("STRING"),
-				searchForType = ParameterType.String
-			("STRUCTURE"),
-				searchForType = ParameterType.Structure
-			endusing
-			lambda doEvaluate(iface, meth, param, index) (param.Type == searchForType)
+			lambda doEvaluate(iface, meth, param, index)
+			begin
+				using tkn.Value select
+				("ALPHA"),
+					mreturn param.Type == ParameterType.Alpha
+				("BINARY_HANDLE"),
+					mreturn param.Type == ParameterType.BinaryHandle
+				("DECIMAL"),
+					mreturn param.Type == ParameterType.Decimal && param.DateFormat == DateFormat.None
+				("ENUM"),
+					mreturn param.Type == ParameterType.Enumeration
+				("HANDLE"),
+					mreturn param.Type == ParameterType.Handle
+				("IMPLIED"),
+					mreturn param.Type == ParameterType.ImpliedDecimal
+				("INTEGER"),
+					mreturn param.Type == ParameterType.Integer
+				("STRING"),
+					mreturn param.Type == ParameterType.String
+				("STRUCTURE"),
+					mreturn param.Type == ParameterType.Structure
+				endusing
+			end
 			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 	
@@ -373,7 +381,7 @@ namespace CodeGen.Engine
 				("COLLECTION_ARRAYLIST"),
 					mreturn param.CollectionType == ParameterCollectionType.ArrayList
 				("COLLECTION"),
-					mreturn param.CoerceType != ParameterCollectionType.None
+					mreturn param.CollectionType != ParameterCollectionType.None
 				endusing
 			end
 			mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
