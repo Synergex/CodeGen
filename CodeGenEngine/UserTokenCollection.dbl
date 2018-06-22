@@ -60,86 +60,68 @@ namespace CodeGen.Engine
 		proc
 
 			data errStatus	,boolean, false
-			data tokenFile	,String, context.CurrentTask.UserTokenFile.Trim()
 			data tmpch		,int
 			
 			context.CurrentTask.VerboseLog("Loading user defined tokens from " + context.CurrentTask.UserTokenFile,true,false)				
 
 			try
-				open(tmpch=0,i:s,tokenFile)
+			begin
+				open(tmpch=0,i:s,context.CurrentTask.UserTokenFile)
+			end
 			catch (ex)
-				errStatus = context.CurrentTask.ErrorLog("Failed to open user defined token file " + tokenFile)
+			begin
+				errStatus = context.CurrentTask.ErrorLog("Failed to open user defined token file " + context.CurrentTask.UserTokenFile)
+			end
 			endtry
 			
 			if (!errStatus)
 			begin
-				data recCount, int, 0
+				data tmpa, a32768
+				data tmps = String.Empty
+				data recCount = 0
 				repeat
 				begin
-					data tmpbuf		,a256
-					data pos1		,int, 0
-					data pos2		,int, 0
-					data pos3		,int, 0
-					data pos4		,int, 0
-					data lastRec	,boolean, false
-					
 					begin
-						reads(tmpch,tmpbuf,eout)
+						reads(tmpch,tmpa,eout)
 						exit
-					eout,       if (rdlen()) then
-							lastRec = true
-						else
+		eout,			if (!%rsize(tmpch))
 							exitloop
 					end
-					
-					;;Ignore blank lines
-					if (!tmpbuf)
-					begin
-						if (lastRec) then
-							exitloop
-						else
-							nextloop
-					end
-					
-					;;Ignore comment lines
-					if (tmpbuf==";")
-					begin
-						if (lastRec) then
-							exitloop
-						else
-							nextloop
-					end
-					
+
+					;;We got some data
 					recCount += 1
+
+					;;Ignore blank lines
+					if (!tmpa)
+						nextloop
 					
-					pos1=instr(1,tmpbuf,"<")
-					if (pos1) pos2=instr(pos1,tmpbuf,">")
-					if (pos2) pos3=instr(pos2,tmpbuf,"</")
-					if (pos3) pos4=instr(pos3,tmpbuf,">")
+					;;Get the data into a string
+					tmps = ((string)tmpa).trim()
+
+					;;Ignore comment lines
+					if (tmps.StartsWith(";"))
+						nextloop
 					
-					;;Make sure the record looks like a open/close tag record
-					if ((!pos1)||(!pos2)||(!pos3)||(!pos4))
+					;;Make sure the string starts with a token and ends with a matching closing token
+					data parts = tmps.Split(new string[#] {"<",">"}, StringSplitOptions.RemoveEmptyEntries)
+
+					data opener = parts[0]
+					data closer = parts[parts.Length-1]
+
+					if ((parts.Length < 3) || closer != String.Format("/{0}",opener))
 					begin
-						errStatus = context.CurrentTask.ErrorLog("Record " + string(recCount) + " in user defined token file is invalid!")
+						errStatus = context.CurrentTask.ErrorLog(String.Format("Record {0} in user token file {1} does not contain matching opening and closing tokens!", recCount, context.CurrentTask.UserTokenFile))
 						exitloop
 					end
-					
-					;;Make sure the open and close tags match
-					if (tmpbuf(pos1+1,pos2-1)!=tmpbuf(pos3+2,pos4-1))
-					begin
-						errStatus = context.CurrentTask.ErrorLog("Record " + string(recCount) + " in user defined token file is invalid!")
-						exitloop
-					end
+
+					data replacementValue = (string)((a)tmps - String.Format("<{0}>",opener) - String.Format("<{0}>",closer))
 					
 					;;Store details of this user token
-					context.UserTokens.Add(new UserToken(tmpbuf(pos1+1,pos2-1),tmpbuf(pos2+1,pos3-1)))
-					
-					if (lastRec)
-						exitloop
+					context.UserTokens.Add(new UserToken(opener,replacementValue))
 				end
 			end
 			
-			if (tmpch&&%chopen(tmpch))
+			if (tmpch && %chopen(tmpch))
 				close tmpch
 			
 			mreturn errStatus
