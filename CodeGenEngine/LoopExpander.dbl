@@ -77,7 +77,9 @@ namespace CodeGen.Engine
             loopProcessors.Add("FIRST_SEGMENT", processFirstKeySegmentLoop)
             loopProcessors.Add("SECOND_SEGMENT", ProcessSecondKeySegmentLoop)
             loopProcessors.Add("ENUM_MEMBER_LOOP", processEnumMemberLoop)
-            loopProcessors.Add("STRUCTURE_LOOP", processStructureLoop)
+			loopProcessors.Add("FROM_KEY_SEGMENT_LOOP", processFromKeySegmentLoop)
+			loopProcessors.Add("TO_KEY_SEGMENT_LOOP", processToKeySegmentLoop)
+			loopProcessors.Add("STRUCTURE_LOOP", processStructureLoop)
 			loopProcessors.Add("INTERFACE_LOOP", processInterfaceLoop)
 			loopProcessors.Add("METHOD_LOOP", processMethodLoop)
 			loopProcessors.Add("PARAMETER_LOOP", processParameterLoop)
@@ -719,7 +721,69 @@ namespace CodeGen.Engine
 
         endmethod
 
-        private static method processStructureLoop, void
+		private static method processFromKeySegmentLoop, void
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
+		proc
+			data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
+			data loop = ^as(node, SegmentLoopNode)
+			data context = template.Context
+
+			if (outerLoop.FromKey.Segments.Count > 0)
+			begin
+				loop.CurrentKey = outerLoop.FromKey
+				loop.MaxIndex = outerLoop.FromKey.Segments.Count - 1
+				
+				context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+				
+				data ix, int
+				for ix from 0 thru outerLoop.FromKey.Segments.Count - 1
+				begin
+					loop.CurrentSegment = outerLoop.FromKey.Segments[ix]
+					loop.CurrentIndex = ix
+					loop.CurrentField = getFieldForSegment(context.CurrentStructure, loop.CurrentSegment)
+
+					data child, @ITreeNode
+					foreach child in node.Body
+						child.Accept(expander)
+				end
+			end
+		endmethod
+
+		private static method processToKeySegmentLoop, void
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
+		proc
+			data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
+			data loop = ^as(node, SegmentLoopNode)
+			data context = template.Context
+
+			if (outerLoop.ToKey.Segments.Count > 0)
+			begin
+				loop.CurrentKey = outerLoop.ToKey
+				loop.MaxIndex = outerLoop.ToKey.Segments.Count - 1
+				
+				context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+				
+				data ix, int
+				for ix from 0 thru outerLoop.ToKey.Segments.Count - 1
+				begin
+					loop.CurrentSegment = outerLoop.ToKey.Segments[ix]
+					loop.CurrentIndex = ix
+					loop.CurrentField = getFieldForSegment(outerLoop.ToStructure, loop.CurrentSegment)
+
+					data child, @ITreeNode
+					foreach child in node.Body
+						child.Accept(expander)
+				end
+			end
+		endmethod
+
+		private static method processStructureLoop, void
 			required in node, @LoopNode 
 			required in template, @FileNode 
 			required in loops, @IEnumerable<LoopNode> 

@@ -177,6 +177,16 @@ namespace CodeGen.Engine
             begin
                 lambda isSegmentLoop(node) node .is. SegmentLoopNode
 				data segloop, @SegmentLoopNode, ^as(loops.FirstOrDefault(isSegmentLoop), SegmentLoopNode)
+
+				;;There are some scenarios where field loop tokens are theoretically valid,
+				;;But where in some specific scenarios there may be no current field.
+				;;For example this can happen in key segment loops if a key segment that
+				;;is not associated with a field is encountered (e.g. foreign key segments
+				;;can be specified as a literal value).
+
+				if (segloop.CurrentField == ^null)
+					throw new ApplicationException(String.Format("Can't use field loop token in segment loop for structure {0} key {1} segment {2}. No associated field!",template.Context.CurrentStructure.Name, segloop.CurrentKey.Name, segloop.CurrentIndex + 1))
+
                 mreturn specific(template.Context.CurrentStructure, segloop.CurrentField)
 			end
 
