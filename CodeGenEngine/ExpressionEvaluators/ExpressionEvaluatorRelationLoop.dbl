@@ -64,10 +64,13 @@ namespace CodeGen.Engine
 		
 			relationLoopExpressionEvaluators.Add("FROM_ACCESS", evaluateRelationFromKeyType)
 			relationLoopExpressionEvaluators.Add("FROM_FOREIGN", evaluateRelationFromKeyType)
-			relationLoopExpressionEvaluators.Add("TWO_WAY_ONE_TO_MANY", evaluateRelationType)
-			relationLoopExpressionEvaluators.Add("TWO_WAY_ONE_TO_ONE", evaluateRelationType)
-			relationLoopExpressionEvaluators.Add("ONE_WAY_ONE_TO_MANY", evaluateRelationType)
-			relationLoopExpressionEvaluators.Add("ONE_WAY_ONE_TO_ONE", evaluateRelationType)
+
+			relationLoopExpressionEvaluators.Add("ONE_TO_MANY", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("ONE_TO_ONE", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("ONE_TO_MANY_TO_ONE", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("ONE_TO_ONE_TO_ONE", evaluateRelationType)
+			relationLoopExpressionEvaluators.Add("MANY_TO_ONE_TO_MANY", evaluateRelationType)
+
 			relationLoopExpressionEvaluators.Add("TO_LONGER", evaluateRelationCompareSize)
 			relationLoopExpressionEvaluators.Add("TO_SAME_SIZE", evaluateRelationCompareSize)
 			relationLoopExpressionEvaluators.Add("TO_SHORTER", evaluateRelationCompareSize)
@@ -185,19 +188,22 @@ namespace CodeGen.Engine
 		proc
 			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey)
 			begin
+				data isOneToOneToOne = (tokey.Size == fromkey.Size && fromkey.Duplicates == RpsKeyDuplicates.NoDuplicates && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates)
 				data isOneToOne = ((tokey.Size < fromkey.Size) || (tokey.Size == fromkey.Size && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates))
 				data isBackRelation = tostr.Relations.FirstOrDefault(lambda (relation) { relation.ToStructure == fromStructure.Name && relation.ToKey == fromkey.Name })
 				data hasBackRelation = (isBackRelation != ^null)
 
 				using tkn.Value select
-				("TWO_WAY_ONE_TO_MANY"),
-					mreturn (!isOneToOne && hasBackRelation)
-				("TWO_WAY_ONE_TO_ONE"),
-					mreturn (isOneToOne && hasBackRelation)
-				("ONE_WAY_ONE_TO_ONE"),
+				("ONE_TO_ONE"),
 					mreturn (isOneToOne && !hasBackRelation)
-				("ONE_WAY_ONE_TO_MANY"),
+				("ONE_TO_MANY"),
 					mreturn (!isOneToOne && !hasBackRelation)
+				("ONE_TO_MANY_TO_ONE"),
+					mreturn (!isOneToOne && hasBackRelation)
+				("ONE_TO_ONE_TO_ONE"),
+					mreturn (isOneToOneToOne && hasBackRelation)
+				("MANY_TO_ONE_TO_MANY"),
+					mreturn (isOneToOne && !isOneToOneToOne && hasBackRelation)
 				endusing
 				;;Should never get here!
 				throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationType()",tkn.Value))

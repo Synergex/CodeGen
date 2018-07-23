@@ -268,18 +268,51 @@ namespace CodeGen.Engine
             data field, @RpsField, ^null
             data index, int
 			
+			;;Field loop tokens are valid in several places, so we need to figure out what context we're in
+
 			if (loop .is. FieldLoopNode) then
-            begin
+			begin
+				;;We're in a field loop
+
                 str = template.Context.CurrentStructure
 				field = ((@FieldLoopNode)loop).CurrentField
                 index = ((@FieldLoopNode)loop).CurrentIndex
             end
-            else
-            begin
-                str = template.Context.CurrentStructure
-                data segment, @RpsKeySegment, ((@SegmentLoopNode)loop).CurrentSegment
+			else if (loop .is. RelationSegmentLoopNode) then
+			begin
+				;;We're in a relation key segment loop
+
+				;;First get a handle on the outer relation loop that must be above us in the tree
+				lambda isRelationLoop(node) (node .is. RelationLoopNode)
+				data relationLoop, @RelationLoopNode, ^as(loops.First(isRelationLoop), @RelationLoopNode)
+
+				;;Determine which structure we're dealing with, based on the TYPE of relation segment loop (FROM_KEY_SEGMENT_LOOP or TO_KEY_SEGMENT_LOOP)
+				str = loop.OpenToken.Value == "FROM_KEY_SEGMENT_LOOP" ? template.Context.CurrentStructure : relationLoop.ToStructure
+
+				;;Now get a handle on the full definition of the key segment we're dealing with
+				data segment, @RpsKeySegment, ((@RelationSegmentLoopNode)loop).CurrentSegment
+
+				;;And get a hangle on the field associated with the current segment
+				;;Could return null if it a "literal" segment
+				lambda isSegmentField(fld) (fld.Name == segment.Field)
+				field = str.Fields.FirstOrDefault(isSegmentField)
+				
+				index = ((@RelationSegmentLoopNode)loop).CurrentIndex
+			end
+			else if (loop .is. SegmentLoopNode)
+			begin
+				;;We're in a regular key segment loop
+				
+				;;Get a handle on the structure being processed
+				str = template.Context.CurrentStructure
+
+				;;Amd the current key segment
+				data segment, @RpsKeySegment, ((@SegmentLoopNode)loop).CurrentSegment
+
+				;;And the field associated with the key segment
                 lambda isSegmentField(fld) (fld.Name == segment.Field)
 				field = str.Fields.First(isSegmentField)
+
                 index = ((@SegmentLoopNode)loop).CurrentIndex
             end
 			
