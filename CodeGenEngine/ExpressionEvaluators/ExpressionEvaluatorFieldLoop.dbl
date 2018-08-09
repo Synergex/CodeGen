@@ -207,7 +207,8 @@ namespace CodeGen.Engine
             fieldLoopExpressionEvaluators.Add("NUMERIC", evaluateFieldNumeric)
             fieldLoopExpressionEvaluators.Add("OCNATIVE", evaluateFieldOcNative)
             fieldLoopExpressionEvaluators.Add("OCOBJECT", evaluateFieldOcObject)
-            fieldLoopExpressionEvaluators.Add("OPTIONAL", evaluateFieldOptional)
+			fieldLoopExpressionEvaluators.Add("ONLY_PKSEGMENT", evaluateFieldOnlyPkSegment)
+			fieldLoopExpressionEvaluators.Add("OPTIONAL", evaluateFieldOptional)
             fieldLoopExpressionEvaluators.Add("OVERLAY", evaluateFieldOverlay)
             fieldLoopExpressionEvaluators.Add("PAINTCHAR", evaluateFieldPaintChar)
             fieldLoopExpressionEvaluators.Add("PKSEGMENT", evaluateFieldPkSegment)
@@ -287,7 +288,7 @@ namespace CodeGen.Engine
 				data relationLoop, @RelationLoopNode, ^as(loops.First(isRelationLoop), @RelationLoopNode)
 
 				;;Determine which structure we're dealing with, based on the TYPE of relation segment loop (FROM_KEY_SEGMENT_LOOP or TO_KEY_SEGMENT_LOOP)
-				str = loop.OpenToken.Value == "FROM_KEY_SEGMENT_LOOP" ? template.Context.CurrentStructure : relationLoop.ToStructure
+				str = loop.OpenToken.Value.StartsWith("FROM_KEY_SEGMENT_LOOP") ? template.Context.CurrentStructure : relationLoop.ToStructure
 
 				;;Now get a handle on the full definition of the key segment we're dealing with
 				data segment, @RpsKeySegment, ((@RelationSegmentLoopNode)loop).CurrentSegment
@@ -1871,7 +1872,37 @@ namespace CodeGen.Engine
             mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
-        private static method evaluateFieldPrecision, boolean
+		private static method evaluateFieldOnlyPkSegment, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str, field, index)
+			begin
+				data isPkSegment, boolean, false
+
+				if (str.Keys.Count > 0)
+				begin
+					if (str.Keys[0].Segments.Count != 1)
+						mreturn false
+
+					data segment, @RpsKeySegment
+					foreach segment in str.Keys[0].Segments
+					begin
+						if (segment.Field == field.Name)
+						begin
+							isPkSegment = true
+							exitloop
+						end
+					end
+				end
+				mreturn isPkSegment
+			end
+			mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateFieldPrecision, boolean
             tkn, @Token 
             template, @FileNode 
             loops, @IEnumerable<LoopNode> 

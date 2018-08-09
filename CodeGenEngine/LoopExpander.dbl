@@ -69,7 +69,9 @@ namespace CodeGen.Engine
             loopProcessors.Add("ENUM_LOOP_STRUCTURE", processStructureEnumLoop)
             loopProcessors.Add("RELATION_LOOP", processRelationLoop)
 			loopProcessors.Add("FROM_KEY_SEGMENT_LOOP", processFromKeySegmentLoop)
+			loopProcessors.Add("FROM_KEY_SEGMENT_LOOP_RESTRICTED", processFromKeySegmentLoopRestricted)
 			loopProcessors.Add("TO_KEY_SEGMENT_LOOP", processToKeySegmentLoop)
+			loopProcessors.Add("TO_KEY_SEGMENT_LOOP_RESTRICTED", processToKeySegmentLoopRestricted)
 			loopProcessors.Add("BUTTON_LOOP", processButtonLoop)
             loopProcessors.Add("FILE_LOOP", processFileLoop)
 			loopProcessors.Add("TAG_LOOP", processTagLoop)
@@ -755,6 +757,49 @@ namespace CodeGen.Engine
 			end
 		endmethod
 
+		private static method processFromKeySegmentLoopRestricted, void
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
+		proc
+			data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
+			data loop = ^as(node, RelationSegmentLoopNode)
+			data context = template.Context
+
+			if (outerLoop.FromKey.Segments.Count > 0)
+			begin
+				loop.CurrentRelation = outerLoop.CurrentRelation
+				loop.CurrentKey = outerLoop.FromKey
+				loop.MaxIndex = outerLoop.FromKey.Segments.Count - 1
+				loop.ToStructure = outerLoop.ToStructure
+				loop.ToKey = outerLoop.ToKey
+				
+				context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+
+				data lengthSoFar = 0
+				
+				data ix, int
+				for ix from 0 thru outerLoop.FromKey.Segments.Count - 1
+				begin
+					loop.CurrentSegment = outerLoop.FromKey.Segments[ix]
+					loop.CurrentIndex = ix
+					loop.CurrentField = getFieldForSegment(context.CurrentStructure, loop.CurrentSegment)
+
+					lengthSoFar += loop.CurrentSegment.Length
+					if (lengthSoFar == outerLoop.ToKey.Size)
+						loop.MaxIndex = loop.CurrentIndex
+
+					data child, @ITreeNode
+					foreach child in node.Body
+						child.Accept(expander)
+
+					if (lengthSoFar == outerLoop.ToKey.Size)
+						exitloop
+				end
+			end
+		endmethod
+
 		private static method processToKeySegmentLoop, void
 			required in node,		@LoopNode 
 			required in template,	@FileNode 
@@ -783,6 +828,47 @@ namespace CodeGen.Engine
 					data child, @ITreeNode
 					foreach child in node.Body
 						child.Accept(expander)
+				end
+			end
+		endmethod
+
+		private static method processToKeySegmentLoopRestricted, void
+			required in node,		@LoopNode 
+			required in template,	@FileNode 
+			required in loops,		@IEnumerable<LoopNode> 
+			required in expander,	@ITreeNodeVisitor 
+		proc
+			data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
+			data loop = ^as(node, RelationSegmentLoopNode)
+			data context = template.Context
+
+			data lengthSoFar = 0
+
+			if (outerLoop.ToKey.Segments.Count > 0)
+			begin
+				loop.CurrentRelation = outerLoop.CurrentRelation
+				loop.CurrentKey = outerLoop.ToKey
+				loop.MaxIndex = outerLoop.ToKey.Segments.Count - 1
+				
+				context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+				
+				data ix, int
+				for ix from 0 thru outerLoop.ToKey.Segments.Count - 1
+				begin
+					loop.CurrentSegment = outerLoop.ToKey.Segments[ix]
+					loop.CurrentIndex = ix
+					loop.CurrentField = getFieldForSegment(outerLoop.ToStructure, loop.CurrentSegment)
+
+					lengthSoFar += loop.CurrentSegment.Length
+					if (lengthSoFar == outerLoop.FromKey.Size)
+						loop.MaxIndex = loop.CurrentIndex
+
+					data child, @ITreeNode
+					foreach child in node.Body
+						child.Accept(expander)
+
+					if (lengthSoFar == outerLoop.FromKey.Size)
+						exitloop
 				end
 			end
 		endmethod
