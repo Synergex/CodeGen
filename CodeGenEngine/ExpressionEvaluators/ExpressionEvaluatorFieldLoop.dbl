@@ -140,7 +140,8 @@ namespace CodeGen.Engine
             fieldLoopExpressionEvaluators.Add("INPUT_LEFT", evaluateFieldInputLeft)
             fieldLoopExpressionEvaluators.Add("INPUT_RIGHT", evaluateFieldInputRight)
             fieldLoopExpressionEvaluators.Add("INTEGER", evaluateFieldInteger)
-            fieldLoopExpressionEvaluators.Add("LANGUAGE", evaluateFieldLanguage)
+			fieldLoopExpressionEvaluators.Add("KEYSEGMENT", evaluateFieldKeySegment)
+			fieldLoopExpressionEvaluators.Add("LANGUAGE", evaluateFieldLanguage)
 			fieldLoopExpressionEvaluators.Add("LEAVE", evaluateFieldLeave)
 			fieldLoopExpressionEvaluators.Add("LENGTH_OVER_8", evaluateFieldLengthOver8)
 			fieldLoopExpressionEvaluators.Add("LONGDESC", evaluateFieldLongDescription)
@@ -195,7 +196,8 @@ namespace CodeGen.Engine
             fieldLoopExpressionEvaluators.Add("NOTOOLKIT", evaluateFieldNoToolkit)
             fieldLoopExpressionEvaluators.Add("NOTOVERLAY", evaluateFieldNotOverlay)
             fieldLoopExpressionEvaluators.Add("NOTPKSEGMENT", evaluateFieldNotPkSegment)
-            fieldLoopExpressionEvaluators.Add("NOTRADIOBUTTONS", evaluateFieldNotRadioButtons)
+			fieldLoopExpressionEvaluators.Add("NOTKEYSEGMENT", evaluateFieldNotKeySegment)
+			fieldLoopExpressionEvaluators.Add("NOTRADIOBUTTONS", evaluateFieldNotRadioButtons)
             fieldLoopExpressionEvaluators.Add("NOTSTRUCTFIELD", evaluateFieldNotStructField)
             fieldLoopExpressionEvaluators.Add("NOTTIME", evaluateFieldNotTime)
             fieldLoopExpressionEvaluators.Add("NOTUPPERCASE", evaluateFieldNotUppercase)
@@ -1696,7 +1698,77 @@ namespace CodeGen.Engine
             mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
-        private static method evaluateFieldNotRadioButtons, boolean
+		private static method evaluateFieldKeySegment, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str, field, index)
+			begin
+				if (str.Keys.Count > 0)
+					mreturn false
+				
+				;;Iterate through all keys looking for the current field being used as a key segment
+				data key, @RpsKey
+				foreach key in str.Keys
+				begin
+					;;Make sure it's an access key
+					if (key.KeyType == RpsKeyType.Foreign)
+						nextloop
+
+					;;Check each segment for the field
+					data segment, @RpsKeySegment
+					foreach segment in key.Segments
+					begin
+						if (segment.SegmentType == RpsKeySegmentType.Field && segment.Field == field.Name)
+						begin
+							mreturn true
+						end
+					end
+				end
+
+				mreturn false
+			end
+			mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateFieldNotKeySegment, boolean
+			tkn, @Token 
+			template, @FileNode 
+			loops, @IEnumerable<LoopNode> 
+			endparams
+		proc
+			lambda doEvaluate(str, field, index)
+			begin
+				if (str.Keys.Count == 0)
+					mreturn true
+
+				;;Iterate through all keys looking for the current field being used as a key segment
+				data key, @RpsKey
+				foreach key in str.Keys
+				begin
+					;;Make sure it's an access key
+					if (key.KeyType == RpsKeyType.Foreign)
+						nextloop
+
+					;;Check each segment for the field
+					data segment, @RpsKeySegment
+					foreach segment in key.Segments
+					begin
+						if (segment.SegmentType == RpsKeySegmentType.Field && segment.Field == field.Name)
+						begin
+							mreturn false
+						end
+					end
+				end
+
+				mreturn true
+			end
+			mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+		endmethod
+
+		private static method evaluateFieldNotRadioButtons, boolean
             tkn, @Token 
             template, @FileNode 
             loops, @IEnumerable<LoopNode> 
