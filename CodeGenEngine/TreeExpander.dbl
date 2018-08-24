@@ -43,6 +43,7 @@ import System
 import System.Collections.Generic
 import System.IO
 import System.Linq
+import System.Text
 
 .array 0
 
@@ -53,6 +54,12 @@ namespace CodeGen.Engine
     ;;; </summary>
     public class TreeExpander implements ITreeNodeVisitor
 
+		private class ExpansionState
+			public OnlyContainsControlNodes, boolean
+			public AtLeastOneControlNodeWasEvaluated, boolean
+			public OutputBuffer, @StringBuilder
+		endclass
+
         private _currentFileNode, @FileNode
         private _currentLoops,    @List<LoopNode>,     new List<LoopNode>()
         private _expander,        @TokenExpander
@@ -60,7 +67,8 @@ namespace CodeGen.Engine
         private _outputStream,    @TextWriter
         private _validator,       @TokenValidation,    new TokenValidation()
         private _killTextSibling, boolean,             false
-
+		private _loopExpansionStack, @Stack<TreeExpander.ExpansionState>, new Stack<TreeExpander.ExpansionState>()
+		private _stringBuilderPool, @Stack<StringBuilder>, new Stack<StringBuilder>()
         ;;; <summary>
         ;;; Constructor used when expanding the whole tree. After constructing the object,
         ;;; call Visit(@FileNode) to initiate code generation.
@@ -125,16 +133,77 @@ namespace CodeGen.Engine
 
         endmethod
 
+		private method BufferNodeOutput, void
+			nodes, @IEnumerable<ITreeNode> 
+			op, @Action
+		proc
+			data expansionState = new TreeExpander.ExpansionState()
+			expansionState.OnlyContainsControlNodes = true
+			expansionState.OutputBuffer = _stringBuilderPool.Count > 0 ? _stringBuilderPool.Pop() : new Stringbuilder()
+			data node, @ITreeNode
+			foreach node in nodes
+			begin
+				;;figure out if all of the nodes are control nodes or whitespace text nodes
+				if(!(node .is. ControlNode))
+				begin
+					if(node .is. TextNode)
+					begin
+						data tNode = (@TextNode)node
+						if(String.IsNullOrWhiteSpace(tNode.Value.Value))
+							nextloop
+					end
+					expansionState.OnlyContainsControlNodes = false
+					exitloop
+				end
+			end
+			_loopExpansionStack.Push(expansionState)
+			op()
+			_loopExpansionStack.Pop()
+			if(!expansionState.OnlyContainsControlNodes || expansionState.AtLeastOneControlNodeWasEvaluated)
+			begin
+				;; Write the text to the output stream
+				data output = expansionState.OutputBuffer.ToString()
+
+				if(_loopExpansionStack.Count > 0) then
+				begin
+					_loopExpansionStack.Peek().AtLeastOneControlNodeWasEvaluated = true
+					_loopExpansionStack.Peek().OutputBuffer.Append(output)
+				end
+				else
+					_outputStream.Write(output)
+				
+				;; Debug logging? Log the text.
+				if (_currentFileNode.Context.DebugLoggingEnabled)
+				begin
+					if (output.Length > 0)
+					begin
+						output = output.Replace(" ", "<SP>").Replace(%char(9), "<TAB>").Replace(%char(13), "<CR>").Replace(%char(10), "<LF>")
+						if (output.Length > 30)
+							output = output.Substring(0, 30) + "..."
+					end
+					_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Text", output))
+				end
+			end
+
+			expansionState.OutputBuffer.Clear()
+			_stringBuilderPool.Push(expansionState.OutputBuffer)
+		endmethod
+
+
         ;;; <summary>
         ;;; Main dispatcher for expanding the body of a node (FileNode.Body, IfNode.Body, ElseNode.Body)
         ;;; </summary>
         ;;; <param name="nodes">Collection of nodes to visit</param>
-        private method Visit, void
-            nodes, @List<ITreeNode> 
-        proc
-			data node, @ITreeNode
-			foreach node in nodes
-				node.Accept(this)
+        public method Visit, void
+            nodes, @IEnumerable<ITreeNode> 
+		proc
+			lambda op()
+			begin
+				data node, @ITreeNode
+				foreach node in nodes
+					node.Accept(this)
+			end
+			BufferNodeOutput(nodes, op)
         endmethod
 
         ;;; <summary>
@@ -144,11 +213,15 @@ namespace CodeGen.Engine
         ;;; <param name="loop">The loop node that was encountered in the tree.</param>
         public method Visit, void
             loop, @LoopNode 
-        proc
-            _killTextSibling = false
-            _currentLoops.Add(loop)
-            LoopExpander.ProcessLoop(loop, _currentFileNode, _currentLoops, this)
-            _currentLoops.Remove(loop)
+		proc
+			lambda op()
+			begin
+				_killTextSibling = false
+				_currentLoops.Add(loop)
+				LoopExpander.ProcessLoop(loop, _currentFileNode, _currentLoops, this)
+				_currentLoops.Remove(loop)
+			end
+			BufferNodeOutput(loop.Body, op)
         endmethod
 
         ;;; <summary>
@@ -165,7 +238,9 @@ namespace CodeGen.Engine
                 throw new ApplicationException("CODEGEN BUG: TreeExpander.Visit(IfNode) encountered an IfNode without an associated ExpressionNode. This indicates a Parser bug!")
 			
 			if (_evaluator.EvaluateExpression(getContextForExpression(node.Expression), node.Expression, _currentFileNode, _currentLoops)) then
-            begin
+			begin
+				_loopExpansionStack.Peek().AtLeastOneControlNodeWasEvaluated = true
+
                 if (_currentFileNode.Context.DebugLoggingEnabled)
 					_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("<IF {0}>", node.Expression.Value.Value), true))
 
@@ -175,12 +250,19 @@ namespace CodeGen.Engine
                     _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} ->", String.Format("</IF {0}>", node.Expression.Value.Value)))
             end
             else if (node.Else != ^null) then
-            begin
+			begin
+				_loopExpansionStack.Peek().AtLeastOneControlNodeWasEvaluated = true
+
                 if (_currentFileNode.Context.DebugLoggingEnabled)
 					_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} ->", "</ELSE>"))
 
                 Visit(node.Else.Body)
-            end
+			end
+			else if(node.CloseToken != ^null && node.CloseToken.EndLineNumber == node.OpenToken.StartLineNumber) then
+			begin
+				_killTextSibling = false
+			end
+
             else
 				_killTextSibling = true
 
@@ -221,7 +303,7 @@ namespace CodeGen.Engine
             data expandedText, string, _expander.ExpandToken(node.Value, _currentFileNode, _currentLoops)
 			
 			;; And add the text to the output stream
-            _outputStream.Write(expandedText)
+			_loopExpansionStack.Peek().OutputBuffer.Append(expandedText)
 			
 			;; Debug logging? Log the token expansion.
             if (_currentFileNode.Context.DebugLoggingEnabled)
@@ -235,26 +317,29 @@ namespace CodeGen.Engine
         ;;; <param name="node">TextNode to visit.</param>
         public method Visit, void
             node, @TextNode 
-        proc
+		proc
+
+			if(_killTextSibling)
+				nop
+
             ;; Apply the text processing rules that were established by TreePreExpander
 			data cleanedOutput, string, CleanOutput(node, _killTextSibling ? (boolean?)true : ^null)
 
 			_killTextSibling = false
-
             ;; Write the text to the output stream
-			_outputStream.Write(cleanedOutput)
+			_loopExpansionStack.Peek().OutputBuffer.Append(cleanedOutput)
 
-            ;; Debug logging? Log the text.
-            if (_currentFileNode.Context.DebugLoggingEnabled)
-            begin
-                if (cleanedOutput.Length > 0)
-                begin
-                    cleanedOutput = cleanedOutput.Replace(" ", "<SP>").Replace(%char(9), "<TAB>").Replace(%char(13), "<CR>").Replace(%char(10), "<LF>")
-                    if (cleanedOutput.Length > 30)
-                        cleanedOutput = cleanedOutput.Substring(0, 30) + "..."
-                end
-                _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Text", cleanedOutput))
-			end
+;            ;; Debug logging? Log the text.
+;            if (_currentFileNode.Context.DebugLoggingEnabled)
+;            begin
+;                if (cleanedOutput.Length > 0)
+;                begin
+;                    cleanedOutput = cleanedOutput.Replace(" ", "<SP>").Replace(%char(9), "<TAB>").Replace(%char(13), "<CR>").Replace(%char(10), "<LF>")
+;                    if (cleanedOutput.Length > 30)
+;                        cleanedOutput = cleanedOutput.Substring(0, 30) + "..."
+;                end
+;                _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Text", cleanedOutput))
+;			end
 
         endmethod
 
@@ -355,15 +440,21 @@ namespace CodeGen.Engine
 			data realFirstLineNotInResult, boolean, firstLineNotInResult != ^null ? firstLineNotInResult.Value : node.FirstLineNotInResult
 			data cleanedOutput, string, node.Value.Value
 
+			if(node.RemoveTrailingWhitespace)
+				cleanedOutput = cleanedOutput.TrimEnd(' ',%char(9))
+
 			if (node.LastLineNotInResult)
-            begin
+			begin
+				if(String.IsNullOrWhiteSpace(cleanedOutput))
+					mreturn "";
+
                 ;; Find the last <CR><LF>
 				data lastNewline, int, cleanedOutput.LastIndexOf(%char(13) + %char(10))
 
                 if ((lastNewline == 0) && (cleanedOutput.Length == 2)) then
                 begin
 					;; All we have is a <CR><LF> ... leave it alone
-					nop
+					cleanedOutput = ""
 				end
 				else if ((lastNewline != -1) && (cleanedOutput.Length > (lastNewline + 2))) then
                 begin
@@ -381,7 +472,7 @@ namespace CodeGen.Engine
             end
 			
 			if (realFirstLineNotInResult)
-            begin
+			begin
                 ;; Find the first <CR><LF>
 				data firstNewline, int, cleanedOutput.IndexOf(%char(13) + %char(10))
 
