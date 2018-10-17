@@ -170,15 +170,43 @@ namespace CodeGen.Engine
             specific, @Func<RpsStructure, RpsField, string> 
             endparams
         proc
-            lambda isFieldLoop(node) node .is. FieldLoopNode
-            data fieldLoop, @FieldLoopNode, ^as(loops.FirstOrDefault(isFieldLoop), FieldLoopNode)
-			
-            if (fieldLoop != ^null) then
-                mreturn specific(template.Context.CurrentStructure, fieldLoop.CurrentField)
-            else
+
+            lambda isFieldOrSegmentLoop(node) (node .is. FieldLoopNode || node .is. SegmentLoopNode)
+            data loop, @LoopNode, loops.Last(isFieldOrSegmentLoop)
+
+            data str, @RpsStructure
+            data fld, @RpsField
+
+            if (loop .is. FieldLoopNode) then
             begin
-                lambda isSegmentLoop(node) node .is. SegmentLoopNode
-                data segloop, @SegmentLoopNode, ^as(loops.FirstOrDefault(isSegmentLoop), SegmentLoopNode)
+                ;;We're in a field loop
+                str = template.Context.CurrentStructure
+                fld = ((@FieldLoopNode)loop).CurrentField
+            end
+            else if (loop .is. RelationSegmentLoopNode) then
+            begin
+                ;;We're in a relation key segment loop
+
+                ;;First get a handle on the outer relation loop that must be above us in the tree
+                lambda isRelationLoop(node) (node .is. RelationLoopNode)
+                data relationLoop, @RelationLoopNode, ^as(loops.First(isRelationLoop), @RelationLoopNode)
+
+                ;;Determine which structure we're dealing with, based on the TYPE of relation segment loop (FROM_KEY_SEGMENT_LOOP or TO_KEY_SEGMENT_LOOP)
+                str = loop.OpenToken.Value.StartsWith("FROM_KEY_SEGMENT_LOOP") ? template.Context.CurrentStructure : relationLoop.ToStructure
+
+                ;;Now get a handle on the full definition of the key segment we're dealing with
+                data segment, @RpsKeySegment, ((@RelationSegmentLoopNode)loop).CurrentSegment
+
+                ;;And get a handle on the field associated with the current segment
+                ;;Could return null if it a "literal" segment
+                lambda isSegmentField(f) (f.Name == segment.Field)
+                fld = str.Fields.FirstOrDefault(isSegmentField)
+
+            end
+            else if (loop .is. SegmentLoopNode)
+            begin
+                ;;We're in a regular key segment loop
+                data segloop = (@SegmentLoopNode)loop
 
                 ;;There are some scenarios where field loop tokens are theoretically valid,
                 ;;But where in some specific scenarios there may be no current field.
@@ -189,8 +217,11 @@ namespace CodeGen.Engine
                 if (segloop.CurrentField == ^null)
                     throw new ApplicationException(String.Format("Can't use field loop token in segment loop for structure {0} key {1} segment {2}. No associated field!",template.Context.CurrentStructure.Name, segloop.CurrentKey.Name, segloop.CurrentIndex + 1))
 
-                mreturn specific(template.Context.CurrentStructure, segloop.CurrentField)
+                str = template.Context.CurrentStructure
+                fld = segloop.CurrentField
             end
+
+            mreturn specific(str, fld)
 
         endmethod
 
