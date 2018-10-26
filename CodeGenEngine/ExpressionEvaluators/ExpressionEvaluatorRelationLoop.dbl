@@ -111,6 +111,9 @@ namespace CodeGen.Engine
 			relationLoopExpressionEvaluators.Add("TO_NULLVALUE", evaluateRelationToNullValue)
 			relationLoopExpressionEvaluators.Add("TO_SINGLE_SEGMENT", evaluateRelationToSingleSegment)
 
+            relationLoopExpressionEvaluators.Add("TO_STRUCTURE_INCLUDED", evaluateRelationToStructurePresence)
+            relationLoopExpressionEvaluators.Add("TO_STRUCTURE_NOT_INCLUDED", evaluateRelationToStructurePresence)
+
 		endmethod
 	
 		;; -------------------------------------------------------------------------------------------------------------------------------
@@ -126,12 +129,12 @@ namespace CodeGen.Engine
 			tkn, @Token 
 			template, @FileNode 
 			loops, @IEnumerable<LoopNode> 
-			specific, @Func<RpsStructure, RpsRelation, int, RpsKey, RpsStructure, RpsKey, boolean> 
+			specific, @Func<CodeGenContext, RpsStructure, RpsRelation, int, RpsKey, RpsStructure, RpsKey, boolean> 
 			endparams
 		proc
 			lambda isRelationLoop(node) node .is. RelationLoopNode
 			data loop, @RelationLoopNode, ^as(loops.First(isRelationLoop), RelationLoopNode)
-			mreturn specific(template.Context.CurrentStructure, loop.CurrentRelation, loop.CurrentIndex, loop.FromKey, loop.ToStructure, loop.ToKey)
+            mreturn specific(template.Context, template.Context.CurrentStructure, loop.CurrentRelation, loop.CurrentIndex, loop.FromKey, loop.ToStructure, loop.ToKey)
 		endmethod
 		
 		;; -------------------------------------------------------------------------------------------------------------------------------
@@ -142,7 +145,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(str, relation, index, fromkey, tostr, tokey)
+			lambda doEvaluate(context, str, relation, index, fromkey, tostr, tokey)
 			begin
 				using tkn.Value select
 				("FROM_ACCESS"),
@@ -163,7 +166,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey)
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey)
 			begin
 				using tkn.Value select
 				("TO_LONGER"),
@@ -175,7 +178,6 @@ namespace CodeGen.Engine
 				endusing
 				;;Should never get here!
 				throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationCompareSize()",tkn.Value))
-				mreturn false
 			end
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
@@ -186,7 +188,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey)
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey)
 			begin
 				data isOneToOneToOne = (tokey.Size == fromkey.Size && fromkey.Duplicates == RpsKeyDuplicates.NoDuplicates && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates)
 				data isOneToOne = ((tokey.Size < fromkey.Size) || (tokey.Size == fromkey.Size && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates))
@@ -207,7 +209,6 @@ namespace CodeGen.Engine
 				endusing
 				;;Should never get here!
 				throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationType()",tkn.Value))
-				mreturn false
 			end
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
@@ -220,7 +221,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.SortOrder == RpsKeyOrder.Ascending
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.SortOrder == RpsKeyOrder.Ascending
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -230,7 +231,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoSequence
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoSequence
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -240,7 +241,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated || fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated || fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -250,7 +251,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -260,7 +261,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -270,7 +271,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Modifiable
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Modifiable
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -280,7 +281,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.SortOrder == RpsKeyOrder.Descending
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.SortOrder == RpsKeyOrder.Descending
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -290,7 +291,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Duplicates == RpsKeyDuplicates.Duplicates
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Duplicates == RpsKeyDuplicates.Duplicates
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -300,7 +301,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.InsertDuplicates == RpsKeyInsertDups.AtEnd
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.InsertDuplicates == RpsKeyInsertDups.AtEnd
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -310,7 +311,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.InsertDuplicates == RpsKeyInsertDups.AtFront
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.InsertDuplicates == RpsKeyInsertDups.AtFront
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -320,7 +321,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) (fromkey.Segments[0].SegmentType == RpsKeySegmentType.Field) && (fromkey.Segments[0].DataType == RpsKeySegmentDataType.NoCaseAlpha)
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) (fromkey.Segments[0].SegmentType == RpsKeySegmentType.Field) && (fromkey.Segments[0].DataType == RpsKeySegmentDataType.NoCaseAlpha)
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -330,7 +331,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments.Count > 1
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments.Count > 1
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -340,7 +341,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Modifiable == false
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Modifiable == false
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -350,7 +351,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Duplicates == RpsKeyDuplicates.NoDuplicates
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Duplicates == RpsKeyDuplicates.NoDuplicates
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -360,7 +361,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.NullKey != RpsKeyNullType.None
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.NullKey != RpsKeyNullType.None
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -370,7 +371,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) !String.IsNullOrWhiteSpace(fromkey.NullKeyValue)
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) !String.IsNullOrWhiteSpace(fromkey.NullKeyValue)
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -380,7 +381,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments.Count == 1
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) fromkey.Segments.Count == 1
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -392,7 +393,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.SortOrder == RpsKeyOrder.Ascending
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.SortOrder == RpsKeyOrder.Ascending
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -402,7 +403,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoSequence
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoSequence
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -412,7 +413,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated || tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated || tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -422,7 +423,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampCreated
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -432,7 +433,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments[0].DataType == RpsKeySegmentDataType.AutoTimestampUpdated
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -442,7 +443,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Modifiable
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Modifiable
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -452,7 +453,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.SortOrder == RpsKeyOrder.Descending
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.SortOrder == RpsKeyOrder.Descending
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -462,7 +463,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Duplicates == RpsKeyDuplicates.Duplicates
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Duplicates == RpsKeyDuplicates.Duplicates
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -472,7 +473,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.InsertDuplicates == RpsKeyInsertDups.AtEnd
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.InsertDuplicates == RpsKeyInsertDups.AtEnd
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -482,7 +483,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.InsertDuplicates == RpsKeyInsertDups.AtFront
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.InsertDuplicates == RpsKeyInsertDups.AtFront
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -492,7 +493,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) (tokey.Segments[0].SegmentType == RpsKeySegmentType.Field) && (tokey.Segments[0].DataType == RpsKeySegmentDataType.NoCaseAlpha)
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) (tokey.Segments[0].SegmentType == RpsKeySegmentType.Field) && (tokey.Segments[0].DataType == RpsKeySegmentDataType.NoCaseAlpha)
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -502,7 +503,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments.Count > 1
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments.Count > 1
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -512,7 +513,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Modifiable == false
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Modifiable == false
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -522,7 +523,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Duplicates == RpsKeyDuplicates.NoDuplicates
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Duplicates == RpsKeyDuplicates.NoDuplicates
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -532,7 +533,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.NullKey != RpsKeyNullType.None
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.NullKey != RpsKeyNullType.None
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -542,7 +543,7 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) !String.IsNullOrWhiteSpace(tokey.NullKeyValue)
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) !String.IsNullOrWhiteSpace(tokey.NullKeyValue)
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
 
@@ -552,9 +553,31 @@ namespace CodeGen.Engine
 			loops, @IEnumerable<LoopNode> 
 			endparams
 		proc
-			lambda doEvaluate(fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments.Count == 1
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey) tokey.Segments.Count == 1
 			mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
 		endmethod
+
+        private static method evaluateRelationToStructurePresence, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(context, fromStructure, relation, index, fromkey, tostr, tokey)
+            begin
+                lambda isNamedStructure(str) (str.Name == tostr.Name)
+                data matchingStructure, @RpsStructure, context.Structures.FirstOrDefault(isNamedStructure)
+                using tkn.Value select
+                ("TO_STRUCTURE_INCLUDED"),
+                    mreturn matchingStructure != ^null
+                ("TO_STRUCTURE_NOT_INCLUDED"),
+                    mreturn matchingStructure == ^null
+                endusing
+                ;;Should never get here!
+                throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationToStructurePresence()",tkn.Value))
+            end
+            mreturn EvaluateRelationLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
 
 	endclass
 
