@@ -65,7 +65,8 @@ namespace CodeGen.RepositoryAPI
         public method RpsFieldCollection
             required in LoadMode, RpsFieldCollectionMode
             required in StructureOrGroup, string
-			endparams
+            default  in UseAlternateName, Boolean, false
+            endparams
 			record
 				str, String
 			endrecord
@@ -81,7 +82,7 @@ namespace CodeGen.RepositoryAPI
 				;;Preserve the name of the current structure
 				data PreviousStructure, String, %atrim(Repository.RpsControl.sname)
 
-				LoadStructureFields(str)
+                LoadStructureFields(str,UseAlternateName)
 							
 				;;If we switched to a different structure then set context back to the previous one
 							
@@ -97,7 +98,7 @@ namespace CodeGen.RepositoryAPI
 				end
 			end
 			(RpsFieldCollectionMode.Group),
-                LoadGroupFields(str)
+                LoadGroupFields(str,UseAlternateName)
             endusing
 
         endmethod
@@ -105,6 +106,7 @@ namespace CodeGen.RepositoryAPI
         ;;Load structure fields
         private method LoadStructureFields, void
             required in StructureName, string
+            default  in UseAlternateName, Boolean, false
             endparams
             record local_data
                 MemHandle, int
@@ -134,7 +136,7 @@ namespace CodeGen.RepositoryAPI
                         throw new RpsFieldException("Failed to get field names for repository structure "+str)
                     ;;Add fields to the collection
                     for ix from 1 thru ms_info.si_childct
-                        this.Add(new RpsField(StructureName,^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsField(StructureName,^m(strIdentifier[ix],MemHandle),UseAlternateName))
                 end
             end
             finally
@@ -149,6 +151,7 @@ namespace CodeGen.RepositoryAPI
         ;;Load group fields
         private method LoadGroupFields, void
             required in GroupName, String
+            default  in UseAlternateName, Boolean, false
             endparams
             record local_data
                 MemHandle   ,int
@@ -185,7 +188,7 @@ namespace CodeGen.RepositoryAPI
 
                     ;;Add fields to the collection
                     for ix from 1 thru mf_info.fi_mbrct
-                        this.Add(new RpsField(^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsField(^m(strIdentifier[ix],MemHandle),UseAlternateName))
 
                     ;;Reset field context
                     dd_field(Repository.RpsControl,DDF_ENDGROUP)

@@ -59,7 +59,7 @@ namespace CodeGen.RepositoryAPI
 		public override method ToString, String
 			endparams
 		proc
-			mreturn String.Format("RpsField: {0}",this.Name)
+            mreturn String.Format("RpsField: {0}",this.OriginalName)
 		endmethod
 		
         protected mf_info, f_info
@@ -69,24 +69,28 @@ namespace CodeGen.RepositoryAPI
         ;;; </summary>
         ;;; <param name="StructureName">Name of the structure containing the field.</param>
         ;;; <param name="FieldName">Name of the field.</param>
+        ;;; <param name="UseAlternateName">Should the fields alternate name be used as its actual name? (Default if false).</param>
         public method RpsField
             required in StructureName, String
             required in FieldName, String
+            default  in UseAlternateName, Boolean, false
             endparams
         proc
             Repository.CheckIsOpen()
-            LoadField(StructureName,FieldName)
+            LoadField(StructureName,FieldName,UseAlternateName)
         endmethod
 
         ;;; <summary>
         ;;; Constructs a new field based on the name field in the current structure.
         ;;; </summary>
         ;;; <param name="FieldName">Name of the field.</param>
+        ;;; <param name="UseAlternateName">Should the fields alternate name be used as its actual name? (Default if false).</param>
         public method RpsField
             required in FieldName, String
+            default  in UseAlternateName, Boolean, false
             endparams
         proc
-            LoadCurrentStructureField(FieldName)
+            LoadCurrentStructureField(FieldName,UseAlternateName)
         endmethod
 
         ;;; <summary>
@@ -112,9 +116,11 @@ namespace CodeGen.RepositoryAPI
         ;;; </summary>
         ;;; <param name="StructureName">Repository structure name</param>
         ;;; <param name="FieldName">Name of field to load</param>
+        ;;; <param name="UseAlternateName">Should the fields alternate name be used as its actual name? (Default if false).</param>
         private method LoadField, void
             required in StructureName, String
             required in FieldName, String
+            default  in UseAlternateName, Boolean, false
             endparams
             record
                 ms_info ,s_info
@@ -124,27 +130,54 @@ namespace CodeGen.RepositoryAPI
             dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
             if (Repository.RpsControl.error)
                 throw new RpsFieldException("Failed to get information for repository structure "+StructureName)
-            LoadCurrentStructureField(FieldName)
+            LoadCurrentStructureField(FieldName,UseAlternateName)
         endmethod
 
         ;;; <summary>
         ;;; Loads data for a named field in the current structure.
         ;;; </summary>
         ;;; <param name="FieldName">Name of field to load</param>
+        ;;; <param name="UseAlternateName">Should the fields alternate name be used as its actual name? (Default if false).</param>
         private method LoadCurrentStructureField, void
             required in FieldName, String
+            default  in UseAlternateName, Boolean, false
             endparams
         proc
-            ;;Save the structure and field names
-			this.StructureName = %atrim(Repository.RpsControl.sname)
-			this.Name = FieldName.Trim().ToUpper()
-			this.OriginalName = this.Name
-			this.BaseName = this.Name
+            ;;Record the fields actual name
+            data actualFieldName = FieldName.Trim().ToUpper()
 
+            ;;Save the structure name
+			this.StructureName = %atrim(Repository.RpsControl.sname)
+            
             ;;Load the field information structure
-            dd_field(Repository.RpsControl,DDF_INFO,FieldName,^a(mf_info))
+            dd_field(Repository.RpsControl,DDF_INFO,actualFieldName,^a(mf_info))
             if (Repository.RpsControl.error)
-				throw new RpsFieldException("Failed to get repository information for " + this.StructureName +  "." + FieldName.Trim())
+                throw new RpsFieldException("Failed to get repository information for " + this.StructureName +  "." + actualFieldName)
+
+            ;;Load the fields alternate name
+            if (mf_info.fi_altnm) then
+            begin
+                data tmpalternateName, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_altnm,tmpAlternateName)
+                if (Repository.RpsControl.error)
+                    throw new RpsFieldException("Failed to get alternate name for repository field "+actualFieldName)
+                this.AlternateName = %atrim(tmpalternateName)
+            end
+            else
+            begin
+                this.AlternateName = actualFieldName
+            end
+
+            ;;Save the field name
+            if (UseAlternateName) then
+                this.Name = this.AlternateName
+            else
+                this.Name = actualFieldName
+
+            ;;Record the original name used, in case it changes later as a result of array or group expansion
+            this.OriginalName = actualFieldName
+            this.OriginalNameModified = actualFieldName
+            this.BaseName = this.Name
 
             ;;Load extended data
 
@@ -160,7 +193,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpDescription, a40
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_desc,tmpDescription)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get description for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get description for repository field "+actualFieldName)
                 this.Description = %atrim(tmpDescription)
             end
 
@@ -170,7 +203,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpLongDescription, a1800
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_ldesc,tmpLongDescription)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get long description for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get long description for repository field "+actualFieldName)
 				this.LongDescription = %atrim(tmpLongDescription)
             end
 
@@ -180,7 +213,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpUserFieldType, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_usrtyp,tmpUserFieldType)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get user defined type for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get user defined type for repository field "+actualFieldName)
 				this.UserFieldType = %atrim(tmpUserFieldType)
             end
 
@@ -190,7 +223,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpReportHeading, a40
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_heading,tmpReportHeading)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get report heading for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get report heading for repository field "+actualFieldName)
 				this.ReportHeading = %atrim(tmpReportHeading)
             end
 
@@ -200,7 +233,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpPrompt, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prompt,tmpPrompt)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get prompt for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get prompt for repository field "+actualFieldName)
                 this.Prompt = %atrim(tmpPrompt)
             end
 
@@ -210,7 +243,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpHelpIdentifier, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_help,tmpHelpIdentifier)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get help identifier for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get help identifier for repository field "+actualFieldName)
 				this.HelpIdentifier = %atrim(tmpHelpIdentifier)
             end
 
@@ -220,7 +253,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpInfoLineText, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_infoln,tmpInfoLineText)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get information line text for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get information line text for repository field "+actualFieldName)
 				this.InfoLineText = tmpInfoLineText
             end
 
@@ -230,21 +263,9 @@ namespace CodeGen.RepositoryAPI
                 data tmpUserText, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_utext,tmpUserText)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get user text for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get user text for repository field "+actualFieldName)
 				this.UserText = %atrim(tmpUserText)
             end
-
-            ;;Load alternate name
-            if (mf_info.fi_altnm) then
-            begin
-                data tmpalternateName, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_altnm,tmpAlternateName)
-                if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get alternate name for repository field "+FieldName)
-				this.AlternateName = %atrim(tmpalternateName)
-            end
-			else
-				this.AlternateName = this.Name
 
             ;;Load field font
             if (mf_info.fi_font)
@@ -252,7 +273,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpFieldFont, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_font,tmpFieldFont)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get field font for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get field font for repository field "+actualFieldName)
 				this.FieldFont = %atrim(tmpFieldFont)
             end
 
@@ -262,7 +283,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpPromptFont, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prmptfont,tmpPromptFont)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get prompt font for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get prompt font for repository field "+actualFieldName)
 				this.PromptFont = %atrim(tmpPromptFont)
             end
 
@@ -272,7 +293,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpDefaultValue, a80
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_def,tmpDefaultValue)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get default value for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get default value for repository field "+actualFieldName)
 				this.DefaultValue = %atrim(tmpDefaultValue)
             end
 
@@ -282,7 +303,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpArriveMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_arrivemeth,tmpArriveMethod)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get arrive method for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get arrive method for repository field "+actualFieldName)
 				this.ArriveMethod = %atrim(tmpArriveMethod)
             end
 
@@ -292,7 +313,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpLeaveMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_leavemeth,tmpLeaveMethod)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get leave method for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get leave method for repository field "+actualFieldName)
 				this.LeaveMethod = %atrim(tmpLeaveMethod)
             end
 
@@ -302,7 +323,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpDrillMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_drillmeth,tmpDrillMethod)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get drill method for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get drill method for repository field "+actualFieldName)
 				this.DrillMethod = %atrim(tmpDrillMethod)
             end
 
@@ -312,7 +333,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpHyperlinkMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_hypermeth,tmpHyperlinkMethod)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get hyperlink method for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get hyperlink method for repository field "+actualFieldName)
 				this.HyperlinkMethod = %atrim(tmpHyperlinkMethod)
             end
 
@@ -322,7 +343,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpChangeMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_changemeth,tmpChangeMethod)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get change method for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get change method for repository field "+actualFieldName)
 				this.ChangeMethod = %atrim(tmpChangeMethod)
             end
 
@@ -332,7 +353,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpDisplayMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_dispmeth,tmpDisplayMethod)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get display method for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get display method for repository field "+actualFieldName)
 				this.DisplayMethod = %atrim(tmpDisplayMethod)
             end
 
@@ -342,7 +363,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpEditFormatMethod, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_editfmtmeth,tmpEditFormatMethod)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get edit format method for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get edit format method for repository field "+actualFieldName)
 				this.EditFormatMethod = %atrim(tmpEditFormatMethod)
             end
 
@@ -352,7 +373,7 @@ namespace CodeGen.RepositoryAPI
                 data ListData, fti_entlst
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_alwlst,^a(ListData))
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get allow list entries for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get allow list entries for repository field "+actualFieldName)
 				data idx, int
 				for idx from 1 thru mf_info.fi_alwct
 					this.AllowList.Add((@a)ListData.fti_entlstary[idx])
@@ -364,7 +385,7 @@ namespace CodeGen.RepositoryAPI
                 data ListData, fti_entlst
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_sellist,^a(ListData))
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get allow list entries for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get allow list entries for repository field "+actualFieldName)
                 data idx, int
                 for idx from 1 thru mf_info.fi_selct
 					this.SelectionList.Add((String)%atrim(ListData.fti_entlstary[idx]))
@@ -376,7 +397,7 @@ namespace CodeGen.RepositoryAPI
 				data mfti_range, fti_range
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_range,^a(mfti_range))
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get ranges for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get ranges for repository field "+actualFieldName)
 				this.NumericRangeMinimum = mfti_range.fti_rgmin
 				this.NumericRangeMaximum = mfti_range.fti_rgmax
             end
@@ -387,7 +408,7 @@ namespace CodeGen.RepositoryAPI
 				data mfti_enum, fti_enum
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enum,^a(mfti_enum))
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get emumeration data for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get emumeration data for repository field "+actualFieldName)
 				this.EnumeratedBaseValue = mfti_enum.fti_enmbase
 				this.EnumeratedDisplayLength = mfti_enum.fti_enmlen
 				this.EnumeratedStepValue = mfti_enum.fti_enmstep
@@ -399,7 +420,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpEnumName, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enmfld,tmpEnumName)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get emumeration name for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get emumeration name for repository field "+actualFieldName)
                 this.EnumName = %atrim(tmpEnumName)
             end
 
@@ -431,7 +452,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpStructFieldStructure, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_strfld,tmpStructFieldStructure)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get structure for repository struct field "+FieldName)
+                    throw new RpsFieldException("Failed to get structure for repository struct field "+actualFieldName)
 				this.StructFieldStructure = %atrim(tmpStructFieldStructure)
             end
 
@@ -441,7 +462,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpGroupStructure, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,tmpGroupStructure)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get group structure for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get group structure for repository field "+actualFieldName)
                 this.GroupStructure = %atrim(tmpGroupStructure)
             end
 
@@ -451,7 +472,7 @@ namespace CodeGen.RepositoryAPI
                 data tmpGroupMemberPrefix, a30
                 dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prefix,tmpGroupMemberPrefix)
                 if (Repository.RpsControl.error)
-                    throw new RpsFieldException("Failed to get group prefix for repository field "+FieldName)
+                    throw new RpsFieldException("Failed to get group prefix for repository field "+actualFieldName)
 				this.GroupMemberPrefix = %atrim(tmpGroupMemberPrefix)
             end
 
@@ -464,12 +485,12 @@ namespace CodeGen.RepositoryAPI
                     ;;It's an implicit group, get the implicit group structure name
                     data implicitGroupStructure, a30
                     dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,implicitGroupStructure)
-                    this.GroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Structure,implicitGroupStructure)
+                    this.GroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Structure,implicitGroupStructure,UseAlternateName)
                 end
                 else
                 begin
                     ;;It's an explicit group
-					this.GroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Group,FieldName)
+                    this.GroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Group,actualFieldName,UseAlternateName)
                 end
             end
 
@@ -1164,6 +1185,12 @@ namespace CodeGen.RepositoryAPI
 		;;; The original name of the field, before any renaming by CodeGen.
 		;;; </summary>
 		public readwrite property OriginalName, String, String.Empty
+        
+        ;;; <summary>
+        ;;; The original name of the field, before any renaming by CodeGen.
+        ;;; This name may include array dimensions.
+        ;;; </summary>
+        public readwrite property OriginalNameModified, String, String.Empty
         
         ;; Field base name
 
