@@ -401,13 +401,20 @@ namespace CodeGen.Engine
 				lambda isFromKey(k) k.Name == loop.CurrentRelation.FromKey
 				loop.FromKey = template.Context.CurrentStructure.Keys.First(isFromKey)
 
-				;;Locate the "to structure" information
+				;;Load the "to structure" information
                 lambda isToStructure(s) s.Name == loop.CurrentRelation.ToStructure
-                loop.ToStructure = template.Context.Structures.First(isToStructure)
+                loop.ToStructure = template.Context.Structures.FirstOrDefault(isToStructure)
 
-				;Load the "to key" information
-				lambda isToKey(k) k.Name == loop.CurrentRelation.ToKey
-				loop.ToKey = loop.ToStructure.Keys.First(isToKey)
+                ;;If the to structure was not found then it's not currently being processed
+                ;;so we'll load it directly from the repository
+                if (loop.ToStructure == ^null)
+                begin
+                    loop.ToStructure = new RpsStructure(loop.CurrentRelation.ToStructure,context.CurrentTask.UseAlternateFieldNames)
+                end
+
+                ;Load the "to key" information
+                lambda isToKey(k) k.Name == loop.CurrentRelation.ToKey
+                loop.ToKey = loop.ToStructure.Keys.First(isToKey)
 
 				expander.Visit(node.Body)
 			end
