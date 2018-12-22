@@ -63,6 +63,7 @@ namespace CodeGen.Engine
             loopProcessors.Add("FIELD_LOOP", processFieldLoop)
             loopProcessors.Add("KEY_LOOP", processKeyLoop)
             loopProcessors.Add("ALTERNATE_KEY_LOOP", processAlternateKeyLoop)
+            loopProcessors.Add("FOREIGN_KEY_LOOP", processForeignKeyLoop)
             loopProcessors.Add("PRIMARY_KEY", processPrimaryKeyLoop)
 			loopProcessors.Add("UNIQUE_KEY", processUniqueKeyLoop)
             loopProcessors.Add("ENUM_LOOP", processEnumLoop)
@@ -93,7 +94,7 @@ namespace CodeGen.Engine
         ;;; It determines which method should be used to expand the loop and calls that method.
         ;;; </summary>
         ;;; <param name="node"></param>
-        ;;; <param name="file"></param>
+        ;;; <param name="tpl"></param>
         ;;; <param name="loopContext"></param>
         ;;; <param name="visitor"></param>
         public static method ProcessLoop, void
@@ -229,6 +230,39 @@ namespace CodeGen.Engine
 				expander.Visit(node.Body)
 			end
 			
+        endmethod
+
+        private static method processForeignKeyLoop, void
+            required in node,		@LoopNode 
+            required in template,	@FileNode 
+            required in loops,		@IEnumerable<LoopNode> 
+            required in expander,	@ITreeNodeVisitor 
+        proc
+            data loop = ^as(node, KeyLoopNode)
+            data context = template.Context
+
+            loop.MaxIndex = template.Context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Foreign }) -1
+
+            ;;If we don't have any foreign keys then we're done!
+            if (loop.MaxIndex == -1)
+                mreturn
+
+            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+
+            data currentKey, @RpsKey
+            loop.CurrentIndex = -1
+
+            foreach currentKey in template.Context.CurrentStructure.Keys
+            begin
+                ;;Only process foreign keys
+                if (currentKey.KeyType == RpsKeyType.Foreign)
+                begin
+                    loop.CurrentKey = currentKey
+                    loop.CurrentIndex += 1
+                    expander.Visit(node.Body)
+                end
+            end
+		
         endmethod
 
         private static method processPrimaryKeyLoop, void
