@@ -303,7 +303,7 @@ namespace CodeGen.Engine
             loops, @IEnumerable<LoopNode> 
             endparams
         proc
-            lambda doEvaluate(str, ky, segment, index, field) (segment.DataType == RpsKeySegmentDataType.Alpha)
+            lambda doEvaluate(str, ky, segment, index, field) (segment.DataType == RpsKeySegmentDataType.Alpha || segment.DataType == RpsKeySegmentDataType.Unspecified)
             mreturn EvaluateSegmentLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
@@ -313,7 +313,27 @@ namespace CodeGen.Engine
             loops, @IEnumerable<LoopNode> 
             endparams
         proc
-            lambda doEvaluate(str, ky, segment, index, field) (segment.Order == RpsKeySegmentOrder.Ascending)
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                using (segment.Order) select
+                (RpsKeySegmentOrder.Ascending),
+                    mreturn true
+                (RpsKeySegmentOrder.Descending),
+                    mreturn false
+                (RpsKeySegmentOrder.Unspecified),
+                begin
+                    ;;The segment doesn't have an explicit sort order specified, so we'll use the key sort order
+                    using ky.SortOrder select
+                    (RpsKeyOrder.Ascending),
+                        mreturn true
+                    (RpsKeyOrder.Descending),
+                        mreturn false
+                    endusing
+                end
+                endusing
+                ;;Should never get here
+                mreturn true
+            end
             mreturn EvaluateSegmentLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
@@ -373,7 +393,27 @@ namespace CodeGen.Engine
             loops, @IEnumerable<LoopNode> 
             endparams
         proc
-            lambda doEvaluate(str, ky, segment, index, field) (segment.Order == RpsKeySegmentOrder.Descending)
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                using (segment.Order) select
+                (RpsKeySegmentOrder.Ascending),
+                    mreturn false
+                (RpsKeySegmentOrder.Descending),
+                    mreturn true
+                (RpsKeySegmentOrder.Unspecified),
+                begin
+                    ;;The segment doesn't have an explicit sort order specified, so we'll use the key sort order
+                    using ky.SortOrder select
+                    (RpsKeyOrder.Ascending),
+                        mreturn false
+                    (RpsKeyOrder.Descending),
+                        mreturn true
+                    endusing
+                end
+                endusing
+                ;;Should never get here
+                mreturn false
+            end
             mreturn EvaluateSegmentLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 

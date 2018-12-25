@@ -67,7 +67,8 @@ namespace CodeGen.Engine
             structureTokenExpanders.Add("FILE_CHANGE_TRACKING", expandFileChangeTracking)
             structureTokenExpanders.Add("FILE_COMPRESSION", expandFileCompression)
             structureTokenExpanders.Add("FILE_DENSITY", expandFileDensity)
-			structureTokenExpanders.Add("FILE_DESC", expandFileDesc)
+            structureTokenExpanders.Add("FILE_DESC", expandFileDesc)
+            structureTokenExpanders.Add("FILE_ISAMC_SPEC",expandFileIsamcSpec)
 			structureTokenExpanders.Add("FILE_NAME", expandFileName)
             structureTokenExpanders.Add("FILE_NAME_NOEXT", expandFileNameNoext)
 			structureTokenExpanders.Add("FILE_ODBC_NAME", expandOdbcName)
@@ -246,6 +247,108 @@ namespace CodeGen.Engine
                     mreturn str.Files[template.Context.CurrentFileIndex].Description
                 else
                     throw new ApplicationException(template.GetTokenErrorMessage(tkn, String.Format("requires structure {0} to be assigned to a file definition", str.Name)))
+            end
+            mreturn ExpandStructureToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandFileIsamcSpec, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str)
+            begin
+                if (str.Files.Count == 0)
+                    throw new ApplicationException(template.GetTokenErrorMessage(tkn, String.Format("requires structure {0} to be assigned to a file definition", str.Name)))
+
+                ;;Build the ISAMC file specification string
+
+                data f, @RpsFile, str.Files[0]
+                data sb = new StringBuilder()
+
+                ;;File spec
+                sb.Append(f.FileSpec)
+			
+                ;;Record type
+                using f.RecordType select
+                (RpsRecordType.FixedLength),
+                    sb.Append(",FIXED")
+                (RpsRecordType.MultipleFixedLength),
+                    sb.Append(",MULTIPLE")
+                (RpsRecordType.VariableLength),
+                    sb.Append(",VARIABLE")
+                endusing
+
+                ;;Data compression
+                if (f.RecordCompression)
+                    sb.Append(",COMPRESS")
+			
+                ;;Default key density
+                if (f.Density<50) then
+                    sb.Append(50)
+                else
+                    sb.Append(",DENSITY="+f.Density.ToString())
+			
+                ;;Portable integer specs
+                if (!String.IsNullOrWhiteSpace(f.PortableIntsSpecs))
+                begin
+                    data pispecs, string, f.PortableIntsSpecs.ToUpper()
+                    if (pispecs.StartsWith("I=")) then
+                        sb.Append(","+pispecs)
+                    else
+                        sb.Append(",I="+pispecs)
+                end
+			
+                ;;Network encrypt
+                ;;,NETWORK_ENCRYPT ... not supported by Repository!
+			
+                ;;Page size
+                using f.PageSize select
+                (RpsFilePageSize.PageSize512),
+                    sb.Append(",PAGE=512")
+                (RpsFilePageSize.PageSize1024),
+                    sb.Append(",PAGE=1024")
+                (RpsFilePageSize.PageSize2048),
+                    sb.Append(",PAGE=2048")
+                (RpsFilePageSize.PageSize4096),
+                    sb.Append(",PAGE=4096")
+                (RpsFilePageSize.PageSize8192),
+                    sb.Append(",PAGE=8192")
+                (RpsFilePageSize.PageSize16384),
+                    sb.Append(",PAGE=16384")
+                (RpsFilePageSize.PageSize32768),
+                    sb.Append(",PAGE=32768")
+                endusing
+			
+                ;;Stored GRFA
+                if (f.StoredGRFA)
+                    sb.Append(",SGRFA")
+			
+                ;;Size limit
+                ;;,SIZE_LIMIT=limit ... not supported by Repository!
+			
+                ;;Static RFA
+                if (f.StaticRFA)
+                    sb.Append(",STATIC_RFA")
+			
+                ;;Terabyte
+                using f.Addressing select
+                (RpsFileAddressing.Addressing32Bit),
+                    nop
+                (RpsFileAddressing.Addressing40Bit),
+                    sb.Append(",TBYTE")
+                endusing
+			
+                ;;File text
+                ;;,TEXT=text_spec ... not supported by Repository!
+			
+                ;;Track changes
+                if (f.ChangeTracking)
+                    sb.Append(",TRACK_CHANGES")
+
+                mreturn sb.ToString()
+
             end
             mreturn ExpandStructureToken(tkn, template, loops, doExpand)
         endmethod

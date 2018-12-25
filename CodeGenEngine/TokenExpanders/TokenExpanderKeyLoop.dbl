@@ -66,6 +66,7 @@ namespace CodeGen.Engine
             keyLoopTokenExpanders.Add("KEY_DESCRIPTION", expandKeyDescription)
             keyLoopTokenExpanders.Add("KEY_DUPLICATES", expandKeyDuplicates)
             keyLoopTokenExpanders.Add("KEY_DUPLICATES_AT", expandKeyDuplicatesAt)
+            keyLoopTokenExpanders.Add("KEY_ISAMC_SPEC", expandKeyIsamcSpec)
             keyLoopTokenExpanders.Add("KEY_LENGTH", expandKeyLength)
             keyLoopTokenExpanders.Add("KEY_NAME", expandKeyName)
             keyLoopTokenExpanders.Add("KEY_NULLTYPE", expandKeyNullType)
@@ -163,6 +164,200 @@ namespace CodeGen.Engine
                 (),
                     mreturn ""
                 endusing
+            end
+            mreturn ExpandKeyLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandKeyIsamcSpec, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, ky, index)
+            begin
+                ;;Build the ISAMC key specification string
+                data sb = new StringBuilder()
+                data k, @RpsKey, ky
+                data seg, @RpsKeySegment
+                data firstOne, boolean
+				
+                ;;Segment start positions
+                sb.Append("START=")
+                firstOne = true
+                foreach seg in k.Segments
+                begin
+                    if (!firstOne)
+                        sb.Append(":")
+                    sb.Append(seg.Position)
+                    firstOne=false
+                end
+				
+                ;;Segment lengths
+                sb.Append(",LENGTH=")
+                firstOne = true
+                foreach seg in k.Segments
+                begin
+                    if (!firstOne)
+                        sb.Append(":")
+                    sb.Append(seg.Length)
+                    firstOne=false
+                end
+				
+                ;;Key name
+                sb.Append(",NAME="+k.Name)
+
+                ;;Segment types (optional)
+                if (k.Segments[0].DataType != RpsKeySegmentDataType.Unspecified)
+                begin
+                    sb.Append(",TYPE=")
+
+                    ;;Do all segments have a data type specified?
+                    data allSegmentsHaveType = true
+                    foreach seg in k.Segments
+                    begin
+                        if (seg.DataType == RpsKeySegmentDataType.Unspecified)
+                        begin
+                            allSegmentsHaveType = false
+                            exitloop
+                        end
+                    end
+
+                    ;;Insert one or all segment data types
+                    firstOne = true
+                    foreach seg in k.Segments
+                    begin
+                        if (!firstOne)
+                            sb.Append(":")
+
+                        using seg.DataType select
+                        (RpsKeySegmentDataType.Alpha),
+                            sb.Append("ALPHA")
+                        (RpsKeySegmentDataType.NoCaseAlpha),
+                            sb.Append("NOCASE")
+                        (RpsKeySegmentDataType.Decimal),
+                            sb.Append("DECIMAL")
+                        (RpsKeySegmentDataType.SignedInteger),
+                            sb.Append("INTEGER")
+                        (RpsKeySegmentDataType.UnsignedInteger),
+                            sb.Append("UNSIGNED")
+                        (RpsKeySegmentDataType.AutoSequence),
+                            sb.Append("SEQUENCE")
+                        (RpsKeySegmentDataType.AutoTimestampUpdated),
+                            sb.Append("TIMESTAMP")
+                        (RpsKeySegmentDataType.AutoTimestampCreated),
+                            sb.Append("CTIMESTAMP")
+                        endusing
+
+                        if (firstOne && !allSegmentsHaveType)
+                            exitloop
+
+                        firstOne=false
+                    end
+                end
+				
+                ;;Segment sequences
+
+                ;;To specify segment ordering ALL segments must have a sequence specified
+
+                data allSegmentsHaveOrder = true
+                foreach seg in k.Segments
+                begin
+                    if (seg.Order == RpsKeySegmentOrder.Unspecified)
+                    begin
+                        allSegmentsHaveOrder = false
+                        exitloop
+                    end
+                end
+
+                if (allSegmentsHaveOrder) then
+                begin
+                    sb.Append(",ORDER=")
+                    firstOne = true
+                    foreach seg in k.Segments
+                    begin
+                        if (!firstOne)
+                            sb.Append(":")
+                        sb.Append(seg.Order==RpsKeySegmentOrder.Ascending ? "A" : "D")
+                        firstOne=false
+                    end
+                end
+                else
+                begin
+                    ;;No segment ordering is being used, so we'll use key ordering instead
+                    ;;Order
+                    using k.SortOrder select
+                    (RpsKeyOrder.Ascending),
+                        sb.Append(",ASCEND")
+                    (RpsKeyOrder.Descending),
+                        sb.Append(",NOASCEND")
+                    endusing
+                end
+
+                ;;Key density
+                sb.Append(",DENSITY=")
+                if (k.Density<50) then
+                    sb.Append("50")
+                else
+                    sb.Append(k.Density.ToString())
+
+                ;;Duplicates?
+                using k.Duplicates select
+                (RpsKeyDuplicates.NoDuplicates),
+                begin
+                    sb.Append(",DUPS")
+                    ;TODO: This needs suppressing if we're generating this for OpenVMS
+                    using k.InsertDuplicates select
+                    (RpsKeyInsertDups.AtFront),
+                        sb.Append(",NOATEND")
+                    (RpsKeyInsertDups.AtEnd),
+                        sb.Append(",ATEND")
+                    endusing
+                end
+                (RpsKeyDuplicates.Duplicates),
+                    sb.Append(",NODUPS")
+                endusing
+
+                ;;Changes?
+                if (k.Modifiable) then
+                    sb.Append(",MODIFY")
+                else
+                    sb.Append(",NOMODIFY")
+				
+                ;;Compression
+                if (k.CompressIndex||k.CompressData||k.CompressKey)
+                begin
+                    ;;All options?
+                    if (k.CompressIndex&&k.CompressData&&k.CompressKey) then
+                        sb.Append(",COMPRESS=ALL")
+                    else
+                    begin
+                        if (k.CompressIndex)
+                            sb.Append(",COMPRESS=INDEX")
+                        if (k.CompressData)
+                            sb.Append(",COMPRESS=RECORD")
+                        if (k.CompressKey)
+                            sb.Append(",COMPRESS=KEY")
+                    end
+                end
+				
+                ;;Null key?
+                using k.NullKey select
+                (RpsKeyNullType.None),
+                    nop
+                (RpsKeyNullType.Replicating),
+                    sb.Append(",NULL=REPLICATE")
+                (RpsKeyNullType.NonReplicating),
+                    sb.Append(",NULL=NOREPLICATE")
+                (RpsKeyNullType.Short),
+                    sb.Append(",NULL=SHORT")
+                endusing
+				
+                ;;Null key value
+                if (!String.IsNullOrWhiteSpace(k.NullKeyValue))
+                    sb.Append(",VALUE_NULL="+k.NullKeyValue)
+
+                mreturn sb.ToString()
             end
             mreturn ExpandKeyLoopToken(tkn, template, loops, doExpand)
         endmethod
