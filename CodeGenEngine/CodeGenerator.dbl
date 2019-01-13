@@ -1253,7 +1253,37 @@ namespace CodeGen.Engine
 				end
 			end
 			
-			;;-------------------------------------------------------------------------
+            ;;-------------------------------------------------------------------------
+            ;;Are  we being asked to use structure alternate names?
+            ;;If so we will use the alternate (ODBC) name of the first structure assigned
+            ;;to the first file assined to the current structure, if present.
+
+            ;;Code in CodeGen.dbl will prevent UseAlternateStructureNames being true if structure aliases are present
+            if (!errStatus && context.CurrentTask.UseAlternateStructureNames)
+            begin
+                context.CurrentTask.DebugLog("Applying structure alternate names",true,false)
+                data tmpStr, @RpsStructure
+                foreach tmpStr in context.Structures
+                begin
+                    ;;First, default all alias names to the same as the structure name
+                    tmpStr.Alias = tmpStr.Name
+
+                    ;;Now apply alternate (ODBC) names (if specified) based on the first assigned file (if any).
+                    if (tmpStr.Files.Count>0)
+                    begin
+                        ;;Does the first assigned file have a structure assignment with an ODBC table name?
+                        data tmpFile = tmpStr.Files[0]
+                        if (tmpFile.OdbcTableNames.Count>0 && !String.IsNullOrWhiteSpace(tmpFile.OdbcTableNames[0]))
+                        begin
+                            ;;Alias the structure using the ODBC table name
+                            tmpStr.Alias = tmpFile.OdbcTableNames[0]
+                            context.CurrentTask.DebugLog(" - Structure " + tmpStr.Name + " aliased as " + tmpStr.Alias)
+                        end
+                    end
+                end
+            end
+			
+            ;;-------------------------------------------------------------------------
 			;;Do we have alternate repository file references specified
 			
 			if (!errStatus && (context.CurrentTask.FileOverrides.Count>0))
