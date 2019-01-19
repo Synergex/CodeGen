@@ -100,18 +100,18 @@ namespace CodeGen.Engine
             endparams
         proc
             lambda doNoEvaluatorMessage()
-			begin
-				mreturn string.Format("CODEGEN BUG: No evaluator method was found for the {0} expression <IF {1}>. Define a new evaluator method in ExpressionEvaluator.", currentContext.ToString(), expression.Value.Value)
+            begin
+                mreturn string.Format("CODEGEN BUG: No evaluator method was found for the {0} expression <IF {1}>. Define a new evaluator method in ExpressionEvaluator.", currentContext.ToString(), expression.Value.Value)
             end
-			data noEvaluatorMessage, @Func<string>, doNoEvaluatorMessage
-			
-			lambda doBadEvaluationRequestMessage()
-			begin
-				mreturn string.Format("CODEGEN BUG: Invalid request to evaluate expression of type {0}. Token value was {1}.", currentContext.ToString(), expression.Value.Value)
+            data noEvaluatorMessage, @Func<string>, doNoEvaluatorMessage
+
+            lambda doBadEvaluationRequestMessage()
+            begin
+                mreturn string.Format("CODEGEN BUG: Invalid request to evaluate expression of type {0}. Token value was {1}.", currentContext.ToString(), expression.Value.Value)
             end
-			data badEvaluationRequestMessage, @Func<string>, doBadEvaluationRequestMessage
-			
-			lambda doFindAndRunEvaluator(evaluators)
+            data badEvaluationRequestMessage, @Func<string>, doBadEvaluationRequestMessage
+
+            lambda doFindAndRunEvaluator(evaluators)
             begin
                 ;;Normal expressions
                 if (evaluators.ContainsKey(expression.Value.Value)) then
@@ -119,7 +119,7 @@ namespace CodeGen.Engine
                 
                 ;;Loop utility expressions
                 else if ((loops.Count() > 0) && (loopUtilityExpressionEvaluators.ContainsKey(expression.Value.Value))) then
-					mreturn loopUtilityExpressionEvaluators[expression.Value.Value](expression.Value, template, loops)
+                    mreturn loopUtilityExpressionEvaluators[expression.Value.Value](expression.Value, template, loops)
 
                 ;;USERTOKEN_ and NOT_USERTOKEN_ expressions
                 else if ((currentContext == TokenType.Generic) && (expression.Value.Value.StartsWith("USERTOKEN_") || expression.Value.Value.StartsWith("NOT_USERTOKEN_"))) then
@@ -127,30 +127,34 @@ namespace CodeGen.Engine
 
                 ;;CUSTOM_ field loop expressions
                 else if ((currentContext == TokenType.FieldLoop) && expression.Value.Value.StartsWith("CUSTOM_")) then
-					mreturn evaluateFieldCustom(expression.Value, template, loops)
-                
+                    mreturn evaluateFieldCustom(expression.Value, template, loops)
+
+                ;;CUSTOM_ key segment loop expressions
+                else if ((currentContext == TokenType.KeySegmentLoop) && expression.Value.Value.StartsWith("CUSTOM_")) then
+                    mreturn evaluateKeySegmentCustom(expression.Value, template, loops)
+
                 ;;DEFINED_
                 else if (expression.Value.Value.StartsWith("DEFINED_")) then
-					mreturn template.Context.Taskset.Defines.Contains(expression.Value.Value)
+                    mreturn template.Context.Taskset.Defines.Contains(expression.Value.Value)
 
                 ;;NOT_DEFINED_
                 else if (expression.Value.Value.StartsWith("NOT_DEFINED_")) then
-					mreturn !template.Context.Taskset.Defines.Contains(expression.Value.Value.Replace("NOT_",""))
+                    mreturn !template.Context.Taskset.Defines.Contains(expression.Value.Value.Replace("NOT_",""))
 
                 ;;COUNTER_
                 else if (expression.Value.Value.StartsWith("COUNTER_1_") || expression.Value.Value.StartsWith("COUNTER_2_")) then
-					mreturn evaluateCounterValue(expression.Value, template, loops)
+                    mreturn evaluateCounterValue(expression.Value, template, loops)
 
                 ;;PROCESSED_ and REMAINING_
                 else if (expression.Value.Value.StartsWith("PROCESSED_EXCLUSIVE_") 
-				& ||     expression.Value.Value.StartsWith("PROCESSED_INCLUSIVE_")
-				& ||	 expression.Value.Value.StartsWith("REMAINING_EXCLUSIVE_") 
-				& ||	 expression.Value.Value.StartsWith("REMAINING_INCLUSIVE_")) then
-					mreturn evaluateLoopProgress(expression.Value, template, loops)
+                & ||     expression.Value.Value.StartsWith("PROCESSED_INCLUSIVE_")
+                & ||     expression.Value.Value.StartsWith("REMAINING_EXCLUSIVE_") 
+                & ||     expression.Value.Value.StartsWith("REMAINING_INCLUSIVE_")) then
+                    mreturn evaluateLoopProgress(expression.Value, template, loops)
 
                 ;;TOTAL_ITEMS_
                 else if (expression.Value.Value.StartsWith("TOTAL_ITEMS_")) then
-					mreturn evaluateLoopTotalItems(expression.Value, template, loops)
+                    mreturn evaluateLoopTotalItems(expression.Value, template, loops)
                 
                 ;;No match!
                 else

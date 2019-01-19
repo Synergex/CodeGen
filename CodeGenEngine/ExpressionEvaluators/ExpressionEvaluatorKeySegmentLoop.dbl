@@ -487,7 +487,39 @@ namespace CodeGen.Engine
             mreturn EvaluateSegmentLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 	
-	endclass
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; Custom key segment loop expressions
+
+        private static method evaluateKeySegmentCustom, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+
+            lambda doEvaluate(str, ky, segment, index, field)
+            begin
+                ;; Extract the search text from the token
+                data searchText, string, tkn.Value.ToUpper().Replace("CUSTOM_NOT_", "").Replace("CUSTOM_", "")
+
+                ;; Make sure we have search text
+                if (String.IsNullOrWhiteSpace(searchText))
+                    throw new ApplicationException(String.Format("Invalid custom segment expression token {0} at line {1} in template {2}", tkn.Value, tkn.StartLineNumber, template.Context.CurrentTemplateBaseName))
+
+                ;; Is it there?
+                data found, boolean, ((field.UserText.ToUpper().Contains(searchText)) || (field.LongDescription.ToUpper().Contains(searchText)))
+
+                ;; Return the result
+                mreturn tkn.Value.StartsWith("CUSTOM_NOT_") ? !found : found
+            end
+
+            ;; We get here for any field loop expression <IF CUSTOM_xxx> or <IF_CUSTOM_NOT_xxx> and we are
+            ;; looking for text to be or not to be present in the current fields user text or long description.
+            mreturn EvaluateSegmentLoopExpression(tkn, template, loops, doEvaluate)
+
+        endmethod
+    
+    endclass
 
 endnamespace
 
