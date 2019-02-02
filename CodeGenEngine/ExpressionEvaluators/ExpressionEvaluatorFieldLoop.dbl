@@ -124,6 +124,7 @@ namespace CodeGen.Engine
             fieldLoopExpressionEvaluators.Add("ENUM", evaluateFieldEnum)
             fieldLoopExpressionEvaluators.Add("ENUMERATED", evaluateFieldEnumerated)
             fieldLoopExpressionEvaluators.Add("FIELD_POSITION", evaluateFieldPosition)
+            fieldLoopExpressionEvaluators.Add("FIRST_UNIQUE_KEY_SEGMENT", evaluateFirstUniqueKeySegment)
             fieldLoopExpressionEvaluators.Add("FORMAT", evaluateFieldFormat)
             fieldLoopExpressionEvaluators.Add("GROUP_EXPAND", evaluateFieldGroupExpand)
             fieldLoopExpressionEvaluators.Add("GROUP_NO_EXPAND", evaluateFieldGroupNoExpand)
@@ -1716,7 +1717,7 @@ namespace CodeGen.Engine
         proc
             lambda doEvaluate(str, field, index)
             begin
-                if (str.Keys.Count > 0)
+                if (str.Keys.Count == 0)
                     mreturn false
 				
                 ;;Iterate through all keys looking for the current field being used as a key segment
@@ -1736,6 +1737,39 @@ namespace CodeGen.Engine
                     end
                 end
 
+                mreturn false
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFirstUniqueKeySegment, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                if (str.Keys.Count == 0)
+                    mreturn false
+
+                ;;Iterate through all keys looking for the current field being used as a key segment in the first unique key
+                data key, @RpsKey
+                foreach key in str.Keys
+                begin
+                    ;;Make sure it's an access key and is a unique key
+                    if ((key.KeyType == RpsKeyType.Foreign) || (key.Duplicates == RpsKeyDuplicates.Duplicates))
+                        nextloop
+
+                    ;;Check each segment for the field
+                    data segment, @RpsKeySegment
+                    foreach segment in key.Segments
+                    begin
+                        if (segment.SegmentType == RpsKeySegmentType.Field && segment.Field == field.OriginalName)
+                            mreturn true
+                    end
+                    exitloop
+                end
                 mreturn false
             end
             mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)

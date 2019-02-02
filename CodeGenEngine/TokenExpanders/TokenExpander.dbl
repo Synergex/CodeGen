@@ -66,14 +66,14 @@ namespace CodeGen.Engine
             registerFieldLoopTokens()
             registerFileLoopTokens()
             registerGenericTokens()
-			registerInterfaceLoopTokens()
-			registerKeyLoopTokens()
+            registerInterfaceLoopTokens()
+            registerKeyLoopTokens()
             registerLoopUtilityTokens()
-			registerMethodLoopTokens()
-			registerNotInLoopTokens()
-			registerParameterLoopTokens()
-			registerRelationLoopTokens()
-			registerRelationSegmentLoopTokens()
+            registerMethodLoopTokens()
+            registerNotInLoopTokens()
+            registerParameterLoopTokens()
+            registerRelationLoopTokens()
+            registerRelationSegmentLoopTokens()
             registerSegmentLoopTokens()
             registerSelectionLoopTokens()
             registerStructureTokens()
@@ -81,7 +81,7 @@ namespace CodeGen.Engine
             registerTagLoopTokens()
             registerUserTokens(context)
             registerWindowLoopTokens()
-			registerCustomExpanders(context)
+            registerCustomExpanders(context)
         endmethod
 
         ;;; <summary>
@@ -98,170 +98,170 @@ namespace CodeGen.Engine
             endparams
         proc
 
-			lambda doNoExpanderMessage()
+            lambda doNoExpanderMessage()
             begin
                 mreturn string.Format("CODEGEN BUG: No expander method was found for {0} token <{1}>. Define a new expander method in TokenExpander.", tkn.TypeOfToken.ToString(), tkn.Value)
             end
-			data noExpanderMessage, @Func<string>, doNoExpanderMessage
+            data noExpanderMessage, @Func<string>, doNoExpanderMessage
 
-			lambda doExpandExpressionMessage()
+            lambda doExpandExpressionMessage()
             begin
                 mreturn string.Format("CODEGEN BUG: An invalid request was received to EXPAND (not evaluate) {0} <IF {1}>.", tkn.TypeOfToken.ToString(), tkn.Value)
             end
-			data expandExpressionMessage, @Func<string>, doExpandExpressionMessage
-			
-			lambda doFindAndRunExpander(expanders)
+            data expandExpressionMessage, @Func<string>, doExpandExpressionMessage
+
+            lambda doFindAndRunExpander(expanders)
             begin
                 if (expanders.ContainsKey(tkn.Value)) then
                     mreturn ChangeResultCase(expanders[tkn.Value](tkn, template, loops), tkn.Modifier)
 
-				else if (tkn.Value.StartsWith("REMAINING_EXCLUSIVE_MAX_")
-				& ||     tkn.Value.StartsWith("REMAINING_INCLUSIVE_MAX_")) then
-					mreturn expandLoopUtilRemainingMax(tkn, template, loops)
+                else if (tkn.Value.StartsWith("REMAINING_EXCLUSIVE_MAX_")
+                &    ||     tkn.Value.StartsWith("REMAINING_INCLUSIVE_MAX_")) then
+                    mreturn expandLoopUtilRemainingMax(tkn, template, loops)
 
                 else
                     throw new ApplicationException(noExpanderMessage())
             end
-			data findAndRunExpander, @Func<Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>, string>, doFindAndRunExpander
-			
-			;; Main dispatcher for expansion token replacement
-			
-			using (tkn.TypeOfToken) select
+            data findAndRunExpander, @Func<Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>, string>, doFindAndRunExpander
 
-			(TokenType.Generic, TokenType.Counter, TokenType.CounterInstruction),
+            ;; Main dispatcher for expansion token replacement
+
+            using (tkn.TypeOfToken) select
+
+            (TokenType.Generic, TokenType.Counter, TokenType.CounterInstruction),
                 mreturn findAndRunExpander(genericTokenExpanders)
-			
-			(TokenType.StructureInfo),
+
+            (TokenType.StructureInfo),
                 mreturn findAndRunExpander(structureTokenExpanders)
-			
-			(TokenType.NotInLoop),
+
+            (TokenType.NotInLoop),
                 mreturn findAndRunExpander(notInLoopTokenExpanders)
-			
-			(TokenType.FieldLoop),
-			begin
-				data result, String, findAndRunExpander(fieldLoopTokenExpanders)
 
-				;;Was this a <FIELD_NAME> token?
-				if (tkn.Value == "FIELD_NAME")
-				begin
-					;;Do we have a field prefix specified?
-					if (!String.IsNullOrWhiteSpace(template.Context.CurrentTask.FieldPrefix))
-					begin
-						;;Get the prefix string
-						data prefix, String, template.Context.CurrentTask.FieldPrefix.Trim()
-						
-						;;Add the prefix string at the beginning
-						result = prefix + result
-						
-						;;Are there any periods in the field name? If so we need to add the prefix after each one
-						if (result.Contains("."))
-						begin
-							;;Yes - need to add the prefix there also
-							data parts, [#]string, result.Split(".")
-							result = parts[0]
-							data ix, int
-							data ub, int, parts.GetUpperBound(0)
-							for ix from 1 thru ub
-								result = result + "." + prefix + parts[ix]
-						end							
-					end
-				end
+            (TokenType.FieldLoop),
+            begin
+                data result, String, findAndRunExpander(fieldLoopTokenExpanders)
 
-				mreturn result
-			end
-			
-			(TokenType.FieldSelectionLoop),
+                ;;Was this a <FIELD_NAME> token?
+                if (tkn.Value == "FIELD_NAME")
+                begin
+                    ;;Do we have a field prefix specified?
+                    if (!String.IsNullOrWhiteSpace(template.Context.CurrentTask.FieldPrefix))
+                    begin
+                        ;;Get the prefix string
+                        data prefix, String, template.Context.CurrentTask.FieldPrefix.Trim()
+
+                        ;;Add the prefix string at the beginning
+                        result = prefix + result
+
+                        ;;Are there any periods in the field name? If so we need to add the prefix after each one
+                        if (result.Contains("."))
+                        begin
+                            ;;Yes - need to add the prefix there also
+                            data parts, [#]string, result.Split(".")
+                            result = parts[0]
+                            data ix, int
+                            data ub, int, parts.GetUpperBound(0)
+                            for ix from 1 thru ub
+                                result = result + "." + prefix + parts[ix]
+                        end
+                    end
+                end
+
+                mreturn result
+            end
+
+            (TokenType.FieldSelectionLoop),
                 mreturn findAndRunExpander(fieldSelectionLoopTokenExpanders)
-			
-			(TokenType.KeyLoop),
+
+            (TokenType.KeyLoop),
                 mreturn findAndRunExpander(keyLoopTokenExpanders)
-			
-			(TokenType.KeySegmentLoop),
-				mreturn findAndRunExpander(keySegmentLoopTokenExpanders)
-			
-			(TokenType.EnumLoop),
+
+            (TokenType.KeySegmentLoop),
+                mreturn findAndRunExpander(keySegmentLoopTokenExpanders)
+
+            (TokenType.EnumLoop),
                 mreturn findAndRunExpander(enumLoopTokenExpanders)
-			
-			(TokenType.EnumMemberLoop),
+
+            (TokenType.EnumMemberLoop),
                 mreturn findAndRunExpander(enumMemberLoopTokenExpanders)
-			
-			(TokenType.RelationLoop),
+
+            (TokenType.RelationLoop),
                 mreturn findAndRunExpander(relationLoopTokenExpanders)
-			
-			(TokenType.RelationSegmentLoop),
-				mreturn findAndRunExpander(relationSegmentLoopTokenExpanders)
-			
-			(TokenType.ButtonLoop),
+
+            (TokenType.RelationSegmentLoop),
+                mreturn findAndRunExpander(relationSegmentLoopTokenExpanders)
+
+            (TokenType.ButtonLoop),
                 mreturn findAndRunExpander(buttonLoopTokenExpanders)
-			
-			(TokenType.TagLoop),
-			begin
-				data result, String, findAndRunExpander(tagLoopTokenExpanders)
 
-				;;Was this a <TAGLOOP_FIELD_NAME> token?
-				if (tkn.Value == "TAGLOOP_FIELD_NAME")
-				begin
-					;;Do we have a field prefix specified?
-					if (!String.IsNullOrWhiteSpace(template.Context.CurrentTask.FieldPrefix))
-					begin
-						;;Get the prefix string
-						data prefix, String, template.Context.CurrentTask.FieldPrefix.Trim()
-						
-						;;Add the prefix string at the beginning
-						result = prefix + result
-						
-						;;Are there any periods in the field name? If so we need to add the prefix after each one
-						if (result.Contains("."))
-						begin
-							;;Yes - need to add the prefix there also
-							data parts, [#]string, result.Split(".")
-							result = parts[0]
-							data ix, int
-							data ub, int, parts.GetUpperBound(0)
-							for ix from 1 thru ub
-								result = result + "." + prefix + parts[ix]
-						end							
-					end
-				end
-				
-				mreturn result
-			end
-			
-			(TokenType.FileLoop),
+            (TokenType.TagLoop),
+            begin
+                data result, String, findAndRunExpander(tagLoopTokenExpanders)
+
+                ;;Was this a <TAGLOOP_FIELD_NAME> token?
+                if (tkn.Value == "TAGLOOP_FIELD_NAME")
+                begin
+                    ;;Do we have a field prefix specified?
+                    if (!String.IsNullOrWhiteSpace(template.Context.CurrentTask.FieldPrefix))
+                    begin
+                        ;;Get the prefix string
+                        data prefix, String, template.Context.CurrentTask.FieldPrefix.Trim()
+
+                        ;;Add the prefix string at the beginning
+                        result = prefix + result
+
+                        ;;Are there any periods in the field name? If so we need to add the prefix after each one
+                        if (result.Contains("."))
+                        begin
+                            ;;Yes - need to add the prefix there also
+                            data parts, [#]string, result.Split(".")
+                            result = parts[0]
+                            data ix, int
+                            data ub, int, parts.GetUpperBound(0)
+                            for ix from 1 thru ub
+                                result = result + "." + prefix + parts[ix]
+                        end
+                    end
+                end
+
+                mreturn result
+            end
+
+            (TokenType.FileLoop),
                 mreturn findAndRunExpander(fileLoopTokenExpanders)
-			
-			(TokenType.LoopUtility),
+
+            (TokenType.LoopUtility),
                 mreturn findAndRunExpander(loopUtilityTokenExpanders)
-			
-			(TokenType.Window),
+
+            (TokenType.Window),
                 mreturn findAndRunExpander(windowTokenExpanders)
-			
-			(TokenType.User),
+
+            (TokenType.User),
                 mreturn findAndRunExpander(userTokenExpanders)
-			
-			(TokenType.StructureLoop),
+
+            (TokenType.StructureLoop),
                 mreturn findAndRunExpander(structureLoopTokenExpanders)
-			
-			(TokenType.InterfaceLoop),
-				mreturn findAndRunExpander(interfaceLoopTokenExpanders)
-			
-			(TokenType.MethodLoop),
-				mreturn findAndRunExpander(methodLoopTokenExpanders)
 
-			(TokenType.ParameterLoop),
-				mreturn findAndRunExpander(parameterLoopTokenExpanders)
+            (TokenType.InterfaceLoop),
+                mreturn findAndRunExpander(interfaceLoopTokenExpanders)
 
-			(),
+            (TokenType.MethodLoop),
+                mreturn findAndRunExpander(methodLoopTokenExpanders)
+
+            (TokenType.ParameterLoop),
+                mreturn findAndRunExpander(parameterLoopTokenExpanders)
+
+            (),
             begin
                 if (tkn.TypeOfToken == TokenType.Expression) then
                     throw new ApplicationException(expandExpressionMessage())
                 else
                     throw new ApplicationException(noExpanderMessage())
             end
-			
-			endusing
-		
-		endmethod
+
+            endusing
+
+        endmethod
 
         ;;; <summary>
         ;;; 
@@ -275,30 +275,30 @@ namespace CodeGen.Engine
             endparams
         proc
             using modifier select
-			
-			(TokenModifier.CamelCase),
-				mreturn StringTools.CamelCase(value)
-			
-			(TokenModifier.LowerCase),
+
+            (TokenModifier.CamelCase),
+                mreturn StringTools.CamelCase(value)
+
+            (TokenModifier.LowerCase),
                 mreturn value.ToLower()
-			
-			(TokenModifier.MixedCase),
+
+            (TokenModifier.MixedCase),
                 mreturn StringTools.MixedCase(value)
-			
-			(TokenModifier.None),
+
+            (TokenModifier.None),
                 mreturn value
-			
-			(TokenModifier.PascalCase),
-				mreturn StringTools.PascalCase(value)
-			
-			(TokenModifier.XfCase),
+
+            (TokenModifier.PascalCase),
+                mreturn StringTools.PascalCase(value)
+
+            (TokenModifier.XfCase),
                 mreturn StringTools.XfCase(value)
-			
-			(),
+
+            (),
                 mreturn value
-			
-			endusing
-		endmethod
+
+            endusing
+        endmethod
 
         private method registerCustomExpanders, void
             context, @CodeGenContext 
@@ -308,71 +308,70 @@ namespace CodeGen.Engine
             if ((context.CustomTokenExpanders != ^null) && (context.CustomTokenExpanders.Count > 0))
             begin
                 data customExpander, @Tuple<String, String, TokenValidity, TokenCaseMode, Func<Token, FileNode, IEnumerable<LoopNode>, String>>
-				
-				foreach customExpander in context.CustomTokenExpanders
+
+                foreach customExpander in context.CustomTokenExpanders
                 begin
                     using (customExpander.Item3) select
-					
-					(TokenValidity.Anywhere),
+
+                    (TokenValidity.Anywhere),
                         genericTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.NotInLoop),
+
+                    (TokenValidity.NotInLoop),
                         notInLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.AnyLoop),
+
+                    (TokenValidity.AnyLoop),
                         loopUtilityTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.FieldLoop),
+
+                    (TokenValidity.FieldLoop),
                         fieldLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.FieldSelectionLoop),
+
+                    (TokenValidity.FieldSelectionLoop),
                         fieldSelectionLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.KeyLoop),
+
+                    (TokenValidity.KeyLoop),
                         keyLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.KeySegmentLoop),
+
+                    (TokenValidity.KeySegmentLoop),
                         keySegmentLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.EnumLoop),
+
+                    (TokenValidity.EnumLoop),
                         enumLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.EnumMemberLoop),
+
+                    (TokenValidity.EnumMemberLoop),
                         enumMemberLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.RelationLoop),
+
+                    (TokenValidity.RelationLoop),
                         relationLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.TagLoop),
+
+                    (TokenValidity.TagLoop),
                         tagLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.StructureLoop),
+
+                    (TokenValidity.StructureLoop),
                         structureTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.ButtonLoop),
+
+                    (TokenValidity.ButtonLoop),
                         buttonLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.FileLoop),
+
+                    (TokenValidity.FileLoop),
                         fileLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					(TokenValidity.InterfaceLoop),
-						interfaceLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
 
-					(TokenValidity.MethodLoop),
-						methodLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+                    (TokenValidity.InterfaceLoop),
+                        interfaceLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
 
-					(TokenValidity.ParameterLoop),
-						parameterLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+                    (TokenValidity.MethodLoop),
+                        methodLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
 
-					(TokenValidity.RelationSegmentLoop),
-						relationSegmentLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
-					
-					endusing
+                    (TokenValidity.ParameterLoop),
+                        parameterLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+
+                    (TokenValidity.RelationSegmentLoop),
+                        relationSegmentLoopTokenExpanders.Add(customExpander.Item1, customExpander.Item5)
+
+                    endusing
                 end
             end
         endmethod
-	
-	endclass
+
+    endclass
 
 endnamespace
-
