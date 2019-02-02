@@ -1,0 +1,68 @@
+
+import System
+import System.Collections.Generic
+import System.Text
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace HarmonyCoreExtensions
+
+    public class ModelFieldProperty implements IExpansionToken
+
+        public property TokenName, String
+            method get
+            proc
+                mreturn "HARMONYCORE_FIELD_PROPERTY"
+            endmethod
+        endproperty
+
+        public property Description, String
+            method get
+            proc
+                mreturn "Produces a property to represent a field in a Harmony Core data model class."
+            endmethod
+        endproperty
+
+        public property Validity, TokenValidity
+            method get
+            proc
+                mreturn TokenValidity.FieldLoop
+            endmethod
+        endproperty
+
+        public property TokenCase, TokenCaseMode
+            method get
+            proc
+                mreturn TokenCaseMode.UppercaseOnly
+            endmethod
+        endproperty
+
+        public method Expand, String
+            tkn,        @Token
+            template,   @FileNode 
+            loops,      @IEnumerable<LoopNode>
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                data f, @RpsField, field
+                data sb = new StringBuilder()
+
+                sb.AppendLine(String.Format("public property {0}, {1}",TokenExpander.ChangeResultCase(f.SqlName,TokenModifier.PascalCase),f.CsType))
+                sb.AppendLine("    method get")
+                sb.AppendLine("    proc")
+                sb.AppendLine("        mreturn mSynergyData." + f.OriginalNameModified.ToLower())
+                sb.AppendLine("    endmethod")
+                sb.AppendLine("    method set")
+                sb.AppendLine("    proc")
+                sb.AppendLine("        mSynergyData." + f.OriginalNameModified.ToLower() + " = value")
+                sb.AppendLine("    endmethod")
+
+                mreturn sb.ToString()
+            end
+            mreturn TokenExpander.ExpandFieldLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+    endclass
+
+endnamespace
