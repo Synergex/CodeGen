@@ -5,14 +5,11 @@ set PATH=C:\Program Files\7-Zip;%PATH%
 
 pushd %~dp0
 
-if not exist distribution\windows\debug\.   mkdir distribution\windows\debug
-if not exist distribution\windows\release\. mkdir distribution\windows\release
+if not exist distribution\windows\.   mkdir distribution\windows
 
 pushd CodeGen
-echo Building debug distribution
-dotnet publish -c Debug   -r win7-x64 -o ..\distribution\windows\debug
-echo Building release distribution
-dotnet publish -c Release -r win7-x64 -o ..\distribution\windows\release
+echo Building Windows distribution
+dotnet publish -c Release -r win7-x64 -o ..\distribution\windows
 popd
 
 pushd distribution
