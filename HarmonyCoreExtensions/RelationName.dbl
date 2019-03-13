@@ -1,0 +1,141 @@
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+
+namespace HarmonyCoreExtensions
+	
+    public class RelationName implements IExpansionToken
+		
+        public property TokenName, String
+            method get
+            proc
+                mreturn "HARMONYCORE_RELATION_NAME"
+            endmethod
+        endproperty
+		
+        public property Description, String
+            method get
+            proc
+                mreturn "Generates a name for a relationship between two structures."
+            endmethod
+        endproperty
+		
+        public property Validity, TokenValidity
+            method get
+            proc
+                mreturn TokenValidity.RelationLoop
+            endmethod
+        endproperty
+		
+        public property TokenCase, TokenCaseMode
+            method get
+            proc
+                mreturn TokenCaseMode.UppercaseOnly
+            endmethod
+        endproperty
+		
+        public method Expand, String
+            tkn, @Token
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode>
+            endparams
+        proc
+            lambda doExpand(fromStructure, relation, index, fromkey, tostr, tokey)
+            begin
+                ;;TODO: Do we have a custom relation names file?
+
+
+                ;;TODO: If so, load custom relation names
+
+
+                ;;TODO: Do we have a custom name for this relation?
+                data haveCustomName = false
+
+                ;;Is there a hard-coded name for the current relation?
+
+                if (haveCustomName)
+                begin
+                    data customName = "REL_CustomName"
+                    
+                    mreturn customName
+                end
+
+                ;;No custom name, so figure out and use the default name
+
+                data fkCleanFromKey, @RpsKey, fromkey
+                if (fromkey.Name.StartsWith("FK_"))
+                begin
+                    ;;Remove the FK_ from the from the key name
+                    data fkCleanName = fromkey.Name.Substring(3)
+                    data fkDescr = fromkey.Description
+                    ;;Locate the matching access key
+                    data fromStructureKey, @RpsKey
+                    foreach fromStructureKey in fromStructure.Keys
+                    begin
+                        if (fromStructureKey.Name == fkCleanName || string.Compare(fromStructureKey.Name, fkDescr, true))
+                        begin
+                            fkCleanFromKey = fromStructureKey
+                            exitloop
+                        end
+                    end
+                end
+
+                data isOneToOneToOne = (tokey.Size == fkCleanFromKey.Size && fkCleanFromKey.Duplicates == RpsKeyDuplicates.NoDuplicates && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates)
+                data isOneToOne = ((tokey.Size < fkCleanFromKey.Size) || (tokey.Size == fkCleanFromKey.Size && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates))
+
+                data toRelation, @RpsRelation
+                data hasBackRelation = false
+                foreach toRelation in tostr.Relations
+                begin
+                    if(toRelation.ToStructure == fromStructure.Name)
+                    begin
+                        if(toRelation.ToKey == fkCleanFromKey.Name)
+                            hasBackRelation = true
+                    end
+                end
+
+                data toStructureNoPlural, string, StringTools.PascalCase(tostr.Alias.EndsWith("S") ? tostr.Alias.Substring(0,tostr.Alias.Length-1) : tostr.Alias)
+                data toStructurePlural, string, StringTools.PascalCase(tostr.Alias.EndsWith("S") ? tostr.Alias : String.Format("{0}S",tostr.Alias))
+                data relName = String.Empty
+
+                if (isOneToOne && !isOneToOneToOne && hasBackRelation) then
+                begin
+                    ;Type A: MANY_TO_ONE_TO_MANY
+                    relName = String.Format("REL_{0}",toStructureNoPlural)
+                end
+                else if (isOneToOneToOne && hasBackRelation) then
+                begin
+                    ;Type B: ONE_TO_ONE_TO_ONE
+                    relName = String.Format("REL_{0}",toStructureNoPlural)
+                end
+                else if (isOneToOne && !hasBackRelation) then
+                begin
+                    ;Type C: ONE_TO_ONE
+                    relName = String.Format("REL_{0}",toStructureNoPlural)
+                end
+                else if (!isOneToOne && hasBackRelation) then
+                begin
+                    ;Type D: ONE_TO_MANY_TO_ONE
+                    relName = String.Format("REL_{0}",toStructurePlural)
+                end
+                else if (!isOneToOne && !hasBackRelation) then
+                begin
+                    ;Type E: ONE_TO_MANY
+                    relName = String.Format("REL_{0}",toStructurePlural)
+                end
+                else
+                begin
+                    ;;Should never get here!
+                    throw new ApplicationException("Unknown relation type encountered when processing custom expansion token HARMONY_RELATION_NAME")
+                end
+
+                mreturn relName
+            end
+            mreturn TokenExpander.ExpandRelationLoopToken(tkn, template, loops, doExpand)
+        endmethod
+		
+    endclass
+	
+endnamespace
