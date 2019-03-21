@@ -3,7 +3,7 @@
 setlocal
 pushd %~dp0
 echo.
-echo Uploading MSI to DOWNLOADS.SYNERGEXPSG.COM...
+echo Uploading MSI to http://download.synergexpsg.com/CodeGen.msi
 echo open ftp.synergexpsg.com 21> ftp.tmp
 echo steve@synergexpsg.com>> ftp.tmp
 echo %SYNPSG_FTP_PASSWORD%>> ftp.tmp
