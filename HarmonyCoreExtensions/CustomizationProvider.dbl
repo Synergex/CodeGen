@@ -1,0 +1,54 @@
+import System
+import System.Collections.Generic
+import System.Text
+import CodeGen.RepositoryAPI
+import System.IO
+import System.Linq
+import CodeGen.Engine
+import Newtonsoft.Json
+import Newtonsoft.Json.Linq
+
+
+namespace HarmonyCoreExtensions
+
+	public static class CustomizationProvider
+	
+        public static method GetCustomRelationSpec, @CustomRelationSpec
+            required in template, @FileNode
+            required in fromStr, @RpsStructure
+            required in fromKey, @RpsKey
+            required in toStr, @RpsStructure
+            required in toKey, @RpsKey
+        proc
+            ;;Lambda to locate the requested location in the collection of custom relation specs
+            lambda isThisRelation(r) 
+            begin
+                mreturn r.FromStructure==fromStr.Name && r.FromKey==fromKey.Name && r.ToStructure==toStr.Name && r.ToKey==toKey.Name
+            end
+
+            ;;Do we have a custom relation names file?
+            data harmonyCustomizationFile = Path.Combine(template.Context.TemplateFolder,"HarmonyCoreCustomization.json")
+            data customRelationSpecs, @List<CustomRelationSpec>
+            data customRelation, @CustomRelationSpec
+            data haveCustomRelation = false
+
+            if (File.Exists(harmonyCustomizationFile))
+            begin
+                ;;Load custom relation names
+                data json = File.ReadAllText(harmonyCustomizationFile)
+                data configFileObject = (@JObject)JsonConvert.DeserializeObject(json)
+                data configProp = configFileObject.Property("CustomRelationNames")
+                if(configProp != ^null && configProp.Value != ^null)
+                begin
+                    data customRelationSpecs = configProp.Value.ToObject<List<CustomRelationSpec>>()
+                    customRelation = customRelationSpecs.FirstOrDefault(isThisRelation)
+                end
+            end
+
+            mreturn customRelation
+
+        endmethod
+
+	endclass
+
+endnamespace
