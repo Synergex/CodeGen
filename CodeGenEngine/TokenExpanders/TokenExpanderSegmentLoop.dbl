@@ -76,6 +76,7 @@ namespace CodeGen.Engine
             keySegmentLoopTokenExpanders.Add("SEGMENT_SNTYPE", expandSegmentSnType)
             keySegmentLoopTokenExpanders.Add("SEGMENT_SPEC", expandSegmentSpec)
             keySegmentLoopTokenExpanders.Add("SEGMENT_STRUCTURE", expandSegmentStructure)
+            keySegmentLoopTokenExpanders.Add("SEGMENT_TAG_VALUE", expandSegmentTagValue)
             keySegmentLoopTokenExpanders.Add("SEGMENT_TYPE", expandSegmentType)
 			keySegmentLoopTokenExpanders.Add("SEGMENT_VBTYPE", expandSegmentVbType)
 
@@ -404,6 +405,39 @@ namespace CodeGen.Engine
             endparams
         proc
             lambda doExpand(str, ky, segment, index) segment.Structure
+            mreturn ExpandKeySegmentLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandSegmentTagValue, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, ky, segment, index)
+            begin
+
+                lambda isSegField(f) f.Name == segment.Field
+
+                data st, @RpsStructure, str
+                data sg, @RpsKeySegment, segment
+                
+                if (st.Tags.Count==0)
+                    mreturn ""
+
+                data tg, @RpsTag
+                foreach tg in st.Tags
+                begin
+                    if tg.Field == sg.Field && tg.ComparisonOperator == RpsTagOperator.OpEQ
+                    begin
+                        data fld, @RpsField, st.Fields.FirstOrDefault(isSegField)
+                        mreturn fld.DataType == RpsFieldDataType.Alpha ? String.Format('"{0}"',tg.ComparisonValue) : tg.ComparisonValue
+                    end
+                end
+
+                mreturn ""
+
+            end
             mreturn ExpandKeySegmentLoopToken(tkn, template, loops, doExpand)
         endmethod
 
