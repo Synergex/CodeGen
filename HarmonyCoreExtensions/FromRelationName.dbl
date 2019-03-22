@@ -1,0 +1,174 @@
+;;*****************************************************************************
+;;
+;; Title:       FromRelationName.dbl
+;;
+;; Type:        Class
+;;
+;; Description: A custom relation loop expansion token for use with Harmony Core
+;;
+;; Date:        13th March 2019
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2019, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
+import System.IO
+import Newtonsoft.Json
+import System.Linq
+import Newtonsoft.Json.Linq
+
+namespace HarmonyCoreExtensions
+	
+    public class FromRelationName implements IExpansionToken
+		
+        public property TokenName, String
+            method get
+            proc
+                mreturn "HARMONYCORE_FROM_RELATION_NAME"
+            endmethod
+        endproperty
+		
+        public property Description, String
+            method get
+            proc
+                mreturn "Generates a name for ???."
+            endmethod
+        endproperty
+		
+        public property Validity, TokenValidity
+            method get
+            proc
+                mreturn TokenValidity.RelationLoop
+            endmethod
+        endproperty
+		
+        public property TokenCase, TokenCaseMode
+            method get
+            proc
+                mreturn TokenCaseMode.UppercaseOnly
+            endmethod
+        endproperty
+		
+        public method Expand, String
+            tkn, @Token
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode>
+        proc
+            lambda doExpand(tostr, relation, index, tokey, fromstr, fromkey)
+            begin
+                ;;Is there a hard-coded name for the current relation?
+
+                data customRelation = CustomizationProvider.GetCustomRelationSpec(template,fromstr,fromkey,tostr,tokey)
+                if (customRelation !=^null)
+                begin
+                    mreturn customRelation.RelationName
+                end
+
+                ;;No custom name, generate the default name for the relation
+
+                data fkCleanFromKey, @RpsKey, fromkey
+                if (fromkey.Name.StartsWith("FK_"))
+                begin
+                    ;;Remove the FK_ from the from the key name
+                    data fkCleanName = fromkey.Name.Substring(3)
+                    data fkDescr = fromkey.Description
+                    ;;Locate the matching access key
+                    data fromStructureKey, @RpsKey
+                    foreach fromStructureKey in fromstr.Keys
+                    begin
+                        if (fromStructureKey.Name == fkCleanName || string.Compare(fromStructureKey.Name, fkDescr, true))
+                        begin
+                            fkCleanFromKey = fromStructureKey
+                            exitloop
+                        end
+                    end
+                end
+
+                data isOneToOneToOne = (tokey.Size == fkCleanFromKey.Size && fkCleanFromKey.Duplicates == RpsKeyDuplicates.NoDuplicates && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates)
+                data isOneToOne = ((tokey.Size < fkCleanFromKey.Size) || (tokey.Size == fkCleanFromKey.Size && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates))
+
+                data toRelation, @RpsRelation
+                data hasBackRelation = false
+                foreach toRelation in tostr.Relations
+                begin
+                    if(toRelation.ToStructure == fromstr.Name)
+                    begin
+                        if(toRelation.ToKey == fkCleanFromKey.Name)
+                            hasBackRelation = true
+                    end
+                end
+
+                data toStructureNoPlural, string, StringTools.PascalCase(tostr.Alias.EndsWith("S") ? tostr.Alias.Substring(0,tostr.Alias.Length-1) : tostr.Alias)
+                data toStructurePlural, string, StringTools.PascalCase(tostr.Alias.EndsWith("S") ? tostr.Alias : String.Format("{0}S",tostr.Alias))
+
+                if (isOneToOne && !isOneToOneToOne && hasBackRelation) then
+                begin
+                    ;Type A: MANY_TO_ONE_TO_MANY
+                    mreturn String.Format("REL_{0}",toStructureNoPlural)
+                end
+                else if (isOneToOneToOne && hasBackRelation) then
+                begin
+                    ;Type B: ONE_TO_ONE_TO_ONE
+                    mreturn String.Format("REL_{0}",toStructureNoPlural)
+                end
+                else if (isOneToOne && !hasBackRelation) then
+                begin
+                    ;Type C: ONE_TO_ONE
+                    mreturn String.Format("REL_{0}",toStructureNoPlural)
+                end
+                else if (!isOneToOne && hasBackRelation) then
+                begin
+                    ;Type D: ONE_TO_MANY_TO_ONE
+                    mreturn String.Format("REL_{0}",toStructurePlural)
+                end
+                else if (!isOneToOne && !hasBackRelation)
+                begin
+                    ;Type E: ONE_TO_MANY
+                    mreturn String.Format("REL_{0}",toStructurePlural)
+                end
+
+                ;;Should never get here!
+                throw new ApplicationException("Unknown relation type encountered when processing custom expansion token HARMONY_RELATION_NAME")
+
+            end
+
+            mreturn TokenExpander.ExpandRelationLoopToken(tkn, template, loops, doExpand)
+
+
+        endmethod
+		
+    endclass
+	
+endnamespace
