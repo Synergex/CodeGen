@@ -1,100 +1,256 @@
 
 import System
+import System.Linq
 import System.Collections.Generic
+import System.Collections.Concurrent
 import System.Text
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
+import System.IO
+import Newtonsoft.Json
+import Newtonsoft.Json.Linq
 
 namespace HarmonyCoreExtensions
 
-	public static class Helpers
+    public static class Helpers
 	
-		public static method MatchRelationType, boolean
+        class RelationLookup
+            private readwrite property Relations, @ConcurrentDictionary<string, CustomRelationSpec>, new ConcurrentDictionary<string, CustomRelationSpec>()
+            private readwrite property Context, @CodeGenContext
+            public method RelationLookup
+                required in context,                @CodeGenContext
+                required in customizationFileName,  @string
+            proc
+                this.Context = context
 
-			required in tkn,            @Token
-			required in template,       @FileNode 
-			required in loops,          @IEnumerable<LoopNode>
+                if (File.Exists(customizationFileName))
+                begin
+                    ;;Load custom relation names
+                    data json = File.ReadAllText(customizationFileName)
+                    data configFileObject = (@JObject)JsonConvert.DeserializeObject(json)
+                    data configProp = configFileObject.Property("CustomRelations")
+                    if(configProp != ^null && configProp.Value != ^null)
+                    begin
+                        data customRelationSpecs = configProp.Value.ToObject<List<CustomRelationSpec>>()
+                        data customRelation, @CustomRelationSpec
+                        foreach customRelation in customRelationSpecs
+                        begin
+                            data relationLookup = string.Format("{0}-{1}-{2}-{3}", customRelation.FromStructure, customRelation.ToStructure, customRelation.FromKey, customRelation.ToKey)
+                            data madeRelation = MakeRelation(customRelation.FromStructure, customRelation.ToStructure, customRelation.FromKey, customRelation.ToKey)
+                            if(!string.IsNullOrWhitespace(customRelation.BackRelation))
+                                madeRelation.BackRelation = customRelation.BackRelation
 
-			required in context,        @CodeGenContext
-			required in fromStructure,  @RpsStructure
-			required in relation,       @RpsRelation
-			required in index,          int
-			required in fromkey,        @RpsKey
-			required in tostr,          @RpsStructure
-			required in tokey,          @RpsKey
+                            if(!string.IsNullOrWhitespace(customRelation.RelationType))
+                                madeRelation.RelationType = customRelation.RelationType
 
-		proc
-			
-			data fkCleanFromKey, @RpsKey, fromkey
-			if(fromkey.Name.StartsWith("FK_"))
-			begin
-				;;Remove the FK_ from the from the key name
-				data fkCleanName = fromkey.Name.Substring(3)
-				data fkDescr = fromkey.Description
-				;;Locate the matching access key
-				data fromStructureKey, @RpsKey
-				foreach fromStructureKey in fromStructure.Keys
-				begin
-					if (fromStructureKey.Name == fkCleanName || string.Compare(fromStructureKey.Name, fkDescr, true) == 0)
-					begin
-						fkCleanFromKey = fromStructureKey
-						exitloop
-					end
-				end
-			end
+                            if(!string.IsNullOrWhitespace(customRelation.RelationName))
+                                madeRelation.RelationName = customRelation.RelationName
 
-			;I suspect the issue is here, fkCleanFromKey allows DUPS but our relation is many to one?
+                            Relations.TryAdd(relationLookup, madeRelation)
+                        end
+                    end
+                end
+            endmethod
 
-			data isOneToOneToOne = (tokey.Size == fkCleanFromKey.Size && fkCleanFromKey.Duplicates == RpsKeyDuplicates.NoDuplicates && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates)
-			data isOneToOne = ((tokey.Size < fkCleanFromKey.Size) || (tokey.Size == fkCleanFromKey.Size && tokey.Duplicates == RpsKeyDuplicates.NoDuplicates))
+            public method FindRelation, @CustomRelationSpec
+                required in fromStructure,  @string
+                required in toStructure,    @string
+                required in fromKey,        @string
+                required in toKey,          @string
+                required in backLink,       boolean
+            proc
+                data relationLookup = string.Format("{0}-{1}-{2}-{3}", fromStructure, toStructure, fromKey, toKey)
+                data outboundRelation = Relations.GetOrAdd(relationLookup, lambda(lookupKey) { MakeRelation(fromStructure, toStructure, fromKey, toKey) })
+                if(backLink) then
+                begin
+                    if(String.IsNullOrWhiteSpace(outboundRelation.BackRelation))
+                    begin
+                        throw new InvalidOperationException(string.Format("Attempting to get backlink for a relation where none exists, relation was {0}", relationLookup))
+                    end
 
-;                lambda getBackRelation(relation)
-;                begin
-;                    if(relation.ToStructure == fromStructure.Name)
-;                    begin
-;                        if(relation.ToKey.StartsWith("FK_") && relation.ToKey.Substring(3) == fromkey.Name)
-;                            mreturn true
-;
-;                        if(relation.ToKey == fromkey.Name)
-;                            mreturn true
-;                    end
-;
-;                    mreturn false
-;                end
-			;;TODO: compiler bug here
-			;;data isBackRelation = tostr.Relations.FirstOrDefault(getBackRelation)
-			;;data isBackRelation, @RpsRelation, tostr.Relations.FirstOrDefault(getBackRelation)
-			;;data hasBackRelation = (isBackRelation != ^null)
-			data toRelation, @RpsRelation
-			data hasBackRelation = false
-			foreach toRelation in tostr.Relations
-			begin
-				if(toRelation.ToStructure == fromStructure.Name)
-				begin
-					if(toRelation.ToKey == fkCleanFromKey.Name)
-						hasBackRelation = true
-				end
-			end
+                    data relationLookupParts = outboundRelation.BackRelation.Split("-")
+                    if(relationLookupParts.Length != 4)
+                        throw new NotImplementedException()
 
-			using tkn.Value select
-			("ONE_TO_ONE"),
-				mreturn (isOneToOne && !hasBackRelation)
-			("ONE_TO_MANY"),
-				mreturn (!isOneToOne && !hasBackRelation)
-			("ONE_TO_MANY_TO_ONE"),
-				mreturn (!isOneToOne && hasBackRelation)
-			("ONE_TO_ONE_TO_ONE"),
-				mreturn (isOneToOneToOne && hasBackRelation)
-			("MANY_TO_ONE_TO_MANY"),
-				mreturn (isOneToOne && !isOneToOneToOne && hasBackRelation)
-			endusing
+                    data backRelation = Relations.GetOrAdd(outboundRelation.BackRelation, lambda(lookupKey) { MakeRelation(relationLookupParts[1], relationLookupParts[2], relationLookupParts[3], relationLookupParts[4]) })
+                    mreturn backRelation
+                end
+                else
+                begin
+                    mreturn outboundRelation
+                end
 
-			;;Should never get here!
-			throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationType()",tkn.Value))
+            endmethod
 
-		endmethod
+            private method MakeRelation, @CustomRelationSpec
+                required in fromStructure,  @string
+                required in toStructure,    @string
+                required in fromKey,        @string
+                required in toKey,          @string
+            proc
+                data fromRealStructure = Context.Structures.First(lambda(str) { str.Name == fromStructure })
+                data toRealStructure = Context.Structures.First(lambda(str) { str.Name == toStructure })
+                data realFromKey = fromRealStructure.Keys.First(lambda(key) { key.Name == fromKey })
+                data realToKey = toRealStructure.Keys.First(lambda(key) { key.Name == toKey })
+
+                data madeRelation = new CustomRelationSpec()
+                madeRelation.FromKey = fromKey
+                madeRelation.ToKey = toKey
+                madeRelation.FromStructure = fromStructure
+                madeRelation.ToStructure = toStructure
+                SynthesizeRelationInfo(fromRealStructure, toRealStructure, realFromKey, realToKey, madeRelation)
+                mreturn madeRelation
+            endmethod
+
+            private method SynthesizeRelationInfo, void
+                required in fromStructure,  @RpsStructure
+                required in toStructure,    @RpsStructure
+                required in fromKey,        @RpsKey
+                required in toKey,          @RpsKey
+                required in targetRelation, @CustomRelationSpec
+            proc
+
+                data fkCleanFromKey, @RpsKey, fromKey
+                if(fromKey.Name.StartsWith("FK_"))
+                begin
+                    ;;Remove the FK_ from the from the key name
+                    data fkCleanName = fromKey.Name.Substring(3)
+                    data fkDescr = fromKey.Description
+                    ;;Locate the matching access key
+                    data fromStructureKey, @RpsKey
+                    foreach fromStructureKey in fromStructure.Keys
+                    begin
+                        if (fromStructureKey.Name == fkCleanName || string.Compare(fromStructureKey.Name, fkDescr, true) == 0)
+                        begin
+                            fkCleanFromKey = fromStructureKey
+                            exitloop
+                        end
+                    end
+                end
+
+                data toRelation, @RpsRelation
+                data hasBackRelation = false
+                foreach toRelation in toStructure.Relations
+                begin
+                    if(toRelation.ToStructure == fromStructure.Name)
+                    begin
+                        if(toRelation.ToKey == fkCleanFromKey.Name)
+                        begin
+                            hasBackRelation = true
+                            exitloop
+                        end
+                    end
+                end
+
+                data toStructureNoPlural, string, StringTools.PascalCase(toStructure.Alias.EndsWith("S") ? toStructure.Alias.Substring(0,toStructure.Alias.Length-1) : toStructure.Alias)
+                data toStructurePlural, string, StringTools.PascalCase(toStructure.Alias.EndsWith("S") ? toStructure.Alias : String.Format("{0}S",toStructure.Alias))
+
+				data fkToKey = hasBackRelation ? toStructure.Keys.FirstOrDefault(lambda(target) { target.Name == toRelation.FromKey } ) : toKey
+				data fFromKey = hasBackRelation ? fromStructure.Keys.FirstOrDefault(lambda(target) { target.Name == toRelation.ToKey } ) : fkCleanFromKey
+                data isOneToOneToOne = (fkToKey.Size >= fFromKey.Size && fFromKey.Duplicates == RpsKeyDuplicates.NoDuplicates && toKey.Duplicates == RpsKeyDuplicates.NoDuplicates)
+                data isOneToOne = ((toKey.Size < fromKey.Size) || (toKey.Size == fromKey.Size && toKey.Duplicates == RpsKeyDuplicates.NoDuplicates))
+
+                if(String.IsNullOrWhiteSpace(targetRelation.BackRelation))
+                    targetRelation.BackRelation = hasBackRelation ? string.Format("{0}-{1}-{2}-{3}", toRelation.FromStructure, toRelation.ToStructure, toRelation.FromKey, toRelation.ToKey) : ^null
+                
+                if (isOneToOne && !isOneToOneToOne && hasBackRelation) then
+                begin
+                    ;Type A: MANY_TO_ONE_TO_MANY
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationName))
+                        targetRelation.RelationName = toStructureNoPlural
+
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationType))
+                        targetRelation.RelationType = "A"
+                end
+                else if (isOneToOne && isOneToOneToOne && hasBackRelation) then
+                begin
+                    ;Type B: ONE_TO_ONE_TO_ONE
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationName))
+                        targetRelation.RelationName = toStructureNoPlural
+                    
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationType))
+                        targetRelation.RelationType = "B"
+                end
+                else if (isOneToOne && !hasBackRelation) then
+                begin
+                    ;Type C: ONE_TO_ONE
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationName))
+                        targetRelation.RelationName = toStructureNoPlural
+                    
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationType))
+                        targetRelation.RelationType = "C"
+                end
+                else if (!isOneToOne && hasBackRelation) then
+                begin
+                    ;Type D: ONE_TO_MANY_TO_ONE
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationName))
+                        targetRelation.RelationName = toStructurePlural
+                    
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationType))
+                        targetRelation.RelationType = "D"
+                end
+                else if (!isOneToOne && !hasBackRelation)
+                begin
+                    ;Type E: ONE_TO_MANY
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationName))
+                        targetRelation.RelationName = toStructurePlural
+                   
+                    if(String.IsNullOrWhiteSpace(targetRelation.RelationType))
+                        targetRelation.RelationType = "E"
+                end
+            endmethod
+        endclass
 
 
-	endclass
+        public static method GetRelationSpec, @CustomRelationSpec
+            required in context,        @CodeGenContext
+            required in fromStructure,  @RpsStructure
+            required in tostr,          @RpsStructure
+            required in fromkey,        @RpsKey
+            required in tokey,          @RpsKey
+            required in backLink,		boolean
+        proc
+            data harmonyCustomizationFile = Path.Combine(context.TemplateFolder,"HarmonyCoreCustomization.json")
+            data relationLookup = ^as(context.Properties.GetOrAdd(^typeof(RelationLookup), lambda(lookupKey) { new RelationLookup(context, harmonyCustomizationFile) }), @RelationLookup)
+            mreturn relationLookup.FindRelation(fromStructure.Name, tostr.Name, fromkey.Name, tokey.Name, backLink)
+        endmethod
+
+        public static method MatchRelationType, boolean
+
+            required in tkn,            @Token
+            required in template,       @FileNode 
+            required in loops,          @IEnumerable<LoopNode>
+
+            required in context,        @CodeGenContext
+            required in fromStructure,  @RpsStructure
+            required in relation,       @RpsRelation
+            required in index,          int
+            required in fromkey,        @RpsKey
+            required in tostr,          @RpsStructure
+            required in tokey,          @RpsKey
+
+        proc
+            data targetRelation = GetRelationSpec(context, fromStructure, toStr, fromkey, tokey, false)
+
+            using tkn.Value select
+            ("ONE_TO_ONE"),
+                mreturn targetRelation.RelationType == "C"
+            ("ONE_TO_MANY"),
+                mreturn targetRelation.RelationType == "E"
+            ("ONE_TO_MANY_TO_ONE"),
+                mreturn targetRelation.RelationType == "D"
+            ("ONE_TO_ONE_TO_ONE"),
+                mreturn targetRelation.RelationType == "B"
+            ("MANY_TO_ONE_TO_MANY"),
+                mreturn targetRelation.RelationType == "A"
+            endusing
+
+            ;;Should never get here!
+            throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationType()",tkn.Value))
+
+        endmethod
+
+
+    endclass
 
 endnamespace
