@@ -145,8 +145,10 @@ namespace HarmonyCoreExtensions
                 data toStructureNoPlural, string, StringTools.PascalCase(toStructure.Alias.EndsWith("S") ? toStructure.Alias.Substring(0,toStructure.Alias.Length-1) : toStructure.Alias)
                 data toStructurePlural, string, StringTools.PascalCase(toStructure.Alias.EndsWith("S") ? toStructure.Alias : String.Format("{0}S",toStructure.Alias))
 
-                data isOneToOneToOne = (toKey.Size == fkCleanFromKey.Size && fkCleanFromKey.Duplicates == RpsKeyDuplicates.NoDuplicates && toKey.Duplicates == RpsKeyDuplicates.NoDuplicates)
-                data isOneToOne = ((toKey.Size < fkCleanFromKey.Size) || (toKey.Size == fkCleanFromKey.Size && toKey.Duplicates == RpsKeyDuplicates.NoDuplicates))
+				data fkToKey = hasBackRelation ? toStructure.Keys.FirstOrDefault(lambda(target) { target.Name == toRelation.FromKey } ) : toKey
+				data fFromKey = hasBackRelation ? fromStructure.Keys.FirstOrDefault(lambda(target) { target.Name == toRelation.ToKey } ) : fkCleanFromKey
+                data isOneToOneToOne = (fkToKey.Size >= fFromKey.Size && fFromKey.Duplicates == RpsKeyDuplicates.NoDuplicates && toKey.Duplicates == RpsKeyDuplicates.NoDuplicates)
+                data isOneToOne = ((toKey.Size < fromKey.Size) || (toKey.Size == fromKey.Size && toKey.Duplicates == RpsKeyDuplicates.NoDuplicates))
 
                 if(String.IsNullOrWhiteSpace(targetRelation.BackRelation))
                     targetRelation.BackRelation = hasBackRelation ? string.Format("{0}-{1}-{2}-{3}", toRelation.FromStructure, toRelation.ToStructure, toRelation.FromKey, toRelation.ToKey) : ^null
@@ -160,7 +162,7 @@ namespace HarmonyCoreExtensions
                     if(String.IsNullOrWhiteSpace(targetRelation.RelationType))
                         targetRelation.RelationType = "A"
                 end
-                else if (isOneToOneToOne && hasBackRelation) then
+                else if (isOneToOne && isOneToOneToOne && hasBackRelation) then
                 begin
                     ;Type B: ONE_TO_ONE_TO_ONE
                     if(String.IsNullOrWhiteSpace(targetRelation.RelationName))
