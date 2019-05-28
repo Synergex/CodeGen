@@ -5,22 +5,14 @@ import System.Data
 import System.Drawing
 import System.Windows.Forms
 import CodeGen.RepositoryAPI
+import Newtonsoft.Json
+import System.IO
 
 namespace HarmonyCoreGenerator
 
     public partial class FrmMain extends System.Windows.Forms.Form
 
-        private static processingModeChoices, @List<ProcessingModeChoice>
-        private mStructureRows, @List<StructureRow>, new List<StructureRow>()
-
-        static method FrmMain
-        proc
-            processingModeChoices = new List<ProcessingModeChoice>()
-            processingModeChoices.Add(new ProcessingModeChoice() { Id="None",Description="None"} )
-            processingModeChoices.Add(new ProcessingModeChoice() { Id="StructureAndFile",Description="Structure and File"} )
-            processingModeChoices.Add(new ProcessingModeChoice() { Id="StructureOnly",Description="Structure Only"} )
-            processingModeChoices.Add(new ProcessingModeChoice() { Id="CustomCodeOnly",Description="Custom Code Only"} )
-        endmethod
+        private mOptions, @HarmonyCoreOptions, new HarmonyCoreOptions()
 
         public method FrmMain
         proc
@@ -31,31 +23,221 @@ namespace HarmonyCoreGenerator
             sender, @object 
             e, @System.EventArgs 
         proc
-            processingModeChoiceBindingSource.DataSource = processingModeChoices
+            ;;One time, it's a static collection
+            processingModeChoiceBindingSource.DataSource = HarmonyCoreOptions.ProcessingModeChoices
+            enableUI(false)
+        endmethod
+        
+        private method enableOnlyRepositoryPanel, void
+        proc
+            enableUI(false)
+            grpRepository.Enabled = enabled
+        endmethod
 
-            ;enableUI(false)
+        private method enableUI, void
+            required in enabled, boolean
+        proc
+            grpRepository.Enabled = enabled
+            grpOutputLocations.Enabled = enabled
+            grpODataFeatures.Enabled = enabled
+            grpDocandVersioning.Enabled = enabled
+            grpControllerEndpoints.Enabled = enabled
+            grpSecurity.Enabled = enabled
+            grpMiscellaneous.Enabled = enabled
+            grpRepositoryStructures.Enabled = enabled
+            grpCodeGeneration.Enabled = enabled
 
-            data rps, @Repository, new Repository()
+            mnuFileSave.Enabled = enabled
+            mnuFileSaveAs.Enabled = enabled
+            mnuFileClose.Enabled = enabled
+        endmethod
+        
+        
+        private method folderLookup_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            data senderButton, @Button, (@Button)sender
+
+            disposable data fb, @FolderBrowserDialog, new FolderBrowserDialog()
+
+            using senderButton.Name select
+            ("btnServicesFolder"),
+                fb.SelectedPath = String.IsNullOrWhiteSpace(txtServicesFolder.Text) ? String.Empty : txtServicesFolder.Text
+            ("btnControllersFolder"),
+                fb.SelectedPath = String.IsNullOrWhiteSpace(txtControllersFolder.Text) ? String.Empty : txtControllersFolder.Text
+            ("btnModelsFolder"),
+                fb.SelectedPath = String.IsNullOrWhiteSpace(txtModelsFolder.Text) ? String.Empty : txtModelsFolder.Text
+            ("btnSelfHostFolder"),
+                fb.SelectedPath = String.IsNullOrWhiteSpace(txtSelfHostFolder.Text) ? String.Empty : txtSelfHostFolder.Text
+            ("btnUnitTestsFolder"),
+                fb.SelectedPath = String.IsNullOrWhiteSpace(txtUnitTestsFolder.Text) ? String.Empty : txtUnitTestsFolder.Text
+            endusing
+            
+            if (fb.ShowDialog() == DialogResult.OK)
+            begin
+                using senderButton.Name select
+                ("btnServicesFolder"),
+                    txtServicesFolder.Text = fb.SelectedPath
+                ("btnControllersFolder"),
+                    txtControllersFolder.Text = fb.SelectedPath
+                ("btnModelsFolder"),
+                    txtModelsFolder.Text = fb.SelectedPath
+                ("btnSelfHostFolder"),
+                    txtSelfHostFolder.Text = fb.SelectedPath
+                ("btnUnitTestsFolder"),
+                    txtUnitTestsFolder.Text = fb.SelectedPath
+                endusing
+            end
+
+        endmethod
+        
+        private method MnuFileNew_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            mOptions = new HarmonyCoreOptions()
+            optionsBingingSource.DataSource = mOptions
+            structuresBindingSource.DataSource = mOptions.Structures
+            
+            enableOnlyRepositoryPanel()
+        endmethod
+
+        private method TxtRpsFile_TextChanged, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            btnRepositoryDone.Enabled = (!String.IsNullOrWhiteSpace(txtRpsMainFile.Text) && (!String.IsNullOrWhiteSpace(txtRpsTextFile.Text)) && (File.Exists(txtRpsTextFile.Text)) && (File.Exists(txtRpsTextFile.Text)))
+        endmethod
+        
+        private method BtnRepositoryDone_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            ;;Load up the reposotory structures
+            data rps, @Repository, new Repository(mOptions.RepositoryMainFile,mOptions.RepositoryTextFile)
             data str, @RpsStructure
             foreach str in rps.Structures
             begin
                 if (str.Alias.Equals(str.Name))
                     str.Alias = String.Empty
-                mStructureRows.Add(new StructureRow(str))
+                mOptions.Structures.Add(new StructureRow(str))
             end
 
-            structuresBindingSource.DataSource = mStructureRows
+            optionsBingingSource.DataSource = mOptions
+            structuresBindingSource.DataSource = mOptions.Structures
 
 
-
+            enableUI(true)
         endmethod
         
-        private method RbGenerateSwaggerDocs_CheckedChanged, void
+        
+        private method MnuFileOpen_Click, void
             sender, @object 
             e, @System.EventArgs 
             endparams
         proc
-            chkDocumentPropertyEndpoints.Enabled = RbGenerateSwaggerDocs.Checked
+            disposable data dlg = new OpenFileDialog()
+
+            data lastFolder = Properties.Settings.Default.LastProjectFolder
+            if (!String.IsNullOrWhiteSpace(lastFolder) && Directory.Exists(lastFolder))
+                dlg.InitialDirectory = lastFolder
+            dlg.Filter = "Harmony Core Projects (*.hcproj)|*.hcproj|All Files (*.*)|*.*"
+            dlg.CheckFileExists = true
+            dlg.Multiselect = false
+
+            data newOptions, @HarmonyCoreOptions
+
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+            begin
+                data fileText = File.ReadAllText(dlg.FileName)
+                try
+                begin
+                    newOptions = JsonConvert.DeserializeObject<HarmonyCoreOptions>(fileText)
+                end
+                catch (e, @Exception)
+                begin
+                    MessageBox.Show("Failed to load project! Error was " + e.Message)
+                    mreturn
+                end
+                endtry
+            end
+
+            mOptions = newOptions
+            optionsBingingSource.DataSource = mOptions
+            structuresBindingSource.DataSource = mOptions.Structures
+
+            enableUI(true)
+
+        endmethod
+
+        
+        private method MnuFileClose_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            ;TODO: Need to check for unsaved changes and give the user the option to save before closing
+
+            mOptions = new HarmonyCoreOptions()
+            optionsBingingSource.DataSource = mOptions
+            structuresBindingSource.DataSource = mOptions.Structures
+
+            enableUI(false)
+
+        endmethod
+
+        private method MnuFileSave_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            data settings, string, JsonConvert.SerializeObject(mOptions)
+            File.WriteAllText("D:\settings.json",settings)
+        endmethod
+        
+        private method MnuFileExit_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            ;TODO: Need to check for unsaved changes and give the user the option to save before closing
+
+            this.Close()
+        endmethod
+        
+        
+        private method BtnPickRepository_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            disposable data dlg = new OpenFileDialog()
+
+            data lastFolder = Properties.Settings.Default.LastProjectFolder
+            if (!String.IsNullOrWhiteSpace(lastFolder) && Directory.Exists(lastFolder))
+                dlg.InitialDirectory = lastFolder
+
+            dlg.Filter = "Repository Main File (rpsmain.ism)|rpsmain.ism|All Files (*.*)|*.*"
+            dlg.CheckFileExists = true
+            dlg.Multiselect = false
+
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+            begin
+                txtRpsMainFile.Text = dlg.FileName
+
+                if (txtRpsMainFile.Text.ToLower().Contains("rpsmain.ism"))
+                begin
+                    txtRpsTextFile.Text = txtRpsMainFile.Text.ToLower().Replace("rpsmain","rpstext")
+                end
+
+            end
+
+
         endmethod
         
         private method ChkAuthentication_CheckedChanged, void
@@ -72,21 +254,7 @@ namespace HarmonyCoreGenerator
                 chkFieldSecurity.Checked = false
 
         endmethod
-        
-        private method enableUI, void
-            required in enabled, boolean
-        proc
-            grpOutputLocations.Enabled = enabled
-            grpODataFeatures.Enabled = enabled
-            grpDocandVersioning.Enabled = enabled
-            grpControllerEndpoints.Enabled = enabled
-            grpSecurity.Enabled = enabled
-            grpMiscellaneous.Enabled = enabled
-            grpRepositoryStructures.Enabled = enabled
-            grpCodeGeneration.Enabled = enabled
-        endmethod
-        
-        
+
     endclass
 
 endnamespace
