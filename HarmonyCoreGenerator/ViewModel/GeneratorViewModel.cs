@@ -1,4 +1,7 @@
-﻿using Microsoft.Win32;
+﻿
+using CodeGen.Engine;
+using HarmonyCoreGenerator.Model;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,7 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-namespace HarmonyCoreGenerator
+namespace HarmonyCoreGenerator.ViewModel
 {
     public class GeneratorViewModel : ViewModelBase
     {
@@ -166,6 +169,65 @@ namespace HarmonyCoreGenerator
                         param =>
                         {
                             //Execute code goes here!
+
+                            var taskSet = new CodeGenTaskSet()
+                            {
+                                RepositoryMainFile = ProjectOptions.RepositoryMainFile,
+                                RepositoryTextFile = ProjectOptions.RepositoryTextFile,
+                                TemplateFolder = "",
+                                OutputFolder = ""
+                            };
+
+                            //TODO: Not sure if I need to use the display values instead.
+                            //"Structure and File", "Structure Only" and "Custom Code Only"
+
+                            var structureAndFileStructures = new List<string>();
+                            var structureAndFileAliases = new List<string>();
+
+                            var structureOnlyStructures = new List<string>();
+                            var structureOnlyAliases = new List<string>();
+
+                            var customCodeStructures = new List<string>();
+                            var customCodeAliases = new List<string>();
+
+                            foreach (StructureRow row in ProjectOptions.Structures.Where(row => row.ProcessingMode.Equals("StructureAndFile")))
+                            {
+                                structureAndFileStructures.Add(row.Name);
+                                structureAndFileAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias);
+                            }
+
+                            foreach (StructureRow row in ProjectOptions.Structures.Where(row => row.ProcessingMode.Equals("StructureOnly")))
+                            {
+                                structureOnlyStructures.Add(row.Name);
+                                structureOnlyAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias);
+                            }
+
+                            foreach (StructureRow row in ProjectOptions.Structures.Where(row => row.ProcessingMode.Equals("CustomCodeOnly")))
+                            {
+                                customCodeStructures.Add(row.Name);
+                                customCodeAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias);
+                            }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                         },
                         param =>
                         {

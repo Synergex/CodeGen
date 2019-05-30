@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace HarmonyCoreGenerator
+namespace HarmonyCoreGenerator.Model
 {
     public class StructureRow
     {

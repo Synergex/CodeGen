@@ -1,9 +1,9 @@
 ﻿
 using System.ComponentModel;
 
-namespace HarmonyCoreGenerator
+namespace HarmonyCoreGenerator.Model
 {
-    public class ViewModelBase : INotifyPropertyChanged
+    public class ModelBase : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
 

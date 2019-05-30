@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Windows.Input;
 
-namespace HarmonyCoreGenerator
+namespace HarmonyCoreGenerator.ViewModel
 {
     /// <summary>
     /// A command whose sole purpose is to 
