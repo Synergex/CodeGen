@@ -23,11 +23,165 @@ namespace HarmonyCoreGenerator
             sender, @object 
             e, @System.EventArgs 
         proc
-            ;;One time, it's a static collection
-            processingModeChoiceBindingSource.DataSource = HarmonyCoreOptions.ProcessingModeChoices
             enableUI(false)
         endmethod
+
+.region "Main menu processing"
+
+        private method MnuFileNew_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            optionsBingingSource.DataSource = mOptions = new HarmonyCoreOptions()
+            enableOnlyRepositoryPanel()
+        endmethod
+
+        private method BtnPickRepository_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            disposable data dlg = new OpenFileDialog()
+
+            data lastFolder = Properties.Settings.Default.LastProjectFolder
+            if (!String.IsNullOrWhiteSpace(lastFolder) && Directory.Exists(lastFolder))
+                dlg.InitialDirectory = lastFolder
+
+            dlg.Filter = "Repository Main File (rpsmain.ism)|rpsmain.ism|All Files (*.*)|*.*"
+            dlg.CheckFileExists = true
+            dlg.Multiselect = false
+
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+            begin
+                txtRpsMainFile.Text = dlg.FileName
+
+                if (txtRpsMainFile.Text.ToLower().Contains("rpsmain.ism"))
+                begin
+                   txtRpsTextFile.Text = txtRpsMainFile.Text.ToLower().Replace("rpsmain","rpstext")
+                end
+            end
+
+        endmethod
         
+        private method TxtRpsFile_TextChanged, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            btnRepositoryDone.Enabled = (!String.IsNullOrWhiteSpace(txtRpsMainFile.Text) && (!String.IsNullOrWhiteSpace(txtRpsTextFile.Text)) && (File.Exists(txtRpsTextFile.Text)) && (File.Exists(txtRpsTextFile.Text)))
+        endmethod
+        
+        private method BtnRepositoryDone_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            ;;Load up the reposotory structures
+            data rps, @Repository, new Repository(txtRpsMainFile.Text,txtRpsTextFile.Text)
+            data str, @RpsStructure
+            foreach str in rps.Structures
+            begin
+                ;;Repository API defaults to setting alias names to the same as structure names, which we don't want
+                if (str.Alias.Equals(str.Name))
+                    str.Alias = String.Empty
+
+                ;;Filter out structures we're not interested in
+                if (str.FileType=="ASCII" || str.FileType=="USER DEFINED")
+                    nextloop
+
+                ;;Add remaining structures to our collection
+                mOptions.Structures.Add(new StructureRow(str))
+            end
+
+            optionsBingingSource.DataSource = mOptions
+            structuresBindingSource.ResetBindings(false)
+
+            enableUI(true)
+        endmethod
+
+        ;; Open project
+
+        private method MnuFileOpen_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            disposable data dlg = new OpenFileDialog()
+
+            data lastFolder = Properties.Settings.Default.LastProjectFolder
+            if (!String.IsNullOrWhiteSpace(lastFolder) && Directory.Exists(lastFolder))
+                dlg.InitialDirectory = lastFolder
+            dlg.Filter = "Harmony Core Projects (*.hcproj)|*.hcproj|All Files (*.*)|*.*"
+            dlg.CheckFileExists = true
+            dlg.Multiselect = false
+
+            data newOptions, @HarmonyCoreOptions
+
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+            begin
+                data fileText = File.ReadAllText(dlg.FileName)
+                try
+                begin
+                    newOptions = JsonConvert.DeserializeObject<HarmonyCoreOptions>(fileText)
+                end
+                catch (e, @Exception)
+                begin
+                    MessageBox.Show("Failed to load project! Error was " + e.Message)
+                    mreturn
+                end
+                endtry
+            end
+
+            mOptions = newOptions
+            optionsBingingSource.DataSource = mOptions
+
+            structuresBindingSource.ResetBindings(false)
+
+            enableUI(true)
+
+        endmethod
+
+        
+        private method MnuFileClose_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            ;TODO: Need to check for unsaved changes and give the user the option to save before closing
+
+            mOptions = new HarmonyCoreOptions()
+            optionsBingingSource.DataSource = mOptions
+
+            enableUI(false)
+
+        endmethod
+
+        private method MnuFileSave_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+
+
+            data settings, string, JsonConvert.SerializeObject((HarmonyCoreOptions)optionsBingingSource.DataSource,Formatting.Indented)
+            File.WriteAllText("D:\settings.json",settings)
+        endmethod
+        
+        private method MnuFileExit_Click, void
+            sender, @object 
+            e, @System.EventArgs 
+            endparams
+        proc
+            ;TODO: Need to check for unsaved changes and give the user the option to save before closing
+
+            this.Close()
+        endmethod
+        
+.endregion
+
+.region "UI State Helpers"
+
         private method enableOnlyRepositoryPanel, void
         proc
             enableUI(false)
@@ -51,8 +205,9 @@ namespace HarmonyCoreGenerator
             mnuFileSaveAs.Enabled = enabled
             mnuFileClose.Enabled = enabled
         endmethod
-        
-        
+
+.endregion
+
         private method folderLookup_Click, void
             sender, @object 
             e, @System.EventArgs 
@@ -93,152 +248,6 @@ namespace HarmonyCoreGenerator
 
         endmethod
         
-        private method MnuFileNew_Click, void
-            sender, @object 
-            e, @System.EventArgs 
-            endparams
-        proc
-            mOptions = new HarmonyCoreOptions()
-            optionsBingingSource.DataSource = mOptions
-            structuresBindingSource.DataSource = mOptions.Structures
-            
-            enableOnlyRepositoryPanel()
-        endmethod
-
-        private method TxtRpsFile_TextChanged, void
-            sender, @object 
-            e, @System.EventArgs 
-            endparams
-        proc
-            btnRepositoryDone.Enabled = (!String.IsNullOrWhiteSpace(txtRpsMainFile.Text) && (!String.IsNullOrWhiteSpace(txtRpsTextFile.Text)) && (File.Exists(txtRpsTextFile.Text)) && (File.Exists(txtRpsTextFile.Text)))
-        endmethod
-        
-        private method BtnRepositoryDone_Click, void
-            sender, @object 
-            e, @System.EventArgs 
-            endparams
-        proc
-            ;;Load up the reposotory structures
-            data rps, @Repository, new Repository(mOptions.RepositoryMainFile,mOptions.RepositoryTextFile)
-            data str, @RpsStructure
-            foreach str in rps.Structures
-            begin
-                if (str.Alias.Equals(str.Name))
-                    str.Alias = String.Empty
-                mOptions.Structures.Add(new StructureRow(str))
-            end
-
-            optionsBingingSource.DataSource = mOptions
-            structuresBindingSource.DataSource = mOptions.Structures
-
-
-            enableUI(true)
-        endmethod
-        
-        
-        private method MnuFileOpen_Click, void
-            sender, @object 
-            e, @System.EventArgs 
-            endparams
-        proc
-            disposable data dlg = new OpenFileDialog()
-
-            data lastFolder = Properties.Settings.Default.LastProjectFolder
-            if (!String.IsNullOrWhiteSpace(lastFolder) && Directory.Exists(lastFolder))
-                dlg.InitialDirectory = lastFolder
-            dlg.Filter = "Harmony Core Projects (*.hcproj)|*.hcproj|All Files (*.*)|*.*"
-            dlg.CheckFileExists = true
-            dlg.Multiselect = false
-
-            data newOptions, @HarmonyCoreOptions
-
-            if (dlg.ShowDialog(this) == DialogResult.OK)
-            begin
-                data fileText = File.ReadAllText(dlg.FileName)
-                try
-                begin
-                    newOptions = JsonConvert.DeserializeObject<HarmonyCoreOptions>(fileText)
-                end
-                catch (e, @Exception)
-                begin
-                    MessageBox.Show("Failed to load project! Error was " + e.Message)
-                    mreturn
-                end
-                endtry
-            end
-
-            mOptions = newOptions
-            optionsBingingSource.DataSource = mOptions
-            structuresBindingSource.DataSource = mOptions.Structures
-
-            enableUI(true)
-
-        endmethod
-
-        
-        private method MnuFileClose_Click, void
-            sender, @object 
-            e, @System.EventArgs 
-            endparams
-        proc
-            ;TODO: Need to check for unsaved changes and give the user the option to save before closing
-
-            mOptions = new HarmonyCoreOptions()
-            optionsBingingSource.DataSource = mOptions
-            structuresBindingSource.DataSource = mOptions.Structures
-
-            enableUI(false)
-
-        endmethod
-
-        private method MnuFileSave_Click, void
-            sender, @object 
-            e, @System.EventArgs 
-            endparams
-        proc
-            data settings, string, JsonConvert.SerializeObject(mOptions)
-            File.WriteAllText("D:\settings.json",settings)
-        endmethod
-        
-        private method MnuFileExit_Click, void
-            sender, @object 
-            e, @System.EventArgs 
-            endparams
-        proc
-            ;TODO: Need to check for unsaved changes and give the user the option to save before closing
-
-            this.Close()
-        endmethod
-        
-        
-        private method BtnPickRepository_Click, void
-            sender, @object 
-            e, @System.EventArgs 
-            endparams
-        proc
-            disposable data dlg = new OpenFileDialog()
-
-            data lastFolder = Properties.Settings.Default.LastProjectFolder
-            if (!String.IsNullOrWhiteSpace(lastFolder) && Directory.Exists(lastFolder))
-                dlg.InitialDirectory = lastFolder
-
-            dlg.Filter = "Repository Main File (rpsmain.ism)|rpsmain.ism|All Files (*.*)|*.*"
-            dlg.CheckFileExists = true
-            dlg.Multiselect = false
-
-            if (dlg.ShowDialog(this) == DialogResult.OK)
-            begin
-                txtRpsMainFile.Text = dlg.FileName
-
-                if (txtRpsMainFile.Text.ToLower().Contains("rpsmain.ism"))
-                begin
-                    txtRpsTextFile.Text = txtRpsMainFile.Text.ToLower().Replace("rpsmain","rpstext")
-                end
-
-            end
-
-
-        endmethod
         
         private method ChkAuthentication_CheckedChanged, void
             sender, @object 
