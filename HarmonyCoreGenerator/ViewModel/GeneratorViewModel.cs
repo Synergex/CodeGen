@@ -1,5 +1,6 @@
 ﻿
 using CodeGen.Engine;
+using CodeGen.RepositoryAPI;
 using HarmonyCoreGenerator.Model;
 using Microsoft.Win32;
 using System;
@@ -92,7 +93,7 @@ namespace HarmonyCoreGenerator.ViewModel
 
                                 if (dlg.FileName.ToLower().Contains("rpsmain.ism"))
                                 {
-                                    ProjectOptions.RepositoryTextFile = dlg.FileName.ToLower().Replace("rpsmain", "rpstext");
+                                    ProjectOptions.RepositoryTextFile = Path.GetFullPath(dlg.FileName.ToLower().Replace("rpsmain", "rpstext"));
                                 }
                             }
 
@@ -116,12 +117,19 @@ namespace HarmonyCoreGenerator.ViewModel
                     _RepositoryDoneCommand = new RelayCommand(
                         param =>
                         {
-                            //Execute code goes here!
+                            AllowRepositorySelection = false;
+                            ProjectOpen = true;
+
+                            var rps = new Repository(ProjectOptions.RepositoryMainFile, ProjectOptions.RepositoryTextFile, false);
+                            foreach (var str in rps.Structures)
+                            {
+                                ProjectOptions.Structures.Add(new StructureRow(str));
+                            }
+
                         },
                         param =>
                         {
-                            //Can execute code goes here!
-                            return true;
+                            return ProjectOptions != null && !(String.IsNullOrWhiteSpace(ProjectOptions.RepositoryMainFile)) && !(String.IsNullOrWhiteSpace(ProjectOptions.RepositoryTextFile)) && File.Exists(ProjectOptions.RepositoryMainFile) && File.Exists(ProjectOptions.RepositoryTextFile);
                         }
                         );
                 return _RepositoryDoneCommand;
