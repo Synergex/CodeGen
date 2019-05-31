@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Newtonsoft.Json;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace HarmonyCoreGenerator.Model
 {
@@ -21,135 +17,222 @@ namespace HarmonyCoreGenerator.Model
             Structures = new ObservableCollection<StructureRow>();
         }
 
-        //Repository files and structures
+        [JsonIgnore]
+        public bool TrackChanges { get; set; }
 
-        private string _RepositoryMainFile;
-        public string RepositoryMainFile
+        private bool _UnsavedChanges;
+        [JsonIgnore]
+        public bool UnsavedChanges
         {
             get
             {
-                return _RepositoryMainFile;
-            }
-            set
-            {
-                _RepositoryMainFile = value;
-                NotifyPropertyChanged(nameof(RepositoryMainFile));
+                return _UnsavedChanges;
             }
         }
 
-        private string _RepositoryTextFile;
-        public string RepositoryTextFile
+        public void ChangesSaved()
         {
-            get
-            {
-                return _RepositoryTextFile;
-            }
+            _UnsavedChanges = false;
+        }
+
+        //Structure processing modes
+
+        private ObservableCollection<ProcessingMode> _ProcessingModes;
+        [JsonIgnore]
+        public ObservableCollection<ProcessingMode> ProcessingModes
+        {
+            get { return _ProcessingModes; }
             set
             {
-                _RepositoryTextFile = value;
-                NotifyPropertyChanged(nameof(RepositoryTextFile));
+                if (_ProcessingModes != value)
+                {
+                    _ProcessingModes = value;
+                    NotifyPropertyChanged(nameof(ProcessingModes));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
+            }
+        }
+
+        //Repository files and structures
+
+        private string _RepositoryMainFile = string.Empty;
+        public string RepositoryMainFile
+        {
+            get { return _RepositoryMainFile; }
+            set
+            {
+                if (!_RepositoryMainFile.Equals(value))
+                {
+                    _RepositoryMainFile = value;
+                    NotifyPropertyChanged(nameof(RepositoryMainFile));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
+            }
+        }
+
+        private string _RepositoryTextFile = string.Empty;
+        public string RepositoryTextFile
+        {
+            get { return _RepositoryTextFile; }
+            set
+            {
+                if (!_RepositoryTextFile.Equals(value))
+                {
+                    _RepositoryTextFile = value;
+                    NotifyPropertyChanged(nameof(RepositoryTextFile));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private ObservableCollection<StructureRow> _Structures;
         public ObservableCollection<StructureRow> Structures
         {
-            get
-            {
-                return _Structures;
-            }
+            get { return _Structures; }
             set
             {
-                _Structures = value;
-                NotifyPropertyChanged(nameof(Structures));
+                if (_Structures != value)
+                {
+                    _Structures = value;
+                    NotifyPropertyChanged(nameof(Structures));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
-        //Structure processing modes
+        //Code generator files and folders
 
-        private ObservableCollection<ProcessingMode> _ProcessingModes;
-        public ObservableCollection<ProcessingMode> ProcessingModes
+        private string _TemplatesFolder = string.Empty;
+        public string TemplatesFolder
         {
-            get
-            {
-                return _ProcessingModes;
-            }
+            get { return _TemplatesFolder; }
             set
             {
-                _ProcessingModes = value;
-                NotifyPropertyChanged(nameof(ProcessingModes));
+                if (!_TemplatesFolder.Equals(value))
+                {
+                    _TemplatesFolder = value;
+                    NotifyPropertyChanged(nameof(TemplatesFolder));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
+            }
+        }
+
+        private string _UserTokensFile = string.Empty;
+        public string UserTokensFile
+        {
+            get { return _UserTokensFile; }
+            set
+            {
+                if (!_UserTokensFile.Equals(value))
+                {
+                    _UserTokensFile = value;
+                    NotifyPropertyChanged(nameof(UserTokensFile));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         //Output location settings
 
-        private string _ServicesFolder;
+        private string _ServicesFolder = string.Empty;
         public string ServicesFolder
         {
-            get
-            {
-                return _ServicesFolder;
-            }
+            get { return _ServicesFolder; }
             set
             {
-                _ServicesFolder = value;
-                NotifyPropertyChanged(nameof(ServicesFolder));
+                if (!_ServicesFolder.Equals(value))
+                {
+                    _ServicesFolder = value;
+                    NotifyPropertyChanged(nameof(ServicesFolder));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
-        private string _ControllersFolder;
+        private string _ControllersFolder = string.Empty;
         public string ControllersFolder
         {
-            get
-            {
-                return _ControllersFolder;
-            }
+            get { return _ControllersFolder; }
             set
             {
-                _ControllersFolder = value;
-                NotifyPropertyChanged(nameof(ControllersFolder));
+                if (!_ControllersFolder.Equals(value))
+                {
+                    _ControllersFolder = value;
+                    NotifyPropertyChanged(nameof(ControllersFolder));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
-        private string _ModelsFolder;
+        private string _ModelsFolder = string.Empty;
         public string ModelsFolder
         {
-            get
-            {
-                return _ModelsFolder;
-            }
+            get { return _ModelsFolder; }
             set
             {
-                _ModelsFolder = value;
-                NotifyPropertyChanged(nameof(ModelsFolder));
+                if (!_ModelsFolder.Equals(value))
+                {
+                    _ModelsFolder = value;
+                    NotifyPropertyChanged(nameof(ModelsFolder));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
-        private string _SelfHostFolder;
+        private string _SelfHostFolder = string.Empty;
         public string SelfHostFolder
         {
-            get
-            {
-                return _SelfHostFolder;
-            }
+            get { return _SelfHostFolder; }
             set
             {
-                _SelfHostFolder = value;
-                NotifyPropertyChanged(nameof(SelfHostFolder));
+                if (!_SelfHostFolder.Equals(value))
+                {
+                    _SelfHostFolder = value;
+                    NotifyPropertyChanged(nameof(SelfHostFolder));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
-        private string _UnitTestFolder;
+        private string _UnitTestFolder = string.Empty;
         public string UnitTestFolder
         {
-            get
-            {
-                return _UnitTestFolder;
-            }
+            get { return _UnitTestFolder; }
             set
             {
-                _UnitTestFolder = value;
-                NotifyPropertyChanged(nameof(UnitTestFolder));
+                if (!_UnitTestFolder.Equals(value))
+                {
+                    _UnitTestFolder = value;
+                    NotifyPropertyChanged(nameof(UnitTestFolder));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
+            }
+        }
+
+        private string _IsolatedFolder = string.Empty;
+        public string IsolatedFolder
+        {
+            get { return _IsolatedFolder; }
+            set
+            {
+                if (!_IsolatedFolder.Equals(value))
+                {
+                    _IsolatedFolder = value;
+                    NotifyPropertyChanged(nameof(IsolatedFolder));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
@@ -158,42 +241,48 @@ namespace HarmonyCoreGenerator.Model
         private bool _FullCollectionEndpoints;
         public bool FullCollectionEndpoints
         {
-            get
-            {
-                return _FullCollectionEndpoints;
-            }
+            get { return _FullCollectionEndpoints; }
             set
             {
-                _FullCollectionEndpoints = value;
-                NotifyPropertyChanged(nameof(FullCollectionEndpoints));
+                if (_FullCollectionEndpoints != value)
+                {
+                    _FullCollectionEndpoints = value;
+                    NotifyPropertyChanged(nameof(FullCollectionEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _PrimaryKeyEndpoints;
         public bool PrimaryKeyEndpoints
         {
-            get
-            {
-                return _PrimaryKeyEndpoints;
-            }
+            get { return _PrimaryKeyEndpoints; }
             set
             {
-                _PrimaryKeyEndpoints = value;
-                NotifyPropertyChanged(nameof(PrimaryKeyEndpoints));
+                if (_PrimaryKeyEndpoints != value)
+                {
+                    _PrimaryKeyEndpoints = value;
+                    NotifyPropertyChanged(nameof(PrimaryKeyEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _AlternateKeyEndpoints;
         public bool AlternateKeyEndpoints
         {
-            get
-            {
-                return _AlternateKeyEndpoints;
-            }
+            get { return _AlternateKeyEndpoints; }
             set
             {
-                _AlternateKeyEndpoints = value;
-                NotifyPropertyChanged(nameof(AlternateKeyEndpoints));
+                if (_AlternateKeyEndpoints != value)
+                {
+                    _AlternateKeyEndpoints = value;
+                    NotifyPropertyChanged(nameof(AlternateKeyEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
@@ -201,28 +290,32 @@ namespace HarmonyCoreGenerator.Model
         private bool _CollectionCountEndpoints;
         public bool CollectionCountEndpoints
         {
-            get
-            {
-                return _CollectionCountEndpoints;
-            }
+            get { return _CollectionCountEndpoints; }
             set
             {
-                _CollectionCountEndpoints = value;
-                NotifyPropertyChanged(nameof(CollectionCountEndpoints));
+                if (_CollectionCountEndpoints != value)
+                {
+                    _CollectionCountEndpoints = value;
+                    NotifyPropertyChanged(nameof(CollectionCountEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _IndividualPropertyEndpoints;
         public bool IndividualPropertyEndpoints
         {
-            get
-            {
-                return _IndividualPropertyEndpoints;
-            }
+            get { return _IndividualPropertyEndpoints; }
             set
             {
-                _IndividualPropertyEndpoints = value;
-                NotifyPropertyChanged(nameof(IndividualPropertyEndpoints));
+                if (_IndividualPropertyEndpoints != value)
+                {
+                    _IndividualPropertyEndpoints = value;
+                    NotifyPropertyChanged(nameof(IndividualPropertyEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
@@ -230,56 +323,64 @@ namespace HarmonyCoreGenerator.Model
         private bool _PutEndpoints;
         public bool PutEndpoints
         {
-            get
-            {
-                return _PutEndpoints;
-            }
+            get { return _PutEndpoints; }
             set
             {
-                _PutEndpoints = value;
-                NotifyPropertyChanged(nameof(PutEndpoints));
+                if (_PutEndpoints != value)
+                {
+                    _PutEndpoints = value;
+                    NotifyPropertyChanged(nameof(PutEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _PostEndpoints;
         public bool PostEndpoints
         {
-            get
-            {
-                return _PostEndpoints;
-            }
+            get { return _PostEndpoints; }
             set
             {
-                _PostEndpoints = value;
-                NotifyPropertyChanged(nameof(PostEndpoints));
+                if (_PostEndpoints != value)
+                {
+                    _PostEndpoints = value;
+                    NotifyPropertyChanged(nameof(PostEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _PatchEndpoints;
         public bool PatchEndpoints
         {
-            get
-            {
-                return _PatchEndpoints;
-            }
+            get { return _PatchEndpoints; }
             set
             {
-                _PatchEndpoints = value;
-                NotifyPropertyChanged(nameof(PatchEndpoints));
+                if (_PatchEndpoints != value)
+                {
+                    _PatchEndpoints = value;
+                    NotifyPropertyChanged(nameof(PatchEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _DeleteEndpoints;
         public bool DeleteEndpoints
         {
-            get
-            {
-                return _DeleteEndpoints;
-            }
+            get { return _DeleteEndpoints; }
             set
             {
-                _DeleteEndpoints = value;
-                NotifyPropertyChanged(nameof(DeleteEndpoints));
+                if (_DeleteEndpoints != value)
+                {
+                    _DeleteEndpoints = value;
+                    NotifyPropertyChanged(nameof(DeleteEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
@@ -289,84 +390,96 @@ namespace HarmonyCoreGenerator.Model
         private bool _ODataSelect;
         public bool ODataSelect
         {
-            get
-            {
-                return _ODataSelect;
-            }
+            get { return _ODataSelect; }
             set
             {
-                _ODataSelect = value;
-                NotifyPropertyChanged(nameof(ODataSelect));
+                if (_ODataSelect != value)
+                {
+                    _ODataSelect = value;
+                    NotifyPropertyChanged(nameof(ODataSelect));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _ODataFilter;
         public bool ODataFilter
         {
-            get
-            {
-                return _ODataFilter;
-            }
+            get { return _ODataFilter; }
             set
             {
-                _ODataFilter = value;
-                NotifyPropertyChanged(nameof(ODataFilter));
+                if (_ODataFilter != value)
+                {
+                    _ODataFilter = value;
+                    NotifyPropertyChanged(nameof(ODataFilter));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _ODataOrderBy;
         public bool ODataOrderBy
         {
-            get
-            {
-                return _ODataOrderBy;
-            }
+            get { return _ODataOrderBy; }
             set
             {
-                _ODataOrderBy = value;
-                NotifyPropertyChanged(nameof(ODataOrderBy));
+                if (_ODataOrderBy != value)
+                {
+                    _ODataOrderBy = value;
+                    NotifyPropertyChanged(nameof(ODataOrderBy));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _ODataTop;
         public bool ODataTop
         {
-            get
-            {
-                return _ODataTop;
-            }
+            get { return _ODataTop; }
             set
             {
-                _ODataTop = value;
-                NotifyPropertyChanged(nameof(ODataTop));
+                if (_ODataTop != value)
+                {
+                    _ODataTop = value;
+                    NotifyPropertyChanged(nameof(ODataTop));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _ODataSkip;
         public bool ODataSkip
         {
-            get
-            {
-                return _ODataSkip;
-            }
+            get { return _ODataSkip; }
             set
             {
-                _ODataSkip = value;
-                NotifyPropertyChanged(nameof(ODataSkip));
+                if (_ODataSkip != value)
+                {
+                    _ODataSkip = value;
+                    NotifyPropertyChanged(nameof(ODataSkip));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _ODataRelations;
         public bool ODataRelations
         {
-            get
-            {
-                return _ODataRelations;
-            }
+            get { return _ODataRelations; }
             set
             {
-                _ODataRelations = value;
-                NotifyPropertyChanged(nameof(ODataRelations));
+                if (_ODataRelations != value)
+                {
+                    _ODataRelations = value;
+                    NotifyPropertyChanged(nameof(ODataRelations));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
@@ -376,56 +489,64 @@ namespace HarmonyCoreGenerator.Model
         private bool _GenerateSelfHost;
         public bool GenerateSelfHost
         {
-            get
-            {
-                return _GenerateSelfHost;
-            }
+            get { return _GenerateSelfHost; }
             set
             {
-                _GenerateSelfHost = value;
-                NotifyPropertyChanged(nameof(GenerateSelfHost));
+                if (_GenerateSelfHost != value)
+                {
+                    _GenerateSelfHost = value;
+                    NotifyPropertyChanged(nameof(GenerateSelfHost));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _CreateTestFiles;
         public bool CreateTestFiles
         {
-            get
-            {
-                return _CreateTestFiles;
-            }
+            get { return _CreateTestFiles; }
             set
             {
-                _CreateTestFiles = value;
-                NotifyPropertyChanged(nameof(CreateTestFiles));
+                if (_CreateTestFiles != value)
+                {
+                    _CreateTestFiles = value;
+                    NotifyPropertyChanged(nameof(CreateTestFiles));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _GeneratePostmanTests;
         public bool GeneratePostmanTests
         {
-            get
-            {
-                return _GeneratePostmanTests;
-            }
+            get { return _GeneratePostmanTests; }
             set
             {
-                _GeneratePostmanTests = value;
-                NotifyPropertyChanged(nameof(GeneratePostmanTests));
+                if (_GeneratePostmanTests != value)
+                {
+                    _GeneratePostmanTests = value;
+                    NotifyPropertyChanged(nameof(GeneratePostmanTests));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _GenerateUnitTests;
         public bool GenerateUnitTests
         {
-            get
-            {
-                return _GenerateUnitTests;
-            }
+            get { return _GenerateUnitTests; }
             set
             {
-                _GenerateUnitTests = value;
-                NotifyPropertyChanged(nameof(GenerateUnitTests));
+                if (_GenerateUnitTests != value)
+                {
+                    _GenerateUnitTests = value;
+                    NotifyPropertyChanged(nameof(GenerateUnitTests));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
@@ -435,42 +556,48 @@ namespace HarmonyCoreGenerator.Model
         private bool _GenerateSwaggerDocs;
         public bool GenerateSwaggerDocs
         {
-            get
-            {
-                return _GenerateSwaggerDocs;
-            }
+            get { return _GenerateSwaggerDocs; }
             set
             {
-                _GenerateSwaggerDocs = value;
-                NotifyPropertyChanged(nameof(GenerateSwaggerDocs));
+                if (_GenerateSwaggerDocs != value)
+                {
+                    _GenerateSwaggerDocs = value;
+                    NotifyPropertyChanged(nameof(GenerateSwaggerDocs));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _DocumentPropertyEndpoints;
         public bool DocumentPropertyEndpoints
         {
-            get
-            {
-                return _DocumentPropertyEndpoints;
-            }
+            get { return _DocumentPropertyEndpoints; }
             set
             {
-                _DocumentPropertyEndpoints = value;
-                NotifyPropertyChanged(nameof(DocumentPropertyEndpoints));
+                if (_DocumentPropertyEndpoints != value)
+                {
+                    _DocumentPropertyEndpoints = value;
+                    NotifyPropertyChanged(nameof(DocumentPropertyEndpoints));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _EnableApiVersioning;
         public bool EnableApiVersioning
         {
-            get
-            {
-                return _EnableApiVersioning;
-            }
+            get { return _EnableApiVersioning; }
             set
             {
-                _EnableApiVersioning = value;
-                NotifyPropertyChanged(nameof(EnableApiVersioning));
+                if (_EnableApiVersioning != value)
+                {
+                    _EnableApiVersioning = value;
+                    NotifyPropertyChanged(nameof(EnableApiVersioning));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
@@ -480,159 +607,179 @@ namespace HarmonyCoreGenerator.Model
         private bool _Authentication;
         public bool Authentication
         {
-            get
-            {
-                return _Authentication;
-            }
+            get { return _Authentication; }
             set
             {
-                _Authentication = value;
-                NotifyPropertyChanged(nameof(Authentication));
+                if (_Authentication != value)
+                {
+                    _Authentication = value;
+                    NotifyPropertyChanged(nameof(Authentication));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _CustomAuthentication;
         public bool CustomAuthentication
         {
-            get
-            {
-                return _CustomAuthentication;
-            }
+            get { return _CustomAuthentication; }
             set
             {
-                _CustomAuthentication = value;
-                NotifyPropertyChanged(nameof(CustomAuthentication));
+                if (_CustomAuthentication != value)
+                {
+                    _CustomAuthentication = value;
+                    NotifyPropertyChanged(nameof(CustomAuthentication));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _FieldSecurity;
         public bool FieldSecurity
         {
-            get
-            {
-                return _FieldSecurity;
-            }
+            get { return _FieldSecurity; }
             set
             {
-                _FieldSecurity = value;
-                NotifyPropertyChanged(nameof(FieldSecurity));
+                if (_FieldSecurity != value)
+                {
+                    _FieldSecurity = value;
+                    NotifyPropertyChanged(nameof(FieldSecurity));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         //Code generation options - miscellaneous
 
-
         private bool _AdapterRouting;
         public bool AdapterRouting
         {
-            get
-            {
-                return _AdapterRouting;
-            }
+            get { return _AdapterRouting; }
             set
             {
-                _AdapterRouting = value;
-                NotifyPropertyChanged(nameof(AdapterRouting));
+                if (_AdapterRouting != value)
+                {
+                    _AdapterRouting = value;
+                    NotifyPropertyChanged(nameof(AdapterRouting));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _StoredProcedureRouting;
         public bool StoredProcedureRouting
         {
-            get
-            {
-                return _StoredProcedureRouting;
-            }
+            get { return _StoredProcedureRouting; }
             set
             {
-                _StoredProcedureRouting = value;
-                NotifyPropertyChanged(nameof(StoredProcedureRouting));
+                if (_StoredProcedureRouting != value)
+                {
+                    _StoredProcedureRouting = value;
+                    NotifyPropertyChanged(nameof(StoredProcedureRouting));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _CaseSensitiveUrls;
         public bool CaseSensitiveUrls
         {
-            get
-            {
-                return _CaseSensitiveUrls;
-            }
+            get { return _CaseSensitiveUrls; }
             set
             {
-                _CaseSensitiveUrls = value;
-                NotifyPropertyChanged(nameof(CaseSensitiveUrls));
+                if (_CaseSensitiveUrls != value)
+                {
+                    _CaseSensitiveUrls = value;
+                    NotifyPropertyChanged(nameof(CaseSensitiveUrls));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _CrossDomainBrowsing;
         public bool CrossDomainBrowsing
         {
-            get
-            {
-                return _CrossDomainBrowsing;
-            }
+            get { return _CrossDomainBrowsing; }
             set
             {
-                _CrossDomainBrowsing = value;
-                NotifyPropertyChanged(nameof(CrossDomainBrowsing));
+                if (_CrossDomainBrowsing != value)
+                {
+                    _CrossDomainBrowsing = value;
+                    NotifyPropertyChanged(nameof(CrossDomainBrowsing));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _IISSupport;
         public bool IISSupport
         {
-            get
-            {
-                return _IISSupport;
-            }
+            get { return _IISSupport; }
             set
             {
-                _IISSupport = value;
-                NotifyPropertyChanged(nameof(IISSupport));
+                if (_IISSupport != value)
+                {
+                    _IISSupport = value;
+                    NotifyPropertyChanged(nameof(IISSupport));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _FieldOverlays;
         public bool FieldOverlays
         {
-            get
-            {
-                return _FieldOverlays;
-            }
+            get { return _FieldOverlays; }
             set
             {
-                _FieldOverlays = value;
-                NotifyPropertyChanged(nameof(FieldOverlays));
+                if (_FieldOverlays != value)
+                {
+                    _FieldOverlays = value;
+                    NotifyPropertyChanged(nameof(FieldOverlays));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _AlternateFieldNames;
         public bool AlternateFieldNames
         {
-            get
-            {
-                return _AlternateFieldNames;
-            }
+            get { return _AlternateFieldNames; }
             set
             {
-                _AlternateFieldNames = value;
-                NotifyPropertyChanged(nameof(AlternateFieldNames));
+                if (_AlternateFieldNames != value)
+                {
+                    _AlternateFieldNames = value;
+                    NotifyPropertyChanged(nameof(AlternateFieldNames));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
 
         private bool _ReadOnlyProperties;
         public bool ReadOnlyProperties
         {
-            get
-            {
-                return _ReadOnlyProperties;
-            }
+            get { return _ReadOnlyProperties; }
             set
             {
-                _ReadOnlyProperties = value;
-                NotifyPropertyChanged(nameof(ReadOnlyProperties));
+                if (_ReadOnlyProperties != value)
+                {
+                    _ReadOnlyProperties = value;
+                    NotifyPropertyChanged(nameof(ReadOnlyProperties));
+                    if (TrackChanges)
+                        _UnsavedChanges = true;
+                }
             }
         }
-
     }
 }
