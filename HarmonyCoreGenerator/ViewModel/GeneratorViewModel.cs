@@ -500,50 +500,450 @@ namespace HarmonyCoreGenerator.ViewModel
         {
             //Ensure the code generation page is visible
             if (SelectedTabIndex != 3)
+            {
                 SelectedTabIndex = 3;
+            }
 
             //MessageBox.Show("You wish!");
             //return;
 
             CodeGenOutput = String.Empty;
 
-            var taskSet = new CodeGenTaskSet()
+            var taskset = new CodeGenTaskSet()
             {
                 RepositoryMainFile = Options.RepositoryMainFile,
                 RepositoryTextFile = Options.RepositoryTextFile,
-                TemplateFolder = Options.TemplatesFolder
+                TemplateFolder = Options.TemplatesFolder,
+                EchoCommands = true,
+                ListGeneratedFiles = true
             };
 
-            var structureAndFileStructures = new List<string>();
-            var structureAndFileAliases = new List<string>();
-
-            var structureOnlyStructures = new List<string>();
-            var structureOnlyAliases = new List<string>();
-
-            var customCodeStructures = new List<string>();
-            var customCodeAliases = new List<string>();
-
-            foreach (StructureRow row in Options.Structures.Where(row => row.ProcessingMode.Equals("StructureAndFile")))
+            if (Options.FullCollectionEndpoints)
             {
-                structureAndFileStructures.Add(row.Name);
-                structureAndFileAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias);
+                taskset.Defines.Add("ENABLE_GET_ALL");
             }
 
-            foreach (StructureRow row in Options.Structures.Where(row => row.ProcessingMode.Equals("StructureOnly")))
+            if (Options.PrimaryKeyEndpoints)
             {
-                structureOnlyStructures.Add(row.Name);
-                structureOnlyAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias);
+                taskset.Defines.Add("ENABLE_GET_ONE");
             }
 
-            foreach (StructureRow row in Options.Structures.Where(row => row.ProcessingMode.Equals("CustomCodeOnly")))
+            if (Options.CreateTestFiles)
             {
-                customCodeStructures.Add(row.Name);
-                customCodeAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias);
+                taskset.Defines.Add("ENABLE_CREATE_TEST_FILES");
             }
 
+            if (Options.GenerateSwaggerDocs)
+            {
+                taskset.Defines.Add("ENABLE_SWAGGER_DOCS");
+            }
 
+            if (Options.EnableApiVersioning)
+            {
+                taskset.Defines.Add("ENABLE_API_VERSIONING");
+            }
 
+            if (Options.AlternateKeyEndpoints)
+            {
+                taskset.Defines.Add("ENABLE_ALTERNATE_KEYS");
+            }
 
+            if (Options.CollectionCountEndpoints)
+            {
+                taskset.Defines.Add("ENABLE_COUNT");
+            }
+
+            if (Options.IndividualPropertyEndpoints)
+            {
+                taskset.Defines.Add("ENABLE_PROPERTY_ENDPOINTS");
+            }
+
+            if (Options.DocumentPropertyEndpoints)
+            {
+                taskset.Defines.Add("ENABLE_PROPERTY_VALUE_DOCS");
+            }
+
+            if (Options.ODataSelect)
+            {
+                taskset.Defines.Add("ENABLE_SELECT");
+            }
+
+            if (Options.ODataFilter)
+            {
+                taskset.Defines.Add("ENABLE_FILTER");
+            }
+
+            if (Options.ODataOrderBy)
+            {
+                taskset.Defines.Add("ENABLE_ORDERBY");
+            }
+
+            if (Options.ODataTop)
+            {
+                taskset.Defines.Add("ENABLE_TOP");
+            }
+
+            if (Options.ODataSkip)
+            {
+                taskset.Defines.Add("ENABLE_SKIP");
+            }
+
+            if (Options.ODataRelations)
+            {
+                taskset.Defines.Add("ENABLE_RELATIONS");
+            }
+
+            if (Options.PutEndpoints)
+            {
+                taskset.Defines.Add("ENABLE_PUT");
+            }
+
+            if (Options.PostEndpoints)
+            {
+                taskset.Defines.Add("ENABLE_POST");
+            }
+
+            if (Options.PatchEndpoints)
+            {
+                taskset.Defines.Add("ENABLE_PATCH");
+            }
+
+            if (Options.DeleteEndpoints)
+            {
+                taskset.Defines.Add("ENABLE_DELETE");
+            }
+
+            if (Options.StoredProcedureRouting)
+            {
+                taskset.Defines.Add("ENABLE_SPROC");
+            }
+
+            if (Options.AdapterRouting)
+            {
+                taskset.Defines.Add("ENABLE_ADAPTER_ROUTING");
+            }
+
+            if (Options.Authentication)
+            {
+                taskset.Defines.Add("ENABLE_AUTHENTICATION");
+            }
+
+            if (Options.CustomAuthentication)
+            {
+                taskset.Defines.Add("ENABLE_CUSTOM_AUTHENTICATION");
+            }
+
+            if (Options.FieldSecurity)
+            {
+                taskset.Defines.Add("ENABLE_FIELD_SECURITY");
+            }
+
+            if (Options.CaseSensitiveUrls)
+            {
+                taskset.Defines.Add("ENABLE_CASE_SENSITIVE_URL");
+            }
+
+            if (Options.CrossDomainBrowsing)
+            {
+                taskset.Defines.Add("ENABLE_CORS");
+            }
+
+            if (Options.IISSupport)
+            {
+                taskset.Defines.Add("ENABLE_IIS_SUPPORT");
+            }
+
+            if (Options.ReadOnlyProperties)
+            {
+                taskset.Defines.Add("ENABLE_READ_ONLY_PROPERTIES");
+            }
+
+            if (Options.ODataSelect || Options.ODataFilter || Options.ODataOrderBy || Options.ODataTop || Options.ODataSkip || Options.ODataRelations)
+            {
+                taskset.Defines.Add("PARAM_OPTIONS_PRESENT");
+            }
+
+            CodeGenTask task;
+
+            //Create a task to generate model and metadata classes
+
+            task = new CodeGenTask();
+            task.Description = "Generate model and metadata classes";
+            task.Templates.Add("ODataModel");
+            task.Templates.Add("ODataMetaData");
+            task.OutputFolder = Options.ModelsFolder;
+            task.Namespace = "Services.Models";
+            addStructureAndFileStructures(task);
+            addStructureOnlyStructures(task);
+            addCustomCodeStructures(task);
+            addStandardOptions(task);
+            taskset.Tasks.Add(task);
+
+            //Create a task to generate controller classes
+
+            task = new CodeGenTask();
+            task.Description = "Generate controller classes";
+            task.Templates.Add("ODataController");
+            task.OutputFolder = Options.ControllersFolder;
+            task.Namespace = "Services.Controllers";
+            addStructureAndFileStructures(task);
+            addStructureOnlyStructures(task);
+            addStandardOptions(task);
+            taskset.Tasks.Add(task);
+
+            //Create a task to generate the DBContext class
+
+            task = new CodeGenTask();
+            task.Description = "Generate the DBContext class";
+            task.Templates.Add("ODataDbContext");
+            task.OutputFolder = Options.ModelsFolder;
+            task.Namespace = "Services.Models";
+            task.MultipleStructures = true;
+            addStructureAndFileStructures(task);
+            addStructureOnlyStructures(task);
+            addStandardOptions(task);
+            taskset.Tasks.Add(task);
+
+            //Create a task to generate the EdbBuilder and Startup classes
+
+            task = new CodeGenTask();
+            task.Description = "Generate the EdbBuilder and Startup classes";
+            task.Templates.Add("ODataEdmBuilder");
+            task.Templates.Add("ODataStartup");
+            task.OutputFolder = Options.ServicesFolder;
+            task.Namespace = "Services";
+            task.MultipleStructures = true;
+            task.UserTokens.Add(new UserToken("CONTROLLERS_NAMESPACE", "Services.Controllers"));
+            task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", "Services.Models"));
+            addStructureAndFileStructures(task);
+            addStructureOnlyStructures(task);
+            addStandardOptions(task);
+            taskset.Tasks.Add(task);
+
+            //Create a task to generate self hosting program and environment
+
+            if (Options.GenerateSelfHost)
+            {
+                task = new CodeGenTask();
+                task.Description = "Generate self hosting program and environment";
+                task.Templates.Add("ODataSelfHost");
+                task.Templates.Add("ODataSelfHostEnvironment");
+                task.OutputFolder = Options.SelfHostFolder;
+                task.Namespace = "Services.Host";
+                task.MultipleStructures = true;
+                addStructureAndFileStructures(task);
+                //TODO: if we have a parameter file structure we need to add that here also
+                addStandardOptions(task);
+                taskset.Tasks.Add(task);
+            }
+
+            //Create tasks to generate swagger docs
+            if (Options.GenerateSwaggerDocs)
+            {
+                task = new CodeGenTask();
+                task.Description = "Generate swagger documentation";
+                task.Templates.Add("ODataSwaggerYaml");
+                task.OutputFolder = Path.Combine(Options.ServicesFolder,"wwwroot");
+                task.MultipleStructures = true;
+                addStructureAndFileStructures(task);
+                addStructureOnlyStructures(task);
+                addStandardOptions(task);
+                taskset.Tasks.Add(task);
+
+                task = new CodeGenTask();
+                task.Description = "Generate swagger complex types documentation";
+                task.Templates.Add("ODataSwaggerType");
+                task.OutputFolder = Path.Combine(Options.ServicesFolder, "wwwroot");
+                addStructureAndFileStructures(task);
+                addStructureOnlyStructures(task);
+                addStandardOptions(task);
+                taskset.Tasks.Add(task);
+            }
+
+            //Create a task to generate Postman tests
+            if (Options.GeneratePostmanTests)
+            {
+                task = new CodeGenTask();
+                task.Description = "Generate Postman tests";
+                task.Templates.Add("ODataPostManTests");
+                task.OutputFolder = _SolutionFolder;
+                task.MultipleStructures = true;
+                addStructureAndFileStructures(task);
+                addStructureOnlyStructures(task);
+                addStandardOptions(task);
+                taskset.Tasks.Add(task);
+            }
+
+            //Create tass to generatea unit test environment
+            if (Options.GenerateUnitTests)
+            {
+                task = new CodeGenTask();
+                task.Description = "Generate client-side models, data loaders and unit tests";
+                task.Templates.Add("ODataClientModel");
+                task.Templates.Add("ODataTestDataLoader");
+                task.Templates.Add("ODataUnitTests");
+                task.OutputFolder = Options.UnitTestFolder;
+                task.Namespace = "Services.Test";
+                addStructureAndFileStructures(task);
+                addStructureOnlyStructures(task);
+                addStandardOptions(task);
+                taskset.Tasks.Add(task);
+
+                task = new CodeGenTask();
+                task.Description = "Generate test environment";
+                task.Templates.Add("ODataTestEnvironment");
+                task.OutputFolder = Options.UnitTestFolder;
+                task.Namespace = "Services.Test";
+                task.MultipleStructures = true;
+                addStructureAndFileStructures(task);
+                //TODO: if we have a parameter file structure we need to add that here also
+                addStandardOptions(task);
+                taskset.Tasks.Add(task);
+
+                task = new CodeGenTask();
+                task.Description = "Generate unit test environment and hosting program";
+                task.Templates.Add("ODataUnitTestEnvironment");
+                task.Templates.Add("ODataUnitTestHost");
+                task.OutputFolder = Options.UnitTestFolder;
+                task.Namespace = "Services.Test";
+                task.MultipleStructures = true;
+                addStructureAndFileStructures(task);
+                addStandardOptions(task);
+                taskset.Tasks.Add(task);
+
+                task = new CodeGenTask();
+                task.Description = "Generate test constants class";
+                task.Templates.Add("ODataTestConstantsProperties");
+                task.OutputFolder = Options.UnitTestFolder;
+                task.Namespace = "Services.Test";
+                task.MultipleStructures = true;
+                addStructureAndFileStructures(task);
+                addStructureOnlyStructures(task);
+                addStandardOptions(task);
+                taskset.Tasks.Add(task);
+
+                task = new CodeGenTask();
+                task.Description = "Generate test constants values";
+                task.Templates.Add("ODataTestConstantsValues");
+                task.OutputFolder = Options.UnitTestFolder;
+                task.Namespace = "Services.Test";
+                task.MultipleStructures = true;
+                addStructureAndFileStructures(task);
+                addStructureOnlyStructures(task);
+                addNoReplaceOptions(task);
+                taskset.Tasks.Add(task);
+            }
+
+            //Do it all!
+
+            var codegen = new CodeGenerator(taskset);
+            bool success;
+
+            try
+            {
+                success = codegen.GenerateCode();
+                if (success)
+                {
+
+                }
+                else
+                {
+
+                }
+            }
+            catch (Exception)
+            {
+
+            }
+
+            //Clear down for next time
+            structureAndFileStructures = null;
+            structureAndFileAliases = null;
+        }
+
+        private static List<string> structureAndFileStructures;
+        private static List<string> structureAndFileAliases;
+
+        private void addStructureAndFileStructures(CodeGenTask task)
+        {
+            //One time only per code generation pass
+            if (structureAndFileStructures == null)
+            {
+                structureAndFileStructures = new List<string>();
+                structureAndFileAliases = new List<string>();
+                foreach (StructureRow row in Options.Structures.Where(row => row.ProcessingMode.Equals("Structure and File")))
+                {
+                    structureAndFileStructures.Add(row.Name);
+                    structureAndFileAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias);
+                }
+            }
+            //Add the structures to the current task
+            for (int ix = 0; ix < structureAndFileStructures.Count; ix++)
+            {
+                task.Structures.Add(structureAndFileStructures[ix]);
+                task.Aliases.Add(structureAndFileAliases[ix]);
+            }
+        }
+
+        private static List<string> structureOnlyStructures;
+        private static List<string> structureOnlyAliases;
+
+        private void addStructureOnlyStructures(CodeGenTask task)
+        {
+            //One time only per code generation pass
+            if (structureOnlyStructures == null)
+            {
+                structureOnlyStructures = new List<string>();
+                structureOnlyAliases = new List<string>();
+                foreach (StructureRow row in Options.Structures.Where(row => row.ProcessingMode.Equals("Structure Only")))
+                {
+                    structureOnlyStructures.Add(row.Name);
+                    structureOnlyAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias);
+                }
+            }
+            //Add the structures to the current task
+            for (int ix = 0; ix < structureOnlyStructures.Count; ix++)
+            {
+                task.Structures.Add(structureOnlyStructures[ix]);
+                task.Aliases.Add(structureOnlyAliases[ix]);
+            }
+        }
+
+        private static List<string> customCodeStructures;
+        private static List<string> customCodeAliases;
+
+        private void addCustomCodeStructures(CodeGenTask task)
+        {
+            //One time only per code generation pass
+            if (customCodeStructures == null)
+            {
+                customCodeStructures = new List<string>();
+                customCodeAliases = new List<string>();
+                foreach (StructureRow row in Options.Structures.Where(row => row.ProcessingMode.Equals("Custom Code Only")))
+                {
+                    customCodeStructures.Add(row.Name);
+                    customCodeAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias);
+                }
+            }
+            //Add the structures to the current task
+            for (int ix = 0; ix < customCodeStructures.Count; ix++)
+            {
+                task.Structures.Add(customCodeStructures[ix]);
+                task.Aliases.Add(customCodeAliases[ix]);
+            }
+        }
+
+        private void addStandardOptions(CodeGenTask task)
+        {
+            addNoReplaceOptions(task);
+            task.ReplaceFiles = true;
+        }
+
+        private void addNoReplaceOptions(CodeGenTask task)
+        {
+            task.UserTokenFile = Options.UserTokensFile;
+            task.IncludeOverlayFields = Options.FieldOverlays;
+            task.UseAlternateFieldNames = Options.AlternateFieldNames;
         }
 
         #endregion
