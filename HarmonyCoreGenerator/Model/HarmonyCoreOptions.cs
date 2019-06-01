@@ -6,17 +6,6 @@ namespace HarmonyCoreGenerator.Model
     public class HarmonyCoreOptions : ModelBase
     {
 
-        public HarmonyCoreOptions()
-        {
-            ProcessingModes = new ObservableCollection<ProcessingMode>();
-            ProcessingModes.Add(new ProcessingMode() { Id = "None", Description = "None" });
-            ProcessingModes.Add(new ProcessingMode() { Id = "StructureAndFile", Description = "Structure and File" });
-            ProcessingModes.Add(new ProcessingMode() { Id = "StructureOnly", Description = "Structure Only" });
-            ProcessingModes.Add(new ProcessingMode() { Id = "CustomCodeOnly", Description = "Custom Code Only" });
-
-            Structures = new ObservableCollection<StructureRow>();
-        }
-
         [JsonIgnore]
         public bool TrackChanges { get; set; }
 
@@ -28,30 +17,19 @@ namespace HarmonyCoreGenerator.Model
             {
                 return _UnsavedChanges;
             }
+            private set
+            {
+                if (_UnsavedChanges != value)
+                {
+                    _UnsavedChanges = value;
+                    NotifyPropertyChanged(nameof(UnsavedChanges));
+                }
+            }
         }
 
         public void ChangesSaved()
         {
-            _UnsavedChanges = false;
-        }
-
-        //Structure processing modes
-
-        private ObservableCollection<ProcessingMode> _ProcessingModes;
-        [JsonIgnore]
-        public ObservableCollection<ProcessingMode> ProcessingModes
-        {
-            get { return _ProcessingModes; }
-            set
-            {
-                if (_ProcessingModes != value)
-                {
-                    _ProcessingModes = value;
-                    NotifyPropertyChanged(nameof(ProcessingModes));
-                    if (TrackChanges)
-                        _UnsavedChanges = true;
-                }
-            }
+            UnsavedChanges = false;
         }
 
         //Repository files and structures
@@ -67,7 +45,7 @@ namespace HarmonyCoreGenerator.Model
                     _RepositoryMainFile = value;
                     NotifyPropertyChanged(nameof(RepositoryMainFile));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -83,12 +61,12 @@ namespace HarmonyCoreGenerator.Model
                     _RepositoryTextFile = value;
                     NotifyPropertyChanged(nameof(RepositoryTextFile));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
 
-        private ObservableCollection<StructureRow> _Structures;
+        private ObservableCollection<StructureRow> _Structures = new ObservableCollection<StructureRow>();
         public ObservableCollection<StructureRow> Structures
         {
             get { return _Structures; }
@@ -99,7 +77,7 @@ namespace HarmonyCoreGenerator.Model
                     _Structures = value;
                     NotifyPropertyChanged(nameof(Structures));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -117,7 +95,7 @@ namespace HarmonyCoreGenerator.Model
                     _TemplatesFolder = value;
                     NotifyPropertyChanged(nameof(TemplatesFolder));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -133,7 +111,7 @@ namespace HarmonyCoreGenerator.Model
                     _UserTokensFile = value;
                     NotifyPropertyChanged(nameof(UserTokensFile));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -151,7 +129,7 @@ namespace HarmonyCoreGenerator.Model
                     _ServicesFolder = value;
                     NotifyPropertyChanged(nameof(ServicesFolder));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -167,7 +145,7 @@ namespace HarmonyCoreGenerator.Model
                     _ControllersFolder = value;
                     NotifyPropertyChanged(nameof(ControllersFolder));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -183,7 +161,7 @@ namespace HarmonyCoreGenerator.Model
                     _ModelsFolder = value;
                     NotifyPropertyChanged(nameof(ModelsFolder));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -199,7 +177,7 @@ namespace HarmonyCoreGenerator.Model
                     _SelfHostFolder = value;
                     NotifyPropertyChanged(nameof(SelfHostFolder));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -215,7 +193,7 @@ namespace HarmonyCoreGenerator.Model
                     _UnitTestFolder = value;
                     NotifyPropertyChanged(nameof(UnitTestFolder));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -231,7 +209,7 @@ namespace HarmonyCoreGenerator.Model
                     _IsolatedFolder = value;
                     NotifyPropertyChanged(nameof(IsolatedFolder));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -249,7 +227,7 @@ namespace HarmonyCoreGenerator.Model
                     _FullCollectionEndpoints = value;
                     NotifyPropertyChanged(nameof(FullCollectionEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -265,7 +243,7 @@ namespace HarmonyCoreGenerator.Model
                     _PrimaryKeyEndpoints = value;
                     NotifyPropertyChanged(nameof(PrimaryKeyEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -281,7 +259,7 @@ namespace HarmonyCoreGenerator.Model
                     _AlternateKeyEndpoints = value;
                     NotifyPropertyChanged(nameof(AlternateKeyEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -298,7 +276,7 @@ namespace HarmonyCoreGenerator.Model
                     _CollectionCountEndpoints = value;
                     NotifyPropertyChanged(nameof(CollectionCountEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -314,7 +292,7 @@ namespace HarmonyCoreGenerator.Model
                     _IndividualPropertyEndpoints = value;
                     NotifyPropertyChanged(nameof(IndividualPropertyEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -331,7 +309,7 @@ namespace HarmonyCoreGenerator.Model
                     _PutEndpoints = value;
                     NotifyPropertyChanged(nameof(PutEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -347,7 +325,7 @@ namespace HarmonyCoreGenerator.Model
                     _PostEndpoints = value;
                     NotifyPropertyChanged(nameof(PostEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -363,7 +341,7 @@ namespace HarmonyCoreGenerator.Model
                     _PatchEndpoints = value;
                     NotifyPropertyChanged(nameof(PatchEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -379,7 +357,7 @@ namespace HarmonyCoreGenerator.Model
                     _DeleteEndpoints = value;
                     NotifyPropertyChanged(nameof(DeleteEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -398,7 +376,7 @@ namespace HarmonyCoreGenerator.Model
                     _ODataSelect = value;
                     NotifyPropertyChanged(nameof(ODataSelect));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -414,7 +392,7 @@ namespace HarmonyCoreGenerator.Model
                     _ODataFilter = value;
                     NotifyPropertyChanged(nameof(ODataFilter));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -430,7 +408,7 @@ namespace HarmonyCoreGenerator.Model
                     _ODataOrderBy = value;
                     NotifyPropertyChanged(nameof(ODataOrderBy));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -446,7 +424,7 @@ namespace HarmonyCoreGenerator.Model
                     _ODataTop = value;
                     NotifyPropertyChanged(nameof(ODataTop));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -462,7 +440,7 @@ namespace HarmonyCoreGenerator.Model
                     _ODataSkip = value;
                     NotifyPropertyChanged(nameof(ODataSkip));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -478,7 +456,7 @@ namespace HarmonyCoreGenerator.Model
                     _ODataRelations = value;
                     NotifyPropertyChanged(nameof(ODataRelations));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -497,7 +475,7 @@ namespace HarmonyCoreGenerator.Model
                     _GenerateSelfHost = value;
                     NotifyPropertyChanged(nameof(GenerateSelfHost));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -513,7 +491,7 @@ namespace HarmonyCoreGenerator.Model
                     _CreateTestFiles = value;
                     NotifyPropertyChanged(nameof(CreateTestFiles));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -529,7 +507,7 @@ namespace HarmonyCoreGenerator.Model
                     _GeneratePostmanTests = value;
                     NotifyPropertyChanged(nameof(GeneratePostmanTests));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -545,7 +523,7 @@ namespace HarmonyCoreGenerator.Model
                     _GenerateUnitTests = value;
                     NotifyPropertyChanged(nameof(GenerateUnitTests));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -564,7 +542,7 @@ namespace HarmonyCoreGenerator.Model
                     _GenerateSwaggerDocs = value;
                     NotifyPropertyChanged(nameof(GenerateSwaggerDocs));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -580,7 +558,7 @@ namespace HarmonyCoreGenerator.Model
                     _DocumentPropertyEndpoints = value;
                     NotifyPropertyChanged(nameof(DocumentPropertyEndpoints));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -596,7 +574,7 @@ namespace HarmonyCoreGenerator.Model
                     _EnableApiVersioning = value;
                     NotifyPropertyChanged(nameof(EnableApiVersioning));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -615,7 +593,7 @@ namespace HarmonyCoreGenerator.Model
                     _Authentication = value;
                     NotifyPropertyChanged(nameof(Authentication));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -631,7 +609,7 @@ namespace HarmonyCoreGenerator.Model
                     _CustomAuthentication = value;
                     NotifyPropertyChanged(nameof(CustomAuthentication));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -647,7 +625,7 @@ namespace HarmonyCoreGenerator.Model
                     _FieldSecurity = value;
                     NotifyPropertyChanged(nameof(FieldSecurity));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -665,7 +643,7 @@ namespace HarmonyCoreGenerator.Model
                     _AdapterRouting = value;
                     NotifyPropertyChanged(nameof(AdapterRouting));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -681,7 +659,7 @@ namespace HarmonyCoreGenerator.Model
                     _StoredProcedureRouting = value;
                     NotifyPropertyChanged(nameof(StoredProcedureRouting));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -697,7 +675,7 @@ namespace HarmonyCoreGenerator.Model
                     _CaseSensitiveUrls = value;
                     NotifyPropertyChanged(nameof(CaseSensitiveUrls));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -713,7 +691,7 @@ namespace HarmonyCoreGenerator.Model
                     _CrossDomainBrowsing = value;
                     NotifyPropertyChanged(nameof(CrossDomainBrowsing));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -729,7 +707,7 @@ namespace HarmonyCoreGenerator.Model
                     _IISSupport = value;
                     NotifyPropertyChanged(nameof(IISSupport));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -745,7 +723,7 @@ namespace HarmonyCoreGenerator.Model
                     _FieldOverlays = value;
                     NotifyPropertyChanged(nameof(FieldOverlays));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -761,7 +739,7 @@ namespace HarmonyCoreGenerator.Model
                     _AlternateFieldNames = value;
                     NotifyPropertyChanged(nameof(AlternateFieldNames));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }
@@ -777,7 +755,7 @@ namespace HarmonyCoreGenerator.Model
                     _ReadOnlyProperties = value;
                     NotifyPropertyChanged(nameof(ReadOnlyProperties));
                     if (TrackChanges)
-                        _UnsavedChanges = true;
+                        UnsavedChanges = true;
                 }
             }
         }

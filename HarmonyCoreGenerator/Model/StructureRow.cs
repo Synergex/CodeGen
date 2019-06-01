@@ -1,4 +1,5 @@
 ﻿using CodeGen.RepositoryAPI;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,14 +8,13 @@ using System.Threading.Tasks;
 
 namespace HarmonyCoreGenerator.Model
 {
-    public class StructureRow
+    public class StructureRow : ModelBase
     {
         /// <summary>
         /// Constructor for deserialization
         /// </summary>
         public StructureRow()
         {
-            ProcessingMode = "None";
         }
 
         /// <summary>
@@ -26,12 +26,44 @@ namespace HarmonyCoreGenerator.Model
         {
             Name = str.Name;
             Alias = str.Alias.Equals(str.Name) ? String.Empty : str.Alias;
+            ProcessingMode = "None";
         }
 
-        public string Name { get; set; }
+        private string _Name = String.Empty;
+        public string Name
+        {
+            get { return _Name; }
+            set
+            {
+                if (!_Name.Equals(value))
+                    _Name = value;
+                NotifyPropertyChanged(nameof(Name));
+            }
+        }
 
-        public string Alias { get; set; }
+        private string _Alias = String.Empty;
+        public string Alias
+        {
+            get { return _Alias; }
+            set
+            {
+                var upperValue = value.ToUpper();
+                if (!_Alias.Equals(upperValue))
+                    _Alias = upperValue;
+                NotifyPropertyChanged(nameof(Alias));
+            }
+        }
 
-        public string ProcessingMode { get; set; }
+        private string _ProcessingMode = String.Empty;
+        public string ProcessingMode
+        {
+            get { return _ProcessingMode; }
+            set
+            {
+                if (!_ProcessingMode.Equals(value))
+                    _ProcessingMode = value;
+                NotifyPropertyChanged(nameof(ProcessingMode));
+            }
+        }
     }
 }

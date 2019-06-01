@@ -87,6 +87,21 @@ namespace HarmonyCoreGenerator.ViewModel
             }
         }
 
+        private StructureRow _SelectedStructure;
+
+        public StructureRow SelectedStructure
+        {
+            get { return _SelectedStructure; }
+            set
+            {
+                if (_SelectedStructure != value)
+                {
+                    _SelectedStructure = value;
+                    NotifyPropertyChanged(nameof(SelectedStructure));
+                }
+            }
+        }
+
         #endregion
 
         #region OpenSolutionCommand
@@ -392,11 +407,9 @@ namespace HarmonyCoreGenerator.ViewModel
                     {
                         var rps = new Repository(Options.RepositoryMainFile, Options.RepositoryTextFile, false);
                         foreach (var str in rps.Structures)
-                        {
                             Options.Structures.Add(new StructureRow(str));
-                        }
 
-                        //For new projects, shjow the structure selection page
+                        //For new projects, show the structure selection page
                         if (errors.Count == 0)
                             SelectedTabIndex = 1;
                     }
@@ -411,6 +424,8 @@ namespace HarmonyCoreGenerator.ViewModel
 
                 if (errors.Count == 0)
                 {
+                    if (Options.Structures.Count > 0)
+                        SelectedStructure = Options.Structures.First();
 
                     //Save the last used folder
                     Properties.Settings.Default.LastFolder = Path.GetDirectoryName(_SolutionFile);
@@ -490,19 +505,14 @@ namespace HarmonyCoreGenerator.ViewModel
             //MessageBox.Show("You wish!");
             //return;
 
-
             CodeGenOutput = String.Empty;
 
             var taskSet = new CodeGenTaskSet()
             {
                 RepositoryMainFile = Options.RepositoryMainFile,
                 RepositoryTextFile = Options.RepositoryTextFile,
-                TemplateFolder = "",
-                OutputFolder = ""
+                TemplateFolder = Options.TemplatesFolder
             };
-
-            //TODO: Not sure if I need to use the display values instead.
-            //"Structure and File", "Structure Only" and "Custom Code Only"
 
             var structureAndFileStructures = new List<string>();
             var structureAndFileAliases = new List<string>();
