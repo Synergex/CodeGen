@@ -1,0 +1,271 @@
+﻿<Window x:Class="HarmonyCoreGenerator.View.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:HarmonyCoreGenerator.ViewModel"
+        mc:Ignorable="d"
+        Title="Harmony Core Code Generator" Height="700" Width="1200" WindowStartupLocation="CenterScreen">
+
+    <Window.DataContext>
+        <vm:GeneratorViewModel />
+    </Window.DataContext>
+
+    <Window.InputBindings>
+        <KeyBinding Modifiers="Ctrl" Key="G" Command="{Binding GenerateCodeCommand}"/>
+        <KeyBinding Modifiers="Ctrl" Key="O" Command="{Binding OpenSolutionCommand}"/>
+        <KeyBinding Modifiers="Ctrl" Key="R" Command="{Binding RefreshRepositoryCommand}"/>
+        <KeyBinding Modifiers="Ctrl" Key="S" Command="{Binding SaveSettingsCommand}"/>
+    </Window.InputBindings>
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="..\Resources\Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Row 0: Menu -->
+
+        <Menu Grid.Row="0">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open Solution..."  InputGestureText="Ctrl + O" Command="{Binding OpenSolutionCommand}"/>
+                <MenuItem Header="_Close Solution" Command="{Binding CloseSolutionCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Save Settings" InputGestureText="Ctrl + S" IsEnabled="{Binding Options.UnsavedChanges}" Command="{Binding SaveSettingsCommand}"/>
+                <Separator/>
+                <MenuItem Header="E_xit" InputGestureText="Alt + F4" Command="{Binding ExitCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Refresh Repository" InputGestureText="Ctrl + R" IsEnabled="{Binding SolutionOpen}" Command="{Binding RefreshRepositoryCommand}"/>
+                <MenuItem Header="_Generate Code" InputGestureText="Ctrl + G" IsEnabled="{Binding SolutionOpen}" Command="{Binding GenerateCodeCommand}"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Row 1: Tab set -->
+
+        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" IsEnabled="{Binding SolutionOpen}" >
+
+            <TabItem Header="Solution and Projects">
+                <StackPanel>
+                    <GroupBox Header="Solution and Settings Files">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Solution file"/>
+                                <TextBox Width="700" Text="{Binding SolutionFile}" IsReadOnly="True" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Settings file"/>
+                                <TextBox Width="700" Text="{Binding SettingsFile}" IsReadOnly="True" />
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+                    <GroupBox Header="Repository Files">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Main file"/>
+                                <TextBox Width="700" Text="{Binding Path=Options.RepositoryMainFile}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Text file"/>
+                                <TextBox  Width="700" Text="{Binding Path=Options.RepositoryTextFile}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+                    <GroupBox Header="CodeGen Files">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Templates folder"/>
+                                <TextBox Width="700" Text="{Binding Path=Options.TemplatesFolder}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="User tokens file"/>
+                                <TextBox Width="700" Text="{Binding Path=Options.UserTokensFile}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+                    <GroupBox Header="Output Locations">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Services folder"/>
+                                <TextBox Width="700" Text="{Binding Options.ServicesFolder}" IsReadOnly="True" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Controllers folder"/>
+                                <TextBox Width="700" Text="{Binding Options.ControllersFolder}" IsReadOnly="True" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Self host folder"/>
+                                <TextBox Width="700" Text="{Binding Options.SelfHostFolder}" IsReadOnly="True" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Isolated folder"/>
+                                <TextBox Width="700" Text="{Binding Options.IsolatedFolder}" IsReadOnly="True" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Models folder"/>
+                                <TextBox Width="700" Text="{Binding Options.ModelsFolder}" IsReadOnly="True" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label Width="125" Content="Unit tests folder"/>
+                                <TextBox Width="700" Text="{Binding Options.UnitTestFolder}" IsReadOnly="True" />
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+
+            </TabItem>
+
+            <TabItem Header="Repository">
+                <DataGrid AutoGenerateColumns="False"
+                          ItemsSource="{Binding Path=Options.Structures}"
+                          SelectedItem="{Binding Path=SelectedStructure}"
+                          CanUserAddRows="False" CanUserDeleteRows="False" CanUserReorderColumns="False" CanUserResizeRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Structure" IsReadOnly="True" Width="*" Binding="{Binding Name}"/>
+                        <DataGridTextColumn Header="Alias" Width="*" Binding="{Binding Alias}"/>
+                        <DataGridComboBoxColumn Header="Processing Mode" Width="*"
+                                                ItemsSource="{StaticResource ProcessingModes}"
+                                                SelectedValueBinding="{Binding ProcessingMode}">
+                        </DataGridComboBoxColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <TabItem Header="Features">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Row 0 -->
+
+                    <GroupBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Header="Controller Endpoints">
+
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel>
+                                <CheckBox Content="Full coillection endpoints" IsChecked="{Binding Options.FullCollectionEndpoints, Mode=TwoWay}"/>
+                                <CheckBox Content="Primary key endpoints" IsChecked="{Binding Options.PrimaryKeyEndpoints, Mode=TwoWay}"/>
+                                <CheckBox Content="Alternate key endpoints" IsChecked="{Binding Options.AlternateKeyEndpoints, Mode=TwoWay}"/>
+                                <CheckBox Content="Collection count endpoints" IsChecked="{Binding Options.CollectionCountEndpoints, Mode=TwoWay}"/>
+                                <CheckBox Content="Individual property endpoints" IsChecked="{Binding Options.IndividualPropertyEndpoints, Mode=TwoWay}"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <CheckBox Content="PUT endpoints (create or replace)" IsChecked="{Binding Options.PutEndpoints, Mode=TwoWay}"/>
+                                <CheckBox Content="POST endpoints (create with auto-key)" IsChecked="{Binding Options.PostEndpoints, Mode=TwoWay}"/>
+                                <CheckBox Content="PATCH endpoints (partial update)" IsChecked="{Binding Options.PatchEndpoints, Mode=TwoWay}"/>
+                                <CheckBox Content="DELETE endpoints" IsChecked="{Binding Options.DeleteEndpoints, Mode=TwoWay}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                    </GroupBox>
+                    <GroupBox Grid.Row="0" Grid.Column="2" Header="OData Features">
+                        <StackPanel>
+                            <CheckBox Content="Enable $select" IsChecked="{Binding Options.ODataSelect, Mode=TwoWay}" />
+                            <CheckBox Content="Enable $filter" IsChecked="{Binding Options.ODataFilter, Mode=TwoWay}" />
+                            <CheckBox Content="Enable $orderby" IsChecked="{Binding Options.ODataOrderBy, Mode=TwoWay}" />
+                            <CheckBox Content="Enable $top" IsChecked="{Binding Options.ODataTop, Mode=TwoWay}" />
+                            <CheckBox Content="Enable $skip" IsChecked="{Binding Options.ODataSkip, Mode=TwoWay}" />
+                            <CheckBox Content="Enable $expand" IsChecked="{Binding Options.ODataRelations, Mode=TwoWay}" />
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Row 1 -->
+
+                    <GroupBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Header="Documentation and Versioning">
+                        <StackPanel>
+                            <CheckBox Content="Generate Swagger documentation" IsChecked="{Binding Options.GenerateSwaggerDocs, Mode=TwoWay}" />
+                            <CheckBox Content="Document individual property endpoints" Margin="30,5,5,5" IsChecked="{Binding Options.DocumentPropertyEndpoints, Mode=TwoWay}" />
+                            <CheckBox Content="Enable API versioning" IsChecked="{Binding Options.EnableApiVersioning}" />
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Grid.Row="1" Grid.Column="2" Header="Security">
+                        <StackPanel>
+                            <CheckBox Content="Enable authentication"  IsChecked="{Binding Options.Authentication, Mode=TwoWay}"/>
+                            <CheckBox Content="Custom authentication" Margin="30,5,5,5"  IsChecked="{Binding Options.CustomAuthentication, Mode=TwoWay}"/>
+                            <CheckBox Content="Enable field security"  IsChecked="{Binding Options.FieldSecurity, Mode=TwoWay}"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Row 2 -->
+
+                    <GroupBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Header="Miscellaneous">
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel>
+                                <CheckBox Content="Adapter routing" IsChecked="{Binding Options.AdapterRouting, Mode=TwoWay}"/>
+                                <CheckBox Content="Stored procedure routing" IsChecked="{Binding Options.StoredProcedureRouting, Mode=TwoWay}"/>
+                                <CheckBox Content="Alternate field names" IsChecked="{Binding Options.AlternateFieldNames, Mode=TwoWay}"/>
+                                <CheckBox Content="Cross domain browsing" IsChecked="{Binding Options.CrossDomainBrowsing, Mode=TwoWay}"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <CheckBox Content="IIS Support" IsChecked="{Binding Options.IISSupport, Mode=TwoWay}"/>
+                                <CheckBox Content="Field overlays" IsChecked="{Binding Options.FieldOverlays, Mode=TwoWay}"/>
+                                <CheckBox Content="Read-only properties" IsChecked="{Binding Options.ReadOnlyProperties, Mode=TwoWay}"/>
+                                <CheckBox Content="Case sensitive URLs" IsChecked="{Binding Options.CaseSensitiveUrls, Mode=TwoWay}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
+                </Grid>
+
+            </TabItem>
+
+            <TabItem Header="Code Generation">
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <GroupBox Grid.Row="0" Header="Actions">
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal">
+                                <Label Content="Logging level"/>
+                                <RadioButton IsChecked="{Binding Path=CodeGenLoggingLevel, Converter={StaticResource EnumToBool}, ConverterParameter=Normal}">Normal</RadioButton>
+                                <RadioButton IsChecked="{Binding Path=CodeGenLoggingLevel, Converter={StaticResource EnumToBool}, ConverterParameter=Verbose}">Verbose</RadioButton>
+                                <RadioButton IsChecked="{Binding Path=CodeGenLoggingLevel, Converter={StaticResource EnumToBool}, ConverterParameter=Debug}">Debug</RadioButton>
+                                <RadioButton IsChecked="{Binding Path=CodeGenLoggingLevel, Converter={StaticResource EnumToBool}, ConverterParameter=DeveloperDebug}">Developer Debug</RadioButton>
+                            </StackPanel>
+                            <Button Content="Generate Code" Width="150" Margin="5" Command="{Binding GenerateCodeCommand}"/>
+                        </StackPanel>
+                    </GroupBox>
+                    <GroupBox Grid.Row="1" Header="Results">
+                        <ListBox ItemsSource="{Binding CodeGenOutput}" FontFamily="Courier New">
+
+                        </ListBox>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
+
+        </TabControl>
+
+        <!-- Row 2: Status bar -->
+
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <Label Content="{Binding StatusBarText}"/>
+            </StatusBarItem>
+        </StatusBar>
+
+    </Grid>
+
+</Window>
