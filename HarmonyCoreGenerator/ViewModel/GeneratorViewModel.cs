@@ -6,6 +6,7 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -19,25 +20,31 @@ namespace HarmonyCoreGenerator.ViewModel
         #region Data binding properties
 
         private string _SolutionFolder;
-        private string _SolutionFile;
+        private string _SolutionFile = String.Empty;
         public string SolutionFile
         {
             get { return _SolutionFile; }
             set
             {
-                _SolutionFile = value;
-                NotifyPropertyChanged(nameof(SolutionFile));
+                if (!_SolutionFile.Equals(value))
+                {
+                    _SolutionFile = value;
+                    NotifyPropertyChanged(nameof(SolutionFile));
+                }
             }
         }
 
-        private string _SettingsFile;
+        private string _SettingsFile = String.Empty;
         public string SettingsFile
         {
             get { return _SettingsFile; }
             set
             {
-                _SettingsFile = value;
-                NotifyPropertyChanged(nameof(SettingsFile));
+                if (!_SettingsFile.Equals(value))
+                {
+                    _SettingsFile = value;
+                    NotifyPropertyChanged(nameof(SettingsFile));
+                }
             }
         }
 
@@ -47,8 +54,11 @@ namespace HarmonyCoreGenerator.ViewModel
             get { return _SolutionOpen; }
             set
             {
-                _SolutionOpen = value;
-                NotifyPropertyChanged(nameof(SolutionOpen));
+                if (_SolutionOpen != value)
+                {
+                    _SolutionOpen = value;
+                    NotifyPropertyChanged(nameof(SolutionOpen));
+                }
             }
         }
 
@@ -59,8 +69,11 @@ namespace HarmonyCoreGenerator.ViewModel
             get { return _Options; }
             set
             {
-                _Options = value;
-                NotifyPropertyChanged(nameof(Options));
+                if (_Options != value)
+                {
+                    _Options = value;
+                    NotifyPropertyChanged(nameof(Options));
+                }
             }
         }
 
@@ -71,19 +84,25 @@ namespace HarmonyCoreGenerator.ViewModel
             get { return _SelectedTabIndex; }
             set
             {
-                _SelectedTabIndex = value;
-                NotifyPropertyChanged(nameof(SelectedTabIndex));
+                if (_SelectedTabIndex != value)
+                {
+                    _SelectedTabIndex = value;
+                    NotifyPropertyChanged(nameof(SelectedTabIndex));
+                }
             }
         }
 
-        private string _CodeGenOutput;
-        public string CodeGenOutput
+        private ObservableCollection<string> _CodeGenOutput;
+        public ObservableCollection<string> CodeGenOutput
         {
             get { return _CodeGenOutput; }
             set
             {
-                _CodeGenOutput = value;
-                NotifyPropertyChanged(nameof(CodeGenOutput));
+                if (_CodeGenOutput != value)
+                {
+                    _CodeGenOutput = value;
+                    NotifyPropertyChanged(nameof(CodeGenOutput));
+                }
             }
         }
 
@@ -94,10 +113,38 @@ namespace HarmonyCoreGenerator.ViewModel
             get { return _SelectedStructure; }
             set
             {
-                if (_SelectedStructure != value)
+                if (_SelectedStructure == null || _SelectedStructure != value)
                 {
                     _SelectedStructure = value;
                     NotifyPropertyChanged(nameof(SelectedStructure));
+                }
+            }
+        }
+
+        private LoggingLevel _CodeGenLoggingLevel = LoggingLevel.Normal;
+        public LoggingLevel CodeGenLoggingLevel
+        {
+            get { return _CodeGenLoggingLevel; }
+            set
+            {
+                if (_CodeGenLoggingLevel != value)
+                {
+                    _CodeGenLoggingLevel = value;
+                    NotifyPropertyChanged(nameof(CodeGenLoggingLevel));
+                }
+            }
+        }
+
+        private string _StatusBarText = String.Empty;
+        public string StatusBarText
+        {
+            get { return _StatusBarText; }
+            set
+            {
+                if (!_StatusBarText.Equals(value))
+                {
+                    _StatusBarText = value;
+                    NotifyPropertyChanged(nameof(StatusBarText));
                 }
             }
         }
@@ -464,7 +511,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 SolutionOpen = false;
                 SolutionFile = String.Empty;
                 SettingsFile = String.Empty;
-                CodeGenOutput = String.Empty;
+                CodeGenOutput = new ObservableCollection<string>();
                 Options = new HarmonyCoreOptions();
 
                 SelectedTabIndex = 0;
@@ -507,7 +554,7 @@ namespace HarmonyCoreGenerator.ViewModel
             //MessageBox.Show("You wish!");
             //return;
 
-            CodeGenOutput = String.Empty;
+            CodeGenOutput = new ObservableCollection<string>();
 
             var taskset = new CodeGenTaskSet()
             {
@@ -515,153 +562,11 @@ namespace HarmonyCoreGenerator.ViewModel
                 RepositoryTextFile = Options.RepositoryTextFile,
                 TemplateFolder = Options.TemplatesFolder,
                 EchoCommands = true,
-                ListGeneratedFiles = true
+                ListGeneratedFiles = true,
+                LoggingLevel = CodeGenLoggingLevel
             };
 
-            if (Options.FullCollectionEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_GET_ALL");
-            }
-
-            if (Options.PrimaryKeyEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_GET_ONE");
-            }
-
-            if (Options.CreateTestFiles)
-            {
-                taskset.Defines.Add("ENABLE_CREATE_TEST_FILES");
-            }
-
-            if (Options.GenerateSwaggerDocs)
-            {
-                taskset.Defines.Add("ENABLE_SWAGGER_DOCS");
-            }
-
-            if (Options.EnableApiVersioning)
-            {
-                taskset.Defines.Add("ENABLE_API_VERSIONING");
-            }
-
-            if (Options.AlternateKeyEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_ALTERNATE_KEYS");
-            }
-
-            if (Options.CollectionCountEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_COUNT");
-            }
-
-            if (Options.IndividualPropertyEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_PROPERTY_ENDPOINTS");
-            }
-
-            if (Options.DocumentPropertyEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_PROPERTY_VALUE_DOCS");
-            }
-
-            if (Options.ODataSelect)
-            {
-                taskset.Defines.Add("ENABLE_SELECT");
-            }
-
-            if (Options.ODataFilter)
-            {
-                taskset.Defines.Add("ENABLE_FILTER");
-            }
-
-            if (Options.ODataOrderBy)
-            {
-                taskset.Defines.Add("ENABLE_ORDERBY");
-            }
-
-            if (Options.ODataTop)
-            {
-                taskset.Defines.Add("ENABLE_TOP");
-            }
-
-            if (Options.ODataSkip)
-            {
-                taskset.Defines.Add("ENABLE_SKIP");
-            }
-
-            if (Options.ODataRelations)
-            {
-                taskset.Defines.Add("ENABLE_RELATIONS");
-            }
-
-            if (Options.PutEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_PUT");
-            }
-
-            if (Options.PostEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_POST");
-            }
-
-            if (Options.PatchEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_PATCH");
-            }
-
-            if (Options.DeleteEndpoints)
-            {
-                taskset.Defines.Add("ENABLE_DELETE");
-            }
-
-            if (Options.StoredProcedureRouting)
-            {
-                taskset.Defines.Add("ENABLE_SPROC");
-            }
-
-            if (Options.AdapterRouting)
-            {
-                taskset.Defines.Add("ENABLE_ADAPTER_ROUTING");
-            }
-
-            if (Options.Authentication)
-            {
-                taskset.Defines.Add("ENABLE_AUTHENTICATION");
-            }
-
-            if (Options.CustomAuthentication)
-            {
-                taskset.Defines.Add("ENABLE_CUSTOM_AUTHENTICATION");
-            }
-
-            if (Options.FieldSecurity)
-            {
-                taskset.Defines.Add("ENABLE_FIELD_SECURITY");
-            }
-
-            if (Options.CaseSensitiveUrls)
-            {
-                taskset.Defines.Add("ENABLE_CASE_SENSITIVE_URL");
-            }
-
-            if (Options.CrossDomainBrowsing)
-            {
-                taskset.Defines.Add("ENABLE_CORS");
-            }
-
-            if (Options.IISSupport)
-            {
-                taskset.Defines.Add("ENABLE_IIS_SUPPORT");
-            }
-
-            if (Options.ReadOnlyProperties)
-            {
-                taskset.Defines.Add("ENABLE_READ_ONLY_PROPERTIES");
-            }
-
-            if (Options.ODataSelect || Options.ODataFilter || Options.ODataOrderBy || Options.ODataTop || Options.ODataSkip || Options.ODataRelations)
-            {
-                taskset.Defines.Add("PARAM_OPTIONS_PRESENT");
-            }
+            setDefines(taskset);
 
             CodeGenTask task;
 
@@ -743,7 +648,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 task = new CodeGenTask();
                 task.Description = "Generate swagger documentation";
                 task.Templates.Add("ODataSwaggerYaml");
-                task.OutputFolder = Path.Combine(Options.ServicesFolder,"wwwroot");
+                task.OutputFolder = Path.Combine(Options.ServicesFolder, "wwwroot");
                 task.MultipleStructures = true;
                 addStructureAndFileStructures(task);
                 addStructureOnlyStructures(task);
@@ -839,26 +744,177 @@ namespace HarmonyCoreGenerator.ViewModel
             var codegen = new CodeGenerator(taskset);
             bool success;
 
-            try
+            //try
+            //{
+            success = codegen.GenerateCode();
+
+            CodeGenOutput = taskset.Messages;
+
+            if (success)
             {
-                success = codegen.GenerateCode();
-                if (success)
-                {
-
-                }
-                else
-                {
-
-                }
+                StatusBarText = "Success";
             }
-            catch (Exception)
+            else
             {
-
+                StatusBarText = "Errors occured during code generation";
             }
+            //}
+            //catch (Exception ex)
+            //{
+            //    StatusBarText = "CodeGen crashed! " + ex.Message;
+            //}
 
             //Clear down for next time
             structureAndFileStructures = null;
             structureAndFileAliases = null;
+        }
+
+        private void setDefines(CodeGenTaskSet taskset)
+        {
+            if (Options.FullCollectionEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_GET_ALL");
+            }
+
+            if (Options.PrimaryKeyEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_GET_ONE");
+            }
+
+            if (Options.CreateTestFiles)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_CREATE_TEST_FILES");
+            }
+
+            if (Options.GenerateSwaggerDocs)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_SWAGGER_DOCS");
+            }
+
+            if (Options.EnableApiVersioning)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_API_VERSIONING");
+            }
+
+            if (Options.AlternateKeyEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_ALTERNATE_KEYS");
+            }
+
+            if (Options.CollectionCountEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_COUNT");
+            }
+
+            if (Options.IndividualPropertyEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_PROPERTY_ENDPOINTS");
+            }
+
+            if (Options.DocumentPropertyEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_PROPERTY_VALUE_DOCS");
+            }
+
+            if (Options.ODataSelect)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_SELECT");
+            }
+
+            if (Options.ODataFilter)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_FILTER");
+            }
+
+            if (Options.ODataOrderBy)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_ORDERBY");
+            }
+
+            if (Options.ODataTop)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_TOP");
+            }
+
+            if (Options.ODataSkip)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_SKIP");
+            }
+
+            if (Options.ODataRelations)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_RELATIONS");
+            }
+
+            if (Options.PutEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_PUT");
+            }
+
+            if (Options.PostEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_POST");
+            }
+
+            if (Options.PatchEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_PATCH");
+            }
+
+            if (Options.DeleteEndpoints)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_DELETE");
+            }
+
+            if (Options.StoredProcedureRouting)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_SPROC");
+            }
+
+            if (Options.AdapterRouting)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_ADAPTER_ROUTING");
+            }
+
+            if (Options.Authentication)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_AUTHENTICATION");
+            }
+
+            if (Options.CustomAuthentication)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_CUSTOM_AUTHENTICATION");
+            }
+
+            if (Options.FieldSecurity)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_FIELD_SECURITY");
+            }
+
+            if (Options.CaseSensitiveUrls)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_CASE_SENSITIVE_URL");
+            }
+
+            if (Options.CrossDomainBrowsing)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_CORS");
+            }
+
+            if (Options.IISSupport)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_IIS_SUPPORT");
+            }
+
+            if (Options.ReadOnlyProperties)
+            {
+                taskset.Defines.Add("DEFINED_ENABLE_READ_ONLY_PROPERTIES");
+            }
+
+            if (Options.ODataSelect || Options.ODataFilter || Options.ODataOrderBy || Options.ODataTop || Options.ODataSkip || Options.ODataRelations)
+            {
+                taskset.Defines.Add("DEFINED_PARAM_OPTIONS_PRESENT");
+            }
         }
 
         private static List<string> structureAndFileStructures;
