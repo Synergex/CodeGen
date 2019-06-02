@@ -173,7 +173,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 end
             endmethod
         endproperty
-        
+
 .endregion
         
 .region "OpenSolutionCommand"
@@ -556,10 +556,10 @@ namespace HarmonyCoreGenerator.ViewModel
             if (SelectedTabIndex != 3)
                 SelectedTabIndex = 3
 
-            ;; MessageBox.Show("You wish!");
-            ;; return;
+            StatusBarText = "Generating code..."
 
             CodeGenOutput = new ObservableCollection<string>()
+
             data taskset = new CodeGenTaskSet() {RepositoryMainFile = Options.RepositoryMainFile, RepositoryTextFile = Options.RepositoryTextFile, TemplateFolder = Options.TemplatesFolder, EchoCommands = true, ListGeneratedFiles = true, LoggingLevel = CodeGenLoggingLevel}
             setDefines(taskset)
             data task, @CodeGenTask
@@ -649,6 +649,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
                 taskset.Tasks.Add(task)
+
                 task = new CodeGenTask()
                 task.Description = "Generate swagger complex types documentation"
                 task.Templates.Add("ODataSwaggerType")
@@ -740,8 +741,16 @@ namespace HarmonyCoreGenerator.ViewModel
             data codegen = new CodeGenerator(taskset)
             data success, boolean
 
-            success = codegen.GenerateCode()
-            CodeGenOutput = taskset.Messages
+            try
+            begin
+                success = codegen.GenerateCode()
+                CodeGenOutput = taskset.Messages
+            end
+            catch (e, @Exception)
+            begin
+                StatusBarText = String.Format("Unexpected error diring code generation. Error was '{0}'",e.Message)
+            end
+            endtry
 
             if (success) then
             begin
