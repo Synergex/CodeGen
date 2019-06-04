@@ -43,8 +43,9 @@
 
 import System
 import System.IO
-import System.Collections.Generic
+import System.Collections.ObjectModel
 import CodeGen.RepositoryAPI
+import Newtonsoft.Json
 
 .array 0
 
@@ -54,8 +55,8 @@ namespace CodeGen.Engine
     ;;; Represents a single code generation task.
     ;;; </summary>
     public partial class CodeGenTask
-		
-        .region "Constructors"
+
+.region "Constructors"
 
         public method CodeGenTask
         proc			
@@ -74,103 +75,31 @@ namespace CodeGen.Engine
             this.Structures.Add(aStructure)
         endmethod
 
-        .endregion
+.endregion
 
-        .region "Task configuration properties"
-
-        ;;; <summary>
-        ;;; Description of the task.
-        ;;; </summary>
-        public readwrite  property Description, String, "New Task"
-	
-        ;;;	<summary>
-        ;;; Repository main file to use.
-        ;;;	</summary>
-        public readwrite property RepositoryMainFile, String
-		
-        ;;;	<summary>
-        ;;; Repository text file to use.
-        ;;;	</summary>
-        public readwrite property RepositoryTextFile, String
-
-        ;;; <summary>
-        ;;; Templates to process.
-        ;;; Adding template names to this collection is mandatory for all operations
-        ;;; and is is equivalent to using the -t command line option.
-        ;;; </summary>
-        public readwrite property Templates, @List<String>, new List<String>()
+.region "Main configuration properties - serialized"
 
         ;;; <summary>
         ;;;	Strcutures to process. To process all structures add an * as the first structure name.
         ;;; Adding structure names to this collection is equivalent to using the -s command line option.
         ;;; </summary>
-        public readwrite property Structures, @List<String>, new List<String>()
+        public readwrite property Structures, @ObservableCollection<String>, new ObservableCollection<String>()
 
         ;;; <summary>
         ;;;	Structure aliases. The number of aliases should be less than or equal to the number of structures being processed.
         ;;; Adding alias names to this collection is equivalent to using the -a command line option.
         ;;; Note that structure aliasing may not be used in conjunction with using alternate structure names (-as).
         ;;; </summary>
-        public readwrite  property Aliases, @List<String>, new List<String>()
+        public readwrite  property Aliases, @ObservableCollection<String>, new ObservableCollection<String>()
 
         ;;; <summary>
-        ;;;	File Overrides. This option allows you to specify which repository file definition is
-        ;;; used for each structure that you are processing. This option is useful if the structure
-        ;;; that you are using is assigned to multiple files, because CodeGen will by default will
-        ;;; always select the first assigned file. The number of file overrides must be less than
-        ;;; or equal to the number of structures being processed.
-        ;;; Adding repository file definition names to this collection is equivalent to using the -fo command line option.
+        ;;; Templates to process.
+        ;;; Adding template names to this collection is mandatory for all operations
+        ;;; and is is equivalent to using the -t command line option.
         ;;; </summary>
-        public readwrite  property FileOverrides, @List<String>, new List<String>()
+        public readwrite property Templates, @ObservableCollection<String>, new ObservableCollection<String>()
 
-        ;;; <summary>
-        ;;;	Subset fields. This option allows you to specify which repository fields from the current
-        ;;; structure or structures will be used to create a subset.
-        ;;; Adding structure and field name pairs to this collection is equivalent to using the -fields command line option.
-        ;;; </summary>
-        public readwrite property SubsetFields, @List<Tuple<String, String>>, new List<Tuple<String, String>>()
-
-        ;;; <summary>
-        ;;;	User defined tokens.
-        ;;; Adding UserTokens to this collection is equivalent to using the -ut command line option.
-        ;;; </summary>
-        public readwrite property UserTokens, @List<UserToken>, new List<UserToken>()
- 
-        ;;; <summary>
-        ;;;	User defined token file. Optionally specify the path to a file which contains user
-        ;;; defined token definitions.
-        ;;; Setting this property is equivalent to using the -u command line option.
-        ;;; </summary>
-        public readwrite property UserTokenFile, String
-
-        ;;; <summary>
-        ;;;	Should we treat user-defined tokens as pre-processor tokens.
-        ;;; If this property is set to true then user-defined tokens will be expanded out
-        ;;; to other tokens during tokenization, thus making it possible for the value of
-        ;;; user defined tokens to contain other tokens.
-        ;;; Setting this property to true is equivalent to using the -utpp command line option.
-        ;;; </summary>
-        public readwrite property PreProcessUserTokens, boolean
-
-        ;;; <summary>
-        ;;;	Template folder. If not specified then the folder defined by the environment variable
-        ;;; CODEGEN_TPLDIR is used. If that is not defined then the current folder is used.
-        ;;; Setting this property is equivalent to using the -i command line option.
-        ;;; </summary>
-        public property TemplateFolder, String
-            method get
-            proc
-                mreturn mTemplateFolder
-            endmethod
-            method set
-            proc
-                mTemplateFolder = value.Trim()
-                if (!mTemplateFolder.EndsWith(":")&&!mTemplateFolder.EndsWith(Path.DirectorySeparatorChar.ToString()))
-                    mTemplateFolder += Path.DirectorySeparatorChar
-            endmethod
-        endproperty
-
-        private mTemplateFolder, String
+        private mOutputFolder, String
 
         ;;; <summary>
         ;;;	Output folder. If not specified then the folder defined by the environment variable
@@ -190,14 +119,48 @@ namespace CodeGen.Engine
             endmethod
         endproperty
 
-        private mOutputFolder, String
+.endregion
+
+.region "Other configuration properties - serialized"
 
         ;;; <summary>
-        ;;;	Namespace to be used if the <NAMESPACE> token is used. If not specified
-        ;;; then the namespace defined by the environment variable SYNDEFNS is used.
-        ;;; Setting this property is equivalent to using the -n command line option.
+        ;;;	Allow template files to specify an output sub-folder. If this property
+        ;;; is false then any <CODEGEN_FOLDER> tokens will be ignored.
+        ;;; Setting this property to true is the equivalent to using the -tf command line option.
         ;;; </summary>
-        public readwrite property Namespace, String
+        public readwrite property AllowTemplateFolder, Boolean
+
+        ;;; <summary>
+        ;;;	Always use the default buttons defined in DefaultButtons.xml.
+        ;;; Setting this property to true is equivalent to using the -b a command line option.
+        ;;; </summary>
+        public readwrite property AlwaysLoadDefaultButtons, Boolean
+
+        ;;; <summary>
+        ;;;	The height of a character (or row) in pixels. The default height is 25 pixels.
+        ;;; Setting this property is equivalent to using the -ch command line option.
+        ;;; </summary>
+        public readwrite property CharacterHeight, int, DefaultValues.DefaultCharacterHeight
+
+        ;;; <summary>
+        ;;;	The width of a character in pixels. The default width is 12 pixels.
+        ;;; Setting this property is equivalent to using the -cw command line option.
+        ;;; </summary>
+        public readwrite property CharacterWidth, int, DefaultValues.DefaultCharacterWidth
+
+        ;;; <summary>
+        ;;; Description of the task.
+        ;;; </summary>
+        public readwrite  property Description, String, "New Task"
+
+        ;;; <summary>
+        ;;;	When using a template defined folder name, that name is usually appended to the end of
+        ;;; any namespace that is used. This option prevents that from hapenning.
+        ;;; Setting this property to true is the equivalent to using the -nf command line option.
+        ;;; </summary>
+        public readwrite property DontAppendFolderToNamespace, Boolean
+
+        private mFieldPrefix, String
 
         ;;; <summary>
         ;;;	Optional prefix to apply to field names when the <FIELD_NAME> token is used.
@@ -214,154 +177,15 @@ namespace CodeGen.Engine
             endmethod
         endproperty
 
-        private mFieldPrefix, String
-
         ;;; <summary>
-        ;;;	Subset of fields to use. Specify subsets in field user text strings with @SUB=name;
-        ;;; syntax. This option is only valid when processing a single repository structure.
-        ;;; Setting this property is equivalent to using the -subset command line option.
+        ;;;	File Overrides. This option allows you to specify which repository file definition is
+        ;;; used for each structure that you are processing. This option is useful if the structure
+        ;;; that you are using is assigned to multiple files, because CodeGen will by default will
+        ;;; always select the first assigned file. The number of file overrides must be less than
+        ;;; or equal to the number of structures being processed.
+        ;;; Adding repository file definition names to this collection is equivalent to using the -fo command line option.
         ;;; </summary>
-        public property Subset, String
-            method get
-            proc
-                mreturn mSubset
-            endmethod
-            method set
-            proc
-                mSubset = value.ToUpper()
-            endmethod
-        endproperty
-
-        private mSubset, String
-
-        ;;; <summary>
-        ;;;	Repository file name to process. Setting this property makes all of the structures
-        ;;; associated with the file definition to be available during code generation, as if
-        ;;; you had specified those structures via the Structures property and also set the
-        ;;; MultipleStructures property to true.
-        ;;; Setting this property is equivalent to using the -file command line option.
-        ;;; </summary>
-        public readwrite property RepositoryFile, String
-
-        ;;; <summary>
-        ;;;	Process input from a UI Toolkit Window script file.  By default the fields and
-        ;;; buttons collection will be based on the first input window found in the script file,
-        ;;; but this can be overridden by specifying the name of number or name of the window to
-        ;;; use following a # character after the script file name.
-        ;;; Setting this property is equivalent to using the -w command line option.
-        ;;; </summary>
-        public readwrite property WindowScript, String
-
-        ;;; <summary>
-        ;;;	Window script selection list processing. When this option is used CodeGen will examine
-        ;;; any fields which have selection windows specified and will attempt to populate the field
-        ;;; selections property based on the selection items defined in the named selection window.
-        ;;; Setting this property is equivalent to using the -ws command line option.
-        ;;; </summary>
-        public readwrite property SelectionWindowScript, String
-
-        ;;; <summary>
-        ;;;	Process input from a BusinessCraft Proforma file.
-        ;;; Setting this property is equivalent to using the -proforma command line option.
-        ;;; </summary>
-        public readwrite property ProformaFile, String
-
-        ;;; <summary>
-        ;;;	
-        ;;; 
-        ;;; </summary>
-        public readwrite property ProformaStructures, @RpsStructureCollection
-
-        ;;; <summary>
-        ;;;	The width of a character in pixels. The default width is 12 pixels.
-        ;;; Setting this property is equivalent to using the -cw command line option.
-        ;;; </summary>
-        public readwrite property CharacterWidth, int, DefaultValues.DefaultCharacterWidth
-
-        ;;; <summary>
-        ;;;	The height of a character (or row) in pixels. The default height is 25 pixels.
-        ;;; Setting this property is equivalent to using the -ch command line option.
-        ;;; </summary>
-        public readwrite property CharacterHeight, int, DefaultValues.DefaultCharacterHeight
-
-        ;;; <summary>
-        ;;;	The key number that should be treated as the primary key when using a primary key block.
-        ;;; Setting this property is equivalent to using the -opk command line option.
-        ;;; </summary>
-        public readwrite property PrimaryKeyNumber, int, 0
-
-        ;;; <summary>
-        ;;;	Replace existing files. Default is to not replace existing files.
-        ;;; Setting this property to true is equivalent to using the -r command line option.
-        ;;; </summary>
-        public readwrite property ReplaceFiles, Boolean
-
-        ;;; <summary>
-        ;;;	If multiple files with the same output file name are generared by the task
-        ;;; the defailt bahavior is to not write the second and subsequent files to disk,
-        ;;; so the first file generated will remain. This option allows you to specify
-        ;;; that all generations of the file are written to disk, meaning the last
-        ;;; generated file will remain.
-        ;;; Setting this property to true is equivalent to using the -mw command line option.
-        ;;; </summary>
-        public readwrite property MultiWriteFiles, Boolean
-
-        ;;; <summary>
-        ;;;	When processing input from a UI Toolkit Window script file this option prevents script
-        ;;; file input window field attributes from being used to override repository field attributes.
-        ;;; This allows you to generate code based on only the fields listed in an input window, but
-        ;;; using only the repository field definitions.
-        ;;; Setting this property to true is equivalent to using the -wn command line option.
-        ;;; </summary>
-        public readwrite property IgnoreScriptFieldAttributes, Boolean
-
-        ;;; <summary>
-        ;;;	Always use the default buttons defined in DefaultButtons.xml.
-        ;;; Setting this property to true is equivalent to using the -b a command line option.
-        ;;; </summary>
-        public readwrite property AlwaysLoadDefaultButtons, Boolean
-
-        ;;; <summary>
-        ;;;	Never use the default buttons defined in DefaultButtons.xml.
-        ;;; Setting this property to true is equivalent to using the -b d command line option.
-        ;;; </summary>
-        public readwrite property NeverLoadDefaultButtons, Boolean
-
-        ;;; <summary>
-        ;;;	Never load any buttons (DefaultButtons.xml or window script).
-        ;;; Setting this property to true is equivalent to using the -b n command line option.
-        ;;; </summary>
-        public readwrite property NeverLoadAnyButtons, Boolean
-
-        ;;; <summary>
-        ;;;	Include overlay fields.
-        ;;; Setting this property to true is equivalent to using the -f o command line option.
-        ;;; </summary>
-        public readwrite property IncludeOverlayFields, Boolean
-
-        ;;; <summary>
-        ;;;	Include fields which are 'Excluded by Language'.
-        ;;; Setting this property to true is equivalent to using the -f l command line option.
-        ;;; </summary>
-        public readwrite property IgnoreExcludeLanguage, Boolean
-
-        ;;; <summary>
-        ;;;	Exclude fields which are 'Excluded by Toolkit'.
-        ;;; Setting this property to true is equivalent to using the -f t command line option.
-        ;;; </summary>
-        public readwrite property HonorExcludeToolkit, Boolean
-
-        ;;; <summary>
-        ;;;	Exclude fields which are 'Excluded by ReportWriter'.
-        ;;; Setting this property to true is equivalent to using the -f r command line option.
-        ;;; </summary>
-        public readwrite property HonorExcludeReportWriter, Boolean
-
-        ;;; <summary>
-        ;;;	Exclude fields which are 'Excluded by Web'.
-        ;;; Setting this property to true is equivalent to using the -f w command line option.
-        ;;; </summary>
-        public readwrite property HonorExcludeWeb, Boolean
+        public readwrite  property FileOverrides, @ObservableCollection<String>, new ObservableCollection<String>()
 
         ;;; <summary>
         ;;;	Don't prefix group fields with group name.
@@ -382,6 +206,45 @@ namespace CodeGen.Engine
         public readwrite property GroupNoExpand, Boolean
 
         ;;; <summary>
+        ;;;	Exclude fields which are 'Excluded by ReportWriter'.
+        ;;; Setting this property to true is equivalent to using the -f r command line option.
+        ;;; </summary>
+        public readwrite property HonorExcludeReportWriter, Boolean
+
+        ;;; <summary>
+        ;;;	Exclude fields which are 'Excluded by Toolkit'.
+        ;;; Setting this property to true is equivalent to using the -f t command line option.
+        ;;; </summary>
+        public readwrite property HonorExcludeToolkit, Boolean
+
+        ;;; <summary>
+        ;;;	Exclude fields which are 'Excluded by Web'.
+        ;;; Setting this property to true is equivalent to using the -f w command line option.
+        ;;; </summary>
+        public readwrite property HonorExcludeWeb, Boolean
+
+        ;;; <summary>
+        ;;;	Include overlay fields.
+        ;;; Setting this property to true is equivalent to using the -f o command line option.
+        ;;; </summary>
+        public readwrite property IncludeOverlayFields, Boolean
+
+        ;;; <summary>
+        ;;;	Include fields which are 'Excluded by Language'.
+        ;;; Setting this property to true is equivalent to using the -f l command line option.
+        ;;; </summary>
+        public readwrite property IgnoreExcludeLanguage, Boolean
+
+        ;;; <summary>
+        ;;;	When processing input from a UI Toolkit Window script file this option prevents script
+        ;;; file input window field attributes from being used to override repository field attributes.
+        ;;; This allows you to generate code based on only the fields listed in an input window, but
+        ;;; using only the repository field definitions.
+        ;;; Setting this property to true is equivalent to using the -wn command line option.
+        ;;; </summary>
+        public readwrite property IgnoreScriptFieldAttributes, Boolean
+
+        ;;; <summary>
         ;;;	Multiple Structures. Specifies that the structures specified via the Structures
         ;;; property should all be available to templates being processed at the same time.
         ;;; Setting this property to true is equivalent to using the -ms command line option.
@@ -389,18 +252,138 @@ namespace CodeGen.Engine
         public readwrite property MultipleStructures, Boolean
 
         ;;; <summary>
-        ;;;	Allow template files to specify an output sub-folder. If this property
-        ;;; is false then any <CODEGEN_FOLDER> tokens will be ignored.
-        ;;; Setting this property to true is the equivalent to using the -tf command line option.
+        ;;;	If multiple files with the same output file name are generared by the task
+        ;;; the defailt bahavior is to not write the second and subsequent files to disk,
+        ;;; so the first file generated will remain. This option allows you to specify
+        ;;; that all generations of the file are written to disk, meaning the last
+        ;;; generated file will remain.
+        ;;; Setting this property to true is equivalent to using the -mw command line option.
         ;;; </summary>
-        public readwrite property AllowTemplateFolder, Boolean
-		
+        public readwrite property MultiWriteFiles, Boolean
+
         ;;; <summary>
-        ;;;	When using a template defined folder name, that name is usually appended to the end of
-        ;;; any namespace that is used. This option prevents that from hapenning.
-        ;;; Setting this property to true is the equivalent to using the -nf command line option.
+        ;;;	Namespace to be used if the <NAMESPACE> token is used. If not specified
+        ;;; then the namespace defined by the environment variable SYNDEFNS is used.
+        ;;; Setting this property is equivalent to using the -n command line option.
         ;;; </summary>
-        public readwrite property DontAppendFolderToNamespace, Boolean
+        public readwrite property Namespace, String
+
+        ;;; <summary>
+        ;;;	Never load any buttons (DefaultButtons.xml or window script).
+        ;;; Setting this property to true is equivalent to using the -b n command line option.
+        ;;; </summary>
+        public readwrite property NeverLoadAnyButtons, Boolean
+
+        ;;; <summary>
+        ;;;	Never use the default buttons defined in DefaultButtons.xml.
+        ;;; Setting this property to true is equivalent to using the -b d command line option.
+        ;;; </summary>
+        public readwrite property NeverLoadDefaultButtons, Boolean
+
+        ;;; <summary>
+        ;;;	Should we treat user-defined tokens as pre-processor tokens.
+        ;;; If this property is set to true then user-defined tokens will be expanded out
+        ;;; to other tokens during tokenization, thus making it possible for the value of
+        ;;; user defined tokens to contain other tokens.
+        ;;; Setting this property to true is equivalent to using the -utpp command line option.
+        ;;; </summary>
+        public readwrite property PreProcessUserTokens, boolean
+
+        ;;; <summary>
+        ;;;	The key number that should be treated as the primary key when using a primary key block.
+        ;;; Setting this property is equivalent to using the -opk command line option.
+        ;;; </summary>
+        public readwrite property PrimaryKeyNumber, int, 0
+
+        ;;; <summary>
+        ;;;	Process input from a BusinessCraft Proforma file.
+        ;;; Setting this property is equivalent to using the -proforma command line option.
+        ;;; </summary>
+        public readwrite property ProformaFile, String
+
+        ;;; <summary>
+        ;;;	
+        ;;; 
+        ;;; </summary>
+        public readwrite property ProformaStructures, @RpsStructureCollection
+
+        ;;; <summary>
+        ;;;	Replace existing files. Default is to not replace existing files.
+        ;;; Setting this property to true is equivalent to using the -r command line option.
+        ;;; </summary>
+        public readwrite property ReplaceFiles, Boolean
+
+        ;;; <summary>
+        ;;;	Repository file name to process. Setting this property makes all of the structures
+        ;;; associated with the file definition to be available during code generation, as if
+        ;;; you had specified those structures via the Structures property and also set the
+        ;;; MultipleStructures property to true.
+        ;;; Setting this property is equivalent to using the -file command line option.
+        ;;; </summary>
+        public readwrite property RepositoryFile, String
+
+        ;;;	<summary>
+        ;;; Repository main file to use.
+        ;;;	</summary>
+        public readwrite property RepositoryMainFile, String
+
+        ;;;	<summary>
+        ;;; Repository text file to use.
+        ;;;	</summary>
+        public readwrite property RepositoryTextFile, String
+
+        ;;; <summary>
+        ;;;	Window script selection list processing. When this option is used CodeGen will examine
+        ;;; any fields which have selection windows specified and will attempt to populate the field
+        ;;; selections property based on the selection items defined in the named selection window.
+        ;;; Setting this property is equivalent to using the -ws command line option.
+        ;;; </summary>
+        public readwrite property SelectionWindowScript, String
+
+        private mSubset, String
+
+        ;;; <summary>
+        ;;;	Subset of fields to use. Specify subsets in field user text strings with @SUB=name;
+        ;;; syntax. This option is only valid when processing a single repository structure.
+        ;;; Setting this property is equivalent to using the -subset command line option.
+        ;;; </summary>
+        public property Subset, String
+            method get
+            proc
+                mreturn mSubset
+            endmethod
+            method set
+            proc
+                mSubset = value.ToUpper()
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;;	Subset fields. This option allows you to specify which repository fields from the current
+        ;;; structure or structures will be used to create a subset.
+        ;;; Adding structure and field name pairs to this collection is equivalent to using the -fields command line option.
+        ;;; </summary>
+        public readwrite property SubsetFields, @ObservableCollection<Tuple<String, String>>, new ObservableCollection<Tuple<String, String>>()
+
+        private mTemplateFolder, String
+
+        ;;; <summary>
+        ;;;	Template folder. If not specified then the folder defined by the environment variable
+        ;;; CODEGEN_TPLDIR is used. If that is not defined then the current folder is used.
+        ;;; Setting this property is equivalent to using the -i command line option.
+        ;;; </summary>
+        public property TemplateFolder, String
+            method get
+            proc
+                mreturn mTemplateFolder
+            endmethod
+            method set
+            proc
+                mTemplateFolder = value.Trim()
+                if (!mTemplateFolder.EndsWith(":")&&!mTemplateFolder.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                    mTemplateFolder += Path.DirectorySeparatorChar
+            endmethod
+        endproperty
 
         ;;; <summary>
         ;;; Should alternate field names be used?
@@ -413,9 +396,314 @@ namespace CodeGen.Engine
         ;;; </summary>
         public readwrite property UseAlternateStructureNames, Boolean
 
-        .endregion
+        ;;; <summary>
+        ;;;	User defined token file. Optionally specify the path to a file which contains user
+        ;;; defined token definitions.
+        ;;; Setting this property is equivalent to using the -u command line option.
+        ;;; </summary>
+        public readwrite property UserTokenFile, String
 
-        .region "Events"
+        ;;; <summary>
+        ;;;	User defined tokens.
+        ;;; Adding UserTokens to this collection is equivalent to using the -ut command line option.
+        ;;; </summary>
+        public readwrite property UserTokens, @ObservableCollection<UserToken>, new ObservableCollection<UserToken>()
+
+        ;;; <summary>
+        ;;;	Process input from a UI Toolkit Window script file.  By default the fields and
+        ;;; buttons collection will be based on the first input window found in the script file,
+        ;;; but this can be overridden by specifying the name of number or name of the window to
+        ;;; use following a # character after the script file name.
+        ;;; Setting this property is equivalent to using the -w command line option.
+        ;;; </summary>
+        public readwrite property WindowScript, String
+
+.endregion
+
+.region "Status properties - not serialized"
+
+        private mComplete, Boolean, false
+
+        ;;; <summary>
+        ;;; Did the task complete without any errors
+        ;;; </summary>
+        {JsonIgnore}
+        public property Complete, Boolean
+            method get
+            proc
+                mreturn mComplete
+            endmethod
+            internal method set
+            proc
+                mComplete = value
+            endmethod
+        endproperty
+
+        private mErrors, int
+
+        ;;; <summary>
+        ;;; The number of errors reported during the processing of the task.
+        ;;; </summary>
+        {JsonIgnore}
+        public property Errors, int
+            method get
+            proc
+                mreturn mErrors
+            endmethod
+            internal method set
+            proc
+                mErrors = value
+            endmethod
+        endproperty
+
+        private mWarnings, int
+
+        ;;; <summary>
+        ;;; The number of errors reported during the processing of the task.
+        ;;; </summary>
+        {JsonIgnore}
+        public property Warnings, int
+            method get
+            proc
+                mreturn mWarnings
+            endmethod
+            internal method set
+            proc
+                mWarnings = value
+            endmethod
+        endproperty
+
+        private mLastErrorMessage, String, String.Empty
+
+        ;;; <summary>
+        ;;; Did the task complete without errors
+        ;;; </summary>
+        {JsonIgnore}
+        public property LastErrorMessage, String
+            method get
+            proc
+                mreturn mLastErrorMessage
+            endmethod
+            internal method set
+            proc
+                mLastErrorMessage = value
+            endmethod
+        endproperty
+
+        private mFilesGenerated, @ObservableCollection<String>, new ObservableCollection<String>()
+
+        ;;; <summary>
+        ;;; List of files that were generated by this task.
+        ;;; </summary>
+        {JsonIgnore}
+        public property FilesGenerated, @ObservableCollection<String>
+            method get
+            proc
+                mreturn mFilesGenerated
+            endmethod
+            method set
+            proc
+                mFilesGenerated = value
+            endmethod
+        endproperty
+
+        private mFilesProvided, @ObservableCollection<String>, new ObservableCollection<String>()
+
+        ;;; <summary>
+        ;;; List of additoinal files that provided by this task.
+        ;;; </summary>
+        {JsonIgnore}
+        public property FilesProvided, @ObservableCollection<String>
+            method get
+            proc
+                mreturn mFilesProvided
+            endmethod
+            method set
+            proc
+                mFilesProvided = value
+            endmethod
+        endproperty
+
+        private mFilesFailed, int, 0
+
+        ;;; <summary>
+        ;;; Number of files that failed, either because of errors, not overwriting
+        ;;; existing files, or not writing files multiple times.
+        ;;; </summary>
+        {JsonIgnore}
+        public property FilesFailed, int
+            method get
+            proc
+                mreturn mFilesFailed
+            endmethod
+            method set
+            proc
+                mFilesFailed = value
+            endmethod
+        endproperty
+
+        private mMessages, @ObservableCollection<String>, new ObservableCollection<String>()
+
+        {JsonIgnore}
+        public property Messages, @ObservableCollection<String>
+            method get
+            proc
+                mreturn mMessages
+            endmethod
+        endproperty		
+
+        private mTaskSet, @CodeGenTaskSet
+
+        ;;Internal because it is only ever used by the task set
+        internal property TaskSet, @CodeGenTaskSet
+            method get
+            proc
+                mreturn mTaskSet
+            endmethod
+            method set
+            proc
+                mTaskSet = value
+            endmethod
+        endproperty
+
+.endregion
+
+.region "Public methods"
+
+        internal method Log, void
+            required in text, String
+        proc
+            ;;Log the message to this task
+            Messages.Add(text)
+            ;;And also to the task set
+            TaskSet.Log(text)
+        endmethod
+
+        internal method Log, void
+            required in text, String
+            required in blankLineBefore, boolean
+            required in blankLineAfter, boolean
+        proc
+            ;;Log the message to this task
+            if (blankLineBefore)
+                Messages.Add("")
+            Messages.Add(text)
+            if (blankLineAfter)
+                Messages.Add("")
+            ;;And also to the task set
+            TaskSet.Log(text,blankLineBefore,blankLineAfter)
+        endmethod
+
+        internal method VerboseLog, void
+            required in text, String
+            required in blankLineBefore, boolean
+            required in blankLineAfter, boolean
+        proc
+            if ((int)(TaskSet.LoggingLevel)>=(int)LoggingLevel.Verbose)
+            begin
+                ;;Log the message to this task
+                if (blankLineBefore)
+                    Messages.Add("")
+                Messages.Add(text)
+                if (blankLineAfter)
+                    Messages.Add("")
+                ;;And also to the task set
+                TaskSet.VerboseLog(text,blankLineBefore,blankLineAfter)
+            end
+        endmethod
+
+        internal method VerboseLog, void
+            required in text, String
+        proc
+            if ((int)(TaskSet.LoggingLevel)>=(int)LoggingLevel.Verbose)
+            begin
+                ;;Log the message to this task
+                Messages.Add(text)
+                ;;And also to the task set
+                TaskSet.VerboseLog(text)
+            end
+        endmethod
+
+        internal method ErrorLog, boolean
+            required in text, String
+        proc
+            ;;Log the message to this task
+            Messages.Add(String.Format("ERROR:   {0}",text))
+            LastErrorMessage = text
+            Errors += 1
+            ;;And also to the task set
+            TaskSet.ErrorLog(text)
+            mreturn true
+        endmethod
+
+        internal method Warning, void
+            required in text, String
+        proc
+            ;;Log the message to this task
+            Messages.Add(String.Format("WARNING: {0}",text))
+            Warnings += 1
+            ;;And also to the task set
+            TaskSet.Warning(text)
+        endmethod
+
+        internal method DebugLog, void
+            required in text, String
+            required in blankLineBefore, boolean
+            required in blankLineAfter, boolean
+        proc
+            if ((int)(TaskSet.LoggingLevel)>=(int)LoggingLevel.Debug)
+            begin
+                ;;Log the message to this task
+                if (blankLineBefore)
+                    Messages.Add("")
+                Messages.Add(text)
+                if (blankLineAfter)
+                    Messages.Add("")
+                ;;And also to the task set
+                TaskSet.DebugLog(text,blankLineBefore,blankLineAfter)
+            end
+        endmethod
+
+        internal method DebugLog, void
+            required in text, String
+        proc
+            if ((int)(TaskSet.LoggingLevel)>=(int)LoggingLevel.Debug)
+            begin
+                ;;Log the message to this task
+                Messages.Add(text)
+                ;;And also to the task set
+                TaskSet.DebugLog(text)
+            end
+        endmethod
+
+        internal method DevDebugLog, void
+            required in text, String
+        proc
+            if (TaskSet.LoggingLevel==LoggingLevel.DeveloperDebug)
+            begin
+                ;;Log the message to this task
+                Messages.Add(string.Format("DEVDBG: {0}",text))
+                ;;And also to the task set
+                TaskSet.DevDebugLog(text)
+            end
+        endmethod
+
+        internal method echoCommand, void
+        proc
+.ifndef D_PORTABLE
+            data cmd, a4096
+            xcall cmdln(cmd)
+            data cmdstring = (string)%atrim(cmd)
+            data commandToReport = "codegen " + cmdstring.Substring(cmdstring.ToLower().IndexOf(".exe ")+5)
+            Log(commandToReport,true,false)
+.else
+            Log("Command-line logging (-e) is not currently supported in .NET Core")
+.endc
+        endmethod
+
+.endregion
+
+.region "Events"
 
         public delegate StartingTaskEventHandler, void
             task, @CodeGenTask
@@ -441,7 +729,7 @@ namespace CodeGen.Engine
                 raiseevent(TaskComplete,this)
         endmethod
 
-        .endregion
+.endregion
 
     endclass
 

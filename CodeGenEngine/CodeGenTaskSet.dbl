@@ -41,390 +41,382 @@
 ;;*****************************************************************************
 
 import System
-import System.Collections.Generic
 import System.Collections.ObjectModel
 import System.Collections.Specialized
-import System.ComponentModel
 import System.IO
-import System.Runtime.Serialization
-import System.Xml
-import System.Xml.Serialization
 import CodeGen.MethodCatalogAPI
+import Newtonsoft.Json
 
 .array 0
 
 namespace CodeGen.Engine
 
-	public enum LoggingLevel
-		Normal,
-		Verbose,
-		Debug,
-		DeveloperDebug
-	endenum
+    public enum LoggingLevel
+        Normal,
+        Verbose,
+        Debug,
+        DeveloperDebug
+    endenum
 
-	public enum SqlDatabaseType
-		SQLServer,
-		MySQL,
-		PostgreSQL
-	endenum
+    public enum SqlDatabaseType
+        SQLServer,
+        MySQL,
+        PostgreSQL
+    endenum
 
-	public class CodeGenTaskSet
+    public class CodeGenTaskSet
 
 .region "Constructors"
 
-		public method CodeGenTaskSet
-		proc
-			mMessages = new ObservableCollection<String>()
+        public method CodeGenTaskSet
+        proc
+            mMessages = new ObservableCollection<String>()
 
-			;;Whenever a new task is added, set it's logging level to the task set logging level
-			this.Tasks.CollectionChanged += tasksChanged
+            ;;Whenever a new task is added, set it's logging level to the task set logging level
+            this.Tasks.CollectionChanged += tasksChanged
 
-		endmethod
-		
-		private method tasksChanged, void
-			sender, @Object
-			e, @NotifyCollectionChangedEventArgs 
-		proc
-			;;Tell the task who it's "parent" task set is
-			if (e.Action==NotifyCollectionChangedAction.Add)
-			begin
-				data newTask, @CodeGenTask
-				foreach newTask in e.NewItems
-					newTask.TaskSet = this
-			end
-		endmethod
+        endmethod
 
 .endregion
 
-.region "TaskSet configuration properties"
+.region "Public properties"
 
-		;;;	<summary>
-		;;;	Description of the task set.
-		;;;	</summary>
-		public readwrite property Description, String, "New Task Set"
+.region "Configuration properties - serialized"
 
-		;;;	<summary>
-		;;;	The repository main file to use (optional).
-		;;;	</summary>
-		public readwrite property RepositoryMainFile, String
-		
-		;;;	<summary>
-		;;;	The repository text file to use (optional).
-		;;;	</summary>
-		public readwrite property RepositoryTextFile, String
+        ;;; <summary>
+        ;;; Continue processing even after an error.
+        ;;; Setting this property to true is equivalent to using the -c command line option.
+        ;;; </summary>
+        public readwrite property ContinueAfterError, Boolean
 
-		;;;	<summary>
-		;;;	The folder containing template files (optional).
-		;;; Setting this property is equivalent to using the -i command line option.
-		;;; If not set then the location specified by the environment variable CODEGEN_TPLDIR will be used.
-		;;; </summary>
-		public property TemplateFolder, String
-			method get
-			proc
-				mreturn mTemplateFolder
-			endmethod
-			method set
-			proc
-				mTemplateFolder = value.Trim()
-				if (!mTemplateFolder.EndsWith(":")&&!mTemplateFolder.EndsWith(Path.DirectorySeparatorChar.ToString()))
-					mTemplateFolder += Path.DirectorySeparatorChar
-			endmethod
-		endproperty
+        ;;; <summary>
+        ;;; Database to target (with the SQL_ field loop replacement tokens).
+        ;;; Setting this property is equivalent to using the -database command line option.
+        ;;; The default database targeted is Microsoft SQL Server.
+        ;;; </summary>
+        public readwrite property DatabaseType, SqlDatabaseType, SqlDatabaseType.SQLServer
 
-		private mTemplateFolder, String
+        ;;;	<summary>
+        ;;;	The name of a custom data mappings file to be used.
+        ;;; Setting this property is equivalent to using the -cdm command line option.
+        ;;;	</summary>
+        public readwrite property DataMappingsFile, String
 
-		;;;	<summary>
-		;;;	The folder where output files should be created (optional).
-		;;; Setting this property is equivalent to using the -o command line option.
-		;;; If not set then the location specified by the environment variable CODEGEN_OUTDIR will be used.
-		;;;	</summary>
-		public property OutputFolder, String
-			method get
-			proc
-				mreturn mOutputFolder
-			endmethod
-			method set
-			proc
-				mOutputFolder = value.Trim()
-				if (!mOutputFolder.EndsWith(":")&&!mOutputFolder.EndsWith(Path.DirectorySeparatorChar.ToString()))
-					mOutputFolder += Path.DirectorySeparatorChar
-			endmethod
-		endproperty
-		
-		private mOutputFolder, String
+        ;;; <summary>
+        ;;;	Defined identifiers.
+        ;;; Adding values to this collection is equivalent to using the -define command line option.
+        ;;; </summary>
+        public readwrite property Defines, @ObservableCollection<String>, new ObservableCollection<String>()
 
-		;;;	<summary>
-		;;;	The tasks to be processed by the task set.
-		;;;	</summary>
-		public readonly property Tasks, @ObservableCollection<CodeGenTask>, new ObservableCollection<CodeGenTask>()
-		
-		;;;	<summary>
-		;;;	The logging level to use during processing.
-		;;; Setting this property is equivalent to using command line options -v or -d.
-		;;;	</summary>
-		public readwrite property LoggingLevel, LoggingLevel, LoggingLevel.Normal
-		
-		;;;	<summary>
-		;;;	List the names of the output files generated.
-		;;; Setting this property to true is equivalent to using the -lf command line option.
-		;;;	</summary>
-		public readwrite property ListGeneratedFiles, Boolean
-		
-		;;; <summary>
-		;;; Echo the command line to the output log.
-		;;; Setting this property to true is equivalent to using the -e command line option.
-		;;; </summary>
-		public readwrite property EchoCommands, Boolean
-		
-		;;; <summary>
-		;;; Write the results of tokenization to a log file.
-		;;; Setting this property to true is equivalent to using the -dt command line option.
-		;;; </summary>
-		public readwrite property LogTokenizerResults, Boolean
+        ;;;	<summary>
+        ;;;	Description of the task set.
+        ;;;	</summary>
+        public readwrite property Description, String, "New Task Set"
 
-		;;; <summary>
-		;;; Continue processing even after an error.
-		;;; Setting this property to true is equivalent to using the -c command line option.
-		;;; </summary>
-		public readwrite property ContinueAfterError, Boolean
-		
-		;;;	<summary>
-		;;;	The name of a custom data mappings file to be used.
-		;;; Setting this property is equivalent to using the -cdm command line option.
-		;;;	</summary>
-		public readwrite property DataMappingsFile, String
-		
-		;;; <summary>
-		;;;	Defined identifiers.
-		;;; Adding values to this collection is equivalent to using the -define command line option.
-		;;; </summary>
-		public readwrite property Defines, @List<String>, new List<String>()
-		
-		;;; <summary>
-		;;; Database to target (with the SQL_ field loop replacement tokens).
-		;;; Setting this property is equivalent to using the -database command line option.
-		;;; The default database targeted is Microsoft SQL Server.
-		;;; </summary>
-		public readwrite property DatabaseType, SqlDatabaseType, SqlDatabaseType.SQLServer
+        ;;; <summary>
+        ;;; Echo the command line to the output log.
+        ;;; Setting this property to true is equivalent to using the -e command line option.
+        ;;; </summary>
+        public readwrite property EchoCommands, Boolean
 
-		public readwrite property MethodCatalog, @Smc
+        public readwrite property Interface, string
 
-		public readwrite property Interface, string
+        ;;;	<summary>
+        ;;;	List the names of the output files generated.
+        ;;; Setting this property to true is equivalent to using the -lf command line option.
+        ;;;	</summary>
+        public readwrite property ListGeneratedFiles, Boolean
 
-		;;; <summary>
-		;;; Should some errors be re-thrown to a assist with debugginh
-		;;; </summary>
-		public readwrite property ThrowOnError, boolean
+        ;;;	<summary>
+        ;;;	The logging level to use during processing.
+        ;;; Setting this property is equivalent to using command line options -v or -d.
+        ;;;	</summary>
+        public readwrite property LoggingLevel, LoggingLevel, LoggingLevel.Normal
+
+        ;;; <summary>
+        ;;; Write the results of tokenization to a log file.
+        ;;; Setting this property to true is equivalent to using the -dt command line option.
+        ;;; </summary>
+        public readwrite property LogTokenizerResults, Boolean
+
+        public readwrite property MethodCatalog, @Smc
+
+        private mOutputFolder, String
+
+        ;;;	<summary>
+        ;;;	The folder where output files should be created (optional).
+        ;;; Setting this property is equivalent to using the -o command line option.
+        ;;; If not set then the location specified by the environment variable CODEGEN_OUTDIR will be used.
+        ;;;	</summary>
+        public property OutputFolder, String
+            method get
+            proc
+                mreturn mOutputFolder
+            endmethod
+            method set
+            proc
+                mOutputFolder = value.Trim()
+                if (!mOutputFolder.EndsWith(":")&&!mOutputFolder.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                    mOutputFolder += Path.DirectorySeparatorChar
+            endmethod
+        endproperty
+
+        ;;;	<summary>
+        ;;;	The repository main file to use (optional).
+        ;;;	</summary>
+        public readwrite property RepositoryMainFile, String
+
+        ;;;	<summary>
+        ;;;	The repository text file to use (optional).
+        ;;;	</summary>
+        public readwrite property RepositoryTextFile, String
+
+        private mTemplateFolder, String
+
+        ;;;	<summary>
+        ;;;	The folder containing template files (optional).
+        ;;; Setting this property is equivalent to using the -i command line option.
+        ;;; If not set then the location specified by the environment variable CODEGEN_TPLDIR will be used.
+        ;;; </summary>
+        public property TemplateFolder, String
+            method get
+            proc
+                mreturn mTemplateFolder
+            endmethod
+            method set
+            proc
+                mTemplateFolder = value.Trim()
+                if (!mTemplateFolder.EndsWith(":")&&!mTemplateFolder.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                    mTemplateFolder += Path.DirectorySeparatorChar
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; Should some errors be re-thrown to a assist with debugginh
+        ;;; </summary>
+        public readwrite property ThrowOnError, boolean
+
+        ;;;	<summary>
+        ;;;	The tasks to be processed by the task set.
+        ;;;	</summary>
+        public readonly property Tasks, @ObservableCollection<CodeGenTask>, new ObservableCollection<CodeGenTask>()
 
 .endregion
 
-.region "Taskset status properties"
-		
-		{NonSerialized}
-		private mMessages, @ObservableCollection<String>
-		
-		{XmlIgnore}
-		public property Messages, @ObservableCollection<String>
-			method get
-			proc
-				mreturn mMessages
-			endmethod
-		endproperty
-		
-		{NonSerialized}
-		private mComplete, Boolean, false
-		
-		{XmlIgnore}
-		public property Complete, Boolean
-			method get
-			proc
-				mreturn mComplete
-			endmethod
-			internal method set
-			proc
-				mComplete = value
-			endmethod
-		endproperty
-		
-		{NonSerialized}
-		private mLastErrorMessage, String, String.Empty
+.region "Status properties - not serialized"
 
-		{XmlIgnore}
-		public property LastErrorMessage, String
-			method get
-			proc
-				mreturn mLastErrorMessage
-			endmethod
-			method set
-			proc
-				mLastErrorMessage = value
-			endmethod
-		endproperty
-		
+        private mMessages, @ObservableCollection<String>
+
+        {JsonIgnore}
+        public property Messages, @ObservableCollection<String>
+            method get
+            proc
+                mreturn mMessages
+            endmethod
+        endproperty
+
+        private mComplete, Boolean, false
+
+        {JsonIgnore}
+        public property Complete, Boolean
+            method get
+            proc
+                mreturn mComplete
+            endmethod
+            internal method set
+            proc
+                mComplete = value
+            endmethod
+        endproperty
+
+        private mLastErrorMessage, String, String.Empty
+
+        {JsonIgnore}
+        public property LastErrorMessage, String
+            method get
+            proc
+                mreturn mLastErrorMessage
+            endmethod
+            method set
+            proc
+                mLastErrorMessage = value
+            endmethod
+        endproperty
+
+.endregion
+
 .endregion
 
 .region "Events"
-		
-		public delegate StartingTaskSetEventHandler, void
-			taskset, @CodeGenTaskSet
-		enddelegate
-		
-		public delegate TaskSetCompleteEventHandler, void
-			taskset, @CodeGenTaskSet
-		enddelegate
-		
-		public event StartingTaskSet, @StartingTaskSetEventHandler
-		public event TaskSetComplete, @TaskSetCompleteEventHandler
-		
-		internal method RaiseStartingTaskSet, void
-		proc
-			if (StartingTaskSet!=^null)
-				raiseevent(StartingTaskSet,this)
-		endmethod
 
-		internal method RaiseTaskSetComplete, void
-		proc
-			if (TaskSetComplete!=^null)
-				raiseevent(TaskSetComplete,this)
-		endmethod
-		
+        public delegate StartingTaskSetEventHandler, void
+            taskset, @CodeGenTaskSet
+        enddelegate
+
+        public delegate TaskSetCompleteEventHandler, void
+            taskset, @CodeGenTaskSet
+        enddelegate
+
+        public event StartingTaskSet, @StartingTaskSetEventHandler
+        public event TaskSetComplete, @TaskSetCompleteEventHandler
+
+        internal method RaiseStartingTaskSet, void
+        proc
+            if (StartingTaskSet!=^null)
+                raiseevent(StartingTaskSet,this)
+        endmethod
+
+        internal method RaiseTaskSetComplete, void
+        proc
+            if (TaskSetComplete!=^null)
+                raiseevent(TaskSetComplete,this)
+        endmethod
+
 .endregion
-		
+
+.region "Private methods"
+
+        private method tasksChanged, void
+            sender, @Object
+            e, @NotifyCollectionChangedEventArgs 
+        proc
+            ;;Tell the task who it's "parent" task set is
+            if (e.Action==NotifyCollectionChangedAction.Add)
+            begin
+                data newTask, @CodeGenTask
+                foreach newTask in e.NewItems
+                    newTask.TaskSet = this
+            end
+        endmethod
+
+.endregion
+
+.region "Internal methods"
+
+        internal method Log, void
+            required in text, String
+        proc
+            Messages.Add(text)
+        endmethod
+
+        internal method Log, void
+            required in text, String
+            required in blankLineBefore, boolean
+            required in blankLineAfter, boolean
+        proc
+            if (blankLineBefore)
+                Messages.Add("")
+            Messages.Add(text)
+            if (blankLineAfter)
+                Messages.Add("")
+        endmethod
+
+        internal method VerboseLog, void
+            required in text, String
+            required in blankLineBefore, boolean
+            required in blankLineAfter, boolean
+        proc
+            if ((int)this.LoggingLevel>=(int)LoggingLevel.Verbose)
+            begin
+                if (blankLineBefore)
+                    Messages.Add("")
+                Messages.Add(text)
+                if (blankLineAfter)
+                    Messages.Add("")
+            end
+        endmethod
+
+        internal method VerboseLog	, void
+            required in text, String
+        proc
+            if ((int)this.LoggingLevel>=(int)LoggingLevel.Verbose)
+                Messages.Add(text)
+        endmethod
+
+        internal method ErrorLog, boolean
+            required in text, String
+        proc
+            Messages.Add(String.Format("ERROR: {0}",text))
+            LastErrorMessage = text
+            mreturn true
+        endmethod
+
+        internal method Warning, void
+            required in text, String
+        proc
+            Messages.Add(String.Format("WARNING: {0}",text))
+        endmethod
+
+        internal method DebugLog, void
+            required in text, String
+            required in blankLineBefore, boolean
+            required in blankLineAfter, boolean
+        proc
+            if ((int)this.LoggingLevel>=(int)LoggingLevel.Debug)
+            begin
+                if (blankLineBefore)
+                    Messages.Add("")
+                Messages.Add(text)
+                if (blankLineAfter)
+                    Messages.Add("")
+            end
+        endmethod
+
+        internal method DebugLog, void
+            required in text, String
+        proc
+            if ((int)this.LoggingLevel>=(int)LoggingLevel.Debug)
+                Messages.Add(text)
+        endmethod
+
+        internal method DevDebugLog, void
+            required in text, String
+        proc
+            if (this.LoggingLevel==LoggingLevel.DeveloperDebug)
+                Messages.Add(string.Format("DEVDBG: {0}",text))
+        endmethod
+
+.endregion
+
 .region "Public methods"
 
-		internal method Log, void
-			required in text, String
-		proc
-			Messages.Add(text)
-		endmethod
-		
-		internal method Log, void
-			required in text, String
-			required in blankLineBefore, boolean
-			required in blankLineAfter, boolean
-		proc
-			if (blankLineBefore)
-				Messages.Add("")
-			Messages.Add(text)
-			if (blankLineAfter)
-				Messages.Add("")
-		endmethod
-		
-		internal method VerboseLog, void
-			required in text, String
-			required in blankLineBefore, boolean
-			required in blankLineAfter, boolean
-		proc
-			if ((int)this.LoggingLevel>=(int)LoggingLevel.Verbose)
-			begin
-				if (blankLineBefore)
-					Messages.Add("")
-				Messages.Add(text)
-				if (blankLineAfter)
-					Messages.Add("")
-			end
-		endmethod
-		
-		internal method VerboseLog	, void
-			required in text, String
-		proc
-			if ((int)this.LoggingLevel>=(int)LoggingLevel.Verbose)
-				Messages.Add(text)
-		endmethod
-		
-		internal method ErrorLog, boolean
-			required in text, String
-		proc
-			Messages.Add(String.Format("ERROR: {0}",text))
-			LastErrorMessage = text
-			mreturn true
-		endmethod
-		
-		internal method Warning, void
-			required in text, String
-		proc
-			Messages.Add(String.Format("WARNING: {0}",text))
-		endmethod
-		
-		internal method DebugLog, void
-			required in text, String
-			required in blankLineBefore, boolean
-			required in blankLineAfter, boolean
-		proc
-			if ((int)this.LoggingLevel>=(int)LoggingLevel.Debug)
-			begin
-				if (blankLineBefore)
-					Messages.Add("")
-				Messages.Add(text)
-				if (blankLineAfter)
-					Messages.Add("")
-			end
-		endmethod
-		
-		internal method DebugLog, void
-			required in text, String
-		proc
-			if ((int)this.LoggingLevel>=(int)LoggingLevel.Debug)
-				Messages.Add(text)
-		endmethod
+        public method SaveToFile, boolean
+            required in fileSpec, String
+        proc
+            data ok = true
+            try
+            begin
+                File.WriteAllText(fileSpec, JsonConvert.SerializeObject(this, Formatting.Indented))
+            end
+            catch (e, @Exception)
+            begin
+                ;;Just return a fail status
+            end
+            endtry
+            mreturn false
+        endmethod
 
-		internal method DevDebugLog, void
-			required in text, String
-		proc
-			if (this.LoggingLevel==LoggingLevel.DeveloperDebug)
-				Messages.Add(string.Format("DEVDBG: {0}",text))
-		endmethod
-		
-		public method SaveToFile, boolean
-			required in fileSpec, String
-		proc
-			data ok = true
-			try
-			begin
-				disposable data stm, @StreamWriter, File.CreateText(fileSpec)
-				if(stm!=^null)
-				begin
-					data xs = new XmlSerializer(this.GetType())
-					xs.Serialize(stm,this)
-					stm.Close()
-				end
-			end
-			catch (e, @Exception)
-			begin
-				ok = false
-			end
-			endtry
-			mreturn ok
-		endmethod
-		
-		public static method LoadFromFile, boolean
-			required in fileSpec, String
-			required out taskSet, @CodeGenTaskSet
-		proc
-			data ok = true
-			
-			try
-			begin
-				disposable data stm = File.OpenText(fileSpec)
-				if (stm!=^null)
-				begin
-					data xs = new XmlSerializer(^typeof(CodeGenTaskSet))
-					data xr = new XmlTextReader(stm)
-					taskSet = (CodeGenTaskSet)xs.Deserialize(xr)
-					stm.Close()
-				end
-			end
-			catch (ex, @Exception)
-			begin
-				ok = false
-			end
-			endtry
-			mreturn ok
-		endmethod
+        public static method LoadFromFile, boolean
+            required in fileSpec, String
+            required out taskSet, @CodeGenTaskSet
+        proc
+            data ok = true
+            try
+            begin
+                data jsonData = File.ReadAllText(fileSpec)
+                taskSet = JsonConvert.DeserializeObject<CodeGenTaskSet>(jsonData)
+                mreturn true
+            end
+            catch (ex, @Exception)
+            begin
+                ;;Just return a fail status
+            end
+            endtry
+            mreturn false
+        endmethod
 
 .endregion
 
-	endclass
+    endclass
 
 endnamespace
-

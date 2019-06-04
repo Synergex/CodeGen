@@ -20,8 +20,7 @@ namespace HarmonyCoreGenerator.ViewModel
         
 .region "Data binding properties"
         
-        private _SolutionFolder, string
-        private _SolutionFile, string, String.Empty
+        private _SolutionFile, string
         
         public property SolutionFile, string
             method get
@@ -30,16 +29,33 @@ namespace HarmonyCoreGenerator.ViewModel
             endmethod
             method set
             proc
-                if (!_SolutionFile.Equals(value))
+                if (_SolutionFile == ^null || !_SolutionFile.Equals(value))
                 begin
                     _SolutionFile = value
                     NotifyPropertyChanged(^nameof(SolutionFile))
                 end
             endmethod
         endproperty
-        
-        private _SettingsFile, string, String.Empty
-        
+
+        private _SolutionFolder, string
+
+        public property SolutionFolder, string
+            method get
+            proc
+                mreturn _SolutionFolder
+            endmethod
+            method set
+            proc
+                if (_SolutionFolder == ^null || !_SolutionFolder.Equals(value))
+                begin
+                    _SolutionFolder = value
+                    NotifyPropertyChanged(^nameof(SolutionFolder))
+                end
+            endmethod
+        endproperty
+
+        private _SettingsFile, string
+
         public property SettingsFile, string
             method get
             proc
@@ -47,14 +63,31 @@ namespace HarmonyCoreGenerator.ViewModel
             endmethod
             method set
             proc
-                if (!_SettingsFile.Equals(value))
+                if (_SettingsFile == ^null || !_SettingsFile.Equals(value))
                 begin
                     _SettingsFile = value
                     NotifyPropertyChanged(^nameof(SettingsFile))
                 end
             endmethod
         endproperty
-        
+
+        private _TasksetFile, string
+
+        public property TasksetFile, string
+            method get
+            proc
+                mreturn _TasksetFile
+            endmethod
+            method set
+            proc
+                if (_TasksetFile == ^null || !_TasksetFile.Equals(value))
+                begin
+                    _TasksetFile = value
+                    NotifyPropertyChanged(^nameof(TasksetFile))
+                end
+            endmethod
+        endproperty
+
         private _SolutionOpen, boolean
         
         public property SolutionOpen, boolean
@@ -330,8 +363,12 @@ namespace HarmonyCoreGenerator.ViewModel
             if (result == true)
             begin
                 SolutionFile = dlg.FileName
-                _SolutionFolder = Path.GetDirectoryName(_SolutionFile)
+                SolutionFolder = Path.GetDirectoryName(_SolutionFile)
                 SettingsFile = Path.Combine(Path.GetDirectoryName(_SolutionFile), Path.GetFileNameWithoutExtension(_SolutionFile) + ".hcproj")
+                TasksetFile = Path.Combine(Path.GetDirectoryName(_SolutionFile), Path.GetFileNameWithoutExtension(_SolutionFile) + ".codegen")
+
+                ;;Make sure we're in the solution folder
+                Directory.SetCurrentDirectory(_SolutionFolder)
 
                 data errors = new List<string>()
                 data temp, string
@@ -397,63 +434,63 @@ namespace HarmonyCoreGenerator.ViewModel
                     ;; Repository files
                     temp = Path.Combine(_SolutionFolder, "Repository", "bin", "Debug", "rpsmain.ism")
                     if (File.Exists(temp)) then
-                        Options.RepositoryMainFile = temp
+                        Options.RepositoryMainFile = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         errors.Add("File 'rpsmain.ism' was not found in the expected location!")
 
                     temp = Path.Combine(_SolutionFolder, "Repository", "bin", "Debug", "rpstext.ism")
 
                     if (File.Exists(temp)) then
-                        Options.RepositoryTextFile = temp
+                        Options.RepositoryTextFile = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         errors.Add("File 'rpstext.ism' was not found in the expected location!")
 
                     ;; User tokens file should be in the solution folder
                     temp = Path.Combine(_SolutionFolder, "UserDefinedTokens.tkn")
                     if (File.Exists(temp)) then
-                        Options.UserTokensFile = temp
+                        Options.UserTokensFile = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         errors.Add("File 'UserDefinedTokens.tkn' was not found in the solution directory!")
 
                     ;; Verify the services folder is present
                     temp = Path.Combine(_SolutionFolder, "Services")
                     if (Directory.Exists(temp)) then
-                        Options.ServicesFolder = temp
+                        Options.ServicesFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         errors.Add("Folder 'Services' was not found in the solution directory!")
 
                     ;; Verify the controllers folder is present
                     temp = Path.Combine(_SolutionFolder, "Services.Controllers")
                     if (Directory.Exists(temp)) then
-                        Options.ControllersFolder = temp
+                        Options.ControllersFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         errors.Add("Folder 'Services.Controllers' was not found in the solution directory!")
 
                     ;; Verify the self host folder is present
                     temp = Path.Combine(_SolutionFolder, "Services.Host")
                     if (Directory.Exists(temp)) then
-                        Options.SelfHostFolder = temp
+                        Options.SelfHostFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         errors.Add("Folder 'Services.Host' was not found in the solution directory!")
 
                     ;; Verify the isolated folder is present
                     temp = Path.Combine(_SolutionFolder, "Services.Isolated")
                     if (Directory.Exists(temp)) then
-                        Options.IsolatedFolder = temp
+                        Options.IsolatedFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         errors.Add("Folder 'Services.Isolated' was not found in the solution directory!")
 
                     ;; Verify the models folder is present
                     temp = Path.Combine(_SolutionFolder, "Services.Models")
                     if (Directory.Exists(temp)) then
-                        Options.ModelsFolder = temp
+                        Options.ModelsFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         errors.Add("Folder 'Services.Models' was not found in the solution directory!")
 
                     ;; Do we have a unit tests folder?
                     temp = Path.Combine(_SolutionFolder, "Services.Test")
                     if (Directory.Exists(temp)) then
-                        Options.UnitTestFolder = temp
+                        Options.UnitTestFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         Options.UnitTestFolder = String.Empty
 
@@ -474,7 +511,7 @@ namespace HarmonyCoreGenerator.ViewModel
                     ;; Templates folder should be right below the solution folder.
                     temp = Path.Combine(_SolutionFolder, "Templates")
                     if (Directory.Exists(temp)) then
-                        Options.TemplatesFolder = temp
+                        Options.TemplatesFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     else
                         errors.Add("Folder 'Templates' was not found in the solution directory!")
                 end
@@ -500,8 +537,9 @@ namespace HarmonyCoreGenerator.ViewModel
 
                     ;; Clear things down so the UI is blank
                     SolutionFile = String.Empty
-                    _SolutionFolder = String.Empty
+                    SolutionFolder = String.Empty
                     SettingsFile = String.Empty
+                    TasksetFile = String.Empty
                     Options = new HarmonyCoreOptions()
                 end
             end
@@ -556,11 +594,23 @@ namespace HarmonyCoreGenerator.ViewModel
             if (SelectedTabIndex != 3)
                 SelectedTabIndex = 3
 
+            ;;Make sure we're in the solution folder
+            Directory.SetCurrentDirectory(_SolutionFolder)
+
             StatusBarText = "Generating code..."
 
             CodeGenOutput = new ObservableCollection<string>()
 
-            data taskset = new CodeGenTaskSet() {RepositoryMainFile = Options.RepositoryMainFile, RepositoryTextFile = Options.RepositoryTextFile, TemplateFolder = Options.TemplatesFolder, EchoCommands = true, ListGeneratedFiles = true, LoggingLevel = CodeGenLoggingLevel}
+            data taskset = new CodeGenTaskSet()
+            &    {
+            &    Description = "Code generation tasks for Harmony Core solution.",
+            &    RepositoryMainFile = Options.RepositoryMainFile,
+            &    RepositoryTextFile = Options.RepositoryTextFile,
+            &    TemplateFolder = Options.TemplatesFolder,
+            &    EchoCommands = true,
+            &    ListGeneratedFiles = true,
+            &    LoggingLevel = CodeGenLoggingLevel
+            &    }
             setDefines(taskset)
             data task, @CodeGenTask
 
@@ -743,8 +793,14 @@ namespace HarmonyCoreGenerator.ViewModel
 
             try
             begin
+                ;;Generate code
                 success = codegen.GenerateCode()
+
+                ;;Display the results
                 CodeGenOutput = taskset.Messages
+
+                ;;Save the taskset to a file so we can manually generate from it later
+                taskset.SaveToFile(_TasksetFile)
             end
             catch (e, @Exception)
             begin

@@ -42,178 +42,232 @@
 
 import System.Collections.Generic
 import System.IO
+import System.Runtime.InteropServices
+import System.Text
 
 .array 0
 
 namespace CodeGen.Engine
-	
-	public class FileTools
 
-		;;; <summary>
-		;;; Expands any a logical name within a file spec.
-		;;; </summary>
-		;;; <param name="fileSpec">File spec to check</param>
-		;;; <returns>Full path to file.</returns>
-		public static method ExpandLogicalName, boolean
-			required inout fileSpec, String
-		proc
-			data ok = true
-			data filePath = fileSpec.Trim()
+    public class FileTools
 
-			if (filePath.Contains(":") && !filePath.Contains(Path.DirectorySeparatorChar.ToString()))
-			begin
-				;;Looks like we have a logical name, but is it JUST a logical name, or is there also a file name?
-				data envvar = Environment.GetEnvironmentVariable(filePath.Substring(0,filePath.IndexOf(":")))
-				if (ok=(!String.IsNullOrWhiteSpace(envvar)))
-				begin
-					data pathPart = envvar.Trim()
-					if (!pathPart.EndsWith(Path.DirectorySeparatorChar.ToString()))
-						pathPart += Path.DirectorySeparatorChar
-					if (filePath.EndsWith(":")) then
-					begin
-						;;Looks like it's JUST a logical name, replace it with the path
-						fileSpec = pathPart
-					end
-					else
-					begin
-						;;Looks like it's a logical AND file name
-						data fileParts = filePath.Split(":")
-						fileSpec = pathPart + fileParts[1]
-					end
-				end
-			end
-			mreturn ok
-		endmethod
+        ;;; <summary>
+        ;;; Expands any a logical name within a file spec.
+        ;;; </summary>
+        ;;; <param name="fileSpec">File spec to check</param>
+        ;;; <returns>Full path to file.</returns>
+        public static method ExpandLogicalName, boolean
+            required inout fileSpec, String
+        proc
+            data ok = true
+            data filePath = fileSpec.Trim()
 
-		;;; <summary>
-		;;; Determines if a file exists.
-		;;; The file specification coiuld include a logical name.
-		;;; </summary>
-		;;; <param name="fileSpec">File specification to check.</param>
-		;;; <returns></returns>
-		public static method FileExists, boolean
-			required in fileSpec, String
-		proc
-			try
-			begin
-				data ch, int, 0
-				open(ch,i:s,fileSpec)
-				close ch
-				mreturn true
-			end
-			catch (ex)
-			begin
-				mreturn false
-			end
-			endtry
-		endmethod		
-		
-		public static method FolderContainsFilesOfType, boolean
-			required in location, String
-			required in pattern, String
-		proc
-			data folder = location.Trim()
-			data filesExist = true
-			;;We may be dealing with a logical name
-			if (folder.EndsWith(":"))
-			begin
-				folder = folder.Replace(":","")
-				data trans = Environment.GetEnvironmentVariable(folder)
-				if (!String.IsNullOrWhiteSpace(trans)) then
-					folder = trans.Trim()
-				else
-					filesExist = false
-			end
-			;;Now we should have a path
-			if (filesExist)
-			begin
-				data results = Directory.GetFiles(folder,pattern)
-				filesExist = (results.Length > 0)
-			end
-			mreturn filesExist
-		endmethod
+            if (filePath.Contains(":") && !filePath.Contains(Path.DirectorySeparatorChar.ToString()))
+            begin
+                ;;Looks like we have a logical name, but is it JUST a logical name, or is there also a file name?
+                data envvar = Environment.GetEnvironmentVariable(filePath.Substring(0,filePath.IndexOf(":")))
+                if (ok=(!String.IsNullOrWhiteSpace(envvar)))
+                begin
+                    data pathPart = envvar.Trim()
+                    if (!pathPart.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                        pathPart += Path.DirectorySeparatorChar
+                    if (filePath.EndsWith(":")) then
+                    begin
+                        ;;Looks like it's JUST a logical name, replace it with the path
+                        fileSpec = pathPart
+                    end
+                    else
+                    begin
+                        ;;Looks like it's a logical AND file name
+                        data fileParts = filePath.Split(":")
+                        fileSpec = pathPart + fileParts[1]
+                    end
+                end
+            end
+            mreturn ok
+        endmethod
 
-		public static method FolderExists, boolean
-			required in folderSpec, String
-		proc
-			data folder = folderSpec.Trim()
-			data exists = true
-			;;We may be dealing with a logical name
-			if (folder.EndsWith(":"))
-			begin
-				folder = folder.Replace(":","")
-				data trans = Environment.GetEnvironmentVariable(folder)
-				if (!String.IsNullOrWhiteSpace(trans)) then
-					folder = trans.Trim()
-				else
-					exists = false
-			end
-			;;Now we should have a path
-			if (exists)
-				exists = Directory.Exists(folder)
-			mreturn exists
-		endmethod		
-		
-		public static method GetFileNamesInFolder, @List<String>
-			required in folder, String
-			required in pattern, String
-		proc
-			data matchingFiles = GetFilePathsInFolder(folder,pattern)
-			data matchingFile, String
-			if (matchingFiles.Count)
-			begin
-				data ix, int
-				for ix from 0 thru matchingFiles.Count-1
-					matchingFiles[ix] = Path.GetFileName(matchingFiles[ix])
-			end
-			mreturn matchingFiles
-		endmethod
+        ;;; <summary>
+        ;;; Determines if a file exists.
+        ;;; The file specification coiuld include a logical name.
+        ;;; </summary>
+        ;;; <param name="fileSpec">File specification to check.</param>
+        ;;; <returns></returns>
+        public static method FileExists, boolean
+            required in fileSpec, String
+        proc
+            try
+            begin
+                data ch, int, 0
+                open(ch,i:s,fileSpec)
+                close ch
+                mreturn true
+            end
+            catch (ex)
+            begin
+                mreturn false
+            end
+            endtry
+        endmethod
 
-		public static method GetFilePathsInFolder, @List<String>
-			required in folder, String
-			required in pattern, String
-		proc
-			data pathname = folder.Trim()
-			data matchingFiles = new List<String>()
-			data filesExist = true
-			;;We may be dealing with a logical name
-			if (pathname.EndsWith(":"))
-			begin
-				pathname = pathname.Replace(":","")
-				data trans = Environment.GetEnvironmentVariable(pathname)
-				if (!String.IsNullOrWhiteSpace(trans)) then
-					pathname = trans.Trim()
-				else
-					filesExist = false
-			end
-			;;Now we should have a path
-			if (filesExist)
-			begin
-				data matchingFile, String
-				foreach matchingFile in Directory.GetFiles(pathname,pattern)
-					matchingFiles.Add(matchingFile)
-			end
-			mreturn matchingFiles
-		endmethod
+        public static method FolderContainsFilesOfType, boolean
+            required in location, String
+            required in pattern, String
+        proc
+            data folder = location.Trim()
+            data filesExist = true
+            ;;We may be dealing with a logical name
+            if (folder.EndsWith(":"))
+            begin
+                folder = folder.Replace(":","")
+                data trans = Environment.GetEnvironmentVariable(folder)
+                if (!String.IsNullOrWhiteSpace(trans)) then
+                    folder = trans.Trim()
+                else
+                    filesExist = false
+            end
+            ;;Now we should have a path
+            if (filesExist)
+            begin
+                data results = Directory.GetFiles(folder,pattern)
+                filesExist = (results.Length > 0)
+            end
+            mreturn filesExist
+        endmethod
 
-		public static method CanCreateFileInFolder, boolean
-			required in location, String
-		proc
-			try
-			begin
-				data filespec = String.Format("{0}{1}.tmp",location,Guid.NewGuid().ToString())
-				data ch, int, 0
-				open(ch,o:s,filespec)
-				purge ch
-				mreturn true
-			end
-			catch (ex)
-			begin
-				mreturn false
-			end
-			endtry
-		endmethod
+        public static method FolderExists, boolean
+            required in folderSpec, String
+        proc
+            data folder = folderSpec.Trim()
+            data exists = true
+            ;;We may be dealing with a logical name
+            if (folder.EndsWith(":"))
+            begin
+                folder = folder.Replace(":","")
+                data trans = Environment.GetEnvironmentVariable(folder)
+                if (!String.IsNullOrWhiteSpace(trans)) then
+                    folder = trans.Trim()
+                else
+                    exists = false
+            end
+            ;;Now we should have a path
+            if (exists)
+                exists = Directory.Exists(folder)
+            mreturn exists
+        endmethod		
 
-	endclass
-	
+        public static method GetFileNamesInFolder, @List<String>
+            required in folder, String
+            required in pattern, String
+        proc
+            data matchingFiles = GetFilePathsInFolder(folder,pattern)
+            data matchingFile, String
+            if (matchingFiles.Count)
+            begin
+                data ix, int
+                for ix from 0 thru matchingFiles.Count-1
+                    matchingFiles[ix] = Path.GetFileName(matchingFiles[ix])
+            end
+            mreturn matchingFiles
+        endmethod
+
+        public static method GetFilePathsInFolder, @List<String>
+            required in folder, String
+            required in pattern, String
+        proc
+            data pathname = folder.Trim()
+            data matchingFiles = new List<String>()
+            data filesExist = true
+            ;;We may be dealing with a logical name
+            if (pathname.EndsWith(":"))
+            begin
+                pathname = pathname.Replace(":","")
+                data trans = Environment.GetEnvironmentVariable(pathname)
+                if (!String.IsNullOrWhiteSpace(trans)) then
+                    pathname = trans.Trim()
+                else
+                    filesExist = false
+            end
+            ;;Now we should have a path
+            if (filesExist)
+            begin
+                data matchingFile, String
+                foreach matchingFile in Directory.GetFiles(pathname,pattern)
+                    matchingFiles.Add(matchingFile)
+            end
+            mreturn matchingFiles
+        endmethod
+
+        public static method CanCreateFileInFolder, boolean
+            required in location, String
+        proc
+            try
+            begin
+                data filespec = String.Format("{0}{1}.tmp",location,Guid.NewGuid().ToString())
+                data ch, int, 0
+                open(ch,o:s,filespec)
+                purge ch
+                mreturn true
+            end
+            catch (ex)
+            begin
+                mreturn false
+            end
+            endtry
+        endmethod
+
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="fromPath">Contains the directory that defines the start of the relative path.</param>
+        ;;; <param name="toPath">Contains the path that defines the endpoint of the relative path</param>
+        ;;; <returns>The relative path from the start directory to the end path or <c>toPath</c> if the paths are not related.</returns>
+        ;;; <exception cref="ArgumentNullException"></exception>
+        ;;; <exception cref="UriFormatException"></exception>
+        ;;; <exception cref="InvalidOperationException"></exception>
+        public static method GetRelativePath, string
+            required in fromPath, string 
+            required in toPath, string 
+        proc
+            data fromAttr, int, GetPathAttribute(fromPath)
+            data toAttr, int, GetPathAttribute(toPath)
+            data path, @StringBuilder, new StringBuilder(260) ;; MAX_PATH
+            if (PathRelativePathTo(path, fromPath, fromAttr, toPath, toAttr) == 0)
+            begin
+                throw new ArgumentException("Paths must have a common prefix")
+            end
+            mreturn path.ToString()
+        endmethod
+        
+        private static method GetPathAttribute, int
+            required in path, string 
+        proc
+            data di, @DirectoryInfo, new DirectoryInfo(path)
+            if (di.Exists)
+                mreturn FILE_ATTRIBUTE_DIRECTORY
+
+            data fi, @FileInfo, new FileInfo(path)
+            if (fi.Exists)
+                mreturn FILE_ATTRIBUTE_NORMAL
+
+            throw new FileNotFoundException()
+
+        endmethod
+        
+        private const FILE_ATTRIBUTE_DIRECTORY, int, 16
+        private const FILE_ATTRIBUTE_NORMAL, int, 128
+        
+        {DllImport("shlwapi.dll", SetLastError = true)}
+        private static method PathRelativePathTo, int
+            pszPath, @StringBuilder
+            pszFrom, string
+            dwAttrFrom, int
+            pszTo, string
+            dwAttrTo, int
+        proc
+
+        endmethod
+
+    endclass
+
 endnamespace
