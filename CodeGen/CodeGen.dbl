@@ -50,1254 +50,1578 @@ import CodeGen
 import CodeGen.Engine
 import CodeGen.MethodCatalogAPI
 import CodeGen.RepositoryAPI
+import Newtonsoft.Json
 
 .array 0
 
 main CodeGen
 	
-	.include "CODEGEN_SRC:codegen.def"
+    .include "CODEGEN_SRC:codegen.def"
 	
-	record
-		ok			,boolean					;;Main error status variables
-		ClValues	,@List<String>				;;Command line option values
-		taskSet		,@CodeGenTaskSet
-		task		,@CodeGenTask
-		exitCode	,int
-	endrecord
+    record
+        ok,                     boolean					;;Main error status variables
+        ClValues,               @List<String>			;;Command line option values
+        taskSet,                @CodeGenTaskSet
+        task,                   @CodeGenTask
+        restoreFolder,          string                  ;;Original current folder to restore on exit
+        restrictTaskOptions,    boolean
+        exitCode,               int
+    endrecord
 	
 proc
 	
-	ok = true
-	exitCode = 0
-	flags(7004020,1)
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to wait until a debugger is attached?
-
-	if (CommandLineParser.Parse("attach"))
-	begin
-		Console.WriteLine()
-		Console.Write("Attach your debugger then press a key to continue: ")
-		Console.ReadKey()
-		Console.WriteLine()
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked for usage, documentation or version information?
-	
-	if (CommandLineParser.Parse("h") || CommandLineParser.Parse("?")) then
-	begin
-		Usage()
-		ok = false
-	end
-	else if (CommandLineParser.Parse("docs")) then
-	begin
-		Documentation()
-		ok = false
-	end
-	else if (CommandLineParser.Parse("version"))
-	begin
-		Console.WriteLine(String.Format("CodeGen {0} (Synergy {1} built {2})",CODEGEN_VERSION,SYN_VERSION,%datecompiled()))
-		ok = false
-	end
-	
-	.ifndef D_PORTABLE
-
-	;;-------------------------------------------------------------------------
-	;;Is an auto update check scheduled and due?
-	
-	data doUpdateCheck = false
-	data doingAutoUpdateCheck = false
-	
-	if (ok)
-	begin
-		doUpdateCheck = UpdateManager.IsAutoUpdateCheckDue()
-		doingAutoUpdateCheck = doUpdateCheck
-	end
-
-	;;-------------------------------------------------------------------------
-	;;Are we being asked for to check for a new version?
-	
-	if (ok && CommandLineParser.Parse("checkversion",ClValues))
-	begin	
-		;;Do we have an auto update interval specified
-		using ClValues.Count select
-		(0),
-		begin
-			;;No value after -checkversion; check now
-			doUpdateCheck = true
-			doingAutoUpdateCheck = false
-		end
-		(1),
-		begin
-			;;One value after -checkversion;
-			data interval, int
-			if (Int32.TryParse(ClValues[0],interval)) then
-			begin
-				using interval select
-				(0),
-				begin
-					;;Interval 0, cancel auto update checks
-					if (UpdateManager.CancelAutoUpdateChecks()) then
-					begin
-						Console.WriteLine("Auto update check disabled.")
-						doUpdateCheck = false
-					end
-					else
-					begin
-						Console.WriteLine("ERROR: Failed to disable auto update check.")
-						exitCode = 1
-					end
-				end
-				(>0),
-				begin
-					;;Positive interval, schedule auto update checks
-					if (UpdateManager.ScheduleAutoUpdateChecks(interval)) then
-					begin
-						Console.WriteLine("Auto update check interval set to {0} days.",interval)
-						doUpdateCheck = false
-					end
-					else
-					begin
-						Console.WriteLine("ERROR: Failed to set auto update interval!")
-						exitCode = 1
-					end
-				end
-				(<0),
-				begin
-					;;Invalid (negative) interval specified
-					Console.WriteLine("ERROR: Invalid auto update interval!")
-					doUpdateCheck = false
-					exitCode = 1
-				end
-				endusing
-			end
-			else
-			begin
-				;;Invalid (non-integer) interval specified
-				Console.WriteLine("ERROR: Invalid auto update interval!")
-				doUpdateCheck = false
-				exitCode = 1
-			end
-		end
-		(),
-		begin
-			;;More than one parameter after -checkversion; invalid
-			Console.WriteLine("ERROR: Invalid auto update interval!")
-			doUpdateCheck = false
-			exitCode = 1
-		end
-		endusing
-
-		ok = false
-
-	end
-
-	;;Do we need to do an update check?
-	
-	if (doUpdateCheck)
-	begin
-		data currentVersion, string
-		data latestVersion, string
-		data message, string
-		data newVersionAvailable, boolean, UpdateManager.CheckForNewVersion(currentVersion,latestVersion,message)
-		
-		Console.WriteLine("")
-
-		if (doingAutoUpdateCheck)
-			Console.Write("Auto ")
-
-		Console.WriteLine("Update Check")
-		Console.WriteLine("Installed version: {0}",currentVersion)
-		Console.WriteLine("Released version : {0}",latestVersion)
-		Console.WriteLine(message)
-
-		if (doingAutoUpdateCheck)
-			Console.WriteLine("")
-		
-		if (newVersionAvailable && !doingAutoUpdateCheck)
-		begin
-			Console.WriteLine("")
-			Console.Write("Would you like to go to the download site now (Y/N) ? ")
-
-			data ki, ConsoleKeyInfo, Console.ReadKey(false)
-			if (ki.Key.ToString().ToUpper()=="Y")
-				Process.Start("https://github.com/SteveIves/CodeGen/releases/latest")
-
-			Console.WriteLine("")
-		end
-	end
-
-	.endc
-
-	;;-------------------------------------------------------------------------
-	;;Just a little fun!
-
-	.ifndef D_PORTABLE
-	if (ok && (CommandLineParser.Parse("goat")))
-	begin
-		Console.WriteLine(StringTools.GetGoat(false))
-		try
-		begin
-			disposable data player = new System.Media.SoundPlayer()
-			player.Stream = CodeGen.Properties.Resources.GoatSound
-			player.PlaySync()
-		end
-		catch (e, @Exception)
-		begin
-			nop
-		end
-		endtry
-		ok = false
-	end
-	.endc
-
-	;;-------------------------------------------------------------------------
-	;;OK, looks like we're going to be generating some code
-	
-	data sw, @StopWatch
-
-	if (ok && CommandLineParser.Parse("time"))
-	begin
-		sw = new Stopwatch()
-		sw.Start()
-	end
-	
-	if (ok)
-	begin
-		;;Create a new task set
-		taskSet = new CodeGenTaskSet()
-		
-		;;Create a new task
-		task = new CodeGenTask()
-		task.Description = "Command-line task"
-		
-		;;Add the task to the task set
-		taskSet.Tasks.Add(task)
-		
-		lambda messageFromTaskSet(sender,e)
-		begin
-			if (e.Action==NotifyCollectionChangedAction.Add)
-			begin
-				data message, String
-				foreach message in e.NewItems
-					if (message!=^null)
-						Console.WriteLine(message)
-			end
-		end
-		
-		;;Listen for messages from the taskset as it processes
-		taskSet.Messages.CollectionChanged += messageFromTaskSet
-	end	
-
-	;;-------------------------------------------------------------------------
-	;;Echo command line?
-
-	if (ok)
-		taskSet.EchoCommands = CommandLineParser.Parse("e")
-	
-	;;-------------------------------------------------------------------------
-	;;Logging level and debugging information
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("debug")) then
-			taskSet.LoggingLevel = LoggingLevel.DeveloperDebug
-		else if (CommandLineParser.Parse("d")) then
-			taskSet.LoggingLevel = LoggingLevel.Debug
-		else if (CommandLineParser.Parse("v"))
-			taskSet.LoggingLevel = LoggingLevel.Verbose
-
-		if (CommandLineParser.Parse("dt"))
-			taskset.LogTokenizerResults = true
-
-		taskSet.ThrowOnError = CommandLineParser.Parse("rethrow")
-
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Display file names mode
-	
-	if (ok)
-		taskSet.ListGeneratedFiles = CommandLineParser.Parse("lf")
-	
-	;;-------------------------------------------------------------------------
-	;;Do we have repository files specified on the command line?
-
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("rps",ClValues))
-		begin
-			using ClValues.Count select
-			(0),
-				nop
-			(2),
-			begin
-				task.RepositoryMainFile = ClValues[0]
-				task.RepositoryTextFile = ClValues[1]
-			end
-			(),
-			begin
-				Console.WriteLine("ERROR: Two file specs must follow the -rps option!")
-				ok = false
-				exitCode = 1
-			end
-			endusing
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Do we have a custom data mappings file specified?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("cdm",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No data mappings file was found after the -cdm option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one data mappings can be specified after the -cdm option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				taskSet.DataMappingsFile = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Do we have a custom database type specified?
-	;;If not the default will be SqlDatabaseType.SQLServer.
-
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("database",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No database type was found after the -database option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one database code can be specified after the -database option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				using ClValues[0].ToLower() select
-				("mysql"),
-					taskSet.DatabaseType = SqlDatabaseType.MySQL
-				("postgresql"),
-					taskSet.DatabaseType = SqlDatabaseType.PostgreSQL
-				("sqlserver"),
-					nop ;It's the default anyway!
-				(),
-				begin
-					Console.WriteLine("ERROR: Unsupported database code {0} found after the -database option!",ClValues[0])
-					ok = false
-					exitCode = 1
-				end
-				endusing
-			end
-		end
-	end
-
-	;;-------------------------------------------------------------------------
-	;;See if we have a template file location command line option
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("i",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No template location was found after the -i option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one template location can be specified after the -i option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				taskSet.TemplateFolder = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;See if we have an output location command line option
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("o",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No outout location was found after the -o option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one output location can be specified after the -o option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				taskSet.OutputFolder = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Replace existing files?
-	
-	if (ok)
-		task.ReplaceFiles = CommandLineParser.Parse("r")
-	
-	;;-------------------------------------------------------------------------
-	;;Multi-write the same outout file?
-	
-	if (ok)
-		task.MultiWriteFiles = CommandLineParser.Parse("mw")
-	
-	;;-------------------------------------------------------------------------
-	;;See if we have a default namespace command line option
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("n",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No namespace was found after the -n option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one namespace can be specified after the -n option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.Namespace = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to use a field prefix
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("prefix",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No field prefix value was found after the -prefix option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one field prefix value can be specified after the -prefix option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.FieldPrefix = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;See if we have a request to override the default pixel width of a character
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("cw",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No character width was found after the -cw option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one character width can be specified after the -cw option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (!StringTools.IsNumeric(ClValues[0])) then
-			begin
-				Console.WriteLine("ERROR: The character width after the -cw option must be numeric!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.CharacterWidth = %integer(ClValues[0])
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;See if we have a request to override the default pixel height of a row
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("ch",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No character height was found after the -ch option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one character height can be specified after the -ch option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (!StringTools.IsNumeric(ClValues[0])) then
-			begin
-				Console.WriteLine("ERROR: The character height after the -ch option must be numeric!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.CharacterHeight = %integer(ClValues[0])
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to override the key that is used with the <PRIMARY_KEY> construct?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("opk",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No key number was found after the -opk option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one key number can be specified after the -opk option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (!StringTools.IsNumeric(ClValues[0])) then
-			begin
-				Console.WriteLine("ERROR: The key number specified after the -opk option must be numeric!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.PrimaryKeyNumber = %integer(ClValues[0])
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to process template defined output file sub-folders?
-	
-	if (ok)
-		task.AllowTemplateFolder = CommandLineParser.Parse("tf")
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to not append template folder names to namespaces?
-
-	if (ok)
-		task.DontAppendFolderToNamespace = CommandLineParser.Parse("nf")
-
-	;;-------------------------------------------------------------------------
-	;;Determine which templates are to be processed
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("t",ClValues))
-		begin
-			data tpl, String
-			foreach tpl in ClValues
-				task.Templates.Add(tpl)
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to process a user defined token file?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("u",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No user defined token file was found after the -u option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one user defined token file can be specified after the -u option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.UserTokenFile = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Do we have user defined tokens on the command line?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("ut",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No user tokens were found after the -ut option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				data userTokenExpression, String
-				foreach userTokenExpression in ClValues
-				begin
-					data parts, [#]String, userTokenExpression.Split("=")
-					if (parts.GetLength(0)==2) then
-						task.UserTokens.Add(new UserToken(parts[0].Trim(),parts[1].Trim()))
-					else
-					begin
-						Console.WriteLine("ERROR: Invalid command line user token expression: " + userTokenExpression)
-						ok = false
-						exitCode = 1
-					end
-				end
-			end
-		end
-	end		
-
-	;;-------------------------------------------------------------------------
-	;;Should user defined tokens be treated as pre-processor tokens?
-	;;If set to true then 
-	
-	if (ok)
-	begin
-		task.PreProcessUserTokens = CommandLineParser.Parse("utpp")
-	end
-
-	;;-------------------------------------------------------------------------
-	;;Do we have defines on the command line?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("define",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No identifiers were found after the -define option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				data identifier, string
-				foreach identifier in ClValues
-				begin
-					data newIdentifier = String.Format("DEFINED_{0}",identifier.ToUpper())
-					if (!taskSet.Defines.Contains(newIdentifier))
-						taskSet.Defines.Add(newIdentifier)
-				end
-			end
-		end
-	end		
-	
-	;;-------------------------------------------------------------------------
-	;;Do we have a repository file definition specified?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("file",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No file definition name was found after the -file option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one file definition name can be specified after the -file option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.RepositoryFile = (ClValues[0]).ToUpper()
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Do we have a UI Toolkit window script specified?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("w",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No window script file name was found after the -w option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one window script file name can be specified after the -w option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.WindowScript = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to ignore field attributes in UI Toolkit window scripts
-	
-	if (ok)
-		task.IgnoreScriptFieldAttributes = CommandLineParser.Parse("wn")
-	
-	;;-------------------------------------------------------------------------
-	;;Do we have a BusinessCraft ProForma file specified?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("proforma",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No ProForma file name was found after the -proforma option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: You can only specify one ProForma file name after the -proforma option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.ProformaFile = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we provided with a UI Toolkit window script to search for selection windows in?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("ws",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No window script file name was found after the -ws option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one window script file name can be specified after the -ws option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.SelectionWindowScript = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Do we have Repository structures specified?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("s",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No structure names were specified after the -s option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				data strName, String
-				foreach strName in ClValues
-					task.Structures.Add(strName.ToUpper())
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to process multiple structures at the same time (in the same template)
-	
-	if (ok)
-		task.MultipleStructures = CommandLineParser.Parse("ms")
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to process a subset of the fields in a structure?
-	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("subset",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No subset name was found after the -subset option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count>1) then
-			begin
-				Console.WriteLine("ERROR: Only one subset name can be specified after the -subset option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				task.Subset = ClValues[0]
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to create a subset from a list of field names?
-	
-	if (ok)
-	begin
-		;;Syntax is now -fields structure:field structure:field
-		if (CommandLineParser.Parse("fields",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No field names were found after the -fields option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (task.Structures.Count == 0) then
-			begin
-				Console.WriteLine("ERROR: The -fields option can't be used unless you specify structures with the -s option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				data fieldName, String
-				
-				foreach fieldName in ClValues
-				begin
-					if (fieldName.Contains(".")) then
-					begin
-						if (!task.MultipleStructures) then
-						begin
-							Console.WriteLine("ERROR: The -fields syntax that you used is only valid when processing multiple structures together!")
-							ok = false
-							exitCode = 1
-							exitloop
-						end
-						else
-						begin
-							data values, [#]String, fieldName.Split(".")
-							if (values.Length>2 || String.IsNullOrWhiteSpace(values[0]) || string.IsNullOrWhiteSpace(values[1])) then
-							begin
-								Console.WriteLine("ERROR: Invalid -fields option value!")
-								ok = false
-								exitCode = 1
-								exitloop
-							end
-							else
-							begin
-								task.SubsetFields.Add(Tuple.Create(values[0].ToUpper(),values[1].ToUpper()))
-							end
-						end
-					end
-					else
-					begin
-						;;Add the field, assuming the first (or only) structure
-						task.SubsetFields.Add(Tuple.Create(task.Structures[0],fieldName.ToUpper()))
-					end
-				end
-	
-				if (taskSet.LoggingLevel == LoggingLevel.DeveloperDebug)
-					Console.WriteLine("DEVDBG: Subset processing was enabled via command-line supplied fields")					
-			end
-		end
-	end
-	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to process a "Synergy Method Catalog" XML file?
-
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("smc",ClValues))
-		begin
-			if (task.Structures.Count > 0) then
-			begin
-				Console.WriteLine("ERROR: The -smc and -s options may not be used together!")
-				ok = false
-				exitCode = 1
-			end
-			else if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No SMC export file specified after the -smc option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count > 1) then
-			begin
-				Console.WriteLine("ERROR: Only one SMC export file may be specified after the -smc option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (!File.Exists(ClValues[0])) then
-			begin
-				Console.WriteLine("ERROR: Specified SMC export file was not found!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				try
-				begin
-					taskSet.MethodCatalog = new Smc(ClValues[0])
-				end
-				catch (ex, @Exception)
-				begin
-					Console.WriteLine(ex.Message)
-					ok = false
-					exitCode = 1
-				end
-				endtry
-			end
-		end
-	end
-
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to process a specific interface from the Synergy Method Catalog?
-
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("interface",ClValues))
-		begin
-
-			if (taskSet.MethodCatalog == ^null) then
-			begin
-				Console.WriteLine("ERROR: The -interface may not be used without the -smc option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No interface name specified after the -interface option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count > 1) then
-			begin
-				Console.WriteLine("ERROR: Only one interface name may be specified after the -interface option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.Equals(ClValues[0])}) == ^null) then
-			begin
-				Console.WriteLine("ERROR: Interface {0} was not found in the method catalog export file!",ClValues[0])
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				taskSet.Interface = ClValues[0]
-			end
-		end
-	end
-
-	;;-------------------------------------------------------------------------
-	;;Do we have any button processing settings?
-	
-	if (ok)
-	begin
-		task.AlwaysLoadDefaultButtons = CommandLineParser.Parse("ba")
-		task.NeverLoadDefaultButtons = CommandLineParser.Parse("bd")
-		task.NeverLoadAnyButtons = CommandLineParser.Parse("bn")
-
-		data buttonOptions, int, 0
-		if (task.AlwaysLoadDefaultButtons)
-			buttonOptions += 1
-		if (task.NeverLoadDefaultButtons)
-			buttonOptions += 1
-		if (task.NeverLoadAnyButtons)
-			buttonOptions += 1
-		if (buttonOptions > 1)
-		begin
-			Console.WriteLine("ERROR: Only one of the -ba, -bd and -bn options can be used at a time.")
-			ok = false
-			exitCode = 1
-		end
-	end
+    ok = true
+    exitCode = 0
+    flags(7004020,1)
 	
     ;;-------------------------------------------------------------------------
-    ;;Do we have structure aliases specified
+    ;;Are we being asked to wait until a debugger is attached?
 
+    if (CommandLineParser.Parse("attach"))
+    begin
+        Console.WriteLine()
+        Console.Write("Attach your debugger then press a key to continue: ")
+        Console.ReadKey()
+        Console.WriteLine()
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked for usage, documentation or version information?
+	
+    if (CommandLineParser.Parse("h") || CommandLineParser.Parse("?")) then
+    begin
+        Usage()
+        ok = false
+    end
+    else if (CommandLineParser.Parse("docs")) then
+    begin
+        Documentation()
+        ok = false
+    end
+    else if (CommandLineParser.Parse("version"))
+    begin
+        Console.WriteLine(String.Format("CodeGen {0} (Synergy {1} built {2})",CODEGEN_VERSION,SYN_VERSION,%datecompiled()))
+        ok = false
+    end
+	
+.ifndef D_PORTABLE
+
+    ;;-------------------------------------------------------------------------
+    ;;Is an auto update check scheduled and due?
+	
+    data doUpdateCheck = false
+    data doingAutoUpdateCheck = false
+	
     if (ok)
     begin
-        if (CommandLineParser.Parse("a",ClValues))
+        doUpdateCheck = UpdateManager.IsAutoUpdateCheckDue()
+        doingAutoUpdateCheck = doUpdateCheck
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked for to check for a new version?
+	
+    if (ok && CommandLineParser.Parse("checkversion",ClValues))
+    begin	
+        ;;Do we have an auto update interval specified
+        using ClValues.Count select
+        (0),
         begin
-            if (!ClValues.Count) then
+            ;;No value after -checkversion; check now
+            doUpdateCheck = true
+            doingAutoUpdateCheck = false
+        end
+        (1),
+        begin
+            ;;One value after -checkversion;
+            data interval, int
+            if (Int32.TryParse(ClValues[0],interval)) then
             begin
-                Console.WriteLine("ERROR: No aliases specified after -a option!")
-                ok = false
+                using interval select
+                (0),
+                begin
+                    ;;Interval 0, cancel auto update checks
+                    if (UpdateManager.CancelAutoUpdateChecks()) then
+                    begin
+                        Console.WriteLine("Auto update check disabled.")
+                        doUpdateCheck = false
+                    end
+                    else
+                    begin
+                        Console.WriteLine("ERROR: Failed to disable auto update check.")
+                        exitCode = 1
+                    end
+                end
+                (>0),
+                begin
+                    ;;Positive interval, schedule auto update checks
+                    if (UpdateManager.ScheduleAutoUpdateChecks(interval)) then
+                    begin
+                        Console.WriteLine("Auto update check interval set to {0} days.",interval)
+                        doUpdateCheck = false
+                    end
+                    else
+                    begin
+                        Console.WriteLine("ERROR: Failed to set auto update interval!")
+                        exitCode = 1
+                    end
+                end
+                (<0),
+                begin
+                    ;;Invalid (negative) interval specified
+                    Console.WriteLine("ERROR: Invalid auto update interval!")
+                    doUpdateCheck = false
+                    exitCode = 1
+                end
+                endusing
+            end
+            else
+            begin
+                ;;Invalid (non-integer) interval specified
+                Console.WriteLine("ERROR: Invalid auto update interval!")
+                doUpdateCheck = false
                 exitCode = 1
             end
-            else if (ClValues.Count > task.Structures.Count) then
-            begin
-                Console.WriteLine("ERROR: More aliases specified than structures being processed!")
-                ok = false
-                exitCode = 1
-            end
-			else
-			begin
-				data aliasName, String
-				foreach aliasName in ClValues
-					task.Aliases.Add(aliasName)
-			end
-		end
-	end
+        end
+        (),
+        begin
+            ;;More than one parameter after -checkversion; invalid
+            Console.WriteLine("ERROR: Invalid auto update interval!")
+            doUpdateCheck = false
+            exitCode = 1
+        end
+        endusing
+
+        ok = false
+
+    end
+
+    ;;Do we need to do an update check?
+	
+    if (doUpdateCheck)
+    begin
+        data currentVersion, string
+        data latestVersion, string
+        data message, string
+        data newVersionAvailable, boolean, UpdateManager.CheckForNewVersion(currentVersion,latestVersion,message)
+		
+        Console.WriteLine("")
+
+        if (doingAutoUpdateCheck)
+            Console.Write("Auto ")
+
+        Console.WriteLine("Update Check")
+        Console.WriteLine("Installed version: {0}",currentVersion)
+        Console.WriteLine("Released version : {0}",latestVersion)
+        Console.WriteLine(message)
+
+        if (doingAutoUpdateCheck)
+            Console.WriteLine("")
+		
+        if (newVersionAvailable && !doingAutoUpdateCheck)
+        begin
+            Console.WriteLine("")
+            Console.Write("Would you like to go to the download site now (Y/N) ? ")
+
+            data ki, ConsoleKeyInfo, Console.ReadKey(false)
+            if (ki.Key.ToString().ToUpper()=="Y")
+                Process.Start("https://github.com/SteveIves/CodeGen/releases/latest")
+
+            Console.WriteLine("")
+        end
+    end
+
+.endc
+
+    ;;-------------------------------------------------------------------------
+    ;;Just a little fun!
+
+.ifndef D_PORTABLE
+    if (ok && (CommandLineParser.Parse("goat")))
+    begin
+        Console.WriteLine(StringTools.GetGoat(false))
+        try
+        begin
+            disposable data player = new System.Media.SoundPlayer()
+            player.Stream = CodeGen.Properties.Resources.GoatSound
+            player.PlaySync()
+        end
+        catch (e, @Exception)
+        begin
+            nop
+        end
+        endtry
+    end
+.endc
+
+    ;;-------------------------------------------------------------------------
+    ;;OK, looks like we're going to be generating some code, start the clock
+	
+    data sw, @StopWatch
+
+    if (ok && CommandLineParser.Parse("time"))
+    begin
+        sw = new Stopwatch()
+        sw.Start()
+    end
 	
     ;;-------------------------------------------------------------------------
-    ;;Are we being asked to use alternate field names?
+    ;;Do we have an input file specified on the command line?
+    
+    data taskSetFile, string
+
+    if (ok && (CommandLineParser.Parse("input",ClValues)))
+    begin
+        using ClValues.Count select
+        (1),
+        begin
+            FileTools.ExpandLogicalName(taskSetFile=ClValues[0])
+            if (!File.Exists(taskSetFile)) then
+            begin
+                Console.WriteLine("ERROR: The specified input file was not found!")
+                ok = false
+                taskSetFile = ^null
+                exitCode = 1
+            end
+            else
+            begin
+                ;;Save the current directory
+                restoreFolder = Directory.GetCurrentDirectory()
+
+                ;;Change the current directory to the location of the taskset file
+                data inputFileDirectory = Path.GetDirectoryName(Path.GetFullPath(taskSetFile))
+                Directory.SetCurrentDirectory(inputFileDirectory)
+
+                ;;Read the file
+                data jsonData = File.ReadAllText(taskSetFile)
+
+                ;;Deserialize the taskset file
+                taskSet = JsonConvert.DeserializeObject<CodeGenTaskSet>
+                &    (
+                &    jsonData,
+                &    new JsonSerializerSettings() {DefaultValueHandling = DefaultValueHandling.Populate}
+                &    )
+
+                ;;Set restricted task options mode.
+                ;;In this mode any task specific command line options can only be used if a pre-loaded taskset only
+                ;;contains a single task.
+                if (taskSet.Tasks.Count > 1) then
+                begin
+                    ;;There are multiple tasks in the loaded taskset.
+                    ;;Do not allow any task specific command line options to be used.
+                    restrictTaskOptions = true
+                end
+                else
+                begin
+                    ;;There is a single task in the loaded taskset.
+                    ;;Task specific command line options may be used to override that tasks settings.
+                    task = taskSet.Tasks[0]
+                end
+            end
+        end
+        (),
+        begin
+            Console.WriteLine("ERROR: One input file must be specified after the -input option!")
+            ok = false
+            exitCode = 1
+        end
+        endusing
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;; If we didn't get a taskset via -input then we'll start from scratch
+
+    if (ok && taskSet==^null)
+    begin
+        ;;Create a new task set
+        taskSet = new CodeGenTaskSet()
+        taskSet.Description = "Command-line task set"
+		
+        ;;Create a new task
+        task = new CodeGenTask()
+        task.Description = "Command-line task"
+		
+        ;;Add the task to the task set
+        taskSet.Tasks.Add(task)
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Listen for messages from the taskset as it processes
+    
+    if (ok)
+    begin
+        lambda messageFromTaskSet(sender,e)
+        begin
+            if (e.Action==NotifyCollectionChangedAction.Add)
+            begin
+                data message, String
+                foreach message in e.NewItems
+                begin
+                    if (message!=^null)
+                        Console.WriteLine(message)
+                end
+            end
+        end
+		
+        taskSet.Messages.CollectionChanged += messageFromTaskSet
+    end	
+
+    ;;-------------------------------------------------------------------------
+    ;;Echo command line?
+
+    if (ok && CommandLineParser.Parse("e"))
+    begin
+        taskSet.EchoCommands = true
+    end
+
+	
+    ;;-------------------------------------------------------------------------
+    ;;Logging level and debugging information
 	
     if (ok)
-    begin			
-        if (CommandLineParser.Parse("af",ClValues))
+    begin
+        if (CommandLineParser.Parse("debug")) then
+            taskSet.LoggingLevel = LoggingLevel.DeveloperDebug
+        else if (CommandLineParser.Parse("d")) then
+            taskSet.LoggingLevel = LoggingLevel.Debug
+        else if (CommandLineParser.Parse("v"))
+            taskSet.LoggingLevel = LoggingLevel.Verbose
+
+        if (CommandLineParser.Parse("dt"))
+            taskset.LogTokenizerResults = true
+
+        if (CommandLineParser.Parse("rethrow"))
+            taskSet.ThrowOnError = true
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Display file names mode
+	
+    if (ok && CommandLineParser.Parse("lf"))
+    begin
+        taskSet.ListGeneratedFiles = true
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Do we have repository files specified on the command line?
+
+    if (ok && CommandLineParser.Parse("rps",ClValues))
+    begin
+        using ClValues.Count select
+        (2),
         begin
-            if (ClValues.Count) then
+            taskSet.RepositoryMainFile = ClValues[0]
+            taskSet.RepositoryTextFile = ClValues[1]
+        end
+        (),
+        begin
+            Console.WriteLine("ERROR: Two repository file specs must follow the -rps option!")
+            ok = false
+            exitCode = 1
+        end
+        endusing
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Do we have a custom data mappings file specified?
+	
+    if (ok && CommandLineParser.Parse("cdm",ClValues))
+    begin
+        using ClValues.Count select
+        (1),
+        begin
+            taskSet.DataMappingsFile = ClValues[0]
+        end
+        (),
+        begin
+            Console.WriteLine("ERROR: One data mappings file must be specified after the -cdm option!")
+            ok = false
+            exitCode = 1
+        end
+        endusing
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Do we have a custom database type specified?
+    ;;If not the default will be SqlDatabaseType.SQLServer.
+
+    if (ok && CommandLineParser.Parse("database",ClValues))
+    begin
+        using ClValues.Count select
+        (1),
+        begin
+            using ClValues[0].ToLower() select
+            ("mysql"),
+                taskSet.DatabaseType = SqlDatabaseType.MySQL
+            ("postgresql"),
+                taskSet.DatabaseType = SqlDatabaseType.PostgreSQL
+            ("sqlserver"),
+                nop ;It's the default anyway!
+            (),
             begin
-                Console.WriteLine("ERROR: No values may be specified after the -af option!")
+                Console.WriteLine("ERROR: Unsupported database code {0} found after the -database option!",ClValues[0])
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+        (),
+        begin
+            Console.WriteLine("ERROR: One database code must be specified after the -database option!")
+            ok = false
+            exitCode = 1
+        end
+        endusing
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;See if we have a template file location command line option
+	
+    if (ok && CommandLineParser.Parse("i",ClValues))
+    begin
+        using ClValues.Count select
+        (1),
+        begin
+            taskSet.TemplateFolder = ClValues[0]
+        end
+        (),
+        begin
+            Console.WriteLine("ERROR: One template location must be specified after the -i option!")
+            ok = false
+            exitCode = 1
+        end
+        endusing
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;See if we have an output location command line option
+	
+    if (ok && CommandLineParser.Parse("o",ClValues))
+    begin
+        using ClValues.Count select
+        (1),
+        begin
+            taskSet.OutputFolder = ClValues[0]
+        end
+        (),
+        begin
+            Console.WriteLine("ERROR: One output location must be specified after the -o option!")
+            ok = false
+            exitCode = 1
+        end
+        endusing
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Replace existing files?
+	
+    if (ok &&CommandLineParser.Parse("r"))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -r may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+            task.ReplaceFiles = true
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Multi-write the same outout file?
+	
+    if (ok && CommandLineParser.Parse("mw"))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -mw may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+            task.MultiWriteFiles = true
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;See if we have a default namespace command line option
+	
+    if (ok && CommandLineParser.Parse("n",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -n may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                task.Namespace = ClValues[0]
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One namespace must be specified after the -n option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to use a field prefix
+	
+    if (ok && CommandLineParser.Parse("prefix",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -prefix may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                task.FieldPrefix = ClValues[0]
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One field prefix value must be specified after the -prefix option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;See if we have a request to override the default pixel width of a character
+	
+    if (ok && CommandLineParser.Parse("cw",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -cw may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                if (!StringTools.IsNumeric(ClValues[0])) then
+                begin
+                    Console.WriteLine("ERROR: The character width after the -cw option must be numeric!")
+                    ok = false
+                    exitCode = 1
+                end
+                else
+                begin
+                    task.CharacterWidth = %integer(ClValues[0])
+                end
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One character width must be specified after the -cw option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;See if we have a request to override the default pixel height of a row
+	
+    if (ok && CommandLineParser.Parse("ch",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -ch may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                if (!StringTools.IsNumeric(ClValues[0])) then
+                begin
+                    Console.WriteLine("ERROR: The character height after the -ch option must be numeric!")
+                    ok = false
+                    exitCode = 1
+                end
+                else
+                begin
+                    task.CharacterHeight = %integer(ClValues[0])
+                end
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One character height must be specified after the -ch option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to override the key that is used with the <PRIMARY_KEY> construct?
+	
+    if (ok && CommandLineParser.Parse("opk",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -opk may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                if (!StringTools.IsNumeric(ClValues[0])) then
+                begin
+                    Console.WriteLine("ERROR: The key number specified after the -opk option must be numeric!")
+                    ok = false
+                    exitCode = 1
+                end
+                else
+                begin
+                    task.PrimaryKeyNumber = %integer(ClValues[0])
+                end
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One key number must be specified after the -opk option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to process template defined output file sub-folders?
+	
+    if (ok  && CommandLineParser.Parse("tf"))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -tf may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            task.AllowTemplateFolder = true
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to not append template folder names to namespaces?
+
+    if (ok && CommandLineParser.Parse("nf"))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -nf may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            task.DontAppendFolderToNamespace = true
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Determine which templates are to be processed
+	
+    if (ok && CommandLineParser.Parse("t",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -t may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            data tpl, String
+            foreach tpl in ClValues
+                task.Templates.Add(tpl)
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to process a user defined token file?
+	
+    if (ok && CommandLineParser.Parse("u",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -u may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                task.UserTokenFile = ClValues[0]
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One user defined token file must be specified after the -u option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Do we have user defined tokens on the command line?
+	
+    if (ok && CommandLineParser.Parse("ut",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -ut may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (0),
+            begin
+                Console.WriteLine("ERROR: No user tokens were found after the -ut option!")
+                ok = false
+                exitCode = 1
+            end
+            (),
+            begin
+                data userTokenExpression, String
+                foreach userTokenExpression in ClValues
+                begin
+                    data parts, [#]String, userTokenExpression.Split("=")
+                    if (parts.GetLength(0)==2) then
+                        task.UserTokens.Add(new UserToken(parts[0].Trim(),parts[1].Trim()))
+                    else
+                    begin
+                        Console.WriteLine("ERROR: Invalid command line user token expression: " + userTokenExpression)
+                        ok = false
+                        exitCode = 1
+                    end
+                end
+            end
+            endusing
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Should user defined tokens be treated as pre-processor tokens?
+    ;;If set to true then 
+	
+    if (ok && CommandLineParser.Parse("utpp"))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -utpp may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            task.PreProcessUserTokens = true
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Do we have defines on the command line?
+	
+    if (ok && CommandLineParser.Parse("define",ClValues))
+    begin
+        if (!ClValues.Count) then
+        begin
+            Console.WriteLine("ERROR: No identifiers were found after the -define option!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            data identifier, string
+            foreach identifier in ClValues
+            begin
+                data newIdentifier = String.Format("DEFINED_{0}",identifier.ToUpper())
+                if (!taskSet.Defines.Contains(newIdentifier))
+                    taskSet.Defines.Add(newIdentifier)
+            end
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Do we have a repository file definition specified?
+	
+    if (ok && CommandLineParser.Parse("file",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -file may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                task.RepositoryFile = (ClValues[0]).ToUpper()
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One file definition name must be specified after the -file option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Do we have a UI Toolkit window script specified?
+	
+    if (ok && CommandLineParser.Parse("w",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -w may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                task.WindowScript = ClValues[0]
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One window script file name must be specified after the -w option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to ignore field attributes in UI Toolkit window scripts
+	
+    if (ok && CommandLineParser.Parse("wn"))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -wn may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            task.IgnoreScriptFieldAttributes = true
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Do we have a BusinessCraft ProForma file specified?
+	
+    if (ok && CommandLineParser.Parse("proforma",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -proforma may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                task.ProformaFile = ClValues[0]
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One ProForma file name must follow the -proforma option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we provided with a UI Toolkit window script to search for selection windows in?
+	
+    if (ok && CommandLineParser.Parse("ws",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -ws may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                task.SelectionWindowScript = ClValues[0]
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One window script file name must be specified after the -ws option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Do we have Repository structures specified?
+	
+    if (ok && CommandLineParser.Parse("s",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -s may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (0),
+            begin
+                Console.WriteLine("ERROR: No structure names were specified after the -s option!")
+                ok = false
+                exitCode = 1
+            end
+            (),
+            begin
+                data strName, String
+                foreach strName in ClValues
+                    task.Structures.Add(strName.ToUpper())
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to process multiple structures at the same time (in the same template)
+	
+    if (ok && CommandLineParser.Parse("ms"))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -ms may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            task.MultipleStructures = true
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to process a subset of the fields in a structure?
+	
+    if (ok && CommandLineParser.Parse("subset",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -subset may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (1),
+            begin
+                task.Subset = ClValues[0]
+            end
+            (),
+            begin
+                Console.WriteLine("ERROR: One subset name must be specified after the -subset option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to create a subset from a list of field names?
+	
+    if (ok && CommandLineParser.Parse("fields",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -fields may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (0),
+            begin
+                Console.WriteLine("ERROR: No field names were found after the -fields option!")
+                ok = false
+                exitCode = 1
+            end
+            (),
+            begin
+                if (task.Structures.Count == 0) then
+                begin
+                    Console.WriteLine("ERROR: The -fields option can't be used unless you specify structures with the -s option!")
+                    ok = false
+                    exitCode = 1
+                end
+                else
+                begin
+                    data fieldName, String
+				
+                    foreach fieldName in ClValues
+                    begin
+                        if (fieldName.Contains(".")) then
+                        begin
+                            if (!task.MultipleStructures) then
+                            begin
+                                Console.WriteLine("ERROR: The -fields syntax that you used is only valid when processing multiple structures together!")
+                                ok = false
+                                exitCode = 1
+                                exitloop
+                            end
+                            else
+                            begin
+                                data values, [#]String, fieldName.Split(".")
+                                if (values.Length>2 || String.IsNullOrWhiteSpace(values[0]) || string.IsNullOrWhiteSpace(values[1])) then
+                                begin
+                                    Console.WriteLine("ERROR: Invalid -fields option value!")
+                                    ok = false
+                                    exitCode = 1
+                                    exitloop
+                                end
+                                else
+                                begin
+                                    task.SubsetFields.Add(Tuple.Create(values[0].ToUpper(),values[1].ToUpper()))
+                                end
+                            end
+                        end
+                        else
+                        begin
+                            ;;Add the field, assuming the first (or only) structure
+                            task.SubsetFields.Add(Tuple.Create(task.Structures[0],fieldName.ToUpper()))
+                        end
+                    end
+	
+                    if (taskSet.LoggingLevel == LoggingLevel.DeveloperDebug)
+                        Console.WriteLine("DEVDBG: Subset processing was enabled via command-line supplied fields")					
+                end
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to process a "Synergy Method Catalog" XML file?
+
+    if (ok && CommandLineParser.Parse("smc",ClValues))
+    begin
+        if (task.Structures.Count > 0) then
+        begin
+            Console.WriteLine("ERROR: The -smc and -s options may not be used together!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!ClValues.Count) then
+        begin
+            Console.WriteLine("ERROR: No SMC export file specified after the -smc option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count > 1) then
+        begin
+            Console.WriteLine("ERROR: Only one SMC export file may be specified after the -smc option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!File.Exists(ClValues[0])) then
+        begin
+            Console.WriteLine("ERROR: Specified SMC export file was not found!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            try
+            begin
+                taskSet.MethodCatalog = new Smc(ClValues[0])
+            end
+            catch (ex, @Exception)
+            begin
+                Console.WriteLine(ex.Message)
+                ok = false
+                exitCode = 1
+            end
+            endtry
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to process a specific interface from the Synergy Method Catalog?
+
+    if (ok && CommandLineParser.Parse("interface",ClValues))
+    begin
+        if (taskSet.MethodCatalog == ^null) then
+        begin
+            Console.WriteLine("ERROR: The -interface may not be used without the -smc option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!ClValues.Count) then
+        begin
+            Console.WriteLine("ERROR: No interface name specified after the -interface option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count > 1) then
+        begin
+            Console.WriteLine("ERROR: Only one interface name may be specified after the -interface option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.Equals(ClValues[0])}) == ^null) then
+        begin
+            Console.WriteLine("ERROR: Interface {0} was not found in the method catalog export file!",ClValues[0])
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            taskSet.Interface = ClValues[0]
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Do we have any button processing settings?
+	
+    if (ok)
+    begin
+        if (CommandLineParser.Parse("ba"))
+        begin
+            if (restrictTaskOptions) then
+            begin
+                Console.WriteLine("ERROR: Option -ba may not be used with an input file that contains multiple tasks!")
                 ok = false
                 exitCode = 1
             end
             else
             begin
+                task.AlwaysLoadDefaultButtons = true
+            end
+        end
+
+        if (CommandLineParser.Parse("bd"))
+        begin
+            if (restrictTaskOptions) then
+            begin
+                Console.WriteLine("ERROR: Option -bd may not be used with an input file that contains multiple tasks!")
+                ok = false
+                exitCode = 1
+            end
+            else
+            begin
+                task.NeverLoadDefaultButtons = true
+            end
+        end
+
+        if (CommandLineParser.Parse("bn"))
+        begin
+            if (restrictTaskOptions) then
+            begin
+                Console.WriteLine("ERROR: Option -bn may not be used with an input file that contains multiple tasks!")
+                ok = false
+                exitCode = 1
+            end
+            else
+            begin
+                task.NeverLoadAnyButtons = true
+            end
+        end
+
+        if (!restrictTaskOptions)
+        begin
+            data buttonOptions, int, 0
+            if (task.AlwaysLoadDefaultButtons)
+                buttonOptions += 1
+            if (task.NeverLoadDefaultButtons)
+                buttonOptions += 1
+            if (task.NeverLoadAnyButtons)
+                buttonOptions += 1
+            if (buttonOptions > 1)
+            begin
+                Console.WriteLine("ERROR: Only one of the -ba, -bd and -bn options can be used at a time.")
+                ok = false
+                exitCode = 1
+            end
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Do we have structure aliases specified
+
+    if (ok && CommandLineParser.Parse("a",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -a may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (0),
+            begin
+                Console.WriteLine("ERROR: No aliases specified after -a option!")
+                ok = false
+                exitCode = 1
+            end
+            (> task.Structures.Count),
+            begin
+                Console.WriteLine("ERROR: More aliases specified than structures being processed!")
+                ok = false
+                exitCode = 1
+            end
+            (),
+            begin
+                data aliasName, String
+                foreach aliasName in ClValues
+                    task.Aliases.Add(aliasName)
+            end
+            endusing
+        end
+    end
+	
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to use alternate field names?
+	
+    if (ok && CommandLineParser.Parse("af",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -af may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (0),
+            begin
                 task.UseAlternateFieldNames = true
             end
+            (),
+            begin
+                Console.WriteLine("ERROR: No values may be specified after the -af option!")
+                ok = false
+                exitCode = 1
+            end
+            endusing
         end
     end
 	
     ;;-------------------------------------------------------------------------
     ;;Are we being asked to use alternate structure names?
 	
-    if (ok)
-    begin			
-        if (CommandLineParser.Parse("as",ClValues))
+    if (ok && CommandLineParser.Parse("as",ClValues))
+    begin
+        if (restrictTaskOptions) then
         begin
-            if (ClValues.Count) then
+            Console.WriteLine("ERROR: Option -as may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (0),
+            begin
+                if (task.Aliases.Count > 0) then
+                begin
+                    Console.WriteLine("ERROR: Alternate structure names may not be used at the same time as structure alasing!")
+                    ok = false
+                    exitCode = 1
+                end
+                else
+                begin
+                    task.UseAlternateStructureNames = true
+                end
+            end
+            (),
             begin
                 Console.WriteLine("ERROR: No values may be specified after the -as option!")
                 ok = false
                 exitCode = 1
             end
-            else if (task.Aliases.Count > 0) then
-            begin
-                Console.WriteLine("ERROR: Alternate structure names may not be used at the same time as structure alasing!")
-                ok = false
-                exitCode = 1
-            end
-            else
-            begin
-                task.UseAlternateStructureNames = true
-            end
+            endusing
         end
     end
 	
     ;;-------------------------------------------------------------------------
-	;;Do we have alternate repository file overrides specified
+    ;;Do we have alternate repository file overrides specified
 	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("fo",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No repository file override names were found after the -fo option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				data fileName, String
-				foreach fileName in ClValues
-					task.FileOverrides.Add(fileName)
-			end
-		end
-	end
+    if (ok && CommandLineParser.Parse("fo",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -fo may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (0),
+            begin
+                Console.WriteLine("ERROR: No repository file override names were found after the -fo option!")
+                ok = false
+                exitCode = 1
+            end
+            (),
+            begin
+                data fileName, String
+                foreach fileName in ClValues
+                    task.FileOverrides.Add(fileName)
+            end
+            endusing
+        end
+    end
 	
-	;;-------------------------------------------------------------------------
-	;;See if we have any special field processing filters specified
+    ;;-------------------------------------------------------------------------
+    ;;See if we have any special field processing filters specified
 	
-	if (ok)
-	begin
-		
-		if (CommandLineParser.Parse("f",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No field processing filters were found after the -f option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count > 5) then
-			begin
-				Console.WriteLine("ERROR: Too many field processing filters were found after the -f option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				data ix, int
-				for ix from 0 thru ClValues.Count-1
-				begin
-					using (ClValues[ix]).ToLower() select
-					("o"),	task.IncludeOverlayFields = true
-					("l"),	task.IgnoreExcludeLanguage = true
-					("t"),	task.HonorExcludeToolkit = true
-					("r"),	task.HonorExcludeReportWriter = true
-					("w"),	task.HonorExcludeWeb = true
-					(),
-					begin
-						Console.WriteLine("ERROR: An invalid field filter -f " + ClValues[ix] + " was encountered!")
-						ok = false
-						exitCode = 1
-						exitloop
-					end
-					endusing
-				end
-			end
-		end
-	end
+    if (ok && CommandLineParser.Parse("f",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -f may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (0),
+            begin
+                Console.WriteLine("ERROR: No field processing filters were found after the -f option!")
+                ok = false
+                exitCode = 1
+            end
+            (>5),
+            begin
+                Console.WriteLine("ERROR: Too many field processing filters were found after the -f option!")
+                ok = false
+                exitCode = 1
+            end
+            (),
+            begin
+                data ix, int
+                for ix from 0 thru ClValues.Count-1
+                begin
+                    using (ClValues[ix]).ToLower() select
+                    ("o"),	task.IncludeOverlayFields = true
+                    ("l"),	task.IgnoreExcludeLanguage = true
+                    ("t"),	task.HonorExcludeToolkit = true
+                    ("r"),	task.HonorExcludeReportWriter = true
+                    ("w"),	task.HonorExcludeWeb = true
+                    (),
+                    begin
+                        Console.WriteLine("ERROR: An invalid field filter -f " + ClValues[ix] + " was encountered!")
+                        ok = false
+                        exitCode = 1
+                        exitloop
+                    end
+                    endusing
+                end
+            end
+            endusing
+        end
+    end
 	
-	;;-------------------------------------------------------------------------
-	;;See if we have any special group processing filters specified
+    ;;-------------------------------------------------------------------------
+    ;;See if we have any special group processing filters specified
 	
-	if (ok)
-	begin
-		if (CommandLineParser.Parse("g",ClValues))
-		begin
-			if (!ClValues.Count) then
-			begin
-				Console.WriteLine("ERROR: No group processing options were found after the -g option!")
-				ok = false
-				exitCode = 1
-			end
-			else if (ClValues.Count > 3) then
-			begin
-				Console.WriteLine("ERROR: Too many group processing options were found after the -g option!")
-				ok = false
-				exitCode = 1
-			end
-			else
-			begin
-				data ix, int
-				for ix from 0 thru ClValues.Count-1
-				begin
-					using (ClValues[ix]).ToLower() select
-					("f"),	task.GroupFieldNoGroupPrefix = true
-					("i"),	task.GroupNoExpand = true
-					("r"),  task.GroupFieldNoRpsPrefix = true
-					(),
-					begin
-						Console.WriteLine("ERROR: An invalid group processing option -f " + ClValues[ix] + " was encountered!")
-						ok = false
-						exitCode = 1
-						exitloop
-					end
-					endusing
-				end
-			end
-		end
-	end
+    if (ok && CommandLineParser.Parse("g",ClValues))
+    begin
+        if (restrictTaskOptions) then
+        begin
+            Console.WriteLine("ERROR: Option -g may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            using ClValues.Count select
+            (0),
+            begin
+                Console.WriteLine("ERROR: No group processing options were found after the -g option!")
+                ok = false
+                exitCode = 1
+            end
+            (>3),
+            begin
+                Console.WriteLine("ERROR: Too many group processing options were found after the -g option!")
+                ok = false
+                exitCode = 1
+            end
+            (),
+            begin
+                data ix, int
+                for ix from 0 thru ClValues.Count-1
+                begin
+                    using (ClValues[ix]).ToLower() select
+                    ("f"),	task.GroupFieldNoGroupPrefix = true
+                    ("i"),	task.GroupNoExpand = true
+                    ("r"),  task.GroupFieldNoRpsPrefix = true
+                    (),
+                    begin
+                        Console.WriteLine("ERROR: An invalid group processing option -f " + ClValues[ix] + " was encountered!")
+                        ok = false
+                        exitCode = 1
+                        exitloop
+                    end
+                    endusing
+                end
+            end
+            endusing
+        end
+    end
 	
-	;;-------------------------------------------------------------------------
-	;;Are we being asked to continue processing after errors
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to continue processing after errors
 	
-	if (ok)
-		taskSet.ContinueAfterError = CommandLineParser.Parse("c")
+    if (ok && CommandLineParser.Parse("c"))
+    begin
+        taskSet.ContinueAfterError = CommandLineParser.Parse("c")
+    end
 
-	;;-------------------------------------------------------------------------
-	;;We're good to go. Generate souce code
+    ;;-------------------------------------------------------------------------
+    ;;We're good to go. Generate souce code
 	
-	if (ok)
-	begin
-		new CodeGenerator(taskSet).GenerateCode()
+    if (ok)
+    begin
+        new CodeGenerator(taskSet).GenerateCode()
 
-		if (!taskSet.Complete)
-			exitCode = 1
+        if (taskSet.Complete) then
+        begin
+            ;;Are we being asked to save the taskset to a file?
+            if (CommandLineParser.Parse("save",ClValues))
+            begin
+                ;;Were we processing a taskset file?
+                if (!String.IsNullOrWhiteSpace(taskSetFile)) then
+                begin
+                    using ClValues.Count select
+                    (0),
+                    begin
+                        taskSet.SaveToFile(taskSetFile)
+                    end
+                    (),
+                    begin
+                        Console.WriteLine("ERROR: No file name may be specified after -save when used with -input!")
+                        ok = false
+                        exitCode = 1
+                    end
+                    endusing
+                end
+                else
+                begin
+                    using ClValues.Count select
+                    (1),
+                    begin
+                        FileTools.ExpandLogicalName(taskSetFile=ClValues[0])
+                        if (!taskSet.SaveToFile(taskSetFile))
+                        begin
+                            Console.WriteLine("ERROR: Failed to save code generation settings to file " + taskSetFile)
+                            ok = false
+                            exitCode = 1
+                        end
+                    end
+                    (),
+                    begin
+                        Console.WriteLine("ERROR: No save file name was specified after the -save option!")
+                        ok = false
+                        exitCode = 1
+                    end
+                    endusing
+                end
+            end
+        end
+        else
+        begin
+            exitCode = 1
+        end
 
-		if (sw != ^null)
-		begin
-			sw.Stop()
-			Console.WriteLine(String.Format("Elapsed time {0:00}:{1:00}:{2:00}.{3:00}",sw.Elapsed.Hours,sw.Elapsed.Minutes,sw.Elapsed.Seconds,sw.Elapsed.Milliseconds/10))
-		end
-	end	
+        if (sw != ^null)
+        begin
+            sw.Stop()
+            Console.WriteLine(String.Format("Elapsed time {0:00}:{1:00}:{2:00}.{3:00}",sw.Elapsed.Hours,sw.Elapsed.Minutes,sw.Elapsed.Seconds,sw.Elapsed.Milliseconds/10))
+        end
+    end	
 
-	if (CommandLineParser.Parse("pause"))
-	begin
-		Console.WriteLine()
-		Console.Write("Press a key to exit: ")
-		Console.ReadKey()
-		Console.WriteLine()
-	end
+    ;;-------------------------------------------------------------------------
+    ;;If we changed the current directory above, then restore it
+    if (!String.IsNullOrWhiteSpace(restoreFolder))
+    begin
+        Directory.SetCurrentDirectory(restoreFolder)
+    end
 
-	Environment.ExitCode = exitCode
+    ;;-------------------------------------------------------------------------
+    ;;Pause for the user to read output?
+    
+    if (CommandLineParser.Parse("pause"))
+    begin
+        Console.WriteLine()
+        Console.Write("Press a key to exit: ")
+        Console.ReadKey()
+        Console.WriteLine()
+    end
 
-	.ifndef D_PORTABLE
-	;;TODO: Portable doesn't like this right now (11/17)
-	stop exitCode
-	.endc
+    ;;-------------------------------------------------------------------------
+    ;;All done
+    
+    Environment.ExitCode = exitCode
+
+.ifndef D_PORTABLE
+    ;;TODO: Portable doesn't like this right now (11/17)
+    stop exitCode
+.endc
 	
 endmain

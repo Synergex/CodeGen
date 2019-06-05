@@ -52,16 +52,16 @@ import Newtonsoft.Json
 namespace CodeGen.Engine
 
     public enum LoggingLevel
-        Normal,
-        Verbose,
-        Debug,
-        DeveloperDebug
+        Normal,             1
+        Verbose,            2
+        Debug,              3
+        DeveloperDebug,     4
     endenum
 
     public enum SqlDatabaseType
-        SQLServer,
-        MySQL,
-        PostgreSQL
+        SQLServer,          1
+        MySQL,              2
+        PostgreSQL,         3
     endenum
 
     public class CodeGenTaskSet
@@ -100,7 +100,7 @@ namespace CodeGen.Engine
         ;;;	The name of a custom data mappings file to be used.
         ;;; Setting this property is equivalent to using the -cdm command line option.
         ;;;	</summary>
-        public readwrite property DataMappingsFile, String
+        public readwrite property DataMappingsFile, String, String.Empty
 
         ;;; <summary>
         ;;;	Defined identifiers.
@@ -111,7 +111,7 @@ namespace CodeGen.Engine
         ;;;	<summary>
         ;;;	Description of the task set.
         ;;;	</summary>
-        public readwrite property Description, String, "New Task Set"
+        public readwrite property Description, String, String.Empty
 
         ;;; <summary>
         ;;; Echo the command line to the output log.
@@ -119,7 +119,7 @@ namespace CodeGen.Engine
         ;;; </summary>
         public readwrite property EchoCommands, Boolean
 
-        public readwrite property Interface, string
+        public readwrite property Interface, String, String.Empty
 
         ;;;	<summary>
         ;;;	List the names of the output files generated.
@@ -141,7 +141,7 @@ namespace CodeGen.Engine
 
         public readwrite property MethodCatalog, @Smc
 
-        private mOutputFolder, String
+        private mOutputFolder, String, String.Empty
 
         ;;;	<summary>
         ;;;	The folder where output files should be created (optional).
@@ -155,8 +155,8 @@ namespace CodeGen.Engine
             endmethod
             method set
             proc
-                mOutputFolder = value.Trim()
-                if (!mOutputFolder.EndsWith(":")&&!mOutputFolder.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                mOutputFolder = value?.Trim()
+                if (mOutputFolder!=^null && !mOutputFolder.EndsWith(":") && !mOutputFolder.EndsWith(Path.DirectorySeparatorChar.ToString()))
                     mOutputFolder += Path.DirectorySeparatorChar
             endmethod
         endproperty
@@ -164,14 +164,14 @@ namespace CodeGen.Engine
         ;;;	<summary>
         ;;;	The repository main file to use (optional).
         ;;;	</summary>
-        public readwrite property RepositoryMainFile, String
+        public readwrite property RepositoryMainFile, String, String.Empty
 
         ;;;	<summary>
         ;;;	The repository text file to use (optional).
         ;;;	</summary>
-        public readwrite property RepositoryTextFile, String
+        public readwrite property RepositoryTextFile, String, String.Empty
 
-        private mTemplateFolder, String
+        private mTemplateFolder, String, String.Empty
 
         ;;;	<summary>
         ;;;	The folder containing template files (optional).
@@ -383,17 +383,22 @@ namespace CodeGen.Engine
         public method SaveToFile, boolean
             required in fileSpec, String
         proc
-            data ok = true
             try
             begin
-                File.WriteAllText(fileSpec, JsonConvert.SerializeObject(this, Formatting.Indented))
+                data jsonData = JsonConvert.SerializeObject
+                &    (
+                &       this,
+                &       Formatting.Indented,
+                &       new JsonSerializerSettings() {DefaultValueHandling = DefaultValueHandling.Include}
+                &    )
+                File.WriteAllText(fileSpec, jsonData)
+                mreturn true
             end
             catch (e, @Exception)
             begin
-                ;;Just return a fail status
+                mreturn false
             end
             endtry
-            mreturn false
         endmethod
 
         public static method LoadFromFile, boolean
@@ -404,7 +409,10 @@ namespace CodeGen.Engine
             try
             begin
                 data jsonData = File.ReadAllText(fileSpec)
-                taskSet = JsonConvert.DeserializeObject<CodeGenTaskSet>(jsonData)
+                taskSet = JsonConvert.DeserializeObject<CodeGenTaskSet>(
+                &    jsonData,
+                &    new JsonSerializerSettings() {DefaultValueHandling = DefaultValueHandling.Populate}
+                &    )
                 mreturn true
             end
             catch (ex, @Exception)
