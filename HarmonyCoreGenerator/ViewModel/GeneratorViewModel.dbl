@@ -16,7 +16,18 @@ import System.Xml.Linq
 namespace HarmonyCoreGenerator.ViewModel
     
     public partial class GeneratorViewModel extends ViewModelBase
-        
+
+        ;;; <summary>
+        ;;; Constructor
+        ;;; </summary>        
+        public method GeneratorViewModel
+        proc
+            ;;Default to opeing the last used solution
+            data lastSolution = Properties.Settings.Default.LastSolution
+            if (!String.IsNullOrWhiteSpace(lastSolution) && File.Exists(lastSolution))
+                doOpenSolution(lastSolution)
+        endmethod
+
         private method openSolution, void
         proc
             if (_SolutionOpen)
@@ -24,258 +35,271 @@ namespace HarmonyCoreGenerator.ViewModel
 
             data dlg = new OpenFileDialog()
 
-            ;; If we have a last folder, use it
-            data lastFolder = Properties.Settings.Default.LastFolder
-            if (!String.IsNullOrWhiteSpace(lastFolder) && Directory.Exists(lastFolder))
-                dlg.InitialDirectory = lastFolder
-
+            dlg.Title = "Open Visual Studio Solution"
             dlg.Filter = "Solution Files (*.sln)|*.sln"
             dlg.CheckFileExists = true
             dlg.Multiselect = false
+
+            ;;If we have a lst used solution, default to it
+            data lastSolution = Properties.Settings.Default.LastSolution
+            if (!String.IsNullOrWhiteSpace(lastSolution) && File.Exists(lastSolution))
+            begin
+                dlg.InitialDirectory = Path.GetDirectoryName(lastSolution)
+                dlg.FileName = Path.GetFileName(lastSolution)
+            end
 
             ;;Show the dialog
             data result, Nullable<boolean>, dlg.ShowDialog()
 
             if (result == true)
             begin
-                SolutionFile = dlg.FileName
-                SolutionFolder = Path.GetDirectoryName(_SolutionFile)
-                SettingsFile = Path.Combine(Path.GetDirectoryName(_SolutionFile), Path.GetFileNameWithoutExtension(_SolutionFile) + Properties.Settings.Default.HarmonyCoreProjectFileExtension)
-                TasksetFile = Path.Combine(Path.GetDirectoryName(_SolutionFile), Path.GetFileNameWithoutExtension(_SolutionFile) + Properties.Settings.Default.CodeGenProjectFileExtension)
+                ;;Default to the same solution next time
+                Properties.Settings.Default.LastSolution = dlg.FileName
+                Properties.Settings.Default.Save()
 
-                ;;Make sure we're in the solution folder
-                Directory.SetCurrentDirectory(_SolutionFolder)
-
-                data errors = new List<string>()
-                data temp, string
-
-                if (File.Exists(_SettingsFile)) then
-                begin
-                    ;; Load existing settings file
-                    data settingsJson = File.ReadAllText(_SettingsFile)
-                    Options = JsonConvert.DeserializeObject<HarmonyCoreOptions>(
-                    &    settingsJson,
-                    &    new JsonSerializerSettings() {DefaultValueHandling = DefaultValueHandling.Populate}
-                    &    )
-                    Options.TrackChanges = true
-
-                    ;; Repository files
-                    if (!File.Exists(Options.RepositoryMainFile))
-                        errors.Add("Repository main file not found!")
-
-                    if (!File.Exists(Options.RepositoryTextFile))
-                        errors.Add("Repository text file not found!")
-
-                    ;; User tokens file should be in the solution folder
-                    if (!File.Exists(Options.UserTokensFile))
-                        errors.Add("user defined tokens file not found!")
-
-                    ;; Verify the services folder is present
-                    if (!Directory.Exists(Options.ServicesFolder))
-                        errors.Add("Services folder not found!")
-
-                    ;; Verify the controllers folder is present
-                    if (!Directory.Exists(Options.ControllersFolder))
-                        errors.Add("Controllers folder not found!")
-
-                    ;; Verify the self host folder is present
-                    if (!Directory.Exists(Options.SelfHostFolder))
-                        errors.Add("Self host folder not found!")
-
-                    ;; Verify the isolated folder is present
-                    if (!Directory.Exists(Options.IsolatedFolder))
-                        errors.Add("Isolated folder not found!")
-
-                    ;; Verify the models folder is present
-                    if (!Directory.Exists(Options.ModelsFolder))
-                        errors.Add("Models folder not found!")
-
-                    ;; Do we have a unit tests folder?
-                    if (!String.IsNullOrWhiteSpace(Options.UnitTestFolder) && !Directory.Exists(Options.UnitTestFolder))
-                        errors.Add("Unit test folder not found!")
-
-                    ;; Templates folder should be right below the solution folder.
-                    if (!Directory.Exists(Options.TemplatesFolder))
-                        errors.Add("Templates folder not found!")
-
-                    ;; For existing projects, shjow the code generation page
-                    if (errors.Count == 0)
-                        SelectedTabIndex = 3
-                end
-                else
-                begin
-                    ;; No settings file, start from scratch
-
-                    Options = new HarmonyCoreOptions()
-                    Options.TrackChanges = true
-
-                    ;; TODO: For now we're assuming the repository project is in "schema centric" mode and Debug mode is being used
-
-                    ;; Repository files
-
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug", Properties.Settings.Default.RepositoryMainFile)
-
-                    if (File.Exists(temp)) then
-                        Options.RepositoryMainFile = FileTools.GetRelativePath(_SolutionFolder,temp)
-                    else
-                        errors.Add(String.Format("Repository main file '{0}' was not found in the expected location!",Properties.Settings.Default.RepositoryMainFile))
-
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug", Properties.Settings.Default.RepositoryTextFile)
-
-                    if (File.Exists(temp)) then
-                        Options.RepositoryTextFile = FileTools.GetRelativePath(_SolutionFolder,temp)
-                    else
-                        errors.Add(String.Format("Repository text file '{0}' was not found in the expected location!",Properties.Settings.Default.RepositoryTextFile))
-
-                    ;; User tokens file should be in the solution folder
-
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.UserTokenFile)
-
-                    if (File.Exists(temp)) then
-                        Options.UserTokensFile = FileTools.GetRelativePath(_SolutionFolder,temp)
-                    else
-                        errors.Add(String.Format("File '{0}' was not found in the solution directory!",Properties.Settings.Default.UserTokenFile))
-
-                    ;; Verify the services folder is present
-
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.ServicesFolder)
-
-                    if (!Directory.Exists(temp)) then
-                        errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.ServicesFolder))
-                    else
-                    begin
-                        Options.ServicesFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
-                        Options.ServicesProject = Properties.Settings.Default.ServicesProject
-                        ;;Verify that the project is present
-                        if (!File.Exists(Path.Combine(Options.ServicesFolder, Options.ServicesProject)))
-                            errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.ServicesProject))
-                    end
-
-                    ;; Verify the controllers folder is present
-
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.ControllersFolder)
-
-                    if (!Directory.Exists(temp)) then
-                        errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.ControllersFolder))
-                    else
-                    begin
-                        Options.ControllersFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
-                        Options.ControllersProject = Properties.Settings.Default.ControllersProject
-                        ;;Verify that the project is present
-                        if (!File.Exists(Path.Combine(Options.ControllersFolder, Options.ControllersProject)))
-                            errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.ControllersProject))
-                    end
-
-                    ;; Verify the self host folder is present
-
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.HostFolder)
-
-                    if (!Directory.Exists(temp)) then
-                        errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.HostFolder))
-                    else
-                    begin
-                        Options.SelfHostFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
-                        Options.SelfHostProject = Properties.Settings.Default.HostProject
-                        ;;Verify that the project is present
-                        if (!File.Exists(Path.Combine(Options.SelfHostFolder, Options.SelfHostProject)))
-                            errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.HostProject))
-                    end
-
-                    ;; Verify the isolated folder is present
-
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.IsolatedFolder)
-
-                    if (!Directory.Exists(temp)) then
-                        errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.IsolatedFolder))
-                    else
-                    begin
-                        Options.IsolatedFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
-                        Options.IsolatedProject = Properties.Settings.Default.IsolatedProject
-                        ;;Verify that the project is present
-                        if (!File.Exists(Path.Combine(Options.IsolatedFolder, Options.IsolatedProject)))
-                            errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.IsolatedProject))
-                    end
-
-                    ;; Verify the models folder is present
-
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.ModelsFolder)
-
-                    if (!Directory.Exists(temp)) then
-                        errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.ModelsFolder))
-                    else
-                    begin
-                        Options.ModelsFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
-                        Options.ModelsProject = Properties.Settings.Default.ModelsProject
-                        ;;Verify that the project is present
-                        if (!File.Exists(Path.Combine(Options.ModelsFolder, Options.ModelsProject)))
-                            errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.ModelsProject))
-                    end
-
-                    ;; Do we have a unit tests folder?
-
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.TestFolder)
-
-                    if (!Directory.Exists(temp)) then
-                        Options.UnitTestFolder = String.Empty
-                    else
-                    begin
-                        Options.UnitTestFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
-                        Options.UnitTestProject = Properties.Settings.Default.TestProject
-                        ;;Verify that the project is present
-                        if (!File.Exists(Path.Combine(Options.UnitTestFolder, Options.UnitTestProject)))
-                            errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.TestProject))
-                    end
-
-                    ;; Load the repository
-
-                    if (errors.Count == 0)
-                    begin
-                        data rps = new Repository(Options.RepositoryMainFile, Options.RepositoryTextFile, false)
-                        begin
-                            data str, @RpsStructure
-                            foreach str in rps.Structures
-                                Options.Structures.Add(new StructureRow(str))
-                        end
-                        ;; For new projects, show the structure selection page
-                        if (errors.Count == 0)
-                            SelectedTabIndex = 1
-                    end
-
-                    ;; Templates folder should be right below the solution folder.
-                    temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.TemplatesFolder)
-                    if (Directory.Exists(temp)) then
-                        Options.TemplatesFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
-                    else
-                        errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.TemplatesFolder))
-                end
-
-                if (errors.Count == 0) then
-                begin
-                    if (Options.Structures.Count > 0)
-                        SelectedStructure = Options.Structures.First()
-
-                    ;; Save the last used folder
-                    Properties.Settings.Default.LastFolder = Path.GetDirectoryName(_SolutionFile)
-                    Properties.Settings.Default.Save()
-                    SolutionOpen = true
-                end
-                else
-                begin
-                    data message = "The solution configuration was not as expected"
-                    data error, string
-                    foreach error in errors
-                        message = message + Environment.NewLine + " - " + error
-
-                    MessageBox.Show(message, "Unsupported Configuration", MessageBoxButton.OK, MessageBoxImage.Exclamation)
-
-                    ;; Clear things down so the UI is blank
-                    SolutionFile = String.Empty
-                    SolutionFolder = String.Empty
-                    SettingsFile = String.Empty
-                    TasksetFile = String.Empty
-                    Options = new HarmonyCoreOptions()
-                end
+                doOpenSolution(dlg.FileName)
             end
+
+        endmethod
+
+        private method doOpenSolution, void
+            required in aSolutionFile, string
+        proc
+            SolutionFile = aSolutionFile
+            SolutionFolder = Path.GetDirectoryName(_SolutionFile)
+            SettingsFile = Path.Combine(Path.GetDirectoryName(_SolutionFile), Path.GetFileNameWithoutExtension(_SolutionFile) + Properties.Settings.Default.HarmonyCoreProjectFileExtension)
+            TasksetFile = Path.Combine(Path.GetDirectoryName(_SolutionFile), Path.GetFileNameWithoutExtension(_SolutionFile) + Properties.Settings.Default.CodeGenProjectFileExtension)
+
+            ;;Make sure we're in the solution folder
+            Directory.SetCurrentDirectory(_SolutionFolder)
+
+            data errors = new List<string>()
+            data temp, string
+
+            if (File.Exists(_SettingsFile)) then
+            begin
+                ;; Load existing settings file
+                data settingsJson = File.ReadAllText(_SettingsFile)
+                Options = JsonConvert.DeserializeObject<HarmonyCoreOptions>(
+                &    settingsJson,
+                &    new JsonSerializerSettings() {DefaultValueHandling = DefaultValueHandling.Populate}
+                &    )
+                Options.TrackChanges = true
+
+                ;; Repository files
+                if (!File.Exists(Options.RepositoryMainFile))
+                    errors.Add("Repository main file not found!")
+
+                if (!File.Exists(Options.RepositoryTextFile))
+                    errors.Add("Repository text file not found!")
+
+                ;; User tokens file should be in the solution folder
+                if (!File.Exists(Options.UserTokensFile))
+                    errors.Add("user defined tokens file not found!")
+
+                ;; Verify the services folder is present
+                if (!Directory.Exists(Options.ServicesFolder))
+                    errors.Add("Services folder not found!")
+
+                ;; Verify the controllers folder is present
+                if (!Directory.Exists(Options.ControllersFolder))
+                    errors.Add("Controllers folder not found!")
+
+                ;; Verify the self host folder is present
+                if (!Directory.Exists(Options.SelfHostFolder))
+                    errors.Add("Self host folder not found!")
+
+                ;; Verify the isolated folder is present
+                if (!Directory.Exists(Options.IsolatedFolder))
+                    errors.Add("Isolated folder not found!")
+
+                ;; Verify the models folder is present
+                if (!Directory.Exists(Options.ModelsFolder))
+                    errors.Add("Models folder not found!")
+
+                ;; Do we have a unit tests folder?
+                if (!String.IsNullOrWhiteSpace(Options.UnitTestFolder) && !Directory.Exists(Options.UnitTestFolder))
+                    errors.Add("Unit test folder not found!")
+
+                ;; Templates folder should be right below the solution folder.
+                if (!Directory.Exists(Options.TemplatesFolder))
+                    errors.Add("Templates folder not found!")
+
+                ;; For existing projects, shjow the code generation page
+                if (errors.Count == 0)
+                    SelectedTabIndex = 3
+            end
+            else
+            begin
+                ;; No settings file, start from scratch
+
+                Options = new HarmonyCoreOptions()
+                Options.TrackChanges = true
+
+                ;; TODO: For now we're assuming the repository project is in "schema centric" mode and Debug mode is being used
+
+                ;; Repository files
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug", Properties.Settings.Default.RepositoryMainFile)
+
+                if (File.Exists(temp)) then
+                    Options.RepositoryMainFile = FileTools.GetRelativePath(_SolutionFolder,temp)
+                else
+                    errors.Add(String.Format("Repository main file '{0}' was not found in the expected location!",Properties.Settings.Default.RepositoryMainFile))
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug", Properties.Settings.Default.RepositoryTextFile)
+
+                if (File.Exists(temp)) then
+                    Options.RepositoryTextFile = FileTools.GetRelativePath(_SolutionFolder,temp)
+                else
+                    errors.Add(String.Format("Repository text file '{0}' was not found in the expected location!",Properties.Settings.Default.RepositoryTextFile))
+
+                ;; User tokens file should be in the solution folder
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.UserTokenFile)
+
+                if (File.Exists(temp)) then
+                    Options.UserTokensFile = FileTools.GetRelativePath(_SolutionFolder,temp)
+                else
+                    errors.Add(String.Format("File '{0}' was not found in the solution directory!",Properties.Settings.Default.UserTokenFile))
+
+                ;; Verify the services folder is present
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.ServicesFolder)
+
+                if (!Directory.Exists(temp)) then
+                    errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.ServicesFolder))
+                else
+                begin
+                    Options.ServicesFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
+                    Options.ServicesProject = Properties.Settings.Default.ServicesProject
+                    ;;Verify that the project is present
+                    if (!File.Exists(Path.Combine(Options.ServicesFolder, Options.ServicesProject)))
+                        errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.ServicesProject))
+                end
+
+                ;; Verify the controllers folder is present
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.ControllersFolder)
+
+                if (!Directory.Exists(temp)) then
+                    errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.ControllersFolder))
+                else
+                begin
+                    Options.ControllersFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
+                    Options.ControllersProject = Properties.Settings.Default.ControllersProject
+                    ;;Verify that the project is present
+                    if (!File.Exists(Path.Combine(Options.ControllersFolder, Options.ControllersProject)))
+                        errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.ControllersProject))
+                end
+
+                ;; Verify the self host folder is present
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.HostFolder)
+
+                if (!Directory.Exists(temp)) then
+                    errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.HostFolder))
+                else
+                begin
+                    Options.SelfHostFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
+                    Options.SelfHostProject = Properties.Settings.Default.HostProject
+                    ;;Verify that the project is present
+                    if (!File.Exists(Path.Combine(Options.SelfHostFolder, Options.SelfHostProject)))
+                        errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.HostProject))
+                end
+
+                ;; Verify the isolated folder is present
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.IsolatedFolder)
+
+                if (!Directory.Exists(temp)) then
+                    errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.IsolatedFolder))
+                else
+                begin
+                    Options.IsolatedFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
+                    Options.IsolatedProject = Properties.Settings.Default.IsolatedProject
+                    ;;Verify that the project is present
+                    if (!File.Exists(Path.Combine(Options.IsolatedFolder, Options.IsolatedProject)))
+                        errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.IsolatedProject))
+                end
+
+                ;; Verify the models folder is present
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.ModelsFolder)
+
+                if (!Directory.Exists(temp)) then
+                    errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.ModelsFolder))
+                else
+                begin
+                    Options.ModelsFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
+                    Options.ModelsProject = Properties.Settings.Default.ModelsProject
+                    ;;Verify that the project is present
+                    if (!File.Exists(Path.Combine(Options.ModelsFolder, Options.ModelsProject)))
+                        errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.ModelsProject))
+                end
+
+                ;; Do we have a unit tests folder?
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.TestFolder)
+
+                if (!Directory.Exists(temp)) then
+                    Options.UnitTestFolder = String.Empty
+                else
+                begin
+                    Options.UnitTestFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
+                    Options.UnitTestProject = Properties.Settings.Default.TestProject
+                    ;;Verify that the project is present
+                    if (!File.Exists(Path.Combine(Options.UnitTestFolder, Options.UnitTestProject)))
+                        errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.TestProject))
+                end
+
+                ;; Load the repository
+
+                if (errors.Count == 0)
+                begin
+                    data rps = new Repository(Options.RepositoryMainFile, Options.RepositoryTextFile, false)
+                    begin
+                        data str, @RpsStructure
+                        foreach str in rps.Structures
+                            Options.Structures.Add(new StructureRow(str))
+                    end
+                    ;; For new projects, show the structure selection page
+                    if (errors.Count == 0)
+                        SelectedTabIndex = 1
+                end
+
+                ;; Templates folder should be right below the solution folder.
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.TemplatesFolder)
+                if (Directory.Exists(temp)) then
+                    Options.TemplatesFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
+                else
+                    errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.TemplatesFolder))
+            end
+
+            if (errors.Count == 0) then
+            begin
+                if (Options.Structures.Count > 0)
+                    SelectedStructure = Options.Structures.First()
+
+                SolutionOpen = true
+            end
+            else
+            begin
+                data message = "The solution configuration was not as expected"
+                data error, string
+                foreach error in errors
+                    message = message + Environment.NewLine + " - " + error
+
+                MessageBox.Show(message, "Unsupported Configuration", MessageBoxButton.OK, MessageBoxImage.Exclamation)
+
+                ;; Clear things down so the UI is blank
+                SolutionFile = String.Empty
+                SolutionFolder = String.Empty
+                SettingsFile = String.Empty
+                TasksetFile = String.Empty
+                Options = new HarmonyCoreOptions()
+            end
+            
         endmethod
 
         private method closeSolution, void
