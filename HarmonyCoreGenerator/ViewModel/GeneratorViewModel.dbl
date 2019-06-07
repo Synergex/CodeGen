@@ -22,10 +22,26 @@ namespace HarmonyCoreGenerator.ViewModel
         ;;; </summary>        
         public method GeneratorViewModel
         proc
-            ;;Default to opeing the last used solution
-            data lastSolution = Properties.Settings.Default.LastSolution
-            if (!String.IsNullOrWhiteSpace(lastSolution) && File.Exists(lastSolution))
-                doOpenSolution(lastSolution)
+
+            data commandLineArgs = Environment.GetCommandLineArgs()
+
+            if (commandLineArgs.Length > 1) then
+            begin
+                ;;Is argument 2 a solution file that exists?
+                if (commandLineArgs[1].ToLower().EndsWith(".sln") && File.Exists(commandLineArgs[1]))
+                begin
+                    ;;Looks like it, let's try to use it.
+                    doOpenSolution(commandLineArgs[1])
+                end
+            end
+            else
+            begin
+                ;;Default to opeing the last used solution
+                data lastSolution = Properties.Settings.Default.LastSolution
+                if (!String.IsNullOrWhiteSpace(lastSolution) && File.Exists(lastSolution))
+                    doOpenSolution(lastSolution)
+            end
+
         endmethod
 
         private method openSolution, void
@@ -348,7 +364,7 @@ namespace HarmonyCoreGenerator.ViewModel
             endtry
         endmethod
         
-        private method refreseRepository, void
+        private method refreshRepository, void
         proc
             ;; Ensure the code generation page is visible
             if (SelectedTabIndex != 1)
@@ -364,6 +380,14 @@ namespace HarmonyCoreGenerator.ViewModel
 
             ;;Make sure we're in the solution folder
             Directory.SetCurrentDirectory(_SolutionFolder)
+
+            if (Options.UnsavedChanges)
+            begin
+                if (MessageBox.Show("Save configuration changes before generating?","There are Unsaved Changes",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.Yes) == MessageBoxResult.Yes)
+                begin
+                    saveSettings()
+                end
+            end
 
             StatusBarText = "Generating code..."
 
