@@ -143,7 +143,7 @@ namespace HarmonyCoreGenerator.ViewModel
 
                 ;; Check for repository changes
                 ;TODO: Need to make this happen after the UI has been painted.
-                refreshRepository()
+                refreshRepository(false)
 
                 ;; For existing projects, show the code generation page
                 if (errors.Count == 0)
@@ -369,11 +369,8 @@ namespace HarmonyCoreGenerator.ViewModel
         endmethod
         
         private method refreshRepository, void
+            required in showNoChangesMessage, boolean
         proc
-            ;; Ensure the code generation page is visible
-            if (SelectedTabIndex != 1)
-                SelectedTabIndex = 1
-
             data rps = new Repository(Options.RepositoryMainFile, Options.RepositoryTextFile, false)
             data str, @RpsStructure
             data row, @StructureRow
@@ -402,8 +399,12 @@ namespace HarmonyCoreGenerator.ViewModel
 
             ;;Tell the user what we are about to do and give them the chance to cancel
 
-            if (rowsToDelete.Count > 0 || structuresToAdd.Count > 0)
+            if (rowsToDelete.Count > 0 || structuresToAdd.Count > 0) then
             begin
+                ;; Ensure the repository page is visible
+                if (SelectedTabIndex != 1)
+                    SelectedTabIndex = 1
+
                 data caption = "Repository Canges Detected"
                 data message = String.Empty
 
@@ -419,11 +420,12 @@ namespace HarmonyCoreGenerator.ViewModel
 
                 if (rowsToDelete.Count > 0)
                 begin
-                    message += "Structures to be removed:"
+                    message += Environment.NewLine + "Structures to be removed:"
                     foreach row in rowsToDelete
                     begin
                         message += Environment.NewLine + " - " + row.Name
                     end
+                    message += Environment.NewLine + "Note: Source files will NOT be removed from projects:"
                 end
 
                 if (MessageBox.Show(message,caption,MessageBoxButton.OKCancel,MessageBoxImage.Information,MessageBoxResult.Cancel) == MessageBoxResult.OK)
@@ -457,6 +459,13 @@ namespace HarmonyCoreGenerator.ViewModel
 
                     saveSettings()
 
+                end
+            end
+            else
+            begin
+                if (showNoChangesMessage)
+                begin
+                    MessageBox.Show("No repository changes were found.","Refresh Repository",MessageBoxButton.OK,MessageBoxImage.Information)
                 end
             end
 
