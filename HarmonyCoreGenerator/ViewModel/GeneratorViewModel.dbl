@@ -141,6 +141,10 @@ namespace HarmonyCoreGenerator.ViewModel
                 if (!Directory.Exists(Options.TemplatesFolder))
                     errors.Add("Templates folder not found!")
 
+                ;; Check for repository changes
+                ;TODO: Need to make this happen after the UI has been painted.
+                refreshRepository()
+
                 ;; For existing projects, show the code generation page
                 if (errors.Count == 0)
                     SelectedTabIndex = 3
@@ -374,34 +378,86 @@ namespace HarmonyCoreGenerator.ViewModel
             data str, @RpsStructure
             data row, @StructureRow
             
-            ;;First look for structures in our list that are no longer in the repository
+            ;;Look for structures in our list that are no longer in the repository
 
             data rowsToDelete = new List<StructureRow>()
             foreach row in Options.Structures
             begin
-                ;;Is this structure still in the repository?
-                if (rps.Structures.Any(lambda (s) { s.Name.Equals(row.Name) }))
-                    nextloop
-                ;;Nope, lose it!
-                rowsToDelete.Add(row)
+                if (!rps.Structures.Any(lambda (s) { s.Name.Equals(row.Name) }))
+                begin
+                    rowsToDelete.Add(row)
+                end
             end
 
-            ;;Delete structures no longer in the repository
+            ;;Look for structures in repository that are not in our list
 
-            foreach row in rowsToDelete
-            begin
-                Options.Structures.Remove(row)
-            end
-
-            ;;Next look for structures in repository that are not in our list
+            data structuresToAdd = new List<RpsStructure>()
             foreach str in rps.Structures
             begin
-                ;;Is the strcuture already in our list of structiures
-                if (Options.Structures.Any(lambda(s) { s.Name.Equals(str.Name) }))
-                    nextloop
-                ;;Nope, add it!
-                ;TODO: Add in alphabetic order!
-                Options.Structures.Add(new StructureRow(str))
+                if (!Options.Structures.Any(lambda(s) { s.Name.Equals(str.Name) }))
+                begin
+                    structuresToAdd.Add(str)
+                end
+            end
+
+            ;;Tell the user what we are about to do and give them the chance to cancel
+
+            if (rowsToDelete.Count > 0 || structuresToAdd.Count > 0)
+            begin
+                data caption = "Repository Canges Detected"
+                data message = String.Empty
+
+                if (structuresToAdd.Count > 0)
+                begin
+                    message += "Structures to be added:"
+                    foreach str in structuresToAdd
+                    begin
+                        message += Environment.NewLine + " - " + str.Name
+                    end
+                    message += Environment.NewLine
+                end
+
+                if (rowsToDelete.Count > 0)
+                begin
+                    message += "Structures to be removed:"
+                    foreach row in rowsToDelete
+                    begin
+                        message += Environment.NewLine + " - " + row.Name
+                    end
+                end
+
+                if (MessageBox.Show(message,caption,MessageBoxButton.OKCancel,MessageBoxImage.Information,MessageBoxResult.Cancel) == MessageBoxResult.OK)
+                begin
+                    ;;Remove old structures
+                    foreach row in rowsToDelete
+                    begin
+                        Options.Structures.Remove(row)
+                    end                    
+
+                    ;;Add new structures, in alphabetical sequence
+                    data added = false
+                    foreach str in structuresToAdd
+                    begin
+                        data ix, int
+                        for ix from 0 thru Options.Structures.Count
+                        begin
+                            if (Options.Structures[ix].Name > str.Name)
+                            begin
+                                Options.Structures.Insert(ix,new StructureRow(str))
+                                added = true
+                                exitloop
+                            end
+                        end
+                        ;;If we didn't already add it then add it at the end
+                        if (!added)
+                        begin
+                            Options.Structures.Add(new StructureRow(str))
+                        end
+                    end
+
+                    saveSettings()
+
+                end
             end
 
         endmethod
