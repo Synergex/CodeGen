@@ -369,7 +369,41 @@ namespace HarmonyCoreGenerator.ViewModel
             ;; Ensure the code generation page is visible
             if (SelectedTabIndex != 1)
                 SelectedTabIndex = 1
-            MessageBox.Show("You wish!")
+
+            data rps = new Repository(Options.RepositoryMainFile, Options.RepositoryTextFile, false)
+            data str, @RpsStructure
+            data row, @StructureRow
+            
+            ;;First look for structures in our list that are no longer in the repository
+
+            data rowsToDelete = new List<StructureRow>()
+            foreach row in Options.Structures
+            begin
+                ;;Is this structure still in the repository?
+                if (rps.Structures.Any(lambda (s) { s.Name.Equals(row.Name) }))
+                    nextloop
+                ;;Nope, lose it!
+                rowsToDelete.Add(row)
+            end
+
+            ;;Delete structures no longer in the repository
+
+            foreach row in rowsToDelete
+            begin
+                Options.Structures.Remove(row)
+            end
+
+            ;;Next look for structures in repository that are not in our list
+            foreach str in rps.Structures
+            begin
+                ;;Is the strcuture already in our list of structiures
+                if (Options.Structures.Any(lambda(s) { s.Name.Equals(str.Name) }))
+                    nextloop
+                ;;Nope, add it!
+                ;TODO: Add in alphabetic order!
+                Options.Structures.Add(new StructureRow(str))
+            end
+
         endmethod
         
         private method generateCode, void
