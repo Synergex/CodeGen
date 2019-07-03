@@ -160,9 +160,17 @@ namespace HarmonyCoreGenerator.ViewModel
                 Options = new HarmonyCoreOptions()
                 Options.TrackChanges = true
 
-                ;; TODO: For now we're assuming the repository project is in "schema centric" mode and Debug mode is being used
-
                 ;; Repository files
+
+;                parseRepositoryProject(Path.Combine(
+;                &    _SolutionFolder,
+;                &    Properties.Settings.Default.RepositoryFolder,
+;                &    Properties.Settings.Default.RepositoryProject))
+
+
+
+
+                ;; TODO: For now we're assuming the repository project is in "schema centric" mode and Debug mode is being used
 
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug", Properties.Settings.Default.RepositoryMainFile)
 
@@ -328,6 +336,22 @@ namespace HarmonyCoreGenerator.ViewModel
             end
             
         endmethod
+
+;        private method parseRepositoryProject, void
+;            required in aProjectFile, string
+;        proc
+;            data xDoc = XDocument.Load(aProjectFile)
+;
+;            ;;Find all <ItemGroup> elements
+;            data propertyGroups = xDoc.Descendants("PropertyGroup")
+;
+;            ;;Now find the propertyGroups that contain the attrribute "Condition"
+;            ;;There should be two, one for Debug mode and one for Release mode
+;
+;            data propertyGroupsWithCondition = propertyGroups.Where(lambda (pg) { pg.Attributes("Condition").Count() > 0 })
+;
+;
+;        endmethod
 
         private method closeSolution, void
         proc
@@ -554,7 +578,7 @@ namespace HarmonyCoreGenerator.ViewModel
             ;; Create a task to generate the EdbBuilder and Startup classes
 
             task = new CodeGenTask()
-            task.Description = "Generate the EdbBuilder and Startup classes"
+            task.Description = "Generate the EdmBuilder and Startup classes"
             task.Templates.Add("ODataEdmBuilder")
             task.Templates.Add("ODataStartup")
             task.OutputFolder = Options.ServicesFolder
@@ -578,6 +602,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.OutputFolder = Options.SelfHostFolder
                 task.Namespace = "Services.Host"
                 task.MultipleStructures = true
+                task.UserTokens.Add(new UserToken("SERVICES_NAMESPACE", "Services"))
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", "Services.Models"))
                 addStructureAndFileStructures(task)
                 ;; TODO: if we have a parameter file structure we need to add that here also
                 addStandardOptions(task)
@@ -683,6 +709,19 @@ namespace HarmonyCoreGenerator.ViewModel
                 addNoReplaceOptions(task)
                 taskset.Tasks.Add(task)
             end
+
+            ;;------------------------------------------------------------------------
+            ;;Traditional bridge code generation tasks
+
+            ;;Need an option turned on
+            ;;Need at least one "Traditional Bridge Only" structure
+            ;;Need a traditional bridge project location and project file
+            ;;Need a traditional bridge templates location (or rename and move into main templates folder)
+
+
+
+
+            ;;------------------------------------------------------------------------
 
             ;; Do it all!
 
@@ -1124,6 +1163,38 @@ namespace HarmonyCoreGenerator.ViewModel
 
         endmethod
         
+        private static traditionalBridgeStructures, @List<string>
+        private static traditionalBridgeAliases, @List<string>
+        
+        private method addTraditionalBridgeStructures, void
+            task, @CodeGenTask 
+        proc
+
+            ;; One time only per code generation pass
+
+            if (traditionalBridgeStructures == ^null)
+            begin
+                traditionalBridgeStructures = new List<string>()
+                traditionalBridgeAliases = new List<string>()
+
+                data row, @StructureRow
+                foreach row in Options.Structures.Where(lambda (row) { row.ProcessingMode.Equals("Traditional Bridge Only") })
+                begin
+                    traditionalBridgeStructures.Add(row.Name)
+                    traditionalBridgeAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias)
+                end
+            end
+
+            ;; Add the structures to the current task
+
+            data ix, int
+            for ix from 0 thru traditionalBridgeStructures.Count - 1
+            begin
+                task.Structures.Add(traditionalBridgeStructures[ix])
+                task.Aliases.Add(traditionalBridgeAliases[ix])
+            end
+
+        endmethod
         private method addStandardOptions, void
             task, @CodeGenTask 
         proc
