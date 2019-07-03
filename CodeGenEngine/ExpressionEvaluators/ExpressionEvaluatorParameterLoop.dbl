@@ -87,6 +87,10 @@ namespace CodeGen.Engine
             parameterLoopExpressionEvaluators.Add("OUT", evaluateParameterDirection)
             parameterLoopExpressionEvaluators.Add("OUT_OR_INOUT", evaluateParameterDirection)
 
+            ;;Parameter quantity
+            parameterLoopExpressionEvaluators.Add("MORE_IN_OR_INOUT", evaluateParameterQuantity)
+            parameterLoopExpressionEvaluators.Add("MORE_OUT_OR_INOUT", evaluateParameterQuantity)
+
             ;;Parameter passing mechanism
             parameterLoopExpressionEvaluators.Add("DESCRIPTOR", evaluateParameterPassedBy)
             parameterLoopExpressionEvaluators.Add("REFERENCE", evaluateParameterPassedBy)
@@ -151,7 +155,7 @@ namespace CodeGen.Engine
             data loop, @ParameterLoopNode, ^as(loops.First(isParameterLoop), ParameterLoopNode)
             mreturn specific(loop.CurrentInterface, loop.CurrentMethod, loop.CurrentParameter, loop.CurrentIndex)
         endmethod
-		
+
         ;; -------------------------------------------------------------------------------------------------------------------------------
 
         private static method evaluateParameterComment, boolean
@@ -162,7 +166,7 @@ namespace CodeGen.Engine
             lambda doEvaluate(iface, meth, param, index) (!String.IsNullOrWhiteSpace(param.Comment))
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterDataTable, boolean
             tkn, @Token
             template, @FileNode 
@@ -171,7 +175,7 @@ namespace CodeGen.Engine
             lambda doEvaluate(iface, meth, param, index) (param.DataTable == true)
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterDate, boolean
             tkn, @Token
             template, @FileNode 
@@ -202,7 +206,7 @@ namespace CodeGen.Engine
             lambda doEvaluate(iface, meth, param, index) (param.DateFormat == searchForType)
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterTime, boolean
             tkn, @Token
             template, @FileNode 
@@ -211,7 +215,7 @@ namespace CodeGen.Engine
             lambda doEvaluate(iface, meth, param, index) (param.DateFormat == DateFormat.HHMM || param.DateFormat == DateFormat.HHMMSS)
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterTimeType, boolean
             tkn, @Token
             template, @FileNode 
@@ -227,7 +231,7 @@ namespace CodeGen.Engine
             lambda doEvaluate(iface, meth, param, index) (param.DateFormat == searchForType)
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterDateOrTime, boolean
             tkn, @Token
             template, @FileNode 
@@ -252,7 +256,7 @@ namespace CodeGen.Engine
             lambda doEvaluate(iface, meth, param, index) (param.Required == searchForType)
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterDirection, boolean
             tkn, @Token
             template, @FileNode 
@@ -275,7 +279,50 @@ namespace CodeGen.Engine
             end
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
+        private static method evaluateParameterQuantity, boolean
+            tkn, @Token
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+        proc
+            lambda doEvaluate(iface, meth, param, index)
+            begin
+                using tkn.Value select
+                ("MORE_IN_OR_INOUT"),
+                begin
+                    if (index < meth.Parameters.Count)
+                    begin
+                        data ix, int
+                        for ix from index + 1 thru meth.Parameters.Count
+                        begin
+                            if (meth.Parameters[ix].Direction == ParameterDirection.In || meth.Parameters[ix].Direction == ParameterDirection.InOut)
+                            begin
+                                mreturn true
+                            end
+                        end
+                    end
+                    mreturn false
+                end
+                ("MORE_OUT_OR_INOUT"),
+                begin
+                    if (index < meth.Parameters.Count)
+                    begin
+                        data ix, int
+                        for ix from index + 1 thru meth.Parameters.Count
+                        begin
+                            if (meth.Parameters[ix].Direction == ParameterDirection.Out || meth.Parameters[ix].Direction == ParameterDirection.InOut)
+                            begin
+                                mreturn true
+                            end
+                        end
+                    end
+                    mreturn false
+                end
+                endusing
+            end
+            mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
         private static method evaluateParameterPassedBy, boolean
             tkn, @Token
             template, @FileNode 
@@ -293,7 +340,7 @@ namespace CodeGen.Engine
             lambda doEvaluate(iface, meth, param, index) (param.PassBy == searchForType)
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         ;; -------------------------------------------------------------------------------------------------------------------------------
 
         private static method evaluateParameterType, boolean
@@ -326,7 +373,7 @@ namespace CodeGen.Engine
             end
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterCoerce, boolean
             tkn, @Token
             template, @FileNode 
@@ -335,7 +382,7 @@ namespace CodeGen.Engine
             lambda doEvaluate(iface, meth, param, index) (param.CoerceType != CoerceType.None)
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterCoerceType, boolean
             tkn, @Token
             template, @FileNode 
@@ -377,7 +424,7 @@ namespace CodeGen.Engine
             lambda doEvaluate(iface, meth, param, index) (param.CoerceType == searchForType)
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterCollection, boolean
             tkn, @Token
             template, @FileNode 
@@ -412,7 +459,7 @@ namespace CodeGen.Engine
             end
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
         private static method evaluateParameterFirstInstanceOfEnum, boolean
             tkn, @Token
             template, @FileNode 
@@ -426,8 +473,7 @@ namespace CodeGen.Engine
             end
             mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
-	
+
     endclass
 
 endnamespace
-
