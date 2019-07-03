@@ -44,156 +44,156 @@ import System.Collections.Generic
 
 namespace CodeGen.MethodCatalogAPI
 
-	public class Smc
-		
-		public readonly property Interfaces, @List<SmcInterface>, new List<SmcInterface>()
+    public class Smc
 
-		;;; <summary>
-		;;; Constructs a new MethodCatalog object by parsing the information
-		;;; contained in a method catalog.
-		;;; </summary>
-		;;; <param name="inputFile">Method catalog XML file to parse.</param>
-		public method Smc
-			required in inputFile, String
-			endparams
-		proc
-			;;Make sure the file is present
-			try 
-			begin
-				data ch, i4, 0
-				open(ch,i:s,inputFile)
-				close ch
-			end
-			catch (ex)
-			begin
-				throw new ApplicationException("Failed to open input file. "+ex.Message+".")
-			end
-			endtry
-							
-			;;And parse it
-			parseMethodCatalogXml(inputFile)
+        public readonly property Interfaces, @List<SmcInterface>, new List<SmcInterface>()
 
-		endmethod
-		
-		private method parseMethodCatalogXml, void
-			required in inputFile, String
-			endparams
-			.include "DBLDIR:synxml.def"
-			record localData
-				parser				,XML_PARSER_TYPE
-				doc					,XML_DOC_TYPE
-				root				,XML_ELEM_TYPE
-				interfacesElement	,XML_ELEMLIST_TYPE
-				interfaceCount		,i4
-				ix					,i4
-			endrecord
-		proc
-			init localData
-			
-			;;Parse the XML file
-			parser = %xml_parser_create
-			doc = %xml_parser_parsefile(parser,inputFile)
-			parser = xml_parser_delete(parser)
-			
-			;;Did the parse fail?
-			if (!doc)
-				throw new ApplicationException("Failed to parse input file. The XML may be invalid.")
-				
-			try
-			begin
-				;;Get the root element and make sure it's an SMC export file.
-				data rootElementName, a20
-				root = %xml_doc_getroot(doc)
-				if ((%xml_elem_getname(root,rootElementName)!=XML_SUCCESS)||(rootElementName!="component"))
-					throw new ApplicationException("Failed to parse input file. The file is not a method catalog export file.")
-				
-				;;Get the interface definitions
-				interfacesElement = %xml_elem_getelementsbyname(root,"interface")
-				
-				;;Do we have interfaces to work with?
-				interfaceCount = %xml_elemlist_count(interfacesElement)
-				if (!interfaceCount)
-					throw new ApplicationException("No interfaces defined in input file.")
-				
-				for ix from 1 thru interfaceCount
-					parseInterface(%xml_elemlist_item(interfacesElement,ix))
-				
-				if (this.Interfaces.Count==0)
-					throw new ApplicationException("No application interfaces defined in input file.")
-			end
-			finally
-			begin
-				;;Clean up the XML document
-				doc = %xml_doc_delete(doc)
-			end
-			endtry
-			
-		endmethod
-		
-		private method parseInterface, void
-			required in interfaceElement, XML_ELEM_TYPE
-			endparams
-			.include "DBLDIR:synxml.def"
-			record 
-				interfaceName	,a128
-				thisInterface	,@SmcInterface
-				allMehtods		,XML_ELEMLIST_TYPE
-				thisMethod		,XML_ELEM_TYPE
-				methodCount		,i4
-				ix				,i4
-			endrecord
-		proc
-			;;Get the interface name
-			xcall xml_elem_getattribute(interfaceElement,"name",interfaceName)
+        ;;; <summary>
+        ;;; Constructs a new MethodCatalog object by parsing the information
+        ;;; contained in a method catalog.
+        ;;; </summary>
+        ;;; <param name="inputFile">Method catalog XML file to parse.</param>
+        public method Smc
+            required in inputFile, String
+        proc
+            ;;Make sure the file is present
+            try 
+            begin
+                data ch, i4, 0
+                open(ch,i:s,inputFile)
+                close ch
+            end
+            catch (ex)
+            begin
+                throw new ApplicationException("Failed to open input file. "+ex.Message+".")
+            end
+            endtry
 
-			if (!interfaceName) then
-				mreturn
-			else if (interfaceName=="xfTest")
-				mreturn
-			
-			;;Create the new interface object
-			thisInterface = new SmcInterface() { Name=%atrim(interfaceName) }
+            ;;And parse it
+            parseMethodCatalogXml(inputFile)
 
-			;;Get the method definitions
-			allMehtods = %xml_elem_getelementsbyname(interfaceElement,"method")
+        endmethod
 
-			;;Do we have methods to work with?
-			methodCount = %xml_elemlist_count(allMehtods)
-			if (!methodCount)
-				throw new ApplicationException("No methods defined in interfac "+thisInterface.Name)
+        private method parseMethodCatalogXml, void
+            required in inputFile, String
 
-			for ix from 1 thru methodCount
-				parseMethod(%xml_elemlist_item(allMehtods,ix),thisInterface)
-			
-			;Add the interface to the collection of interfaces
-			Interfaces.Add(thisInterface)
-			
-		endmethod
-		
-		private method parseMethod, void
-			required in methodElement, XML_ELEM_TYPE
-			required in thisInterface, @SmcInterface
-			endparams
-			.include "DBLDIR:synxml.def"
-			record
-				attributeValue	,a128
-				thisMethod		,@SmcMethod
-				allParameters	,XML_ELEMLIST_TYPE
-				parameterCount	,i4
-				thisParameter	,XML_ELEM_TYPE
-				ix				,i4
-			endrecord
-		proc
+            .include "DBLDIR:synxml.def"
 
-			;;Get the attributes from the method element
+            record localData
+                parser,             XML_PARSER_TYPE
+                doc,                XML_DOC_TYPE
+                root,               XML_ELEM_TYPE
+                interfacesElement,  XML_ELEMLIST_TYPE
+                interfaceCount,     i4
+                ix,i4
+            endrecord
+        proc
+            init localData
 
-			xcall xml_elem_getattribute(methodElement,"name",attributeValue)
-			thisMethod = new SmcMethod() {Name=%atrim(attributeValue)}
-			
-			xcall xml_elem_getattribute(methodElement,"id",attributeValue)
-			thisMethod.Id = %atrim(attributeValue)
+            ;;Parse the XML file
+            parser = %xml_parser_create
+            doc = %xml_parser_parsefile(parser,inputFile)
+            parser = xml_parser_delete(parser)
 
-			xcall xml_elem_getattribute(methodElement,"routine",attributeValue)
+            ;;Did the parse fail?
+            if (!doc)
+                throw new ApplicationException("Failed to parse input file. The XML may be invalid.")
+
+            try
+            begin
+                ;;Get the root element and make sure it's an SMC export file.
+                data rootElementName, a20
+                root = %xml_doc_getroot(doc)
+                if ((%xml_elem_getname(root,rootElementName)!=XML_SUCCESS)||(rootElementName!="component"))
+                    throw new ApplicationException("Failed to parse input file. The file is not a method catalog export file.")
+
+                ;;Get the interface definitions
+                interfacesElement = %xml_elem_getelementsbyname(root,"interface")
+
+                ;;Do we have interfaces to work with?
+                interfaceCount = %xml_elemlist_count(interfacesElement)
+                if (!interfaceCount)
+                    throw new ApplicationException("No interfaces defined in input file.")
+
+                for ix from 1 thru interfaceCount
+                    parseInterface(%xml_elemlist_item(interfacesElement,ix))
+
+                if (this.Interfaces.Count==0)
+                    throw new ApplicationException("No application interfaces defined in input file.")
+            end
+            finally
+            begin
+                ;;Clean up the XML document
+                doc = %xml_doc_delete(doc)
+            end
+            endtry
+
+        endmethod
+
+        private method parseInterface, void
+            required in interfaceElement, XML_ELEM_TYPE
+
+            .include "DBLDIR:synxml.def"
+
+            record 
+                interfaceName,  a128
+                thisInterface,  @SmcInterface
+                allMehtods,     XML_ELEMLIST_TYPE
+                thisMethod,     XML_ELEM_TYPE
+                methodCount,    i4
+                ix,i4
+            endrecord
+        proc
+            ;;Get the interface name
+            xcall xml_elem_getattribute(interfaceElement,"name",interfaceName)
+
+            if (!interfaceName) then
+                mreturn
+            else if (interfaceName=="xfTest")
+                mreturn
+
+            ;;Create the new interface object
+            thisInterface = new SmcInterface() { Name=%atrim(interfaceName) }
+
+            ;;Get the method definitions
+            allMehtods = %xml_elem_getelementsbyname(interfaceElement,"method")
+
+            ;;Do we have methods to work with?
+            methodCount = %xml_elemlist_count(allMehtods)
+            if (!methodCount)
+                throw new ApplicationException("No methods defined in interfac "+thisInterface.Name)
+
+            for ix from 1 thru methodCount
+                parseMethod(%xml_elemlist_item(allMehtods,ix),thisInterface)
+
+            ;Add the interface to the collection of interfaces
+            Interfaces.Add(thisInterface)
+
+        endmethod
+
+        private method parseMethod, void
+            required in methodElement, XML_ELEM_TYPE
+            required in thisInterface, @SmcInterface
+            endparams
+            .include "DBLDIR:synxml.def"
+            record
+                attributeValue, a128
+                thisMethod,     @SmcMethod
+                allParameters,  XML_ELEMLIST_TYPE
+                parameterCount, i4
+                thisParameter,  XML_ELEM_TYPE
+            endrecord
+        proc
+
+            ;;Get the attributes from the method element
+
+            xcall xml_elem_getattribute(methodElement,"name",attributeValue)
+            thisMethod = new SmcMethod() {Name=%atrim(attributeValue)}
+
+            xcall xml_elem_getattribute(methodElement,"id",attributeValue)
+            thisMethod.Id = %atrim(attributeValue)
+
+            xcall xml_elem_getattribute(methodElement,"routine",attributeValue)
             thisMethod.Routine = %atrim(attributeValue)
 
             ;;Make sure we have a "routine name". Pre 8.3 catalogs didn't have this.
@@ -202,772 +202,776 @@ namespace CodeGen.MethodCatalogAPI
                 throw new ApplicationException("ERROR: Method has no 'routine name'. Possible pre V8.3 method catalog file. Please import and export your file using the MDU to convert it to the latest format.")
             end
 
-			xcall xml_elem_getattribute(methodElement,"elb",attributeValue)
-			thisMethod.Elb = %atrim(attributeValue)
+            xcall xml_elem_getattribute(methodElement,"elb",attributeValue)
+            thisMethod.Elb = %atrim(attributeValue)
 
-			xcall xml_elem_getattribute(methodElement,"encrypt",attributeValue)
-			if (attributeValue)
-			begin
-				using attributeValue select
-				("true "),
-					thisMethod.Encrypt = true
-				("false "),
-					nop
-				(),
-					throw new ApplicationException("Invalid encrypt attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name)
-				endusing
-			end
-			
-			;;methodresult
-			parseRetrunValue(methodElement,thisMethod,thisInterface)
-			
-			;;comment
-			thisMethod.Comment = getComments(methodElement)
-			
-			;;Process the method <param> elements
-			allParameters = %xml_elem_getelementsbyname(methodElement,"param")
+            xcall xml_elem_getattribute(methodElement,"encrypt",attributeValue)
+            if (attributeValue)
+            begin
+                using attributeValue select
+                ("true "),
+                    thisMethod.Encrypt = true
+                ("false "),
+                    nop
+                (),
+                    throw new ApplicationException("Invalid encrypt attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name)
+                endusing
+            end
 
-			;;Do we have parameters to work with?
-			parameterCount = %xml_elemlist_count(allParameters)
-			if (parameterCount)
-				for ix from 1 thru parameterCount
-					parseParameter(%xml_elemlist_item(allParameters,ix),thisMethod)
+            ;;methodresult
+            parseRetrunValue(methodElement,thisMethod,thisInterface)
 
-			thisInterface.Methods.Add(thisMethod)
-			
-			
-		endmethod
-		
-		private method parseRetrunValue, void
-			required in methodElement, XML_ELEM_TYPE
-			required in thisMethod, @SmcMethod
-			required in thisInterface, @SmcInterface
-			endparams
-			.include "DBLDIR:synxml.def"
-			record 
-				returnValue,	@SmcReturnValue
-				childNodes,		XML_ELEMLIST_TYPE
-				resultElement,	XML_ELEM_TYPE
-				attributeValue,	a128
-			endrecord
-		proc
-			
-			;;Is there a methodresult element
-			childNodes = %xml_elem_getelementsbyname(methodElement,"methodresult")
+            ;;comment
+            thisMethod.Comment = getComments(methodElement)
 
-			if (%xml_elemlist_count(childNodes))
-			begin
-				;;Yes, we're working with a function
-				returnValue = new SmcReturnValue()
-				resultElement = %xml_elemlist_item(childNodes,1)
-				
-				;;type
-				xcall xml_elem_getattribute(resultElement,"type",attributeValue)
-				if (attributeValue) then 
-				begin
-					using attributeValue select
-					("alpha"),
-						returnValue.Type = ReturnType.Alpha
-					("decimal"),
-						returnValue.Type = ReturnType.Decimal
-					("integer"),
-						returnValue.Type = ReturnType.Integer
-					("value"),
-						returnValue.Type = ReturnType.HatVal
-					("string"),
-						returnValue.Type = ReturnType.String
-					("enum"),
-						returnValue.Type = ReturnType.Enumeration
-					(),
-						throw new ApplicationException("Invalid type attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-					endusing
+            ;;Process the method <param> elements
+            allParameters = %xml_elem_getelementsbyname(methodElement,"param")
 
-				end
-				else
-					throw new ApplicationException("Invalid type attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+            ;;Do we have parameters to work with?
+            parameterCount = %xml_elemlist_count(allParameters)
+            if (parameterCount)
+            begin
+                data ix, int
+                for ix from 1 thru parameterCount
+                begin
+                    parseParameter(%xml_elemlist_item(allParameters,ix),thisMethod,ix)
+                end
+            end
 
-				;;size
-				xcall xml_elem_getattribute(resultElement,"size",attributeValue)
-				if (attributeValue)
-				begin
-					try 
-					begin
-						returnValue.Size = %integer(%atrim(attributeValue))
-					end
-					catch (ex, @BadDigitException)
-					begin
-						throw new ApplicationException("Invalid size attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-					end
-					endtry
-				end
+            thisInterface.Methods.Add(thisMethod)
 
-				;;precision
-				xcall xml_elem_getattribute(resultElement,"precision",attributeValue)
-				if (attributeValue)
-				begin
-					if (returnValue.Type == ReturnType.Decimal) then
-					begin
-						try 
-						begin
-							returnValue.Type = ReturnType.ImpliedDecimal
-							returnValue.Precision = %integer(%atrim(attributeValue))
-						end
-						catch (ex, @BadDigitException)
-						begin
-							throw new ApplicationException("Invalid precision attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-						end
-						endtry
-					end
-					else
-						throw new ApplicationException("Invalid precision attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-				end
-				
-				;;enumName
-				xcall xml_elem_getattribute(resultElement,"enumName",attributeValue)
-				if (attributeValue) then 
-				begin
-					if (returnValue.Type == ReturnType.Enumeration) then 
-					begin
-						upcase attributeValue
-						returnValue.EnumName = %atrim(attributeValue)
-					end
-					else
-						throw new ApplicationException("Invalid enumName attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-				end
-				else
-				begin
-					if (returnValue.Type == ReturnType.Enumeration)
-						throw new ApplicationException("Missing enumName attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-				end
+        endmethod
 
-				;;coerce
-				xcall xml_elem_getattribute(resultElement,"coerce",attributeValue)
-				if (attributeValue)
-				begin
-					using returnValue.Type select
-					(ReturnType.Decimal),
-					begin
-						using attributeValue select
-						("boolean"),
-							returnValue.CoerceType = CoerceType.Boolean
-						("byte"),
-							returnValue.CoerceType = CoerceType.Byte
-						("datetime"),
-							returnValue.CoerceType = CoerceType.DateTime
-						("decimal"),
-							returnValue.CoerceType = CoerceType.Decimal
-						("int"),
-							returnValue.CoerceType = CoerceType.Int
-						("long"),
-							returnValue.CoerceType = CoerceType.Long
-						("sbyte"),
-							returnValue.CoerceType = CoerceType.Sbyte
-						("short"),
-							returnValue.CoerceType = CoerceType.Short
-						("uint"),
-							returnValue.CoerceType = CoerceType.Uint
-						("ulong"),
-							returnValue.CoerceType = CoerceType.Ulong
-						("ushort"),
-							returnValue.CoerceType = CoerceType.Ushort
-						(),
-							throw new ApplicationException("Invalid coerce attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-						endusing
-					end
-					(ReturnType.ImpliedDecimal),
-					begin
-						using attributeValue select
-						("decimal"),
-							returnValue.CoerceType = CoerceType.Decimal
-						("double"),
-							returnValue.CoerceType = CoerceType.Double
-						("float"),
-							returnValue.CoerceType = CoerceType.Float
-						(),
-							throw new ApplicationException("Invalid coerce attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-						endusing
-					end
-					(ReturnType.Integer),
-					begin
-						using attributeValue select
-						("boolean"),
-							returnValue.CoerceType = CoerceType.Boolean
-						("byte"),
-							returnValue.CoerceType = CoerceType.Byte
-						("int"),
-							returnValue.CoerceType = CoerceType.Int
-						("long"),
-							returnValue.CoerceType = CoerceType.Long
-						("sbyte"),
-							returnValue.CoerceType = CoerceType.Sbyte
-						("short"),
-							returnValue.CoerceType = CoerceType.Short
-						("uint"),
-							returnValue.CoerceType = CoerceType.Uint
-						("ulong"),
-							returnValue.CoerceType = CoerceType.Ulong
-						("ushort"),
-							returnValue.CoerceType = CoerceType.Ushort
-						(),
-							throw new ApplicationException("Invalid coerce attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-						endusing
-					end
-					(),
-						throw new ApplicationException("Invalid coerce attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-					endusing					
-				end
-			
-				;;nullable
-				xcall xml_elem_getattribute(resultElement,"nullable",attributeValue)
-				if (attributeValue)
-				begin
-					using returnValue.CoerceType select
-					(CoerceType.DateTime),
-						if (attributeValue == "true")
-							returnValue.CoerceType = CoerceType.DateTimeNullable
-					(CoerceType.Decimal),
-						if (attributeValue == "true")
-							returnValue.CoerceType = CoerceType.DecimalNullable
-					(),
-						throw new ApplicationException("Invalid nullable attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-					endusing
-				end
+        private method parseRetrunValue, void
+            required in methodElement,  XML_ELEM_TYPE
+            required in thisMethod,     @SmcMethod
+            required in thisInterface,  @SmcInterface
+            endparams
+            .include "DBLDIR:synxml.def"
+            record 
+                returnValue,    @SmcReturnValue
+                childNodes,     XML_ELEMLIST_TYPE
+                resultElement,  XML_ELEM_TYPE
+                attributeValue, a128
+            endrecord
+        proc
 
-				;;format
-				xcall xml_elem_getattribute(resultElement,"format",attributeValue)
-				if (attributeValue) then 
-				begin
-					if (returnValue.CoerceType == CoerceType.DateTime
-					&	|| returnValue.CoerceType == CoerceType.DateTimeNullable) then 
-					begin
-						using attributeValue select
-						("YYYYMMDD"),
-							returnValue.DateFormat = DateFormat.YYYYMMDD
-						("YYMMDD"),
-							returnValue.DateFormat = DateFormat.YYMMDD
-						("YYJJJ"),
-							returnValue.DateFormat = DateFormat.YYJJJ
-						("YYYYJJJ"),
-							returnValue.DateFormat = DateFormat.YYYYJJJ
-						("HHMM"),
-							returnValue.DateFormat = DateFormat.HHMM
-						("HHMMSS"),
-							returnValue.DateFormat = DateFormat.HHMMSS
-						("YYYYMMDDHHMISS"),
-							returnValue.DateFormat = DateFormat.YYYYMMDDHHMISS
-						(),
-							throw new ApplicationException("Invalid format attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-						endusing
-					end
-					else
-						throw new ApplicationException("Invalid format attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-				end
-				else
-				begin
-					if (returnValue.CoerceType == CoerceType.DateTime
-					&	|| returnValue.CoerceType == CoerceType.DateTimeNullable)
-						throw new ApplicationException("Missing format attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-				end
-				
-				;;comment
-				returnValue.Comment = getComments(resultElement)
+            ;;Is there a methodresult element
+            childNodes = %xml_elem_getelementsbyname(methodElement,"methodresult")
 
-			end
-			
-			
-			if (returnValue==^null) then 
-				thisMethod.MethodType = MethodType.Subroutine
-			else
-			begin
-				thisMethod.MethodType = MethodType.Function
-				thisMethod.ReturnValue = returnValue
-			end
-			
-		endmethod
-		
-		private method parseParameter, void
-			required in parameterElement, XML_ELEM_TYPE
-			required in thisMethod, @SmcMethod
-			endparams
-			record 
-				attributeValue	,a128
-				thisParameter, @SmcParameter
-			endrecord
-		proc
-			
-			;;Get the attributes from the parameter element
+            if (%xml_elemlist_count(childNodes))
+            begin
+                ;;Yes, we're working with a function
+                returnValue = new SmcReturnValue()
+                resultElement = %xml_elemlist_item(childNodes,1)
 
-			;;name (all parameters)
-			xcall xml_elem_getattribute(parameterElement,"name",attributeValue)
-			if (attributeValue) then 
-				thisParameter = new SmcParameter() {Name=%atrim(attributeValue)}
-			else
-				throw new ApplicationException("Missing name attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                ;;type
+                xcall xml_elem_getattribute(resultElement,"type",attributeValue)
+                if (attributeValue) then 
+                begin
+                    using attributeValue select
+                    ("alpha"),
+                        returnValue.Type = ReturnType.Alpha
+                    ("decimal"),
+                        returnValue.Type = ReturnType.Decimal
+                    ("integer"),
+                        returnValue.Type = ReturnType.Integer
+                    ("value"),
+                        returnValue.Type = ReturnType.HatVal
+                    ("string"),
+                        returnValue.Type = ReturnType.String
+                    ("enum"),
+                        returnValue.Type = ReturnType.Enumeration
+                    (),
+                        throw new ApplicationException("Invalid type attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                    endusing
 
-			;;comment
-			thisParameter.Comment = getComments(parameterElement)
-			
-			;;type (all parameters)
-			xcall xml_elem_getattribute(parameterElement,"type",attributeValue)
-			if (attributeValue) then 
-			begin
-				using attributeValue select
-				("alpha"),
-					thisParameter.Type = ParameterType.Alpha
-				("binaryarray"),
-					thisParameter.Type = ParameterType.BinaryHandle
-				("decimal"),
-					thisParameter.Type = ParameterType.Decimal
-				("enum"),
-					thisParameter.Type = ParameterType.Enumeration
-				("handle"),
-					thisParameter.Type = ParameterType.Handle
-				("integer"),
-					thisParameter.Type = ParameterType.Integer
-				("string"),
-					thisParameter.Type = ParameterType.String
-				("structure"),
-					thisParameter.Type = ParameterType.Structure
-				(),
-					throw new ApplicationException("Invalid type attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				endusing
+                end
+                else
+                    throw new ApplicationException("Invalid type attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
 
-			end
-			else
-				throw new ApplicationException("Missing type attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				
-			;;size
-			xcall xml_elem_getattribute(parameterElement,"size",attributeValue)
-			if (attributeValue)
-			begin
-				try 
-				begin
-					thisParameter.Size = %integer(%atrim(attributeValue))
-				end
-				catch (ex, @BadDigitException)
-				begin
-					throw new ApplicationException("Invalid size attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				end
-				endtry
-			end
-			
-			;;precision
-			xcall xml_elem_getattribute(parameterElement,"precision",attributeValue)
-			if (attributeValue)
-			begin
-				if (thisParameter.Type == ParameterType.Decimal) then
-				begin
-					try 
-					begin
-						thisParameter.Type = ParameterType.ImpliedDecimal
-						thisParameter.Precision = %integer(%atrim(attributeValue))
-					end
-					catch (ex, @BadDigitException)
-					begin
-						throw new ApplicationException("Invalid precision attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-					end
-					endtry
-				end
-				else
-					throw new ApplicationException("Invalid precision attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-			end
+                ;;size
+                xcall xml_elem_getattribute(resultElement,"size",attributeValue)
+                if (attributeValue)
+                begin
+                    try 
+                    begin
+                        returnValue.Size = %integer(%atrim(attributeValue))
+                    end
+                    catch (ex, @BadDigitException)
+                    begin
+                        throw new ApplicationException("Invalid size attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                    end
+                    endtry
+                end
 
-			;;enumName
-			xcall xml_elem_getattribute(parameterElement,"enumName",attributeValue)
-			if (attributeValue) then 
-			begin
-				if (thisParameter.Type == ParameterType.Enumeration) then 
-				begin
-					upcase attributeValue
-					thisParameter.EnumName = %atrim(attributeValue)
-				end
-				else
-					throw new ApplicationException("Invalid enumName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-			end
-			else
-			begin
-				if (thisParameter.Type == ParameterType.Enumeration)
-					throw new ApplicationException("Missing enumName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-			end
+                ;;precision
+                xcall xml_elem_getattribute(resultElement,"precision",attributeValue)
+                if (attributeValue)
+                begin
+                    if (returnValue.Type == ReturnType.Decimal) then
+                    begin
+                        try 
+                        begin
+                            returnValue.Type = ReturnType.ImpliedDecimal
+                            returnValue.Precision = %integer(%atrim(attributeValue))
+                        end
+                        catch (ex, @BadDigitException)
+                        begin
+                            throw new ApplicationException("Invalid precision attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                        end
+                        endtry
+                    end
+                    else
+                        throw new ApplicationException("Invalid precision attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                end
 
-			;;structureName (only then type="structure")
-			xcall xml_elem_getattribute(parameterElement,"structureName",attributeValue)
-			if (attributeValue) then 
-			begin
-				if (thisParameter.Type == ParameterType.Structure) then 
-				begin
-					upcase attributeValue
-					thisParameter.StructureName = %atrim(attributeValue)
-				end
-				else
-					throw new ApplicationException("Invalid structureName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-			end
-			else
-			begin
-				if (thisParameter.Type == ParameterType.Structure)
-					throw new ApplicationException("Missing structureName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-			end
+                ;;enumName
+                xcall xml_elem_getattribute(resultElement,"enumName",attributeValue)
+                if (attributeValue) then 
+                begin
+                    if (returnValue.Type == ReturnType.Enumeration) then 
+                    begin
+                        upcase attributeValue
+                        returnValue.EnumName = %atrim(attributeValue)
+                    end
+                    else
+                        throw new ApplicationException("Invalid enumName attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                end
+                else
+                begin
+                    if (returnValue.Type == ReturnType.Enumeration)
+                        throw new ApplicationException("Missing enumName attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                end
 
-			;;coerce
-			xcall xml_elem_getattribute(parameterElement,"coerce",attributeValue)
-			if (attributeValue)
-			begin
-				using thisParameter.Type select
-				(ParameterType.Decimal),
-				begin
-					using attributeValue select
-					("boolean"),
-						thisParameter.CoerceType = CoerceType.Boolean
-					("byte"),
-						thisParameter.CoerceType = CoerceType.Byte
-					("datetime"),
-						thisParameter.CoerceType = CoerceType.DateTime
-					("decimal"),
-						thisParameter.CoerceType = CoerceType.Decimal
-					("int"),
-						thisParameter.CoerceType = CoerceType.Int
-					("long"),
-						thisParameter.CoerceType = CoerceType.Long
-					("sbyte"),
-						thisParameter.CoerceType = CoerceType.Sbyte
-					("short"),
-						thisParameter.CoerceType = CoerceType.Short
-					("uint"),
-						thisParameter.CoerceType = CoerceType.Uint
-					("ulong"),
-						thisParameter.CoerceType = CoerceType.Ulong
-					("ushort"),
-						thisParameter.CoerceType = CoerceType.Ushort
-					(),
-						throw new ApplicationException("Invalid coerce attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-					endusing
-				end
-				(ParameterType.ImpliedDecimal),
-				begin
-					using attributeValue select
-					("decimal"),
-						thisParameter.CoerceType = CoerceType.Decimal
-					("double"),
-						thisParameter.CoerceType = CoerceType.Double
-					("float"),
-						thisParameter.CoerceType = CoerceType.Float
-					(),
-						throw new ApplicationException("Invalid coerce attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-					endusing
-				end
-				(ParameterType.Integer),
-				begin
-					using attributeValue select
-					("boolean"),
-						thisParameter.CoerceType = CoerceType.Boolean
-					("byte"),
-						thisParameter.CoerceType = CoerceType.Byte
-					("int"),
-						thisParameter.CoerceType = CoerceType.Int
-					("long"),
-						thisParameter.CoerceType = CoerceType.Long
-					("sbyte"),
-						thisParameter.CoerceType = CoerceType.Sbyte
-					("short"),
-						thisParameter.CoerceType = CoerceType.Short
-					("uint"),
-						thisParameter.CoerceType = CoerceType.Uint
-					("ulong"),
-						thisParameter.CoerceType = CoerceType.Ulong
-					("ushort"),
-						thisParameter.CoerceType = CoerceType.Ushort
-					(),
-						throw new ApplicationException("Invalid coerce attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-					endusing
-				end
-				(),
-					throw new ApplicationException("Invalid coerce attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				endusing
-				
-			end
-			
-			;;nullable
-			xcall xml_elem_getattribute(parameterElement,"nullable",attributeValue)
-			if (attributeValue)
-			begin
-				using thisParameter.CoerceType select
-				(CoerceType.DateTime),
-					if (attributeValue == "true")
-						thisParameter.CoerceType = CoerceType.DateTimeNullable
-				(CoerceType.Decimal),
-					if (attributeValue == "true")
-						thisParameter.CoerceType = CoerceType.DecimalNullable
-				(),
-					throw new ApplicationException("Invalid nullable attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				endusing
-			end
+                ;;coerce
+                xcall xml_elem_getattribute(resultElement,"coerce",attributeValue)
+                if (attributeValue)
+                begin
+                    using returnValue.Type select
+                    (ReturnType.Decimal),
+                    begin
+                        using attributeValue select
+                        ("boolean"),
+                            returnValue.CoerceType = CoerceType.Boolean
+                        ("byte"),
+                            returnValue.CoerceType = CoerceType.Byte
+                        ("datetime"),
+                            returnValue.CoerceType = CoerceType.DateTime
+                        ("decimal"),
+                            returnValue.CoerceType = CoerceType.Decimal
+                        ("int"),
+                            returnValue.CoerceType = CoerceType.Int
+                        ("long"),
+                            returnValue.CoerceType = CoerceType.Long
+                        ("sbyte"),
+                            returnValue.CoerceType = CoerceType.Sbyte
+                        ("short"),
+                            returnValue.CoerceType = CoerceType.Short
+                        ("uint"),
+                            returnValue.CoerceType = CoerceType.Uint
+                        ("ulong"),
+                            returnValue.CoerceType = CoerceType.Ulong
+                        ("ushort"),
+                            returnValue.CoerceType = CoerceType.Ushort
+                        (),
+                            throw new ApplicationException("Invalid coerce attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                        endusing
+                    end
+                    (ReturnType.ImpliedDecimal),
+                    begin
+                        using attributeValue select
+                        ("decimal"),
+                            returnValue.CoerceType = CoerceType.Decimal
+                        ("double"),
+                            returnValue.CoerceType = CoerceType.Double
+                        ("float"),
+                            returnValue.CoerceType = CoerceType.Float
+                        (),
+                            throw new ApplicationException("Invalid coerce attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                        endusing
+                    end
+                    (ReturnType.Integer),
+                    begin
+                        using attributeValue select
+                        ("boolean"),
+                            returnValue.CoerceType = CoerceType.Boolean
+                        ("byte"),
+                            returnValue.CoerceType = CoerceType.Byte
+                        ("int"),
+                            returnValue.CoerceType = CoerceType.Int
+                        ("long"),
+                            returnValue.CoerceType = CoerceType.Long
+                        ("sbyte"),
+                            returnValue.CoerceType = CoerceType.Sbyte
+                        ("short"),
+                            returnValue.CoerceType = CoerceType.Short
+                        ("uint"),
+                            returnValue.CoerceType = CoerceType.Uint
+                        ("ulong"),
+                            returnValue.CoerceType = CoerceType.Ulong
+                        ("ushort"),
+                            returnValue.CoerceType = CoerceType.Ushort
+                        (),
+                            throw new ApplicationException("Invalid coerce attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                        endusing
+                    end
+                    (),
+                        throw new ApplicationException("Invalid coerce attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                    endusing
+                end
 
-			;;format
-			xcall xml_elem_getattribute(parameterElement,"format",attributeValue)
-			if (attributeValue) then 
-			begin
-				if (thisParameter.CoerceType == CoerceType.DateTime
-				&	|| thisParameter.CoerceType == CoerceType.DateTimeNullable) then 
-				begin
-					using attributeValue select
-					("YYYYMMDD"),
-						thisParameter.DateFormat = DateFormat.YYYYMMDD
-					("YYMMDD"),
-						thisParameter.DateFormat = DateFormat.YYMMDD
-					("YYJJJ"),
-						thisParameter.DateFormat = DateFormat.YYJJJ
-					("YYYYJJJ"),
-						thisParameter.DateFormat = DateFormat.YYYYJJJ
-					("HHMM"),
-						thisParameter.DateFormat = DateFormat.HHMM
-					("HHMMSS"),
-						thisParameter.DateFormat = DateFormat.HHMMSS
-					("YYYYMMDDHHMISS"),
-						thisParameter.DateFormat = DateFormat.YYYYMMDDHHMISS
-					(),
-						throw new ApplicationException("Invalid format attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-					endusing
-				end
-				else
-					throw new ApplicationException("Invalid format attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-			end
-			else
-			begin
-				if (thisParameter.CoerceType == CoerceType.DateTime
-				&	|| thisParameter.CoerceType == CoerceType.DateTimeNullable)
-					throw new ApplicationException("Missing format attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-			end
-			
-			;;collection
-			xcall xml_elem_getattribute(parameterElement,"collection",attributeValue)
-			if (attributeValue)
-			begin
-				using attributeValue select
-				("ArrayList"),
-					thisParameter.CollectionType = ParameterCollectionType.MemoryHandle
-				("System.ArrayList"),
-					thisParameter.CollectionType = ParameterCollectionType.ArrayList
-				(),
-					throw new ApplicationException("Invalid collection attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				endusing
-			end
-			
-			;;dim
-			xcall xml_elem_getattribute(parameterElement,"dim",attributeValue)
-			if (attributeValue)
-			begin
-				if (thisParameter.Type == ParameterType.String) then 
-					throw new ApplicationException("Invalid dim attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				else
-				begin
-					using attributeValue select
-					("0 "),
-						nop
-					("1 "),
-						thisParameter.CollectionType = ParameterCollectionType.Array
-					(),
-						throw new ApplicationException("Invalid dim attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-					endusing
-				end
-			end
-			
-			;;datatable
-			xcall xml_elem_getattribute(parameterElement,"datatable",attributeValue)
-			if (attributeValue)
-			begin
-				using thisParameter.CollectionType select
-				(ParameterCollectionType.MemoryHandle,ParameterCollectionType.ArrayList),
-				begin
-					using attributeValue select
-					("true "),
-						thisParameter.DataTable = true
-					("false "),
-						nop
-					(),
-						throw new ApplicationException("Invalid datatable attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-					endusing
-				end
-				(),
-					throw new ApplicationException("Invalid datatable attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				endusing
-			end
-			
-			;;dir
-			xcall xml_elem_getattribute(parameterElement,"dir",attributeValue)
-			if (attributeValue) then 
-			begin
-				using attributeValue select
-				("in "),
-					thisParameter.Direction = ParameterDirection.In
-				("out "),
-					thisParameter.Direction = ParameterDirection.Out
-				("inout "),
-					thisParameter.Direction = ParameterDirection.InOut
-				(),
-					throw new ApplicationException("Invalid dir attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				endusing
-			end
-			else
-				thisParameter.Direction = ParameterDirection.In
-			
-			;;passby
-			xcall xml_elem_getattribute(parameterElement,"passby",attributeValue)
-			if (attributeValue) then 
-			begin
-				using attributeValue select
-				("descriptor "),
-					thisParameter.PassBy = ParameterPassBy.Descriptor
-				("val "),
-					thisParameter.PassBy = ParameterPassBy.Value
-				("ref "),
-					thisParameter.PassBy = ParameterPassBy.Reference
-				(),
-					throw new ApplicationException("Invalid passby attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				endusing
-			end
-			else
-				thisParameter.PassBy = ParameterPassBy.Descriptor
-			
-			;;required
-			xcall xml_elem_getattribute(parameterElement,"required",attributeValue)
-			if (attributeValue) then 
-			begin
-				using attributeValue select
-				("yes "),
-					thisParameter.Required = true
-				("no "),
-					thisParameter.Required = false
-				(),
-					throw new ApplicationException("Invalid required attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-				endusing
-			end
-			else
-				thisParameter.Required = true
+                ;;nullable
+                xcall xml_elem_getattribute(resultElement,"nullable",attributeValue)
+                if (attributeValue)
+                begin
+                    using returnValue.CoerceType select
+                    (CoerceType.DateTime),
+                        if (attributeValue == "true")
+                            returnValue.CoerceType = CoerceType.DateTimeNullable
+                    (CoerceType.Decimal),
+                        if (attributeValue == "true")
+                            returnValue.CoerceType = CoerceType.DecimalNullable
+                    (),
+                        throw new ApplicationException("Invalid nullable attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                    endusing
+                end
 
-			thisMethod.Parameters.Add(thisParameter)
-			
-			mreturn
-			
-		endmethod
-		
-		private method getComments, string
-			required in method_or_param, XML_ELEM_TYPE
-			endparams
-			.include "DBLDIR:synxml.def"
-			record 
-				childNodes		,XML_ELEMLIST_TYPE
-				commentsNode	,XML_ELEM_TYPE
-				comment			,String
-			endrecord
-		proc
+                ;;format
+                xcall xml_elem_getattribute(resultElement,"format",attributeValue)
+                if (attributeValue) then 
+                begin
+                    if (returnValue.CoerceType == CoerceType.DateTime
+                    &    || returnValue.CoerceType == CoerceType.DateTimeNullable) then 
+                    begin
+                        using attributeValue select
+                        ("YYYYMMDD"),
+                            returnValue.DateFormat = DateFormat.YYYYMMDD
+                        ("YYMMDD"),
+                            returnValue.DateFormat = DateFormat.YYMMDD
+                        ("YYJJJ"),
+                            returnValue.DateFormat = DateFormat.YYJJJ
+                        ("YYYYJJJ"),
+                            returnValue.DateFormat = DateFormat.YYYYJJJ
+                        ("HHMM"),
+                            returnValue.DateFormat = DateFormat.HHMM
+                        ("HHMMSS"),
+                            returnValue.DateFormat = DateFormat.HHMMSS
+                        ("YYYYMMDDHHMISS"),
+                            returnValue.DateFormat = DateFormat.YYYYMMDDHHMISS
+                        (),
+                            throw new ApplicationException("Invalid format attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                        endusing
+                    end
+                    else
+                        throw new ApplicationException("Invalid format attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                end
+                else
+                begin
+                    if (returnValue.CoerceType == CoerceType.DateTime
+                    &    || returnValue.CoerceType == CoerceType.DateTimeNullable)
+                        throw new ApplicationException("Missing format attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                end
 
-			comment = ""
-			
-			;Is there a "comment" element?
-			childNodes = %xml_elem_getelementsbyname(method_or_param,"comment")
+                ;;comment
+                returnValue.Comment = getComments(resultElement)
 
-			if (%xml_elemlist_count(childNodes))
-			begin
-				;;Yes, there should be 1 - 6 "linex" elements
-				commentsNode = %xml_elemlist_item(childNodes,1)
-				childNodes = %xml_elem_children(commentsNode)
-				if (%xml_elemlist_count(childNodes))
-				begin
-					data ix, int
-					for ix from 1 thru %xml_elemlist_count(childNodes)
-					begin
-						data lineNode, XML_ELEM_TYPE, %xml_elemlist_item(childNodes,ix)
-						data lineText, a50
-						xcall xml_elem_gettext(lineNode,lineText)
-						if (ix==1) then
-							comment = %atrim(lineText)
-						else
-							comment = comment + " " + %atrim(lineText)
-					end
-				end
-			end
+            end
 
-			mreturn comment
-			
-		endmethod
-		
-	endclass
-	
-	public enum MethodType
-		Subroutine
-		Function
-	endenum
-			
-	public enum ParameterType
-		Alpha
-		BinaryHandle
-		Decimal
-		ImpliedDecimal
-		Enumeration
-		Handle
-		Integer
-		String
-		Structure
-	endenum
-					
-	public enum ReturnType
-		None
-		Alpha
-		Decimal
-		ImpliedDecimal
-		Integer
-		HatVal			
-		String
-		Enumeration
-	endenum
-						
-	public enum CoerceType
-		None
-		Boolean
-		Byte
-		DateTime
-		DateTimeNullable
-		Decimal
-		DecimalNullable
-		Double
-		Float
-		Int
-		Long
-		Sbyte
-		Short
-		Uint
-		Ulong
-		Ushort
-	endenum
-					
-	public enum DateFormat
-		None
-		YYYYMMDD
-		YYMMDD
-		YYJJJ
-		YYYYJJJ
-		HHMM
-		HHMMSS
-		YYYYMMDDHHMISS
-	endenum
-					
-	public enum ParameterCollectionType
-		None
-		Array
-		MemoryHandle
-		ArrayList
-	endenum
-					
-	public enum ParameterDirection
-		In
-		Out
-		InOut
-	endenum
-					
-	public enum ParameterPassBy
-		Descriptor
-		Value
-		Reference
-	endenum
-					
+            if (returnValue==^null) then 
+                thisMethod.MethodType = MethodType.Subroutine
+            else
+            begin
+                thisMethod.MethodType = MethodType.Function
+                thisMethod.ReturnValue = returnValue
+            end
+
+        endmethod
+
+        private method parseParameter, void
+            required in parameterElement,   XML_ELEM_TYPE
+            required in thisMethod,         @SmcMethod
+            required in parameterNumber,    int
+            endparams
+            record 
+                attributeValue, a128
+                thisParameter,  @SmcParameter
+            endrecord
+        proc
+
+            ;;Get the attributes from the parameter element
+
+            ;;name (all parameters)
+            xcall xml_elem_getattribute(parameterElement,"name",attributeValue)
+            if (attributeValue) then 
+                thisParameter = new SmcParameter() { Name=%atrim(attributeValue), Number=parameterNumber }
+            else
+                throw new ApplicationException("Missing name attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+
+            ;;comment
+            thisParameter.Comment = getComments(parameterElement)
+
+            ;;type (all parameters)
+            xcall xml_elem_getattribute(parameterElement,"type",attributeValue)
+            if (attributeValue) then 
+            begin
+                using attributeValue select
+                ("alpha"),
+                    thisParameter.Type = ParameterType.Alpha
+                ("binaryarray"),
+                    thisParameter.Type = ParameterType.BinaryHandle
+                ("decimal"),
+                    thisParameter.Type = ParameterType.Decimal
+                ("enum"),
+                    thisParameter.Type = ParameterType.Enumeration
+                ("handle"),
+                    thisParameter.Type = ParameterType.Handle
+                ("integer"),
+                    thisParameter.Type = ParameterType.Integer
+                ("string"),
+                    thisParameter.Type = ParameterType.String
+                ("structure"),
+                    thisParameter.Type = ParameterType.Structure
+                (),
+                    throw new ApplicationException("Invalid type attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                endusing
+
+            end
+            else
+                throw new ApplicationException("Missing type attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+
+            ;;size
+            xcall xml_elem_getattribute(parameterElement,"size",attributeValue)
+            if (attributeValue)
+            begin
+                try 
+                begin
+                    thisParameter.Size = %integer(%atrim(attributeValue))
+                end
+                catch (ex, @BadDigitException)
+                begin
+                    throw new ApplicationException("Invalid size attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                end
+                endtry
+            end
+
+            ;;precision
+            xcall xml_elem_getattribute(parameterElement,"precision",attributeValue)
+            if (attributeValue)
+            begin
+                if (thisParameter.Type == ParameterType.Decimal) then
+                begin
+                    try 
+                    begin
+                        thisParameter.Type = ParameterType.ImpliedDecimal
+                        thisParameter.Precision = %integer(%atrim(attributeValue))
+                    end
+                    catch (ex, @BadDigitException)
+                    begin
+                        throw new ApplicationException("Invalid precision attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                    end
+                    endtry
+                end
+                else
+                    throw new ApplicationException("Invalid precision attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            end
+
+            ;;enumName
+            xcall xml_elem_getattribute(parameterElement,"enumName",attributeValue)
+            if (attributeValue) then 
+            begin
+                if (thisParameter.Type == ParameterType.Enumeration) then 
+                begin
+                    upcase attributeValue
+                    thisParameter.EnumName = %atrim(attributeValue)
+                end
+                else
+                    throw new ApplicationException("Invalid enumName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            end
+            else
+            begin
+                if (thisParameter.Type == ParameterType.Enumeration)
+                    throw new ApplicationException("Missing enumName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            end
+
+            ;;structureName (only then type="structure")
+            xcall xml_elem_getattribute(parameterElement,"structureName",attributeValue)
+            if (attributeValue) then 
+            begin
+                if (thisParameter.Type == ParameterType.Structure) then 
+                begin
+                    upcase attributeValue
+                    thisParameter.StructureName = %atrim(attributeValue)
+                end
+                else
+                    throw new ApplicationException("Invalid structureName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            end
+            else
+            begin
+                if (thisParameter.Type == ParameterType.Structure)
+                    throw new ApplicationException("Missing structureName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            end
+
+            ;;coerce
+            xcall xml_elem_getattribute(parameterElement,"coerce",attributeValue)
+            if (attributeValue)
+            begin
+                using thisParameter.Type select
+                (ParameterType.Decimal),
+                begin
+                    using attributeValue select
+                    ("boolean"),
+                        thisParameter.CoerceType = CoerceType.Boolean
+                    ("byte"),
+                        thisParameter.CoerceType = CoerceType.Byte
+                    ("datetime"),
+                        thisParameter.CoerceType = CoerceType.DateTime
+                    ("decimal"),
+                        thisParameter.CoerceType = CoerceType.Decimal
+                    ("int"),
+                        thisParameter.CoerceType = CoerceType.Int
+                    ("long"),
+                        thisParameter.CoerceType = CoerceType.Long
+                    ("sbyte"),
+                        thisParameter.CoerceType = CoerceType.Sbyte
+                    ("short"),
+                        thisParameter.CoerceType = CoerceType.Short
+                    ("uint"),
+                        thisParameter.CoerceType = CoerceType.Uint
+                    ("ulong"),
+                        thisParameter.CoerceType = CoerceType.Ulong
+                    ("ushort"),
+                        thisParameter.CoerceType = CoerceType.Ushort
+                    (),
+                        throw new ApplicationException("Invalid coerce attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                    endusing
+                end
+                (ParameterType.ImpliedDecimal),
+                begin
+                    using attributeValue select
+                    ("decimal"),
+                        thisParameter.CoerceType = CoerceType.Decimal
+                    ("double"),
+                        thisParameter.CoerceType = CoerceType.Double
+                    ("float"),
+                        thisParameter.CoerceType = CoerceType.Float
+                    (),
+                        throw new ApplicationException("Invalid coerce attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                    endusing
+                end
+                (ParameterType.Integer),
+                begin
+                    using attributeValue select
+                    ("boolean"),
+                        thisParameter.CoerceType = CoerceType.Boolean
+                    ("byte"),
+                        thisParameter.CoerceType = CoerceType.Byte
+                    ("int"),
+                        thisParameter.CoerceType = CoerceType.Int
+                    ("long"),
+                        thisParameter.CoerceType = CoerceType.Long
+                    ("sbyte"),
+                        thisParameter.CoerceType = CoerceType.Sbyte
+                    ("short"),
+                        thisParameter.CoerceType = CoerceType.Short
+                    ("uint"),
+                        thisParameter.CoerceType = CoerceType.Uint
+                    ("ulong"),
+                        thisParameter.CoerceType = CoerceType.Ulong
+                    ("ushort"),
+                        thisParameter.CoerceType = CoerceType.Ushort
+                    (),
+                        throw new ApplicationException("Invalid coerce attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                    endusing
+                end
+                (),
+                    throw new ApplicationException("Invalid coerce attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                endusing
+
+            end
+
+            ;;nullable
+            xcall xml_elem_getattribute(parameterElement,"nullable",attributeValue)
+            if (attributeValue)
+            begin
+                using thisParameter.CoerceType select
+                (CoerceType.DateTime),
+                    if (attributeValue == "true")
+                        thisParameter.CoerceType = CoerceType.DateTimeNullable
+                (CoerceType.Decimal),
+                    if (attributeValue == "true")
+                        thisParameter.CoerceType = CoerceType.DecimalNullable
+                (),
+                    throw new ApplicationException("Invalid nullable attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                endusing
+            end
+
+            ;;format
+            xcall xml_elem_getattribute(parameterElement,"format",attributeValue)
+            if (attributeValue) then 
+            begin
+                if (thisParameter.CoerceType == CoerceType.DateTime
+                &    || thisParameter.CoerceType == CoerceType.DateTimeNullable) then 
+                begin
+                    using attributeValue select
+                    ("YYYYMMDD"),
+                        thisParameter.DateFormat = DateFormat.YYYYMMDD
+                    ("YYMMDD"),
+                        thisParameter.DateFormat = DateFormat.YYMMDD
+                    ("YYJJJ"),
+                        thisParameter.DateFormat = DateFormat.YYJJJ
+                    ("YYYYJJJ"),
+                        thisParameter.DateFormat = DateFormat.YYYYJJJ
+                    ("HHMM"),
+                        thisParameter.DateFormat = DateFormat.HHMM
+                    ("HHMMSS"),
+                        thisParameter.DateFormat = DateFormat.HHMMSS
+                    ("YYYYMMDDHHMISS"),
+                        thisParameter.DateFormat = DateFormat.YYYYMMDDHHMISS
+                    (),
+                        throw new ApplicationException("Invalid format attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                    endusing
+                end
+                else
+                    throw new ApplicationException("Invalid format attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            end
+            else
+            begin
+                if (thisParameter.CoerceType == CoerceType.DateTime
+                &    || thisParameter.CoerceType == CoerceType.DateTimeNullable)
+                    throw new ApplicationException("Missing format attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            end
+
+            ;;collection
+            xcall xml_elem_getattribute(parameterElement,"collection",attributeValue)
+            if (attributeValue)
+            begin
+                using attributeValue select
+                ("ArrayList"),
+                    thisParameter.CollectionType = ParameterCollectionType.MemoryHandle
+                ("System.ArrayList"),
+                    thisParameter.CollectionType = ParameterCollectionType.ArrayList
+                (),
+                    throw new ApplicationException("Invalid collection attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                endusing
+            end
+
+            ;;dim
+            xcall xml_elem_getattribute(parameterElement,"dim",attributeValue)
+            if (attributeValue)
+            begin
+                if (thisParameter.Type == ParameterType.String) then 
+                    throw new ApplicationException("Invalid dim attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                else
+                begin
+                    using attributeValue select
+                    ("0 "),
+                        nop
+                    ("1 "),
+                        thisParameter.CollectionType = ParameterCollectionType.Array
+                    (),
+                        throw new ApplicationException("Invalid dim attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                    endusing
+                end
+            end
+
+            ;;datatable
+            xcall xml_elem_getattribute(parameterElement,"datatable",attributeValue)
+            if (attributeValue)
+            begin
+                using thisParameter.CollectionType select
+                (ParameterCollectionType.MemoryHandle,ParameterCollectionType.ArrayList),
+                begin
+                    using attributeValue select
+                    ("true "),
+                        thisParameter.DataTable = true
+                    ("false "),
+                        nop
+                    (),
+                        throw new ApplicationException("Invalid datatable attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                    endusing
+                end
+                (),
+                    throw new ApplicationException("Invalid datatable attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                endusing
+            end
+
+            ;;dir
+            xcall xml_elem_getattribute(parameterElement,"dir",attributeValue)
+            if (attributeValue) then 
+            begin
+                using attributeValue select
+                ("in "),
+                    thisParameter.Direction = ParameterDirection.In
+                ("out "),
+                    thisParameter.Direction = ParameterDirection.Out
+                ("inout "),
+                    thisParameter.Direction = ParameterDirection.InOut
+                (),
+                    throw new ApplicationException("Invalid dir attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                endusing
+            end
+            else
+                thisParameter.Direction = ParameterDirection.In
+
+            ;;passby
+            xcall xml_elem_getattribute(parameterElement,"passby",attributeValue)
+            if (attributeValue) then 
+            begin
+                using attributeValue select
+                ("descriptor "),
+                    thisParameter.PassBy = ParameterPassBy.Descriptor
+                ("val "),
+                    thisParameter.PassBy = ParameterPassBy.Value
+                ("ref "),
+                    thisParameter.PassBy = ParameterPassBy.Reference
+                (),
+                    throw new ApplicationException("Invalid passby attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                endusing
+            end
+            else
+                thisParameter.PassBy = ParameterPassBy.Descriptor
+
+            ;;required
+            xcall xml_elem_getattribute(parameterElement,"required",attributeValue)
+            if (attributeValue) then 
+            begin
+                using attributeValue select
+                ("yes "),
+                    thisParameter.Required = true
+                ("no "),
+                    thisParameter.Required = false
+                (),
+                    throw new ApplicationException("Invalid required attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+                endusing
+            end
+            else
+                thisParameter.Required = true
+
+            thisMethod.Parameters.Add(thisParameter)
+
+            mreturn
+
+        endmethod
+
+        private method getComments, string
+            required in method_or_param, XML_ELEM_TYPE
+            endparams
+            .include "DBLDIR:synxml.def"
+            record 
+                childNodes,     XML_ELEMLIST_TYPE
+                commentsNode,   XML_ELEM_TYPE
+                comment,        String
+            endrecord
+        proc
+
+            comment = ""
+
+            ;Is there a "comment" element?
+            childNodes = %xml_elem_getelementsbyname(method_or_param,"comment")
+
+            if (%xml_elemlist_count(childNodes))
+            begin
+                ;;Yes, there should be 1 - 6 "linex" elements
+                commentsNode = %xml_elemlist_item(childNodes,1)
+                childNodes = %xml_elem_children(commentsNode)
+                if (%xml_elemlist_count(childNodes))
+                begin
+                    data ix, int
+                    for ix from 1 thru %xml_elemlist_count(childNodes)
+                    begin
+                        data lineNode, XML_ELEM_TYPE, %xml_elemlist_item(childNodes,ix)
+                        data lineText, a50
+                        xcall xml_elem_gettext(lineNode,lineText)
+                        if (ix==1) then
+                            comment = %atrim(lineText)
+                        else
+                            comment = comment + " " + %atrim(lineText)
+                    end
+                end
+            end
+
+            mreturn comment
+
+        endmethod
+
+    endclass
+
+    public enum MethodType
+        Subroutine
+        Function
+    endenum
+
+    public enum ParameterType
+        Alpha
+        BinaryHandle
+        Decimal
+        ImpliedDecimal
+        Enumeration
+        Handle
+        Integer
+        String
+        Structure
+    endenum
+
+    public enum ReturnType
+        None
+        Alpha
+        Decimal
+        ImpliedDecimal
+        Integer
+        HatVal
+        String
+        Enumeration
+    endenum
+
+    public enum CoerceType
+        None
+        Boolean
+        Byte
+        DateTime
+        DateTimeNullable
+        Decimal
+        DecimalNullable
+        Double
+        Float
+        Int
+        Long
+        Sbyte
+        Short
+        Uint
+        Ulong
+        Ushort
+    endenum
+
+    public enum DateFormat
+        None
+        YYYYMMDD
+        YYMMDD
+        YYJJJ
+        YYYYJJJ
+        HHMM
+        HHMMSS
+        YYYYMMDDHHMISS
+    endenum
+
+    public enum ParameterCollectionType
+        None
+        Array
+        MemoryHandle
+        ArrayList
+    endenum
+
+    public enum ParameterDirection
+        In
+        Out
+        InOut
+    endenum
+
+    public enum ParameterPassBy
+        Descriptor
+        Value
+        Reference
+    endenum
+
 endnamespace
