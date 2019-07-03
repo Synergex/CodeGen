@@ -1,0 +1,223 @@
+;;*****************************************************************************
+;;
+;; Title:       ParameterBridgeType.dbl
+;;
+;; Type:        Class
+;;
+;; Description: A custom parameter loop expansion token for use with Harmony Core
+;;
+;; Date:        28th June 2019
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2019, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.MethodCatalogAPI
+import CodeGen.RepositoryAPI
+import System.IO
+import Newtonsoft.Json
+import System.Linq
+import Newtonsoft.Json.Linq
+
+namespace HarmonyCoreExtensions
+
+    public class ParameterBridgeType implements IExpansionToken
+
+        public property TokenName, String
+            method get
+            proc
+                mreturn "HARMONYCORE_BRIDGE_PARAMETER_TYPE"
+            endmethod
+        endproperty
+
+        public property Description, String
+            method get
+            proc
+                mreturn "Generates a .NET type for a method parameter for use with Harmony Core Traditional Bridge."
+            endmethod
+        endproperty
+
+        public property Validity, TokenValidity
+            method get
+            proc
+                mreturn TokenValidity.ParameterLoop
+            endmethod
+        endproperty
+
+        public property TokenCase, TokenCaseMode
+            method get
+            proc
+                mreturn TokenCaseMode.UppercaseOnly
+            endmethod
+        endproperty
+
+        public method Expand, String
+            tkn, @Token
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode>
+        proc
+            lambda doExpand(catalog,iface,meth,param)
+            begin
+                data result, string, String.Empty
+                data isValueType, boolean, false
+
+                using param.Type select
+                (ParameterType.Alpha),
+                begin
+                    result = "String"
+                end
+                (ParameterType.Decimal),
+                begin
+                    using param.CoerceType select
+                    (CoerceType.None),
+                        result = param.Size <= 9 ? "int" : "long"
+                    (CoerceType.Byte),
+                        result = "byte"
+                    (CoerceType.Short),
+                        result = "short"
+                    (CoerceType.Int),
+                        result = "int"
+                    (CoerceType.Long),
+                        result = "long"
+                    (CoerceType.Sbyte),
+                        result = "sbyte"
+                    (CoerceType.Ushort),
+                        result = "ushort"
+                    (CoerceType.Uint),
+                        result = "uint"
+                    (CoerceType.Ulong),
+                        result = "ulong"
+                    (CoerceType.Boolean),
+                        result = "boolean"
+                    (CoerceType.DateTime),
+                        result = "@DateTime"
+                    (CoerceType.DateTimeNullable),
+                        result = "Nullable<Datetime>"
+                    (CoerceType.Decimal),
+                        result = "decimal"
+                    (CoerceType.DecimalNullable),
+                        result = "Nullable<decimal>"
+                    endusing
+                    isValueType = !result.StartsWith("@")
+                end
+                (ParameterType.ImpliedDecimal),
+                begin
+                    using param.CoerceType select
+                    (CoerceType.None),
+                        result = "decimal"
+                    (CoerceType.Decimal),
+                        result = "decimal"
+                    (CoerceType.Double),
+                        result = "double"
+                    (CoerceType.Float),
+                        result = "float"
+                    endusing
+                    isValueType = true
+                end
+                (ParameterType.Integer),
+                begin
+                    using param.CoerceType select
+                    (CoerceType.None),
+                    begin
+                        using param.Size select
+                        (1),
+                            result = "byte"
+                        (2),
+                            result = "short"
+                        (4),
+                            result = "int"
+                        (8),
+                            result = "long"
+                        endusing
+                    end
+                    (CoerceType.Byte),
+                        result = "byte"
+                    (CoerceType.Short),
+                        result = "short"
+                    (CoerceType.Int),
+                        result = "int"
+                    (CoerceType.Long),
+                        result = "long"
+                    (CoerceType.Sbyte),
+                        result = "sbyte"
+                    (CoerceType.Ushort),
+                        result = "ushort"
+                    (CoerceType.Uint),
+                        result = "uint"
+                    (CoerceType.Ulong),
+                        result = "ulong"
+                    (CoerceType.Boolean),
+                        result = "boolean"
+                    endusing
+                    isValueType = true
+                end
+                (ParameterType.Structure),
+                begin
+                    result = String.Concat("@",param.StructureName)
+                end
+                (ParameterType.Handle),
+                begin
+                    result = "string"
+                end
+                (ParameterType.BinaryHandle),
+                begin
+                    result = "[#]byte"
+                    isValueType = true
+                end
+                (ParameterType.String),
+                begin
+                    result = "string"
+                    isValueType = true
+                end
+                (ParameterType.Enumeration),
+                begin
+                    result = param.EnumName
+                    isValueType = true
+                end
+                endusing
+
+                ;;If the parameter is optional and represented by a value type, make it nullable
+                if (!param.Required && isValueType)
+                begin
+                    result = String.Format("Nullable<{0}>",result)
+                end
+
+                mreturn result
+            end
+            mreturn TokenExpander.ExpandParameterLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+    endclass
+
+endnamespace
