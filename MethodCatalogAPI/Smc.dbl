@@ -41,12 +41,15 @@
 ;;*****************************************************************************
 
 import System.Collections.Generic
+import CodeGen.RepositoryAPI
 
 namespace CodeGen.MethodCatalogAPI
 
     public class Smc
 
         public readonly property Interfaces, @List<SmcInterface>, new List<SmcInterface>()
+
+        public readonly property Structures, @List<RpsStructure>, new List<RpsStructure>()
 
         ;;; <summary>
         ;;; Constructs a new MethodCatalog object by parsing the information
@@ -83,7 +86,9 @@ namespace CodeGen.MethodCatalogAPI
                 parser,             XML_PARSER_TYPE
                 doc,                XML_DOC_TYPE
                 root,               XML_ELEM_TYPE
-                interfacesElement,  XML_ELEMLIST_TYPE
+                structureElements,  XML_ELEMLIST_TYPE
+                structureCount,     i4
+                interfaceElements,  XML_ELEMLIST_TYPE
                 interfaceCount,     i4
                 ix,i4
             endrecord
@@ -107,19 +112,53 @@ namespace CodeGen.MethodCatalogAPI
                 if ((%xml_elem_getname(root,rootElementName)!=XML_SUCCESS)||(rootElementName!="component"))
                     throw new ApplicationException("Failed to parse input file. The file is not a method catalog export file.")
 
+                ;;---------------------------------------------------------------------------------
+                ;;Does the XML file contain any structure definitions?
+
+                structureElements = %xml_elem_getelementsbyname(root,"structure")
+
+                ;;Do we have structures to work with?
+                structureCount = %xml_elemlist_count(structureElements)
+                if (structureCount)
+                begin
+                    for ix from 1 thru structureCount
+                    begin
+                        ;;Get the structure name
+                        data structureName, a128
+                        xcall xml_elem_getattribute(%xml_elemlist_item(structureElements,ix),"name",structureName)
+
+                        ;;Load the repository structure and add it to the collection
+                        try
+                        begin
+                            Structures.Add(new RpsStructure(structureName))
+                        end
+                        catch (e, @Exception)
+                        begin
+                            data strName, string, %atrim(structureName)
+                            data errMsg = String.Format("Failed to load SMC structure {0} from Repository. {1}",strName.ToUpper(),e.Message)
+                            throw new ApplicationException(errMsg)
+                        end
+                        endtry
+                    end
+                end
+
+                ;;---------------------------------------------------------------------------------
                 ;;Get the interface definitions
-                interfacesElement = %xml_elem_getelementsbyname(root,"interface")
+
+                interfaceElements = %xml_elem_getelementsbyname(root,"interface")
 
                 ;;Do we have interfaces to work with?
-                interfaceCount = %xml_elemlist_count(interfacesElement)
+                interfaceCount = %xml_elemlist_count(interfaceElements)
                 if (!interfaceCount)
                     throw new ApplicationException("No interfaces defined in input file.")
 
                 for ix from 1 thru interfaceCount
-                    parseInterface(%xml_elemlist_item(interfacesElement,ix))
+                    parseInterface(%xml_elemlist_item(interfaceElements,ix))
 
                 if (this.Interfaces.Count==0)
                     throw new ApplicationException("No application interfaces defined in input file.")
+
+
             end
             finally
             begin
@@ -900,78 +939,78 @@ namespace CodeGen.MethodCatalogAPI
     public enum MethodType
         Subroutine
         Function
-    endenum
+            endenum
 
-    public enum ParameterType
-        Alpha
-        BinaryHandle
-        Decimal
-        ImpliedDecimal
-        Enumeration
-        Handle
-        Integer
-        String
-        Structure
-    endenum
+            public enum ParameterType
+                Alpha
+                BinaryHandle
+                Decimal
+                ImpliedDecimal
+                Enumeration
+                Handle
+                Integer
+                String
+                Structure
+                    endenum
 
-    public enum ReturnType
-        None
-        Alpha
-        Decimal
-        ImpliedDecimal
-        Integer
-        HatVal
-        String
-        Enumeration
-    endenum
+                public enum ReturnType
+                    None
+                    Alpha
+                    Decimal
+                    ImpliedDecimal
+                    Integer
+                    HatVal
+                    String
+                    Enumeration
+                endenum
 
-    public enum CoerceType
-        None
-        Boolean
-        Byte
-        DateTime
-        DateTimeNullable
-        Decimal
-        DecimalNullable
-        Double
-        Float
-        Int
-        Long
-        Sbyte
-        Short
-        Uint
-        Ulong
-        Ushort
-    endenum
+                public enum CoerceType
+                    None
+                    Boolean
+                    Byte
+                    DateTime
+                    DateTimeNullable
+                    Decimal
+                    DecimalNullable
+                    Double
+                    Float
+                    Int
+                    Long
+                    Sbyte
+                    Short
+                    Uint
+                    Ulong
+                    Ushort
+                endenum
 
-    public enum DateFormat
-        None
-        YYYYMMDD
-        YYMMDD
-        YYJJJ
-        YYYYJJJ
-        HHMM
-        HHMMSS
-        YYYYMMDDHHMISS
-    endenum
+                public enum DateFormat
+                    None
+                    YYYYMMDD
+                    YYMMDD
+                    YYJJJ
+                    YYYYJJJ
+                    HHMM
+                    HHMMSS
+                    YYYYMMDDHHMISS
+                endenum
 
-    public enum ParameterCollectionType
-        None
-        Array
-        MemoryHandle
-        ArrayList
-    endenum
+                public enum ParameterCollectionType
+                    None
+                    Array
+                    MemoryHandle
+                    ArrayList
+                endenum
 
-    public enum ParameterDirection
-        In
-        Out
-        InOut
-    endenum
+                public enum ParameterDirection
+                    In
+                    Out
+                    InOut
+                endenum
 
-    public enum ParameterPassBy
-        Descriptor
-        Value
-        Reference
-    endenum
+                public enum ParameterPassBy
+                    Descriptor
+                    Value
+                    Reference
+                endenum
 
-endnamespace
+                endnamespace

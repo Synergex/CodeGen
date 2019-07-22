@@ -1029,6 +1029,71 @@ proc
             endusing
         end
     end
+
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to process structured referneced in a "Synergy Method Catalog" XML file?
+
+    if (ok && CommandLineParser.Parse("smcstrs",ClValues))
+    begin
+        if (CommandLineParser.Parse("smc")) then
+        begin
+            Console.WriteLine("ERROR: The -smcstrs and -smc options may not be used together!")
+            ok = false
+            exitCode = 1
+        end
+        else if (task.Structures.Count > 0) then
+        begin
+            Console.WriteLine("ERROR: The -smcstrs and -s options may not be used together!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!ClValues.Count) then
+        begin
+            Console.WriteLine("ERROR: No SMC export file specified after the -smcstrs option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count > 1) then
+        begin
+            Console.WriteLine("ERROR: Only one SMC export file may be specified after the -smcstrs option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!File.Exists(ClValues[0])) then
+        begin
+            Console.WriteLine("ERROR: Specified SMC export file was not found!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            try
+            begin
+                taskSet.MethodCatalog = new Smc(ClValues[0])
+
+                if (taskSet.MethodCatalog.Structures.Count == 0) then
+                begin
+                    Console.WriteLine("ERROR: SMC export file contains no structures.")
+                    ok = false
+                    exitCode = 1
+                end
+                else
+                begin
+                    data str, @RpsStructure
+                    foreach str in taskSet.MethodCatalog.Structures
+                        task.Structures.Add(str.Name)
+                end
+            end
+            catch (ex, @Exception)
+            begin
+                data errMsg, string, String.Format("ERROR: Failed to load structures from SMC export file. {0}",ex.Message)
+                Console.WriteLine(ex.Message)
+                ok = false
+                exitCode = 1
+            end
+            endtry
+        end
+    end
 	
     ;;-------------------------------------------------------------------------
     ;;Are we being asked to process multiple structures at the same time (in the same template)
