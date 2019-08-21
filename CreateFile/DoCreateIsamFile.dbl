@@ -1,0 +1,397 @@
+;;*****************************************************************************
+;;
+;; Title:       DoCreateFile.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Creates a file from a repository file definition
+;;
+;; Date:        13th August 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;
+;; POSSIBILITY OF SUCH DAMAGE.
+;;*****************************************************************************
+;;
+import System.Collections
+
+function DoCreateIsamFile, boolean
+    required in  a_dcs,         a           ;;Repository control data
+    required in  a_filename,    String      ;;Repository file specification name
+    required in  a_filespec,    String      ;;Physical file to create (override repository)
+    required in  a_overwrite,   boolean     ;;Overwrite existing file?
+    required out a_filecreated, String      ;;File name created
+    required out a_errtxt,      String      ;;Error text
+    endparams
+    
+    .include "RPSLIB:ddinfo.def"
+
+.define MAX_KEYS,           255
+.define append(x,y)         x = %atrim(x) + y
+        
+    stack record
+        ok,                     boolean
+        fileAlreadyExisted,     boolean
+        isamc_filespec,         a255
+        isamc_keyspec,          [MAX_KEYS]a250
+        keynames,               [MAX_KEYS]a30
+        keydata,                @ArrayList
+    endrecord
+        
+    local record
+        key_order,              2a1,    'A'    ;;ascending
+        &    ,                          'D'    ;;descending
+        key_segtyp,             7a1,    'A'    ;;alpha (default)
+        &    ,                          'N'    ;;nocase
+        &    ,                          'D'    ;;decimal
+        &    ,                          'I'    ;;integer
+        &    ,                          'U'    ;;unsigned
+        &    ,                          'S'    ;;sequence
+        &    ,                          'T'    ;;timestamp
+    endrecord
+        
+proc
+
+    ok = true
+    dcs = a_dcs
+
+    ;;Get the file information record
+    xcall dd_file(dcs,DDL_INFO,a_filename,fl_info)
+    if (dcs.error)
+    begin
+        a_errtxt = "File definition " + a_filename + " not found!"
+        ok = false
+    end
+
+    ;;Get the file specification record for the file
+    if (ok)
+    begin
+        xcall dd_filespec(dcs,a_filename,,fls_info)
+    end
+
+    ;;Determine if the file already exists, and if so, whether to replace it
+    if (ok)
+    begin
+        ;;If necessary, override the name of the file to be created
+        if (!String.IsNullOrWhiteSpace(a_filespec))
+            fls_info.flsi_name = a_filespec
+
+        ;;Does the file exist?
+        try
+        begin
+            data tmpch, i4, 0
+            open(tmpch,i,fls_info.flsi_name)
+            close tmpch
+            fileAlreadyExisted = true
+        end
+        catch (e, @Exception)
+        begin
+            fileAlreadyExisted = false
+        end
+        endtry
+
+        ;;Should we replace an existing file?
+        if (fileAlreadyExisted&&!a_overwrite)
+        begin
+            a_errtxt = "File " + %atrim(fls_info.flsi_name) + " already exists!"
+            ok = false
+        end
+    end
+
+    ;;Create the file
+    if (ok)
+    begin
+        ;;Make sure there are keys defined
+        if (!fls_info.flsi_nmkeys) then
+        begin
+            a_errtxt = "Structure definition " + %atrim(fls_info.flsi_sname) + " has no keys defined!"
+            ok = false
+        end
+        else
+        begin
+            ;;Build the ISAMC file specification string
+
+            ;;File specification
+            isamc_filespec = fls_info.flsi_name
+
+            ;;Record type
+            using fls_info.flsi_rectyp select
+            (0),    append(isamc_filespec,',FIXED')
+            (1),    append(isamc_filespec,',MULTIPLE')
+            (2),    append(isamc_filespec,',VARIABLE')
+            endusing
+
+            ;;Data compression
+            if (fls_info.flsi_compress)
+                append(isamc_filespec,',COMPRESS')
+
+            ;;Default key density
+            if (fls_info.flsi_density<50)
+                fls_info.flsi_density = 50
+            append(isamc_filespec,',DENSITY='+%string(fls_info.flsi_density))
+
+            ;;Portable integer specs
+            if (fls_info.flsi_portable)
+            begin
+                upcase fls_info.flsi_portable
+                if (fls_info.flsi_portable=='I=') then
+                    append(isamc_filespec,','+fls_info.flsi_portable)
+                else
+                    append(isamc_filespec,',I='+fls_info.flsi_portable)
+            end
+
+            ;;Network encrypt
+            ;;,NETWORK_ENCRYPT ... not supported by Repository!
+
+            ;;Page size
+            using fls_info.flsi_pagesize select
+            (0),    append(isamc_filespec,',PAGE=1024')
+            (1),    append(isamc_filespec,',PAGE=512')
+            (2),    append(isamc_filespec,',PAGE=2048')
+            (3),    append(isamc_filespec,',PAGE=4096')
+            (4),    append(isamc_filespec,',PAGE=8192')
+            (5),    append(isamc_filespec,',PAGE=16384')
+            (6),    append(isamc_filespec,',PAGE=32768')
+            endusing
+
+            ;;Stored GRFA
+            if (fls_info.flsi_sgrfa)
+                append(isamc_filespec,',SGRFA')
+
+            ;;Size limit
+            ;;,SIZE_LIMIT=limit ... not supported by Repository!
+
+            ;;Static RFA
+            if (fls_info.flsi_staticrfa)
+                append(isamc_filespec,',STATIC_RFA')
+
+            ;;Terabyte
+            if (fls_info.flsi_addressing)
+                append(isamc_filespec,',TBYTE')
+
+            ;;File text
+            ;;,TEXT=text_spec ... not supported by Repository!
+
+            ;;Track changes
+            if (fls_info.flsi_track)
+                append(isamc_filespec,',TRACK_CHANGES')
+
+            ;;Set context to the structure we're using and get a list of the structures key names
+            xcall dd_struct(dcs,DDS_INFO,fls_info.flsi_sname,s_info)
+            xcall dd_key(dcs,DDK_SLIST,MAX_KEYS,keynames)
+
+            ;;Get the key info for each key
+            data key_idx, i4
+            keydata = new ArrayList()
+
+            for key_idx from 1 thru fls_info.flsi_nmkeys
+            begin
+                xcall dd_key(dcs,DDK_INFO,keynames[key_idx],k_info)
+                ;;Keep the access keys, ignore any foreign keys
+                if (k_info.ki_ktype==KI_ACC)
+                begin
+                    ;;Look for any keys that have an explicit key of reference specified that disagrees with the key definition order
+                    if (((keydata.Count==0)&&ki_krf)||(keydata.Count&&ki_krf&&(ki_krf!=keydata.Count)))
+                    begin
+                        a_errtxt = "Repository structure " + %atrim(fls_info.flsi_name) + " key of reference settings don't match key positions!"
+                        ok = false
+                        exitloop
+                    end
+                    keydata.Add((@a)k_info)
+                end
+            end
+
+            ;;For each key ...
+            if (ok)
+            begin
+                for key_idx from 1 thru fls_info.flsi_nmkeys
+                begin
+                    k_info = (a)(keydata[key_idx-1])
+
+                    ;;Build the ISAMC key specification string
+
+                    ;;Start position for first segment
+                    isamc_keyspec[key_idx] = 'START='+%string(k_info.ki_segpos(1))
+
+                    ;;Start position for subsequent segments
+                    if (k_info.ki_nmseg>=2)
+                    begin
+                        data seg_idx, i4
+                        for seg_idx from 2 thru k_info.ki_nmseg
+                            append(isamc_keyspec[key_idx],':'+%string(k_info.ki_segpos(seg_idx)))
+                    end
+
+                    ;;Length of first segment
+                    append(isamc_keyspec[key_idx],',LENGTH='+%string(k_info.ki_seglen(1)))
+
+                    ;;Length of subsequent segments
+                    if (k_info.ki_nmseg>=2)
+                    begin
+                        data seg_idx, i4
+                        for seg_idx from 2 thru k_info.ki_nmseg
+                            append(isamc_keyspec[key_idx],':'+%string(k_info.ki_seglen(seg_idx)))
+                    end
+
+                    ;;Key name
+                    append(isamc_keyspec[key_idx],',NAME='+k_info.ki_name)
+
+                    ;;Segment data type (optional)
+                    if (k_info.ki_segdtyp(1))
+                    begin
+                        append(isamc_keyspec[key_idx],',TYPE='+key_segtyp(k_info.ki_segdtyp(1)))
+                        if (k_info.ki_nmseg>=2)
+                        begin
+                            data seg_idx, i4
+                            for seg_idx from 2 thru k_info.ki_nmseg
+                                append(isamc_keyspec[key_idx],':'+key_segtyp(k_info.ki_segdtyp(seg_idx)))
+                        end
+                    end
+
+                    ;;Segment sequences (optional)
+                    if (k_info.ki_segord(1))
+                    begin
+                        append(isamc_keyspec[key_idx],',ORDER='+key_order(k_info.ki_segord(1)))
+                        if (k_info.ki_nmseg>=2)
+                        begin
+                            data seg_idx, i4
+                            for seg_idx from 2 thru k_info.ki_nmseg
+                                append(isamc_keyspec[key_idx],':'+key_order(k_info.ki_segord(seg_idx)))
+                        end
+                    end
+
+                    ;;Key density
+                    if (k_info.ki_density<50)
+                        k_info.ki_density = 50
+
+                    append(isamc_keyspec[key_idx],',DENSITY='+%string(k_info.ki_density))
+
+                    ;;Duplicates?
+                    using k_info.ki_dups select
+                    (KI_DPS),
+                    begin
+                        append(isamc_keyspec[key_idx],',DUPS')
+.ifndef OS_VMS
+                        using k_info.ki_insert select
+                        (KI_FRT),
+                            append(isamc_keyspec[key_idx],',NOATEND')
+                        (KI_END),
+                            append(isamc_keyspec[key_idx],',ATEND')
+                        endusing
+.endc
+                    end
+                    (KI_NDPS),
+                        append(isamc_keyspec[key_idx],',NODUPS')
+                    endusing
+
+                    ;;Changes?
+                    using k_info.ki_mod select
+                    (KI_MDF),
+                        append(isamc_keyspec[key_idx],',MODIFY')
+                    (KI_NMDF),
+                        append(isamc_keyspec[key_idx],',NOMODIFY')
+                    endusing
+
+                    ;;Order
+                    using k_info.ki_order select
+                    (KI_ASC),
+                        append(isamc_keyspec[key_idx],',ASCEND')
+                    (KI_DES),
+                        append(isamc_keyspec[key_idx],',NOASCEND')
+                    endusing
+
+                    ;;Key compression (OpenVMS only)
+.ifdef OS_VMS
+                        if (k_info.ki_cmpidx||k_info.ki_cmprec||k_info.ki_cmpkey)
+                        begin
+                            ;;All options?
+                            if (k_info.ki_cmpidx&&k_info.ki_cmprec&&k_info.ki_cmpkey) then
+                                append(isamc_keyspec[key_idx],',COMPRESS=ALL')
+                            else
+                            begin
+                                if (k_info.ki_cmpidx)
+                                    append(isamc_keyspec[key_idx],',COMPRESS=INDEX')
+                                if (k_info.ki_cmprec)
+                                    append(isamc_keyspec[key_idx],',COMPRESS=RECORD')
+                                if (k_info.ki_cmpkey)
+                                    append(isamc_keyspec[key_idx],',COMPRESS=KEY')
+                            end
+                        end
+.endc
+
+                    ;;Null key?
+                    using k_info.ki_null select
+                    (KI_REP),
+                        append(isamc_keyspec[key_idx],',NULL=REPLICATE')
+                    (KI_NONREP),
+                        append(isamc_keyspec[key_idx],',NULL=NOREPLICATE')
+                    (KI_SHORT),
+                        append(isamc_keyspec[key_idx],',NULL=SHORT')
+                    endusing
+
+                    ;;Null key value
+                    if (k_info.ki_nullval)
+                    begin
+                        data nullval, a255
+                        xcall dd_key(dcs, DDK_TEXT, k_info.ki_nullval, nullval)
+                        append(isamc_keyspec[key_idx],',VALUE_NULL='+%atrim(nullval))
+                    end
+                end
+            end
+
+            ;;Create the file
+            if (ok)
+            begin
+                try
+                begin
+                    xcall isamc(%atrim(isamc_filespec),fls_info.flsi_recsz,fls_info.flsi_nmkeys,isamc_keyspec)
+                end
+                catch (e, @Exception)
+                begin
+                    a_errtxt = "Failed to create ISAM file. " + e.Message
+                    ok = false
+                end
+                endtry
+            end
+        end
+    end
+
+    if (ok)
+    begin
+        if (fileAlreadyExisted) then
+            a_errtxt = "replaced"
+        else
+            a_errtxt = "created"
+    end
+
+    a_filecreated = %atrim(fls_info.flsi_name)
+
+    freturn ok
+
+endfunction

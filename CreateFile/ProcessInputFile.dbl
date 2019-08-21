@@ -1,0 +1,337 @@
+;;*****************************************************************************
+;;
+;; Title:       ProcessInputFile.dbl
+;;
+;; Type:        Function
+;;
+;; Description: Creates one or more files based on instructions in a JSON
+;;              input file
+;;
+;; Date:        20th August 2019
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2019, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+;;
+
+import Newtonsoft.Json
+import System.IO
+import System.Collections.Generic
+import CodeGen.Engine
+
+namespace CreateFile
+    public class FileData
+        public readwrite property RepositoryFileName, string
+        public readwrite property CreateFile, string
+        public readwrite property LoadFromFile, string
+        public readwrite property OverwriteExistingFile, boolean
+    endclass
+endnamespace
+
+function ProcessInputFile, boolean
+    required in aDcs, a
+    required in aInpfile, string
+
+    .include "RPSLIB:ddinfo.def"
+
+    structure strIdentifier
+        ,a30
+    endstructure
+        
+proc
+    dcs = aDcs
+
+    data fileData, string, File.ReadAllText(aInpfile)
+    data instructions, @List<FileData>
+
+    try
+    begin
+        instructions = JsonConvert.DeserializeObject<List<FileData>>(fileData)
+    end
+    catch (e, @Exception)
+    begin
+        Console.WriteLine("ERROR: Failed to process input file. {0}",e.Message)
+        freturn false
+    end
+    endtry
+
+    data instruction, @FileData
+    data created = 0
+    data createFailed = 0
+    data loaded = 0
+    data loadFailed = 0
+
+    foreach instruction in instructions
+    begin
+        data fileCreated, string
+        data errorText, string
+
+        Console.WriteLine("")
+        Console.WriteLine("********************************************************************************")
+        Console.WriteLine("Processing file {0}",instruction.RepositoryFileName)
+        Console.WriteLine("")
+
+        ;;Get the file information
+        xcall dd_file(dcs,DDL_INFO,instruction.RepositoryFileName,fl_info)
+        if (dcs.error)
+        begin
+            Console.WriteLine("Repository file definition {0} was not found!",instruction.RepositoryFileName)
+            Console.WriteLine("")
+            Console.WriteLine("********************************************************************************")
+            createFailed += 1
+            nextloop
+        end
+
+        using fl_info.fli_filtyp select
+
+        ("DBL ISAM"),
+        begin
+            if (%CreateFileFromRpsFile(dcs,instruction.RepositoryFileName,instruction.OverwriteExistingFile,instruction.CreateFile,fileCreated,errorText)) then
+            begin
+                ;;Success
+                Console.WriteLine(" - ISAM file {0} {1}",fileCreated,errorText)
+                created += 1
+
+                ;;Do we need to load data into the new file?
+                if (!String.IsNullOrWhiteSpace(instruction.LoadFromFile))
+                begin
+                    ;;Make sure the input file exists
+                    if (FileTools.FileExists(instruction.LoadFromFile)) then
+                    begin
+                        ;;Spawn an FCONVERT command to load the data into the new file.
+
+                        data command = String.Format("fconvert -s -it {0} -ai {1}",instruction.LoadFromFile,fileCreated)
+
+                        Console.WriteLine(" - Data load command: {0}",command)
+
+                        data pipeChan, int, 0
+                        data response, a256
+
+                        Console.WriteLine(" - Data load starting at: {0}",DateTime.Now.ToLongTimeString())
+                        Console.WriteLine("")
+
+                        try
+                        begin
+                            open(pipeChan,i,"|" + command)
+                            repeat
+                            begin
+                                reads(pipeChan,response)
+                                if (!response=='----------')
+                                    Console.WriteLine(%atrim(response))
+                            end
+                        end
+                        catch (e, @EndOfFileException)
+                        begin
+                            loaded += 1
+                        end
+                        catch (e, @Exception)
+                        begin
+                            Console.WriteLine("{0}: {1}",e.Message,%atrim(response))
+                            loadFailed += 1
+                        end
+                        finally
+                        begin
+                            if (pipeChan && %chopen(pipeChan))
+                                close pipeChan
+                        end
+                        endtry
+
+                        Console.WriteLine("")
+                        Console.WriteLine(" - Data load ending at: {0}",DateTime.Now.ToLongTimeString())
+                        nextloop
+                    end
+                    else
+                    begin
+                        Console.WriteLine(" - File {0} was not found!",instruction.LoadFromFile)
+                        loadFailed += 1
+                        nextloop
+                    end
+                end
+            end
+            else
+            begin
+                ;;Failure
+                Console.WriteLine(" - Failed to create ISAM file {0}.",fileCreated)
+                Console.WriteLine(" - {0}",errorText)
+                createFailed += 1
+                nextloop
+            end
+        end
+
+        ("RELATIVE"),
+        begin
+            ;;Do we have an input data file specified and does it exist?
+            if (String.IsNullOrWhiteSpace(instruction.LoadFromFile)) then
+            begin
+                Console.WriteLine(" - Failed to create RELATIVE file {0}.",instruction.RepositoryFileName)
+                Console.WriteLine(" - No input data file was provided!")
+                createFailed += 1
+                nextloop
+            end
+            else if (!FileTools.FileExists(instruction.LoadFromFile)) then
+            begin
+                Console.WriteLine(" - Failed to create RELATIVE file {0}.",instruction.RepositoryFileName)
+                Console.WriteLine(" - Input data file {0} was not found!",instruction.LoadFromFile)
+                createFailed += 1
+                nextloop
+            end
+            else
+            begin
+                ;;Figure out the maximum record length of the file based on all assigned structures
+                data recordLength, d5, 0
+
+                using fl_info.fli_nmstructs select
+                (0),
+                begin
+                    Console.WriteLine(" - Failed to create RELATIVE file {0}.",instruction.RepositoryFileName)
+                    Console.WriteLine(" - File definition has no assigned structures!")
+                    createFailed += 1
+                    nextloop
+                end
+                (1),
+                begin
+                    xcall dd_filespec(dcs,instruction.RepositoryFileName,,fls_info)
+                    recordLength = fls_info.flsi_recsz
+                end
+                (),
+                begin
+                    data strNames,  D_HANDLE, %mem_proc(DM_ALLOC,^size(strIdentifier)*fl_info.fli_nmstructs)
+                    xcall dd_file(dcs,DDL_STRS,fl_info.fli_nmstructs,^m(strIdentifier,strNames))
+                    data ix, int
+                    for ix from 1 thru fl_info.fli_nmstructs
+                    begin
+                        xcall dd_struct(dcs,DDS_INFO,^m(strIdentifier[ix],strNames),s_info)
+                        if (s_info.si_recsz > recordLength)
+                            recordLength = s_info.si_recsz
+                    end
+                    strNames  = %mem_proc(DM_FREE,strNames)
+                end
+                endusing
+
+                ;;Determine the file to create
+                data newRelativeFile, string, String.IsNullOrWhiteSpace(instruction.CreateFile) ? %atrim(fl_info.fli_fname) : instruction.CreateFile
+                data newFileAlreadyExists = FileTools.FileExists(newRelativeFile)
+
+                if (newFileAlreadyExists) then
+                begin
+                    ;;Does the file already exist and can we overwrite it?
+                    if (instruction.OverwriteExistingFile == true) then
+                    begin
+                        Console.WriteLine(" - RELATIVE file {0} will be created",newRelativeFile)
+                    end
+                    else
+                    begin
+                        Console.WriteLine(" - Failed to create RELATIVE file {0}.",newRelativeFile)
+                        Console.WriteLine(" - File already exists!")
+                        createFailed += 1
+                        nextloop
+                    end
+                end
+                else
+                begin
+                    Console.WriteLine(" - RELATIVE file {0} will be created",newRelativeFile)
+                end
+
+                data fileReplaceOption, string, instruction.OverwriteExistingFile ? "f" : String.Empty
+
+                data command = String.Format("fconvert -s -it {0} -or -{1}r {2} {3}",instruction.LoadFromFile,fileReplaceOption,recordLength,newRelativeFile)
+
+                Console.WriteLine(" - Data load command: {0}",command)
+
+                data pipeChan, int, 0
+                data response, a256
+
+                Console.WriteLine(" - Data load starting at: {0}",DateTime.Now.ToLongTimeString())
+                Console.WriteLine("")
+
+                try
+                begin
+                    open(pipeChan,i,"|" + command)
+                    repeat
+                    begin
+                        reads(pipeChan,response)
+                        if (!response=='----------')
+                            Console.WriteLine(%atrim(response))
+                    end
+                end
+                catch (e, @EndOfFileException)
+                begin
+                    created += 1
+                    loaded += 1
+                end
+                catch (e, @Exception)
+                begin
+                    Console.WriteLine("{0}: {1}",e.Message,%atrim(response))
+                    createFailed += 1
+                    loadFailed += 1
+                end
+                finally
+                begin
+                    if (pipeChan && %chopen(pipeChan))
+                        close pipeChan
+                end
+                endtry
+
+                Console.WriteLine("")
+                Console.WriteLine(" - Data load ending at: {0}",DateTime.Now.ToLongTimeString())
+                nextloop
+
+            end
+        end
+
+        ("ASCII"),
+        begin
+            Console.WriteLine("Repository file definition {0} is an unsupported ASCII file!",instruction.RepositoryFileName)
+            Console.WriteLine("")
+            Console.WriteLine("********************************************************************************")
+            createFailed += 1
+            nextloop
+        end
+        endusing
+
+    end
+
+    Console.WriteLine("")
+    Console.WriteLine("********************************************************************************")
+    Console.WriteLine("Processing summary:")
+    Console.WriteLine("")
+    Console.WriteLine(" - {0} files created, {1} failed.",created,createFailed)
+    Console.WriteLine(" - {0} files loaded,  {1} failed.",loaded,loadFailed)
+    Console.WriteLine("")
+    Console.WriteLine("********************************************************************************")
+
+    freturn (createFailed == 0 && loadFailed == 0)
+
+endfunction
+
+
+
+
