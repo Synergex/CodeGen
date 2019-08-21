@@ -1,3 +1,39 @@
+;;*****************************************************************************
+;;
+;; Title:       Helpers.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Helper code for dealing with relations
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2019, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
 
 import System
 import System.Linq
@@ -13,10 +49,17 @@ import Newtonsoft.Json.Linq
 namespace HarmonyCoreExtensions
 
     public static class Helpers
-	
-        class RelationLookup
+
+        public class RelationLookup
+
             private readwrite property Relations, @ConcurrentDictionary<string, CustomRelationSpec>, new ConcurrentDictionary<string, CustomRelationSpec>()
             private readwrite property Context, @CodeGenContext
+
+            ;;; <summary>
+            ;;; Constructor
+            ;;; </summary>
+            ;;; <param name="context"></param>
+            ;;; <param name="customizationFileName"></param>
             public method RelationLookup
                 required in context,                @CodeGenContext
                 required in customizationFileName,  @string
@@ -36,7 +79,8 @@ namespace HarmonyCoreExtensions
                         foreach customRelation in customRelationSpecs
                         begin
                             data relationLookup = string.Format("{0}-{1}-{2}-{3}", customRelation.FromStructure, customRelation.ToStructure, customRelation.FromKey, customRelation.ToKey)
-                            data madeRelation = MakeRelation(customRelation.FromStructure, customRelation.ToStructure, customRelation.FromKey, customRelation.ToKey)
+                            data madeRelation = MakeRelation(customRelation.FromStructure, customRelation.ToStructure, customRelation.FromKey, customRelation.ToKey, customRelation.RequiresMatch)
+
                             if(!string.IsNullOrWhitespace(customRelation.BackRelation))
                                 madeRelation.BackRelation = customRelation.BackRelation
 
@@ -52,6 +96,15 @@ namespace HarmonyCoreExtensions
                 end
             endmethod
 
+            ;;; <summary>
+            ;;; Find a relation
+            ;;; </summary>
+            ;;; <param name="fromStructure">Relation FROM structure</param>
+            ;;; <param name="toStructure">Relation TO structure</param>
+            ;;; <param name="fromKey">Relation FROM key</param>
+            ;;; <param name="toKey">Relation TO key</param>
+            ;;; <param name="backLink">Back link</param>
+            ;;; <returns>CustomRelationSpec object</returns>
             public method FindRelation, @CustomRelationSpec
                 required in fromStructure,  @string
                 required in toStructure,    @string
@@ -82,11 +135,38 @@ namespace HarmonyCoreExtensions
 
             endmethod
 
+            ;;; <summary>
+            ;;; 
+            ;;; </summary>
+            ;;; <param name="fromStructure"></param>
+            ;;; <param name="toStructure"></param>
+            ;;; <param name="fromKey"></param>
+            ;;; <param name="toKey"></param>
+            ;;; <returns></returns>
             private method MakeRelation, @CustomRelationSpec
                 required in fromStructure,  @string
                 required in toStructure,    @string
                 required in fromKey,        @string
                 required in toKey,          @string
+            proc
+                mreturn MakeRelation(fromStructure,toStructure,fromKey,toKey,true)
+            endmethod
+
+            ;;; <summary>
+            ;;; 
+            ;;; </summary>
+            ;;; <param name="fromStructure"></param>
+            ;;; <param name="toStructure"></param>
+            ;;; <param name="fromKey"></param>
+            ;;; <param name="toKey"></param>
+            ;;; <param name="aRequiresMatch"></param>
+            ;;; <returns></returns>
+            private method MakeRelation, @CustomRelationSpec
+                required in fromStructure,  @string
+                required in toStructure,    @string
+                required in fromKey,        @string
+                required in toKey,          @string
+                required in aRequiresMatch, boolean
             proc
                 data fromRealStructure = Context.Structures.First(lambda(str) { str.Name == fromStructure })
                 data toRealStructure = Context.Structures.First(lambda(str) { str.Name == toStructure })
@@ -98,10 +178,19 @@ namespace HarmonyCoreExtensions
                 madeRelation.ToKey = toKey
                 madeRelation.FromStructure = fromStructure
                 madeRelation.ToStructure = toStructure
+                madeRelation.RequiresMatch = aRequiresMatch
                 SynthesizeRelationInfo(fromRealStructure, toRealStructure, realFromKey, realToKey, madeRelation)
                 mreturn madeRelation
             endmethod
 
+            ;;; <summary>
+            ;;; 
+            ;;; </summary>
+            ;;; <param name="fromStructure"></param>
+            ;;; <param name="toStructure"></param>
+            ;;; <param name="fromKey"></param>
+            ;;; <param name="toKey"></param>
+            ;;; <param name="targetRelation"></param>
             private method SynthesizeRelationInfo, void
                 required in fromStructure,  @RpsStructure
                 required in toStructure,    @RpsStructure
@@ -130,6 +219,7 @@ namespace HarmonyCoreExtensions
 
                 data toRelation, @RpsRelation
                 data hasBackRelation = false
+
                 foreach toRelation in toStructure.Relations
                 begin
                     if(toRelation.ToStructure == fromStructure.Name)
@@ -145,8 +235,8 @@ namespace HarmonyCoreExtensions
                 data toStructureNoPlural, string, StringTools.PascalCase(toStructure.Alias.EndsWith("S") ? toStructure.Alias.Substring(0,toStructure.Alias.Length-1) : toStructure.Alias)
                 data toStructurePlural, string, StringTools.PascalCase(toStructure.Alias.EndsWith("S") ? toStructure.Alias : String.Format("{0}S",toStructure.Alias))
 
-				data fkToKey = hasBackRelation ? toStructure.Keys.FirstOrDefault(lambda(target) { target.Name == toRelation.FromKey } ) : toKey
-				data fFromKey = hasBackRelation ? fromStructure.Keys.FirstOrDefault(lambda(target) { target.Name == toRelation.ToKey } ) : fkCleanFromKey
+                data fkToKey = hasBackRelation ? toStructure.Keys.FirstOrDefault(lambda(target) { target.Name == toRelation.FromKey } ) : toKey
+                data fFromKey = hasBackRelation ? fromStructure.Keys.FirstOrDefault(lambda(target) { target.Name == toRelation.ToKey } ) : fkCleanFromKey
                 data isOneToOneToOne = (fkToKey.Size >= fFromKey.Size && fFromKey.Duplicates == RpsKeyDuplicates.NoDuplicates && toKey.Duplicates == RpsKeyDuplicates.NoDuplicates)
                 data isOneToOne = ((toKey.Size < fromKey.Size) || (toKey.Size == fromKey.Size && toKey.Duplicates == RpsKeyDuplicates.NoDuplicates))
 
@@ -199,22 +289,46 @@ namespace HarmonyCoreExtensions
                         targetRelation.RelationType = "E"
                 end
             endmethod
+
         endclass
 
-
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="context"></param>
+        ;;; <param name="fromStructure"></param>
+        ;;; <param name="tostr"></param>
+        ;;; <param name="fromkey"></param>
+        ;;; <param name="tokey"></param>
+        ;;; <param name="backLink"></param>
+        ;;; <returns></returns>
         public static method GetRelationSpec, @CustomRelationSpec
             required in context,        @CodeGenContext
             required in fromStructure,  @RpsStructure
             required in tostr,          @RpsStructure
             required in fromkey,        @RpsKey
             required in tokey,          @RpsKey
-            required in backLink,		boolean
+            required in backLink,        boolean
         proc
             data harmonyCustomizationFile = Path.Combine(context.TemplateFolder,"HarmonyCoreCustomization.json")
             data relationLookup = ^as(context.Properties.GetOrAdd(^typeof(RelationLookup), lambda(lookupKey) { new RelationLookup(context, harmonyCustomizationFile) }), @RelationLookup)
             mreturn relationLookup.FindRelation(fromStructure.Name, tostr.Name, fromkey.Name, tokey.Name, backLink)
         endmethod
 
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="tkn"></param>
+        ;;; <param name="template"></param>
+        ;;; <param name="loops"></param>
+        ;;; <param name="context"></param>
+        ;;; <param name="fromStructure"></param>
+        ;;; <param name="relation"></param>
+        ;;; <param name="index"></param>
+        ;;; <param name="fromkey"></param>
+        ;;; <param name="tostr"></param>
+        ;;; <param name="tokey"></param>
+        ;;; <returns></returns>
         public static method MatchRelationType, boolean
 
             required in tkn,            @Token
@@ -252,6 +366,26 @@ namespace HarmonyCoreExtensions
             ;;Should never get here!
             throw new ApplicationException(String.Format("Invalid expression token {0} encountered in evaluateRelationType()",tkn.Value))
 
+        endmethod
+
+        ;;; <summary>
+        ;;; Does a relation REQUIRE matching data in the file targeted by the TO structure and key.
+        ;;; </summary>
+        ;;; <param name="context"></param>
+        ;;; <param name="fromStructure"></param>
+        ;;; <param name="fromkey"></param>
+        ;;; <param name="tostr"></param>
+        ;;; <param name="tokey"></param>
+        ;;; <returns>True if matching data is required</returns>
+        public static method RequiresMatch, boolean
+            required in context,        @CodeGenContext
+            required in fromStructure,  @RpsStructure
+            required in fromkey,        @RpsKey
+            required in tostr,          @RpsStructure
+            required in tokey,          @RpsKey
+        proc
+            data targetRelation = GetRelationSpec(context, fromStructure, toStr, fromkey, tokey, false)
+            mreturn targetRelation.RequiresMatch
         endmethod
 
     endclass
