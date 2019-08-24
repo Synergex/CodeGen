@@ -103,6 +103,7 @@ namespace CodeGen.Engine
             fieldLoopTokenExpanders.Add("FIELD_ORIGINAL_NAME_MODIFIED", expandFieldOriginalNameModified)
             fieldLoopTokenExpanders.Add("FIELD_PATH", expandFieldPath)
             fieldLoopTokenExpanders.Add("FIELD_PATH_CONV", expandFieldPathConv)
+            fieldLoopTokenExpanders.Add("FIELD_PII_TYPE", expandFieldPiiType)
             fieldLoopTokenExpanders.Add("FIELD_PIXEL_COL", expandFieldPixelCol)
             fieldLoopTokenExpanders.Add("FIELD_PIXEL_ROW", expandFieldPixelRow)
             fieldLoopTokenExpanders.Add("FIELD_PIXEL_WIDTH", expandFieldPixelWidth)
@@ -870,6 +871,48 @@ namespace CodeGen.Engine
                     mreturn String.Format("{0}.{1}", str.Alias, field.Name)
                 else
                     mreturn String.Format("%{0}({1}.{2})", field.UnmappingFunction, str.Alias, field.Name)
+            end
+            mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandFieldPiiType, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.LongDescription.Contains("PII_TYPE=")) then
+                begin
+                    data startPos = field.LongDescription.IndexOf("PII_TYPE=")
+                    data semiPos = -1
+                    if (startPos!=-1)
+                        semiPos = field.LongDescription.IndexOf(";",startPos)
+                    if ((startPos!=-1) && (semiPos!=-1) && (semiPos>(startPos+9))) then
+                    begin
+                        mreturn field.LongDescription.SubString(startPos+9,semiPos-startPos-9)
+                    end
+                    else
+                    begin
+                        mreturn ""
+                    end
+                end
+                else if (field.UserText.Contains("PII_TYPE="))
+                begin
+                    data startPos = field.UserText.IndexOf("PII_TYPE=")
+                    data semiPos = -1
+                    if (startPos!=-1)
+                        semiPos = field.UserText.IndexOf(";",startPos)
+                    if ((startPos!=-1) && (semiPos!=-1) && (semiPos>(startPos+9))) then
+                    begin
+                        mreturn field.UserText.SubString(startPos+9,semiPos-startPos-9)
+                    end
+                    else
+                    begin
+                        mreturn ""
+                    end
+                end
             end
             mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
         endmethod
