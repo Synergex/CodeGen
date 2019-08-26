@@ -54,11 +54,11 @@ namespace CodeGen.Engine
     ;;; </summary>
     public class TreeExpander implements ITreeNodeVisitor
 
-		private class ExpansionState
-			public OnlyContainsControlNodes, boolean
-			public AtLeastOneControlNodeWasEvaluated, boolean
-			public OutputBuffer, @StringBuilder
-		endclass
+        private class ExpansionState
+            public OnlyContainsControlNodes, boolean
+            public AtLeastOneControlNodeWasEvaluated, boolean
+            public OutputBuffer, @StringBuilder
+        endclass
 
         private _currentFileNode, @FileNode
         private _currentLoops,    @List<LoopNode>,     new List<LoopNode>()
@@ -67,21 +67,21 @@ namespace CodeGen.Engine
         private _outputStream,    @TextWriter
         private _validator,       @TokenValidation,    new TokenValidation()
         private _killTextSibling, boolean,             false
-		private _loopExpansionStack, @Stack<TreeExpander.ExpansionState>, new Stack<TreeExpander.ExpansionState>()
-		private _stringBuilderPool, @Stack<StringBuilder>, new Stack<StringBuilder>()
+        private _loopExpansionStack, @Stack<TreeExpander.ExpansionState>, new Stack<TreeExpander.ExpansionState>()
+        private _stringBuilderPool, @Stack<StringBuilder>, new Stack<StringBuilder>()
         ;;; <summary>
         ;;; Constructor used when expanding the whole tree. After constructing the object,
         ;;; call Visit(@FileNode) to initiate code generation.
         ;;; </summary>
         ;;; <param name="context">Current CodeGenContext object.</param>
-		;;; <param name="outStream">Stream to write output code to.</param>
+        ;;; <param name="outStream">Stream to write output code to.</param>
         public method TreeExpander
             context,   @CodeGenContext 
             outStream, @TextWriter 
         proc
             _expander = new TokenExpander(context)
             _evaluator = new ExpressionEvaluator(context)
-			_outputStream = outStream
+            _outputStream = outStream
         endmethod
 
         ;;; <summary>
@@ -90,17 +90,17 @@ namespace CodeGen.Engine
         ;;; <param name="tree">Full or partial tree to expand.</param>
         ;;; <param name="expander">TokenExpander instance.</param>
         ;;; <param name="evaluator">ExpressionEvaluator instance.</param>
-		;;; <param name="outStream">Stream to write output code to.</param>
+        ;;; <param name="outStream">Stream to write output code to.</param>
         public method TreeExpander
             tree,      @FileNode 
             expander,  @TokenExpander 
             evaluator, @ExpressionEvaluator 
-			outStream, @TextWriter 
+            outStream, @TextWriter 
         proc
             _currentFileNode = tree
             _expander = expander
             _evaluator = evaluator
-			_outputStream = outStream
+            _outputStream = outStream
         endmethod
 
         ;;; <summary>
@@ -110,10 +110,10 @@ namespace CodeGen.Engine
         public method Visit, void
             node, @FileNode 
         proc
-			_killTextSibling = false
+            _killTextSibling = false
 
             ;; This should be the only property that may have residual data from the last use.
-			node.OutputFileName = String.Empty
+            node.OutputFileName = String.Empty
 
             try
             begin
@@ -129,66 +129,65 @@ namespace CodeGen.Engine
                 node.Context.CurrentTask.ErrorLog(ex.Message)
                 throw
             end
-			endtry
+            endtry
 
         endmethod
 
-		private method BufferNodeOutput, void
-			nodes, @IEnumerable<ITreeNode> 
-			op, @Action
-		proc
-			data expansionState = new TreeExpander.ExpansionState()
-			expansionState.OnlyContainsControlNodes = true
-			expansionState.OutputBuffer = _stringBuilderPool.Count > 0 ? _stringBuilderPool.Pop() : new Stringbuilder()
-			data node, @ITreeNode
-			foreach node in nodes
-			begin
-				;;figure out if all of the nodes are control nodes or whitespace text nodes
-				if(!(node .is. ControlNode))
-				begin
-					if(node .is. TextNode)
-					begin
-						data tNode = (@TextNode)node
-						if(String.IsNullOrWhiteSpace(tNode.Value.Value))
-							nextloop
-					end
-					expansionState.OnlyContainsControlNodes = false
-					exitloop
-				end
-			end
-			_loopExpansionStack.Push(expansionState)
-			op()
-			_loopExpansionStack.Pop()
-			if(!expansionState.OnlyContainsControlNodes || expansionState.AtLeastOneControlNodeWasEvaluated)
-			begin
-				;; Write the text to the output stream
-				data output = expansionState.OutputBuffer.ToString()
+        private method BufferNodeOutput, void
+            nodes, @IEnumerable<ITreeNode> 
+            op, @Action
+        proc
+            data expansionState = new TreeExpander.ExpansionState()
+            expansionState.OnlyContainsControlNodes = true
+            expansionState.OutputBuffer = _stringBuilderPool.Count > 0 ? _stringBuilderPool.Pop() : new Stringbuilder()
+            data node, @ITreeNode
+            foreach node in nodes
+            begin
+                ;;figure out if all of the nodes are control nodes or whitespace text nodes
+                if(!(node .is. ControlNode))
+                begin
+                    if(node .is. TextNode)
+                    begin
+                        data tNode = (@TextNode)node
+                        if(String.IsNullOrWhiteSpace(tNode.Value.Value))
+                            nextloop
+                    end
+                    expansionState.OnlyContainsControlNodes = false
+                    exitloop
+                end
+            end
+            _loopExpansionStack.Push(expansionState)
+            op()
+            _loopExpansionStack.Pop()
+            if(!expansionState.OnlyContainsControlNodes || expansionState.AtLeastOneControlNodeWasEvaluated)
+            begin
+                ;; Write the text to the output stream
+                data output = expansionState.OutputBuffer.ToString()
 
-				if(_loopExpansionStack.Count > 0) then
-				begin
-					_loopExpansionStack.Peek().AtLeastOneControlNodeWasEvaluated = true
-					_loopExpansionStack.Peek().OutputBuffer.Append(output)
-				end
-				else
-					_outputStream.Write(output)
-				
-				;; Debug logging? Log the text.
-				if (_currentFileNode.Context.DebugLoggingEnabled)
-				begin
-					if (output.Length > 0)
-					begin
-						output = output.Replace(" ", "<SP>").Replace(%char(9), "<TAB>").Replace(%char(13), "<CR>").Replace(%char(10), "<LF>")
-						if (output.Length > 30)
-							output = output.Substring(0, 30) + "..."
-					end
-					_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Text", output))
-				end
-			end
+                if(_loopExpansionStack.Count > 0) then
+                begin
+                    _loopExpansionStack.Peek().AtLeastOneControlNodeWasEvaluated = true
+                    _loopExpansionStack.Peek().OutputBuffer.Append(output)
+                end
+                else
+                    _outputStream.Write(output)
 
-			expansionState.OutputBuffer.Clear()
-			_stringBuilderPool.Push(expansionState.OutputBuffer)
-		endmethod
+                ;; Debug logging? Log the text.
+                if (_currentFileNode.Context.DebugLoggingEnabled)
+                begin
+                    if (output.Length > 0)
+                    begin
+                        output = output.Replace(" ", "<SP>").Replace(%char(9), "<TAB>").Replace(%char(13), "<CR>").Replace(%char(10), "<LF>")
+                        if (output.Length > 30)
+                            output = output.Substring(0, 30) + "..."
+                    end
+                    _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Text", output))
+                end
+            end
 
+            expansionState.OutputBuffer.Clear()
+            _stringBuilderPool.Push(expansionState.OutputBuffer)
+        endmethod
 
         ;;; <summary>
         ;;; Main dispatcher for expanding the body of a node (FileNode.Body, IfNode.Body, ElseNode.Body)
@@ -196,14 +195,14 @@ namespace CodeGen.Engine
         ;;; <param name="nodes">Collection of nodes to visit</param>
         public method Visit, void
             nodes, @IEnumerable<ITreeNode> 
-		proc
-			lambda op()
-			begin
-				data node, @ITreeNode
-				foreach node in nodes
-					node.Accept(this)
-			end
-			BufferNodeOutput(nodes, op)
+        proc
+            lambda op()
+            begin
+                data node, @ITreeNode
+                foreach node in nodes
+                    node.Accept(this)
+            end
+            BufferNodeOutput(nodes, op)
         endmethod
 
         ;;; <summary>
@@ -213,15 +212,15 @@ namespace CodeGen.Engine
         ;;; <param name="loop">The loop node that was encountered in the tree.</param>
         public method Visit, void
             loop, @LoopNode 
-		proc
-			lambda op()
-			begin
-				_killTextSibling = false
-				_currentLoops.Add(loop)
-				LoopExpander.ProcessLoop(loop, _currentFileNode, _currentLoops, this)
-				_currentLoops.Remove(loop)
-			end
-			BufferNodeOutput(loop.Body, op)
+        proc
+            lambda op()
+            begin
+                _killTextSibling = false
+                _currentLoops.Add(loop)
+                LoopExpander.ProcessLoop(loop, _currentFileNode, _currentLoops, this)
+                _currentLoops.Remove(loop)
+            end
+            BufferNodeOutput(loop.Body, op)
         endmethod
 
         ;;; <summary>
@@ -231,40 +230,40 @@ namespace CodeGen.Engine
         public method Visit, void
             node, @IfNode 
         proc
-			_killTextSibling = false
+            _killTextSibling = false
 
             ;; Make sure we have an expression node to process
             if (node.Expression == ^null)
                 throw new ApplicationException("CODEGEN BUG: TreeExpander.Visit(IfNode) encountered an IfNode without an associated ExpressionNode. This indicates a Parser bug!")
-			
-			if (_evaluator.EvaluateExpression(getContextForExpression(node.Expression), node.Expression, _currentFileNode, _currentLoops)) then
-			begin
-				_loopExpansionStack.Peek().AtLeastOneControlNodeWasEvaluated = true
+
+            if (_evaluator.EvaluateExpression(getContextForExpression(node.Expression), node.Expression, _currentFileNode, _currentLoops)) then
+            begin
+                _loopExpansionStack.Peek().AtLeastOneControlNodeWasEvaluated = true
 
                 if (_currentFileNode.Context.DebugLoggingEnabled)
-					_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("<IF {0}>", node.Expression.Value.Value), true))
+                    _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("<IF {0}>", node.Expression.Value.Value), true))
 
-				Visit(node.Body)
+                Visit(node.Body)
 
                 if (_currentFileNode.Context.DebugLoggingEnabled)
                     _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} ->", String.Format("</IF {0}>", node.Expression.Value.Value)))
             end
             else if (node.Else != ^null) then
-			begin
-				_loopExpansionStack.Peek().AtLeastOneControlNodeWasEvaluated = true
+            begin
+                _loopExpansionStack.Peek().AtLeastOneControlNodeWasEvaluated = true
 
                 if (_currentFileNode.Context.DebugLoggingEnabled)
-					_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} ->", "</ELSE>"))
+                    _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} ->", "</ELSE>"))
 
                 Visit(node.Else.Body)
-			end
-			else if(node.CloseToken != ^null && node.CloseToken.EndLineNumber == node.OpenToken.StartLineNumber) then
-			begin
-				_killTextSibling = false
-			end
+            end
+            else if(node.CloseToken != ^null && node.CloseToken.EndLineNumber == node.OpenToken.StartLineNumber) then
+            begin
+                _killTextSibling = false
+            end
 
             else
-				_killTextSibling = true
+                _killTextSibling = true
 
         endmethod
 
@@ -297,17 +296,17 @@ namespace CodeGen.Engine
         public method Visit, void
             node, @ExpansionNode 
         proc
-			_killTextSibling = false
+            _killTextSibling = false
 
             ;; Use TokenExpander to expand the expansion token to it's text value
             data expandedText, string, _expander.ExpandToken(node.Value, _currentFileNode, _currentLoops)
-			
-			;; And add the text to the output stream
-			_loopExpansionStack.Peek().OutputBuffer.Append(expandedText)
-			
-			;; Debug logging? Log the token expansion.
+
+            ;; And add the text to the output stream
+            _loopExpansionStack.Peek().OutputBuffer.Append(expandedText)
+
+            ;; Debug logging? Log the token expansion.
             if (_currentFileNode.Context.DebugLoggingEnabled)
-				_currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("<{0}>", node.Value.Value), expandedText))
+                _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("<{0}>", node.Value.Value), expandedText))
 
         endmethod
 
@@ -317,17 +316,17 @@ namespace CodeGen.Engine
         ;;; <param name="node">TextNode to visit.</param>
         public method Visit, void
             node, @TextNode 
-		proc
+        proc
 
-			if(_killTextSibling)
-				nop
+            if(_killTextSibling)
+                nop
 
             ;; Apply the text processing rules that were established by TreePreExpander
-			data cleanedOutput, string, CleanOutput(node, _killTextSibling ? (boolean?)true : ^null)
+            data cleanedOutput, string, CleanOutput(node, _killTextSibling ? (boolean?)true : ^null)
 
-			_killTextSibling = false
+            _killTextSibling = false
             ;; Write the text to the output stream
-			_loopExpansionStack.Peek().OutputBuffer.Append(cleanedOutput)
+            _loopExpansionStack.Peek().OutputBuffer.Append(cleanedOutput)
 
 ;            ;; Debug logging? Log the text.
 ;            if (_currentFileNode.Context.DebugLoggingEnabled)
@@ -339,7 +338,7 @@ namespace CodeGen.Engine
 ;                        cleanedOutput = cleanedOutput.Substring(0, 30) + "..."
 ;                end
 ;                _currentFileNode.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Text", cleanedOutput))
-;			end
+;           end
 
         endmethod
 
@@ -351,67 +350,67 @@ namespace CodeGen.Engine
         private method getContextForExpression, TokenType
             node, @ExpressionNode 
         proc
-			data expressionValidityList, @List<TokenValidity>, ^as(node.Value.Bucket, List<TokenValidity>)
-			data validLocations, @List<TokenType>, new List<TokenType>()
-			data validity, TokenValidity
+            data expressionValidityList, @List<TokenValidity>, ^as(node.Value.Bucket, List<TokenValidity>)
+            data validLocations, @List<TokenType>, new List<TokenType>()
+            data validity, TokenValidity
 
-			foreach validity in expressionValidityList
-			begin
-				if (_validator.IsValid(validity, _currentFileNode, _currentLoops))
-				begin
-					using validity select
-					(TokenValidity.Anywhere),
-						mreturn TokenType.Generic
-					(TokenValidity.AnyLoop),
-						mreturn TokenType.LoopUtility
-					(TokenValidity.FieldLoop),
-						validLocations.Add(TokenType.FieldLoop)
-					(TokenValidity.FieldSelectionLoop),
-						validLocations.Add(TokenType.FieldSelectionLoop)
-					(TokenValidity.KeyLoop),
-						validLocations.Add(TokenType.KeyLoop)
-					(TokenValidity.KeySegmentLoop, TokenValidity.RelationSegmentLoop),
-						validLocations.Add(TokenType.KeySegmentLoop)
-					(TokenValidity.EnumLoop),
-						validLocations.Add(TokenType.EnumLoop)
-					(TokenValidity.EnumMemberLoop),
-						validLocations.Add(TokenType.EnumMemberLoop)
-					(TokenValidity.RelationLoop),
-						validLocations.Add(TokenType.RelationLoop)
-					(TokenValidity.ButtonLoop),
-						validLocations.Add(TokenType.ButtonLoop)
-					(TokenValidity.FileLoop),
-						validLocations.Add(TokenType.FileLoop)
-					(TokenValidity.TagLoop),
-						validLocations.Add(TokenType.TagLoop)
-					(TokenValidity.InterfaceLoop),
-						validLocations.Add(TokenType.InterfaceLoop)
-					(TokenValidity.MethodLoop),
-						validLocations.Add(TokenType.MethodLoop)
-					(TokenValidity.ParameterLoop),
-						validLocations.Add(TokenType.ParameterLoop)
-					endusing
-				end
-			end
-			
+            foreach validity in expressionValidityList
+            begin
+                if (_validator.IsValid(validity, _currentFileNode, _currentLoops))
+                begin
+                    using validity select
+                    (TokenValidity.Anywhere),
+                        mreturn TokenType.Generic
+                    (TokenValidity.AnyLoop),
+                        mreturn TokenType.LoopUtility
+                    (TokenValidity.FieldLoop),
+                        validLocations.Add(TokenType.FieldLoop)
+                    (TokenValidity.FieldSelectionLoop),
+                        validLocations.Add(TokenType.FieldSelectionLoop)
+                    (TokenValidity.KeyLoop),
+                        validLocations.Add(TokenType.KeyLoop)
+                    (TokenValidity.KeySegmentLoop, TokenValidity.RelationSegmentLoop),
+                        validLocations.Add(TokenType.KeySegmentLoop)
+                    (TokenValidity.EnumLoop),
+                        validLocations.Add(TokenType.EnumLoop)
+                    (TokenValidity.EnumMemberLoop),
+                        validLocations.Add(TokenType.EnumMemberLoop)
+                    (TokenValidity.RelationLoop),
+                        validLocations.Add(TokenType.RelationLoop)
+                    (TokenValidity.ButtonLoop),
+                        validLocations.Add(TokenType.ButtonLoop)
+                    (TokenValidity.FileLoop),
+                        validLocations.Add(TokenType.FileLoop)
+                    (TokenValidity.TagLoop),
+                        validLocations.Add(TokenType.TagLoop)
+                    (TokenValidity.InterfaceLoop),
+                        validLocations.Add(TokenType.InterfaceLoop)
+                    (TokenValidity.MethodLoop),
+                        validLocations.Add(TokenType.MethodLoop)
+                    (TokenValidity.ParameterLoop),
+                        validLocations.Add(TokenType.ParameterLoop)
+                    endusing
+                end
+            end
+
             if (validLocations.Count == 1) then
-			begin
+            begin
                 mreturn validLocations[0]
-			end
+            end
             else if (validLocations.Count > 1) then
             begin
-				data loop, @LoopNode
-				foreach loop in _currentLoops
-				begin
-					if (validLocations.Contains(loop.OpenToken.TypeOfToken))
-						mreturn loop.OpenToken.TypeOfToken
-				end
+                data loop, @LoopNode
+                foreach loop in _currentLoops
+                begin
+                    if (validLocations.Contains(loop.OpenToken.TypeOfToken))
+                        mreturn loop.OpenToken.TypeOfToken
+                end
                 mreturn validLocations[0]
             end
             else
                 mreturn TokenType.Text
-		
-		endmethod
+
+        endmethod
 
         ;;; <summary>
         ;;; This method cleans the output of a TextNode according to the rules established by TreePreExpander
@@ -421,64 +420,64 @@ namespace CodeGen.Engine
         ;;; <returns>Cleaned string</returns>
         public static method CleanOutput, string
             node, @TextNode 
-			default firstLineNotInResult, boolean?, ^null
+            default firstLineNotInResult, boolean?, ^null
         proc
-			;--------------------------------------------------------------------------------
-			;TODO:BUG: Compiler crash is preventing us getting this working!!!
+            ;--------------------------------------------------------------------------------
+            ;TODO:BUG: Compiler crash is preventing us getting this working!!!
 
-			;This is what it should be
-			;data realFirstLineNotInResult = firstLineNotInResult.HasValue ? firstLineNotInResult.Value : node.FirstLineNotInResult
-			;data realFirstLineNotInResult, boolean, firstLineNotInResult != ^null ? firstLineNotInResult.Value : (Nullable<Boolean>)node.FirstLineNotInResult
-			;data realFirstLineNotInResult = firstLineNotInResult != ^null ? firstLineNotInResult : (Nullable<Boolean>)node.FirstLineNotInResult
+            ;This is what it should be
+            ;data realFirstLineNotInResult = firstLineNotInResult.HasValue ? firstLineNotInResult.Value : node.FirstLineNotInResult
+            ;data realFirstLineNotInResult, boolean, firstLineNotInResult != ^null ? firstLineNotInResult.Value : (Nullable<Boolean>)node.FirstLineNotInResult
+            ;data realFirstLineNotInResult = firstLineNotInResult != ^null ? firstLineNotInResult : (Nullable<Boolean>)node.FirstLineNotInResult
 
-;			data realFirstLineNotInResult, boolean, node.FirstLineNotInResult
-;			if(firstLineNotInResult != ^null)
-;				realFirstLineNotInResult = firstLineNotInResult.Value
+;           data realFirstLineNotInResult, boolean, node.FirstLineNotInResult
+;           if(firstLineNotInResult != ^null)
+;               realFirstLineNotInResult = firstLineNotInResult.Value
 
-			;--------------------------------------------------------------------------------
-			
-			data realFirstLineNotInResult, boolean, firstLineNotInResult != ^null ? firstLineNotInResult.Value : node.FirstLineNotInResult
-			data cleanedOutput, string, node.Value.Value
+            ;--------------------------------------------------------------------------------
 
-			if(node.RemoveTrailingWhitespace)
-				cleanedOutput = cleanedOutput.TrimEnd(' ',%char(9))
+            data realFirstLineNotInResult, boolean, firstLineNotInResult != ^null ? firstLineNotInResult.Value : node.FirstLineNotInResult
+            data cleanedOutput, string, node.Value.Value
 
-			if (node.LastLineNotInResult)
-			begin
-				if(String.IsNullOrWhiteSpace(cleanedOutput))
-					mreturn "";
+            if(node.RemoveTrailingWhitespace)
+                cleanedOutput = cleanedOutput.TrimEnd(' ',%char(9))
+
+            if (node.LastLineNotInResult)
+            begin
+                if(String.IsNullOrWhiteSpace(cleanedOutput))
+                    mreturn "";
 
                 ;; Find the last <CR><LF>
-				data lastNewline, int, cleanedOutput.LastIndexOf(%char(13) + %char(10))
+                data lastNewline, int, cleanedOutput.LastIndexOf(%char(13) + %char(10))
 
                 if ((lastNewline == 0) && (cleanedOutput.Length == 2)) then
                 begin
-					;; All we have is a <CR><LF> ... leave it alone
-					cleanedOutput = ""
-				end
-				else if ((lastNewline != -1) && (cleanedOutput.Length > (lastNewline + 2))) then
+                    ;; All we have is a <CR><LF> ... leave it alone
+                    cleanedOutput = ""
+                end
+                else if ((lastNewline != -1) && (cleanedOutput.Length > (lastNewline + 2))) then
                 begin
                     ;; We have a <CR><LF>, there may or may not be data before the <CR><LF>, and there IS data after the <CR><LF>
                     ;; Remove all the data from the last <CR><LF> to the end, then put it back again, then remove trailing whitespace!!!
                     cleanedOutput = cleanedOutput.Remove(lastNewline + 2) + cleanedOutput.Substring(lastNewline + 2).TrimEnd(' ',%char(9))
-				
-					;; TODO: That can't be right, try this:
-					;; cleanedOutput = cleanedOutput.Remove(lastNewline,2).TrimEnd(' ', '\t');
-				end
+
+                    ;; TODO: That can't be right, try this:
+                    ;; cleanedOutput = cleanedOutput.Remove(lastNewline,2).TrimEnd(' ', '\t');
+                end
                 else if (lastNewline == -1)
                 begin
                     cleanedOutput = cleanedOutput.TrimEnd(' ',%char(9))
                 end
             end
-			
-			if (realFirstLineNotInResult)
-			begin
+
+            if (realFirstLineNotInResult)
+            begin
                 ;; Find the first <CR><LF>
-				data firstNewline, int, cleanedOutput.IndexOf(%char(13) + %char(10))
+                data firstNewline, int, cleanedOutput.IndexOf(%char(13) + %char(10))
 
                 if ((firstNewline > 0) && cleanedOutput.Take(firstNewline).Any(lambda (ch) {!char.IsWhiteSpace(ch)})) then
                 begin
-					nop
+                    nop
                 end
                 else if ((firstNewline > 0) && cleanedOutput.Take(firstNewline).All(lambda (ch) {(ch == ' ') || (ch == %char(9))})) then
                 begin
@@ -492,14 +491,14 @@ namespace CodeGen.Engine
                 begin
                     ;; We have a <CR><LF> somewhere in the string, maybe at the beggining, maybe after some other data.
                     ;; Just remove the <CR><LF>
-					
-					;; TODO: Is this right, or should be be removing everything UP TO AND INCLUDING the Crlf?
+
+                    ;; TODO: Is this right, or should be be removing everything UP TO AND INCLUDING the Crlf?
 
                     cleanedOutput = cleanedOutput.Remove(firstNewline, 2)
                 end
             end
-			
-			mreturn cleanedOutput
+
+            mreturn cleanedOutput
 
         endmethod
 
@@ -515,32 +514,32 @@ namespace CodeGen.Engine
             ;; If we're processing multiple structures at the same time then make sure we
             ;; reset the current structure to the first structure so file names will be
             ;; based on it.
-			if (node.Context.MultiStructureMode)
-				node.Context.CurrentStructure = node.Context.Structures[0]
+            if (node.Context.MultiStructureMode)
+                node.Context.CurrentStructure = node.Context.Structures[0]
 
             ;; Do we have any output file name tokens that were specified via <CODEGEN_FILENAME>?
-			if (node.OutputFileNameTokens != ^null) then
+            if (node.OutputFileNameTokens != ^null) then
             begin
                 ;; Yes, we'll be using a custom output file name.
                 begin
                     disposable data sw, @StringWriter, new StringWriter()
-					data expander, @TreeExpander, new TreeExpander(node, _expander, _evaluator, sw)
-					expander.Visit(node.OutputFileNameTokens)
+                    data expander, @TreeExpander, new TreeExpander(node, _expander, _evaluator, sw)
+                    expander.Visit(node.OutputFileNameTokens)
 
-					node.OutputFileName = sw.ToString()
+                    node.OutputFileName = sw.ToString()
                 end
             end
             else
             begin
                 ;; No, we'll be going with a default output file name
-				if (node.Context.CurrentStructure == ^null) then
-					node.OutputFileName = String.Format("{0}.dbl", node.Context.CurrentTemplateBaseName.ToLower())
+                if (node.Context.CurrentStructure == ^null) then
+                    node.OutputFileName = String.Format("{0}.dbl", node.Context.CurrentTemplateBaseName.ToLower())
                 else
-					node.OutputFileName = String.Format("{0}_{1}.dbl", node.Context.CurrentStructure.Name.ToLower(), node.Context.CurrentTemplateBaseName.ToLower())
+                    node.OutputFileName = String.Format("{0}_{1}.dbl", node.Context.CurrentStructure.Name.ToLower(), node.Context.CurrentTemplateBaseName.ToLower())
             end
         endmethod
-	
-	endclass
+
+    endclass
 
 endnamespace
 

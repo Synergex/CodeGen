@@ -45,39 +45,39 @@ import CodeGen.Engine
 
 namespace CodeGen.Engine
     
-	function ParseSelectionWindow       ,Boolean
-		required in  context			,@CodeGenContext
-        required in  SelectionWindow    ,String
-        required out Selections         ,@List<String>
+    function ParseSelectionWindow,      Boolean
+        required in  context,           @CodeGenContext
+        required in  SelectionWindow,   String
+        required out Selections,        @List<String>
         endparams
         
     proc
-		data errStatus	,boolean, false
-		
-		;;Open the file, fail if can't
-		data ch, int
-		try
+        data errStatus	,boolean, false
+
+        ;;Open the file, fail if can't
+        data ch, int
+        try
         begin
-			open(ch=0,i:s,context.SelectionWindowScript)
-			context.CurrentTask.DebugLog("Parsing window script " + context.SelectionWindowScript,true,false)
-		end
+            open(ch=0,i:s,context.SelectionWindowScript)
+            context.CurrentTask.DebugLog("Parsing window script " + context.SelectionWindowScript,true,false)
+        end
         catch (ex)
         begin
-			errStatus = context.CurrentTask.ErrorLog("Can't open window script " + context.SelectionWindowScript)
+            errStatus = context.CurrentTask.ErrorLog("Can't open window script " + context.SelectionWindowScript)
             freturn false
         end
         endtry
         
-		context.CurrentTask.DebugLog(" - Searching for selection window " + SelectionWindow.ToUpper())
+        context.CurrentTask.DebugLog(" - Searching for selection window " + SelectionWindow.ToUpper())
 
-		data GotWindow	,Boolean, false    ;;Did we find a selection window?
-		data InWindow	,Boolean, false    ;;Are we currently processing a selection window?
-		
+        data GotWindow	,Boolean, false    ;;Did we find a selection window?
+        data InWindow	,Boolean, false    ;;Are we currently processing a selection window?
+
         repeat
         begin
-			;;Read a record
-			data WscRec, a1024
-			reads(ch,WscRec,eowsc)
+            ;;Read a record
+            data WscRec, a1024
+            reads(ch,WscRec,eowsc)
             
             ;;Ignore blank lines
             if (!WscRec)
@@ -89,8 +89,8 @@ namespace CodeGen.Engine
                 
             ;;Check for continuation lines and concatenate them into single lines
             repeat
-			begin
-				data WscRec2, a1024
+            begin
+                data WscRec2, a1024
                 data ix, int
                 data pos1, int, 1
                 if (WscRec(trim(WscRec):1)!="-")
@@ -98,7 +98,7 @@ namespace CodeGen.Engine
                 ;;Strip off the continuation
                 WscRec = WscRec(1:trim(WscRec)-1)
                 ;;Read the next record
-				reads(ch,WscRec2,eowsc)
+                reads(ch,WscRec2,eowsc)
                 ;;Find the first non-whitespace character in the additional line
                 for ix from 1 thru %trim(WscRec2)
                 begin
@@ -116,11 +116,11 @@ namespace CodeGen.Engine
             
             ;;If we're processing a selection window and we find a .end then we're
             ;;done, otherwise ignore it
-			if ((a)StringTools.LowerCase(WscRec)==".end")
+            if ((a)StringTools.LowerCase(WscRec)==".end")
             begin
                 if (InWindow) then
                 begin
-					context.CurrentTask.DebugLog(" - Found end of selection window "+SelectionWindow.ToUpper())
+                    context.CurrentTask.DebugLog(" - Found end of selection window "+SelectionWindow.ToUpper())
                     GotWindow = true
                     exitloop
                 end
@@ -129,37 +129,37 @@ namespace CodeGen.Engine
             end
             
             ;;Look for the start of a selection window
-			if ((a)StringTools.LowerCase(WscRec)==".select")
-			begin
+            if ((a)StringTools.LowerCase(WscRec)==".select")
+            begin
                 data pos1, int
                 data WndName, String
                 
                 ;;Remove the .select
-				upcase WscRec
-				locase WscRec(1:7)
+                upcase WscRec
+                locase WscRec(1:7)
                 WscRec = WscRec - ".select "
                 ;;Find the , for the end of the window name and extract the name
-				pos1 = %instr(1,WscRec,",")
-				;;If there was a comma then the selection window name should be all the data up to it.
-				;;If not then we should only be looking at a selection window name
-				if (pos1) then
-					WndName = StringTools.UpperCase(WscRec(1:pos1-1))
-				else
-					WndName = StringTools.UpperCase(%atrim(WscRec))
+                pos1 = %instr(1,WscRec,",")
+                ;;If there was a comma then the selection window name should be all the data up to it.
+                ;;If not then we should only be looking at a selection window name
+                if (pos1) then
+                    WndName = StringTools.UpperCase(WscRec(1:pos1-1))
+                else
+                    WndName = StringTools.UpperCase(%atrim(WscRec))
 
                 ;;Is this the one we were looking for?
-				if (WndName.nes.SelectionWindow.ToUpper())
+                if (WndName.nes.SelectionWindow.ToUpper())
                     nextloop
                 
                 ;;Yes, found it!
                 InWindow = true
                 Selections = new List<String>()
 
-				context.CurrentTask.DebugLog(" - Found selection window "+SelectionWindow.ToUpper())
+                context.CurrentTask.DebugLog(" - Found selection window "+SelectionWindow.ToUpper())
                 nextloop
             end
 
-			if (InWindow&&(a)StringTools.LowerCase(WscRec)==".item")
+            if (InWindow&&(a)StringTools.LowerCase(WscRec)==".item")
             begin
                 data pos1, int
                 
@@ -182,20 +182,20 @@ namespace CodeGen.Engine
                 ;;Add the selection to the collection of selections
                 Selections.Add((String)atrim(WscRec))
                 
-				context.CurrentTask.DebugLog(" - Found selection item "+atrim(WscRec))
+                context.CurrentTask.DebugLog(" - Found selection item "+atrim(WscRec))
                 nextloop
             end
 
         end
         
     eowsc, 
-		close ch
+        close ch
         
         ;;Did we find an input window
         if (!GotWindow) then
-			errStatus = context.CurrentTask.ErrorLog("Selection window " + SelectionWindow.ToUpper() + " was not found in window script " + context.SelectionWindowScript)
+            errStatus = context.CurrentTask.ErrorLog("Selection window " + SelectionWindow.ToUpper() + " was not found in window script " + context.SelectionWindowScript)
         else if (Selections.Count==0)
-			errStatus = context.CurrentTask.ErrorLog("Selection window " + SelectionWindow.ToUpper() + " contained no items!")
+            errStatus = context.CurrentTask.ErrorLog("Selection window " + SelectionWindow.ToUpper() + " contained no items!")
         
         freturn !errStatus
         

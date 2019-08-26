@@ -48,312 +48,309 @@ import System.IO
 import System.Reflection
 import System.Diagnostics
 
-.array 0
-
 namespace CodeGen.Engine
-	
-	;;; <summary>
-	;;; 
-	;;; </summary>
-	public class ErrorReporting implements ITreeNodeVisitor
-		
-		private currentFileNode, @FileNode
-		private currentLoops, @List<LoopNode>, new List<LoopNode>()
-		private validator, @TokenValidation, new TokenValidation()
-		
-		;;; <summary>
-		;;; 
-		;;; </summary>
-		public readwrite property Errors, @List<Tuple<string, int, int, string>>, new List<Tuple<string, int, int, string>>()
-		
-		private method reportValidity, void
-			required in tkn, @Token 
-		proc
-			data validity, @List<TokenValidity>, ^as(tkn.Bucket, List<TokenValidity>)
-			data valid, TokenValidity
-			foreach valid in validity
-			begin
-				if (validator.IsValid(valid, currentFileNode, currentLoops))
-					mreturn
-			end
-			this.Errors.Add(Tuple.Create(String.Format("Token {0} was found in an invalid location on line {1} position {2}.", tkn.Value, tkn.StartLineNumber+1, tkn.StartColumn-tkn.Value.Length+1), tkn.StartLineNumber, tkn.StartColumn, tkn.File))
-		endmethod
-		
-		public method Visit, void
-			required in nodes, @IEnumerable<ITreeNode> 
-		proc
-			data node, @ITreeNode
-			foreach node in nodes
-				node.Accept(this)
-		endmethod
-		
-		;;; <summary>
-		;;; 
-		;;; </summary>
-		;;; <param name="node"></param>
-		public method Visit, void
-			required in node, @LoopNode 
-		proc
-			reportValidity(node.OpenToken)
-			currentLoops.Add(node)
-			Visit(node.Body)
-			currentLoops.Remove(node)
-		endmethod
-		
-		;;; <summary>
-		;;; 
-		;;; </summary>
-		;;; <param name="node"></param>
-		public method Visit, void
-			required in node, @IfNode 
-		proc
-			Visit(node.Expression)
-			Visit(node.Body)
-			if (node.Else != ^null)
-				Visit(node.Else)
-		endmethod
-		
-		;;; <summary>
-		;;; 
-		;;; </summary>
-		;;; <param name="node"></param>
-		public method Visit, void
-			required in node, @ExpressionNode 
-		proc
-			reportValidity(node.Value)
-		endmethod
-		
-		;;; <summary>
-		;;; 
-		;;; </summary>
-		;;; <param name="node"></param>
-		public method Visit, void
-			required in node, @ElseNode 
-		proc
-			Visit(node.Body)
-		endmethod
-		
-		;;; <summary>
-		;;; 
-		;;; </summary>
-		;;; <param name="node"></param>
-		public method Visit, void
-			required in node, @ExpansionNode 
-		proc
-			reportValidity(node.Value)
-		endmethod
-		
-		;;; <summary>
-		;;; 
-		;;; </summary>
-		;;; <param name="node"></param>
-		public method Visit, void
-			required in node, @TextNode 
-		proc
-			
-		endmethod
-		
-		;;; <summary>
-		;;; This is the main entry point used by CodeGenerator to validate a tree.
-		;;; </summary>
-		;;; <param name="node">FileNode representing the tree to be validated</param>
-		public method Visit, void
-			required in node, @FileNode 
-		proc
-			;; Analyze the structure of the tree
-			currentFileNode = node
-			Visit(node.Body)
-			
-			;; Does the template require a specific version of CodeGen?
-			if (node.RequiredCodeGenVersion != ^null)
-			begin
-				data codeGenVersion = Version.Parse(FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion)
-				if (node.RequiredCodeGenVersion > codeGenVersion)
-				begin
-					;;Strip off the last component of the assembly version number
-					data versionString = codeGenVersion.ToString().Substring(0,codeGenVersion.ToString().LastIndexOf("."))
-					;;Display the error
-					data message = String.Format("Template {0} requires a CodeGen {1} or higher. You are running version {2}.", node.Context.CurrentTemplateBaseName,node.RequiredCodeGenVersion.ToString(), versionString)
-					this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-				end
-			end
 
-			;; Does anythng in the tree require repository structure processing?
-			if ((node.RequiresRepository) && (node.Context.Structures.Count == 0))
-			begin
-				;;However, if we're doing SMC processing we'll let it go for now. Missing structures will be caught and reported during code generation.
-				if (node.Context.Taskset.MethodCatalog == ^null)
-				begin
-					data message = String.Format("Template {0} requires a repository structure and no structure was specified.", node.Context.CurrentTemplateBaseName)
-					this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-				end
-			end
+    ;;; <summary>
+    ;;; 
+    ;;; </summary>
+    public class ErrorReporting implements ITreeNodeVisitor
 
-			;; Does anything in the tree require that a namespace is specified?
-			if ((node.RequiresNamespace && String.IsNullOrWhiteSpace(node.Context.CurrentTask.Namespace)) && String.IsNullOrWhiteSpace(node.Context.Namespace))
-			begin
-				data message = String.Format("Template {0} requires a namespace and no namespace was specified.", node.Context.CurrentTemplateBaseName)
-				this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-			end
+        private currentFileNode, @FileNode
+        private currentLoops, @List<LoopNode>, new List<LoopNode>()
+        private validator, @TokenValidation, new TokenValidation()
 
-			;; Check for required user-defined tokens
-			if ((node.RequiredUserTokens != ^null) && (node.RequiredUserTokens.Count > 0))
-			begin
-				data requiredToken, string
-				foreach requiredToken in node.RequiredUserTokens
-				begin
-					data foundUserToken = false
-					data ut, @UserToken
-					foreach ut in node.Context.UserTokens
-					begin
-						if (ut.Name == requiredToken)
-						begin
-							foundUserToken = true
-							exitloop
-						end
-					end
-					if (!foundUserToken)
-					begin
-						data message = String.Format("Template {0} requires a user-defined token {1} which is not defined.", node.Context.CurrentTemplateBaseName, requiredToken)
-						this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-					end
-				end
-			end
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        public readwrite property Errors, @List<Tuple<string, int, int, string>>, new List<Tuple<string, int, int, string>>()
 
-			;; Check for required custom token expanders
-			if ((node.RequiredCustomTokens != ^null) && (node.RequiredCustomTokens.Count > 0))
-			begin
-				data requiredToken, @Tuple<TokenValidity, string>
-				foreach requiredToken in node.RequiredCustomTokens
-				begin
-					data tokenFound = false
-					data customToken, @Tuple<string, string, TokenValidity, TokenCaseMode, Func<Token, FileNode, IEnumerable<LoopNode>, string>>
-					foreach customToken in node.Context.CustomTokenExpanders
-					begin
-						if ((customToken.Item3 == requiredToken.Item1) && (customToken.Item1 == requiredToken.Item2))
-						begin
-							tokenFound = true
-							exitloop
-						end
-					end
-					if (!tokenFound)
-					begin
-						data message = String.Format("Template {0} requires a custom {1} token {2} which has not been loaded.", node.Context.CurrentTemplateBaseName, requiredToken.Item1, requiredToken.Item2)
-						this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-					end
-				end
-			end
+        private method reportValidity, void
+            required in tkn, @Token 
+        proc
+            data validity, @List<TokenValidity>, ^as(tkn.Bucket, List<TokenValidity>)
+            data valid, TokenValidity
+            foreach valid in validity
+            begin
+                if (validator.IsValid(valid, currentFileNode, currentLoops))
+                    mreturn
+            end
+            this.Errors.Add(Tuple.Create(String.Format("Token {0} was found in an invalid location on line {1} position {2}.", tkn.Value, tkn.StartLineNumber+1, tkn.StartColumn-tkn.Value.Length+1), tkn.StartLineNumber, tkn.StartColumn, tkn.File))
+        endmethod
 
-			;; Check for required custom expression processors
-			if ((node.RequiredCustomExpressions != ^null) && (node.RequiredCustomExpressions.Count > 0))
-			begin
-				data requiredExpression, @Tuple<TokenValidity, string>
-				foreach requiredExpression in node.RequiredCustomExpressions
-				begin
-					data expressionFound = false
-					data customExpression, @Tuple<string, string, TokenValidity, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
-					foreach customExpression in node.Context.CustomExpressionEvaluators
-					begin
-						if ((customExpression.Item3 == requiredExpression.Item1) && (customExpression.Item1 == requiredExpression.Item2))
-						begin
-							expressionFound = true
-							exitloop
-						end
-					end
-					if (!expressionFound)
-					begin
-						data message = String.Format("Template {0} requires a custom {1} expression {2} which has not been loaded.", node.Context.CurrentTemplateBaseName, requiredExpression.Item1, requiredExpression.Item2)
-						this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-					end
-				end
-			end
+        public method Visit, void
+            required in nodes, @IEnumerable<ITreeNode> 
+        proc
+            data node, @ITreeNode
+            foreach node in nodes
+                node.Accept(this)
+        endmethod
 
-			;; Check for required processing options
-			if ((node.RequiredOptions != ^null) && (node.RequiredOptions.Count > 0))
-			begin
-				data requiredOption, string
-				foreach requiredOption in node.RequiredOptions
-				begin
-					using requiredOption select
-					("FL"),
-					begin
-						if (!node.Context.CurrentTask.IgnoreExcludeLanguage)
-						begin
-							data message = String.Format("Template {0} requires that the 'ignore excluded by language' option (-f l) is used.", node.Context.CurrentTemplateBaseName)
-							this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-						end
-					end
-					("FO"),
-					begin
-						if (!node.Context.CurrentTask.IncludeOverlayFields)
-						begin
-							data message = String.Format("Template {0} requires that the 'include overlay fields' option (-f o) is used.", node.Context.CurrentTemplateBaseName)
-							this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-						end
-					end
-					("FR"),
-					begin
-						if (!node.Context.CurrentTask.HonorExcludeReportWriter)
-						begin
-							data message = String.Format("Template {0} requires that the 'honor excluded by ReportWriter' option (-f r) is used.", node.Context.CurrentTemplateBaseName)
-							this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-						end
-					end
-					("FT"),
-					begin
-						if (!node.Context.CurrentTask.HonorExcludeToolkit)
-						begin
-							data message = String.Format("Template {0} requires that the 'honor excluded by Toolkit' option (-f t) is used.", node.Context.CurrentTemplateBaseName)
-							this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-						end
-					end
-					("FW"),
-					begin
-						if (!node.Context.CurrentTask.HonorExcludeWeb)
-						begin
-							data message = String.Format("Template {0} requires that the 'honor excluded by Web' option (-f w) is used.", node.Context.CurrentTemplateBaseName)
-							this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-						end
-					end
-					("MS"),
-					begin
-						if (!node.Context.CurrentTask.MultipleStructures)
-						begin
-							data message = String.Format("Template {0} requires that the 'multiple structures' option (-ms) is used.", node.Context.CurrentTemplateBaseName)
-							this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-						end
-					end
-					("PREFIX"),
-					begin
-						if (String.IsNullOrWhiteSpace(node.Context.CurrentTask.FieldPrefix))
-						begin
-							data message = String.Format("Template {0} requires that the 'field prefix' option (-prefix) is used.", node.Context.CurrentTemplateBaseName)
-							this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-						end
-					end
-					("SUBSET"),
-					begin
-						if (String.IsNullOrWhiteSpace(node.Context.CurrentTask.Subset) && (node.Context.CurrentTask.SubsetFields.Count == 0))
-						begin
-							data message = String.Format("Template {0} requires that subset processing is (-subset or -fields) is used.", node.Context.CurrentTemplateBaseName)
-							this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-						end
-					end
-					("TF"),
-					begin
-						if (!node.Context.CurrentTask.AllowTemplateFolder)
-						begin
-							data message = String.Format("Template {0} requires that template-defined folders are enabled (-tf).", node.Context.CurrentTemplateBaseName)
-							this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
-						end
-					end
-					endusing
-				end
-			end
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="node"></param>
+        public method Visit, void
+            required in node, @LoopNode 
+        proc
+            reportValidity(node.OpenToken)
+            currentLoops.Add(node)
+            Visit(node.Body)
+            currentLoops.Remove(node)
+        endmethod
 
-		endmethod
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="node"></param>
+        public method Visit, void
+            required in node, @IfNode 
+        proc
+            Visit(node.Expression)
+            Visit(node.Body)
+            if (node.Else != ^null)
+                Visit(node.Else)
+        endmethod
 
-	endclass
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="node"></param>
+        public method Visit, void
+            required in node, @ExpressionNode 
+        proc
+            reportValidity(node.Value)
+        endmethod
+
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="node"></param>
+        public method Visit, void
+            required in node, @ElseNode 
+        proc
+            Visit(node.Body)
+        endmethod
+
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="node"></param>
+        public method Visit, void
+            required in node, @ExpansionNode 
+        proc
+            reportValidity(node.Value)
+        endmethod
+
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="node"></param>
+        public method Visit, void
+            required in node, @TextNode 
+        proc
+
+        endmethod
+
+        ;;; <summary>
+        ;;; This is the main entry point used by CodeGenerator to validate a tree.
+        ;;; </summary>
+        ;;; <param name="node">FileNode representing the tree to be validated</param>
+        public method Visit, void
+            required in node, @FileNode 
+        proc
+            ;; Analyze the structure of the tree
+            currentFileNode = node
+            Visit(node.Body)
+
+            ;; Does the template require a specific version of CodeGen?
+            if (node.RequiredCodeGenVersion != ^null)
+            begin
+                data codeGenVersion = Version.Parse(FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion)
+                if (node.RequiredCodeGenVersion > codeGenVersion)
+                begin
+                    ;;Strip off the last component of the assembly version number
+                    data versionString = codeGenVersion.ToString().Substring(0,codeGenVersion.ToString().LastIndexOf("."))
+                    ;;Display the error
+                    data message = String.Format("Template {0} requires a CodeGen {1} or higher. You are running version {2}.", node.Context.CurrentTemplateBaseName,node.RequiredCodeGenVersion.ToString(), versionString)
+                    this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                end
+            end
+
+            ;; Does anythng in the tree require repository structure processing?
+            if ((node.RequiresRepository) && (node.Context.Structures.Count == 0))
+            begin
+                ;;However, if we're doing SMC processing we'll let it go for now. Missing structures will be caught and reported during code generation.
+                if (node.Context.Taskset.MethodCatalog == ^null)
+                begin
+                    data message = String.Format("Template {0} requires a repository structure and no structure was specified.", node.Context.CurrentTemplateBaseName)
+                    this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                end
+            end
+
+            ;; Does anything in the tree require that a namespace is specified?
+            if ((node.RequiresNamespace && String.IsNullOrWhiteSpace(node.Context.CurrentTask.Namespace)) && String.IsNullOrWhiteSpace(node.Context.Namespace))
+            begin
+                data message = String.Format("Template {0} requires a namespace and no namespace was specified.", node.Context.CurrentTemplateBaseName)
+                this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+            end
+
+            ;; Check for required user-defined tokens
+            if ((node.RequiredUserTokens != ^null) && (node.RequiredUserTokens.Count > 0))
+            begin
+                data requiredToken, string
+                foreach requiredToken in node.RequiredUserTokens
+                begin
+                    data foundUserToken = false
+                    data ut, @UserToken
+                    foreach ut in node.Context.UserTokens
+                    begin
+                        if (ut.Name == requiredToken)
+                        begin
+                            foundUserToken = true
+                            exitloop
+                        end
+                    end
+                    if (!foundUserToken)
+                    begin
+                        data message = String.Format("Template {0} requires a user-defined token {1} which is not defined.", node.Context.CurrentTemplateBaseName, requiredToken)
+                        this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                    end
+                end
+            end
+
+            ;; Check for required custom token expanders
+            if ((node.RequiredCustomTokens != ^null) && (node.RequiredCustomTokens.Count > 0))
+            begin
+                data requiredToken, @Tuple<TokenValidity, string>
+                foreach requiredToken in node.RequiredCustomTokens
+                begin
+                    data tokenFound = false
+                    data customToken, @Tuple<string, string, TokenValidity, TokenCaseMode, Func<Token, FileNode, IEnumerable<LoopNode>, string>>
+                    foreach customToken in node.Context.CustomTokenExpanders
+                    begin
+                        if ((customToken.Item3 == requiredToken.Item1) && (customToken.Item1 == requiredToken.Item2))
+                        begin
+                            tokenFound = true
+                            exitloop
+                        end
+                    end
+                    if (!tokenFound)
+                    begin
+                        data message = String.Format("Template {0} requires a custom {1} token {2} which has not been loaded.", node.Context.CurrentTemplateBaseName, requiredToken.Item1, requiredToken.Item2)
+                        this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                    end
+                end
+            end
+
+            ;; Check for required custom expression processors
+            if ((node.RequiredCustomExpressions != ^null) && (node.RequiredCustomExpressions.Count > 0))
+            begin
+                data requiredExpression, @Tuple<TokenValidity, string>
+                foreach requiredExpression in node.RequiredCustomExpressions
+                begin
+                    data expressionFound = false
+                    data customExpression, @Tuple<string, string, TokenValidity, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
+                    foreach customExpression in node.Context.CustomExpressionEvaluators
+                    begin
+                        if ((customExpression.Item3 == requiredExpression.Item1) && (customExpression.Item1 == requiredExpression.Item2))
+                        begin
+                            expressionFound = true
+                            exitloop
+                        end
+                    end
+                    if (!expressionFound)
+                    begin
+                        data message = String.Format("Template {0} requires a custom {1} expression {2} which has not been loaded.", node.Context.CurrentTemplateBaseName, requiredExpression.Item1, requiredExpression.Item2)
+                        this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                    end
+                end
+            end
+
+            ;; Check for required processing options
+            if ((node.RequiredOptions != ^null) && (node.RequiredOptions.Count > 0))
+            begin
+                data requiredOption, string
+                foreach requiredOption in node.RequiredOptions
+                begin
+                    using requiredOption select
+                    ("FL"),
+                    begin
+                        if (!node.Context.CurrentTask.IgnoreExcludeLanguage)
+                        begin
+                            data message = String.Format("Template {0} requires that the 'ignore excluded by language' option (-f l) is used.", node.Context.CurrentTemplateBaseName)
+                            this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                        end
+                    end
+                    ("FO"),
+                    begin
+                        if (!node.Context.CurrentTask.IncludeOverlayFields)
+                        begin
+                            data message = String.Format("Template {0} requires that the 'include overlay fields' option (-f o) is used.", node.Context.CurrentTemplateBaseName)
+                            this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                        end
+                    end
+                    ("FR"),
+                    begin
+                        if (!node.Context.CurrentTask.HonorExcludeReportWriter)
+                        begin
+                            data message = String.Format("Template {0} requires that the 'honor excluded by ReportWriter' option (-f r) is used.", node.Context.CurrentTemplateBaseName)
+                            this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                        end
+                    end
+                    ("FT"),
+                    begin
+                        if (!node.Context.CurrentTask.HonorExcludeToolkit)
+                        begin
+                            data message = String.Format("Template {0} requires that the 'honor excluded by Toolkit' option (-f t) is used.", node.Context.CurrentTemplateBaseName)
+                            this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                        end
+                    end
+                    ("FW"),
+                    begin
+                        if (!node.Context.CurrentTask.HonorExcludeWeb)
+                        begin
+                            data message = String.Format("Template {0} requires that the 'honor excluded by Web' option (-f w) is used.", node.Context.CurrentTemplateBaseName)
+                            this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                        end
+                    end
+                    ("MS"),
+                    begin
+                        if (!node.Context.CurrentTask.MultipleStructures)
+                        begin
+                            data message = String.Format("Template {0} requires that the 'multiple structures' option (-ms) is used.", node.Context.CurrentTemplateBaseName)
+                            this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                        end
+                    end
+                    ("PREFIX"),
+                    begin
+                        if (String.IsNullOrWhiteSpace(node.Context.CurrentTask.FieldPrefix))
+                        begin
+                            data message = String.Format("Template {0} requires that the 'field prefix' option (-prefix) is used.", node.Context.CurrentTemplateBaseName)
+                            this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                        end
+                    end
+                    ("SUBSET"),
+                    begin
+                        if (String.IsNullOrWhiteSpace(node.Context.CurrentTask.Subset) && (node.Context.CurrentTask.SubsetFields.Count == 0))
+                        begin
+                            data message = String.Format("Template {0} requires that subset processing is (-subset or -fields) is used.", node.Context.CurrentTemplateBaseName)
+                            this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                        end
+                    end
+                    ("TF"),
+                    begin
+                        if (!node.Context.CurrentTask.AllowTemplateFolder)
+                        begin
+                            data message = String.Format("Template {0} requires that template-defined folders are enabled (-tf).", node.Context.CurrentTemplateBaseName)
+                            this.Errors.Add(Tuple.Create(message, (int)0, (int)0, node.Context.CurrentTemplate))
+                        end
+                    end
+                    endusing
+                end
+            end
+
+        endmethod
+
+    endclass
 
 endnamespace
-

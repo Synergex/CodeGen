@@ -44,92 +44,97 @@
 import System.Collections.Generic
 
 namespace CodeGen.Engine
-	
-	class CommandLineParser
-		
-		public static method Parse, boolean
-			required in  a_opt          ,String			;;Option string to search for
 
-			stack record
-				optvals					,@List<String>	;Returned option values
-			endrecord
+    class CommandLineParser
 
-		proc
-			mreturn parse(a_opt,optvals=new List<String>())
-		endmethod
-		
-		public static method Parse, boolean
-			required in  a_opt          ,String			;;Option string to search for
-			required out a_optvals      ,@List<String>	;;Returned option values
-			
-		proc
-			a_optvals = new List<String>()
+        ;;; <summary>
+        ;;; Parse the command line looking for a switch.
+        ;;; </summary>
+        ;;; <param name="a_opt">Switch to look for.</param>
+        ;;; <returns>True if the switch was found.</returns>
+        public static method Parse, boolean
+            required in  a_opt,     String
+        proc
+            data optvals, @List<string>, new List<String>()
+            mreturn parse(a_opt,optvals)
+        endmethod
 
-			data optionFound = false
-			data optionCharacter = %option(34) ? "/" : "-"
-			
-			data args = Environment.GetCommandLineArgs()
+        ;;; <summary>
+        ;;; Parse the command line looking for a switch and return associated option values.
+        ;;; </summary>
+        ;;; <param name="a_opt">Switch to look for.</param>
+        ;;; <param name="a_optvals">Returned values associated with the switch.</param>
+        ;;; <returns>True if the switch was found.</returns>
+        public static method Parse, boolean
+            required in  a_opt,     String
+            required out a_optvals, @List<String>
+        proc
+            a_optvals = new List<String>()
 
-			if (args.Length > 1)
-			begin
-				data ix, int
-				data option_value, String
-				for ix from 2 thru args.Length
-				begin
-					option_value = args[ix]
+            data optionFound = false
+            data optionCharacter = %option(34) ? "/" : "-"
 
-					;;Is this the requested option?
-					if (option_value.eqs.(optionCharacter+a_opt))
-					begin
-						;;Found requested option
-						optionFound = true
+            data args = Environment.GetCommandLineArgs()
 
-						;;Are we out of arguments?
-						if (ix == args.Length)
-							exitloop
+            if (args.Length > 1)
+            begin
+                data ix, int
+                data option_value, String
+                for ix from 2 thru args.Length
+                begin
+                    option_value = args[ix]
 
-						;;Move on to the next argument
-						option_value = args[ix+=1]
-			
-						;;DO NOT CHANGE THE .ne. OPERATOR to != ... THEY ARE NOT THE SAME THING WITH STRING!
-						while(!option_value.StartsWith(optionCharacter))
-						begin
-							;;Strip leading and trailing quote characters
-							using option_value select
-							("'", '"'),
-							begin
-								if ((option_value.Length>1)&&(option_value(option_value.Length:1)==option_value(1:1)))
-								begin
-									if (option_value.Length>2) then
-										option_value = option_value(2,option_value.Length-1)
-									else
-										option_value = ""
-								end
-							end
-							endusing
+                    ;;Is this the requested option?
+                    if (option_value.eqs.(optionCharacter+a_opt))
+                    begin
+                        ;;Found requested option
+                        optionFound = true
 
-							;;Add the value to the returned collection
-							a_optvals.Add(option_value)
+                        ;;Are we out of arguments?
+                        if (ix == args.Length)
+                            exitloop
 
-							;;Are we out of arguments?
-							if (ix == args.Length)
-								exitloop
-				
-							;;Move on to the next argument
-							option_value = args[ix+=1]
-						end
-			
-						;;Adjust counter to stay in correct position in loop
-						ix -= 1
-					end
-				end				
-			end
+                        ;;Move on to the next argument
+                        option_value = args[ix+=1]
 
-			mreturn optionFound
-			
-		endmethod
-		
-	endclass
-	
+                        ;;DO NOT CHANGE THE .ne. OPERATOR to != ... THEY ARE NOT THE SAME THING WITH STRING!
+                        while(!option_value.StartsWith(optionCharacter))
+                        begin
+                            ;;Strip leading and trailing quote characters
+                            using option_value select
+                            ("'", '"'),
+                            begin
+                                if ((option_value.Length>1)&&(option_value(option_value.Length:1)==option_value(1:1)))
+                                begin
+                                    if (option_value.Length>2) then
+                                        option_value = option_value(2,option_value.Length-1)
+                                    else
+                                        option_value = ""
+                                end
+                            end
+                            endusing
+
+                            ;;Add the value to the returned collection
+                            a_optvals.Add(option_value)
+
+                            ;;Are we out of arguments?
+                            if (ix == args.Length)
+                                exitloop
+
+                            ;;Move on to the next argument
+                            option_value = args[ix+=1]
+                        end
+
+                        ;;Adjust counter to stay in correct position in loop
+                        ix -= 1
+                    end
+                end
+            end
+
+            mreturn optionFound
+
+        endmethod
+
+    endclass
+
 endnamespace
-

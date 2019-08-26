@@ -45,125 +45,123 @@ import System.Collections.ObjectModel
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
 
-.array 0
-
 namespace CodeGen.Engine
 
-	public static sealed class UserTokenCollection
+    public static sealed class UserTokenCollection
 
-		;;; <summary>
-		;;;	This method loads user defined tokens in a token file into the context.UserTokens collection.
-		;;; </summary>
-		public static method LoadTokensFromFile, boolean
-			required in context, @CodeGenContext
-			endparams
-		proc
+        ;;; <summary>
+        ;;;	This method loads user defined tokens in a token file into the context.UserTokens collection.
+        ;;; </summary>
+        public static method LoadTokensFromFile, boolean
+            required in context, @CodeGenContext
+            endparams
+        proc
 
-			data errStatus	,boolean, false
-			data tmpch		,int
-			
-			context.CurrentTask.VerboseLog("Loading user defined tokens from " + context.CurrentTask.UserTokenFile,true,false)				
+            data errStatus, boolean, false
+            data tmpch,     int
 
-			try
-			begin
-				open(tmpch=0,i:s,context.CurrentTask.UserTokenFile)
-			end
-			catch (ex)
-			begin
-				errStatus = context.CurrentTask.ErrorLog("Failed to open user defined token file " + context.CurrentTask.UserTokenFile)
-			end
-			endtry
-			
-			if (!errStatus)
-			begin
-				data tmpa, a32768
-				data tmps = String.Empty
-				data recCount = 0
-				repeat
-				begin
-					begin
-						reads(tmpch,tmpa,eout)
-						exit
-		eout,			if (!%rsize(tmpch))
-							exitloop
-					end
+            context.CurrentTask.VerboseLog("Loading user defined tokens from " + context.CurrentTask.UserTokenFile,true,false)				
 
-					;;We got some data
-					recCount += 1
+            try
+            begin
+                open(tmpch=0,i:s,context.CurrentTask.UserTokenFile)
+            end
+            catch (ex)
+            begin
+                errStatus = context.CurrentTask.ErrorLog("Failed to open user defined token file " + context.CurrentTask.UserTokenFile)
+            end
+            endtry
 
-					;;Ignore blank lines
-					if (!tmpa)
-						nextloop
-					
-					;;Get the data into a string
-					tmps = ((string)tmpa).trim()
+            if (!errStatus)
+            begin
+                data tmpa, a32768
+                data tmps = String.Empty
+                data recCount = 0
+                repeat
+                begin
+                    begin
+                        reads(tmpch,tmpa,eout)
+                        exit
+                eout,   if (!%rsize(tmpch))
+                            exitloop
+                    end
 
-					;;Ignore comment lines
-					if (tmps.StartsWith(";"))
-						nextloop
-					
-					;;Make sure the string starts with a token and ends with a matching closing token
-					data parts = tmps.Split(new string[#] {"<",">"}, StringSplitOptions.RemoveEmptyEntries)
+                    ;;We got some data
+                    recCount += 1
 
-					data opener = parts[0]
-					data closer = parts[parts.Length-1]
+                    ;;Ignore blank lines
+                    if (!tmpa)
+                        nextloop
 
-					if ((parts.Length < 3) || closer != String.Format("/{0}",opener))
-					begin
-						errStatus = context.CurrentTask.ErrorLog(String.Format("Record {0} in user token file {1} does not contain matching opening and closing tokens!", recCount, context.CurrentTask.UserTokenFile))
-						exitloop
-					end
+                    ;;Get the data into a string
+                    tmps = ((string)tmpa).trim()
 
-					data replacementValue = (string)((a)tmps - String.Format("<{0}>",opener) - String.Format("<{0}>",closer))
-					
-					;;Store details of this user token
-					context.UserTokens.Add(new UserToken(opener,replacementValue))
-				end
-			end
-			
-			if (tmpch && %chopen(tmpch))
-				close tmpch
-			
-			mreturn errStatus
+                    ;;Ignore comment lines
+                    if (tmps.StartsWith(";"))
+                        nextloop
 
-		endmethod
+                    ;;Make sure the string starts with a token and ends with a matching closing token
+                    data parts = tmps.Split(new string[#] {"<",">"}, StringSplitOptions.RemoveEmptyEntries)
 
-		;;; <summary>
-		;;; This method adds user defined tokens passed in via a papameter to the tokens already present in context.UserTokens.
-		;;; If a named token already exists then its value is replaced.
-		;;; </summary>
-		public static method AddTokens, void
-			required in tokens, @ObservableCollection<UserToken>
-			required in task, @CodeGenTask
-			required in context, @CodeGenContext
-			endparams
-		proc
-			data token, @UserToken
-			foreach token in tokens
-			begin
-				;;Make sure names are always upper case
-				token.Name = token.Name.ToUpper()
-					
-				;;Does the token already exist?
-				data existingToken, @UserToken
-				data existingTokenUpdated, Boolean, false
-				foreach existingToken in context.UserTokens
-				begin
-					if existingToken.Name.Equals(token.Name)
-					begin
-						;;Yes, update it's value
-						existingToken.value = token.value
-						existingTokenUpdated = true
-						exitloop
-					end
-				end
-				;;No, add the new token
-				if (!existingTokenUpdated)
-					context.UserTokens.Add(token)
-			end
+                    data opener = parts[1]
+                    data closer = parts[parts.Length]
 
-		endmethod
-		
-	endclass
+                    if ((parts.Length < 3) || closer != String.Format("/{0}",opener))
+                    begin
+                        errStatus = context.CurrentTask.ErrorLog(String.Format("Record {0} in user token file {1} does not contain matching opening and closing tokens!", recCount, context.CurrentTask.UserTokenFile))
+                        exitloop
+                    end
+
+                    data replacementValue = (string)((a)tmps - String.Format("<{0}>",opener) - String.Format("<{0}>",closer))
+
+                    ;;Store details of this user token
+                    context.UserTokens.Add(new UserToken(opener,replacementValue))
+                end
+            end
+
+            if (tmpch && %chopen(tmpch))
+                close tmpch
+
+            mreturn errStatus
+
+        endmethod
+
+        ;;; <summary>
+        ;;; This method adds user defined tokens passed in via a papameter to the tokens already present in context.UserTokens.
+        ;;; If a named token already exists then its value is replaced.
+        ;;; </summary>
+        public static method AddTokens, void
+            required in tokens, @ObservableCollection<UserToken>
+            required in task, @CodeGenTask
+            required in context, @CodeGenContext
+            endparams
+        proc
+            data token, @UserToken
+            foreach token in tokens
+            begin
+                ;;Make sure names are always upper case
+                token.Name = token.Name.ToUpper()
+
+                ;;Does the token already exist?
+                data existingToken, @UserToken
+                data existingTokenUpdated, Boolean, false
+                foreach existingToken in context.UserTokens
+                begin
+                    if existingToken.Name.Equals(token.Name)
+                    begin
+                        ;;Yes, update it's value
+                        existingToken.value = token.value
+                        existingTokenUpdated = true
+                        exitloop
+                    end
+                end
+                ;;No, add the new token
+                if (!existingTokenUpdated)
+                    context.UserTokens.Add(token)
+            end
+
+        endmethod
+
+    endclass
 
 endnamespace
