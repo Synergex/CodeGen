@@ -242,6 +242,7 @@ namespace CodeGen.Engine
             fieldLoopExpressionEvaluators.Add("TOOLKIT", evaluateFieldToolkit)
             fieldLoopExpressionEvaluators.Add("UNDERLINE", evaluateFieldUnderline)
             fieldLoopExpressionEvaluators.Add("UPPERCASE", evaluateFieldUppercase)
+            fieldLoopExpressionEvaluators.Add("USED_IN_RELATION", evaluateFieldUsedInRelation)
             fieldLoopExpressionEvaluators.Add("USER", evaluateFieldUser)
             fieldLoopExpressionEvaluators.Add("USERTEXT", evaluateFieldUserText)
             fieldLoopExpressionEvaluators.Add("USERTIMESTAMP", evaluateFieldUserTimeStamp)
@@ -2290,6 +2291,44 @@ namespace CodeGen.Engine
             endparams
         proc
             lambda doEvaluate(str, field, index) (field.Uppercase)
+            mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        ;;; <summary>
+        ;;; Determine if the field is a key segment in any relation.
+        ;;; </summary>
+        ;;; <param name="tkn"></param>
+        ;;; <param name="template"></param>
+        ;;; <param name="loops"></param>
+        ;;; <returns>True if the field is involved in a relation.</returns>
+        private static method evaluateFieldUsedInRelation, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                data fld, @RpsField, field
+                data st, @RpsStructure, str
+                data rl, @RpsRelation
+                foreach rl in st.Relations
+                begin
+                    data ky, @RpsKey
+                    foreach ky in st.Keys
+                    begin
+                        data sg, @RpsKeySegment
+                        foreach sg in ky.Segments
+                        begin
+                            if (sg.SegmentType == RpsKeySegmentType.Field && sg.Field.Equals(fld.Name))
+                            begin
+                                mreturn true
+                            end
+                        end
+                    end
+                end
+                mreturn false
+            end
             mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
