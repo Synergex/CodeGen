@@ -45,6 +45,7 @@ import System.Collections.Generic
 import System.Linq
 import System.Text
 import System.Threading.Tasks
+import CodeGen.RepositoryAPI
 
 .array 0
 
@@ -77,15 +78,21 @@ namespace CodeGen.Engine
             loops, @IEnumerable<LoopNode> 
             endparams
         proc
-            if (!template.Context.MultiStructureMode)
+            if (!template.Context.MultiStructureMode && !template.Context.FilesFirstMode)
                 throw new ApplicationException(String.Format("Token {0} can only be used when processing multiple structures concurrently!", tkn.Value))
 			
-			data newStructureNumber, int, Convert.ToInt32(tkn.Value.Replace("STRUCTURE#", ""))
-            if (newStructureNumber > template.Context.Structures.Count)
-                throw new ApplicationException(String.Format("Token {0} can't be used because you are only processing {1} structures!", tkn.Value, template.Context.Structures.Count))
+            data newStructureNumber, int, Convert.ToInt32(tkn.Value.Replace("STRUCTURE#", ""))
+            data structures, @RpsStructureCollection
+            if (template.Context.FilesFirstMode) then
+                structures = template.Context.CurrentFile.Structures
+            else
+                structures = template.Context.Structures
+
+            if (newStructureNumber > structures.Count)
+                throw new ApplicationException(String.Format("Token {0} can't be used because you are only processing {1} structures!", tkn.Value, structures.Count))
 			
 			;; Make the requested structure the current structure
-            template.Context.CurrentStructure = template.Context.Structures[newStructureNumber - 1]
+            template.Context.CurrentStructure = structures[newStructureNumber - 1]
             template.Context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", "Change structure", template.Context.CurrentStructure.Name), true, false)
 			
 			mreturn ""

@@ -1040,7 +1040,7 @@ namespace CodeGen.Engine
 
             ;;-------------------------------------------------------------------------
             ;;Do we have Repository structures specified in the task?
-
+            context.Files = new @RpsFileCollection()
             if (!errStatus && (context.CurrentTask.Structures.Count>0))
             begin
                 if (context.FileDefinition!=^null) then
@@ -1059,7 +1059,9 @@ namespace CodeGen.Engine
                         begin
                             context.Structures = new RpsStructureCollection(RpsLoadMode.Load,context.CurrentTask.UseAlternateFieldNames)
                             if (context.Structures.Count == 0)
+                            begin
                                 errStatus = context.CurrentTask.Errorlog("Your repository contains no structures!")
+                            end
                         end
                         catch (ex, @RpsException)
                         begin
@@ -1097,6 +1099,15 @@ namespace CodeGen.Engine
                     ;;Default all structures to use the first file assigned
                     if (!errStatus)
                     begin
+                        data str1, @RpsStructure
+                        foreach str1 in context.Structures
+                        begin
+                            if (str1.Files.Count > 0)
+                            begin
+                                context.Files.Merge(str1.Files)
+                            end
+                        end
+
                         data ix, int
                         context.StructureFileIndex = new int[context.Structures.Count]
                         for ix from 0 thru context.Structures.Count - 1
@@ -1422,6 +1433,18 @@ namespace CodeGen.Engine
                 end
             end
 
+            if (!errStatus && (context.CurrentTask.FilesFirst))
+            begin
+                ;;Make sure that we have at least one structures
+                if ((context.FileDefinition==^null) && (context.Files.Count<1)) then
+                    errStatus = context.CurrentTask.Errorlog("Processing multiple files first (-ff) requires that you specify repository structures!")
+                else
+                begin
+                    context.FilesFirstMode = true
+                    context.CurrentTask.VerboseLog(String.Format("Processing {0} files first",context.Files.Count),true,false)
+                end
+            end
+
             ;;-------------------------------------------------------------------------
             ;;Are we being asked to process a user defined token file?
 
@@ -1555,7 +1578,7 @@ namespace CodeGen.Engine
 
                     context.CurrentTask.DebugLog(" - Tree expansion phase beginning", false, true)
 
-                    ;;Are we processing multiple structures at the same time?
+                    ;;Are we processing multiple structures at the same time?                    
                     if (context.MultiStructureMode) then
                     begin
                         ;;Process the template once for all structures
@@ -1574,7 +1597,10 @@ namespace CodeGen.Engine
                         begin
                             ;;Set the initial context to the first structure. This isn't required for <STRUCTURE_LOOP> but will ensure that
                             ;;the default context is <STRUCTURE#1> if <STRUCTURE_LOOP> is not used.
-                            context.CurrentStructure = context.Structures[0]
+                            if (context.CurrentTask.FilesFirst) then
+                                context.CurrentFile = context.Files[0]
+                            else
+                                context.CurrentStructure = context.Structures[0]
 
                             ;;Generate the code
                             errStatus = expandTreeToCode(tree)
@@ -1582,30 +1608,13 @@ namespace CodeGen.Engine
                     end
                     else
                     begin
-                        if (context.Structures.Count > 0) then
+                        if (context.CurrentTask.FilesFirst) then
                         begin
-                            ;;Process the template once per structure
-                            data ix, int
-                            for ix from 0 thru context.Structures.Count-1
-                            begin
-                                ;;Check the structure, flatten arrays and groups, etc.
-                                if (!RepositoryTools.CheckStructure(context,context.Structures[ix])) then
-                                    errStatus = true
-                                else
-                                begin
-                                    ;;Set structure context
-                                    context.CurrentStructure = context.Structures[ix]
-
-                                    ;;Set the file reference to use
-                                    context.CurrentFileIndex = context.StructureFileIndex[ix]
-
-                                    ;;Generate the code
-                                    errStatus = expandTreeToCode(tree)
-                                end
-                                ;;Bail structure loop on failure?
-                                if ((errStatus) && (!context.Taskset.ContinueAfterError))
-                                    exitloop
-                            end
+                            errStatus = generateCodeByFiles(tree);
+                        end
+                        else if (context.Structures.Count > 0) then
+                        begin
+                            errStatus = generateCodeByStructure(tree);
                         end
                         else
                         begin
@@ -1627,12 +1636,72 @@ namespace CodeGen.Engine
 
         endmethod
 
+        private method generateCodeByStructure, boolean
+            required in tree, @FileNode
+        proc
+            ;;Process the template once per structure
+            data ix, int
+            data errStatus, boolean
+            errStatus = false
+
+            for ix from 0 thru context.Structures.Count-1
+            begin
+                ;;Check the structure, flatten arrays and groups, etc.
+                if (!RepositoryTools.CheckStructure(context,context.Structures[ix])) then
+                    errStatus = true
+                else
+                begin
+                    ;;Set structure context
+                    context.CurrentStructure = context.Structures[ix]
+
+                    ;;Set the file reference to use
+                    context.CurrentFileIndex = context.StructureFileIndex[ix]
+
+                    ;;Generate the code
+                    errStatus = expandTreeToCode(tree)
+                end
+                ;;Bail structure loop on failure?
+                if ((errStatus) && (!context.Taskset.ContinueAfterError))
+                    exitloop
+            end
+            mreturn errStatus
+        endmethod
+
+        private method generateCodeByFiles, boolean
+            required in tree, @FileNode
+        proc
+            ;;Process the template once per structure
+            data ix, int
+            data errStatus, boolean
+            errStatus = false
+
+            for ix from 0 thru context.Files.Count-1
+            begin
+                context.CurrentFile = context.Files[ix]
+
+                ;;Set structure context
+                context.CurrentStructure = ^null                
+                context.Structures = context.CurrentFile.Structures
+
+                ;;Set the file reference to use
+                context.CurrentFileIndex = 0
+
+                ;;Generate the code
+                errStatus = expandTreeToCode(tree)
+
+                ;;Bail structure loop on failure?
+                if ((errStatus) && (!context.Taskset.ContinueAfterError))
+                    exitloop
+            end
+            mreturn errStatus
+        endmethod
+
         private method expandTreeToCode, boolean
             required in tree, @FileNode
         proc
             data errStatus = false
 
-            if (context.Structures.Count > 0 && !context.MultiStructureMode)
+            if (!context.MultiStructureMode && context.CurrentStructure != ^null)
                 context.CurrentTask.VerboseLog(String.Format(" - Processing structure {0}",context.CurrentStructure.Name))
 
             ;;Create a stream for the TreeExpander to write the generated code to
@@ -1655,7 +1724,7 @@ namespace CodeGen.Engine
             catch (ex, @Exception)
             begin
                 ;;Something unexpected!
-                errStatus = context.CurrentTask.ErrorLog(String.Format("Unexpected error during tree expansion. Error was {0}", ex.Message))
+                errStatus = context.CurrentTask.ErrorLog(String.Format("Unexpected error during tree expansion. {1} was {0}", ex.Message, ex.GetType().Name))
                 generatedCode.Close()
                 context.CurrentTask.FilesFailed += 1
                 if (context.Taskset.ThrowOnError)

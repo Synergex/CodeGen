@@ -75,6 +75,7 @@ namespace CodeGen.Engine
 			loopProcessors.Add("TO_KEY_SEGMENT_LOOP_RESTRICTED", processToKeySegmentLoopRestricted)
 			loopProcessors.Add("BUTTON_LOOP", processButtonLoop)
             loopProcessors.Add("FILE_LOOP", processFileLoop)
+            loopProcessors.Add("FILES_LOOP", processFilesLoop)
 			loopProcessors.Add("TAG_LOOP", processTagLoop)
             loopProcessors.Add("SELECTION_LOOP", processFieldSelectionLoop)
             loopProcessors.Add("SEGMENT_LOOP", processKeySegmentLoop)
@@ -513,6 +514,33 @@ namespace CodeGen.Engine
 			
         endmethod
 
+        private static method processFilesLoop, void
+            required in node,		@LoopNode 
+            required in template,	@FileNode 
+            required in loops,		@IEnumerable<LoopNode> 
+            required in expander,	@ITreeNodeVisitor 
+        proc
+            data loop = ^as(node, FilesLoopNode)
+            data context = template.Context
+			
+            if (context.Files.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because there no files!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+			
+            loop.MaxIndex = context.Files.Count - 1
+
+            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} files", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+
+            data ix, int
+            for ix from 0 thru context.Files.Count - 1
+            begin
+                loop.CurrentFile = context.Files[ix]
+                loop.CurrentIndex = ix
+                
+                expander.Visit(node.Body)
+            end
+			
+        endmethod
+
         private static method processTagLoop, void
 			required in node,		@LoopNode 
 			required in template,	@FileNode 
@@ -878,24 +906,40 @@ namespace CodeGen.Engine
 			required in loops, @IEnumerable<LoopNode> 
 			required in expander, @ITreeNodeVisitor 
         proc
+			data structures, @RpsStructureCollection
             data loop = ^as(node, StructureLoopNode)
             data context = template.Context
             data task = context.CurrentTask
-			
-			if (!context.MultiStructureMode)
+            
+            if (!context.MultiStructureMode && !context.FilesFirstMode)
                 throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because multi-structure mode (-ms) has not been enabled!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 			
-			loop.MaxIndex = context.Structures.Count - 1
+            if (context.FilesFirstMode)
+            begin
+                data files = ^as(loops.First(), FilesLoopNode)
+                if (files != ^null)
+                    structures = files.CurrentFile.Structures
+            end
+
+            if (structures == ^null)
+                structures = context.Structures
+
+			loop.MaxIndex = structures.Count - 1
 
             ;; Debug log beginning of structure loop
-			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} structures", string.Format("<{0}>", loop.OpenToken.Value), context.Structures.Count))
+			context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} structures", string.Format("<{0}>", loop.OpenToken.Value), structures.Count))
 
 			data ix, int
-			for ix from 0 thru context.Structures.Count - 1
+			for ix from 0 thru structures.Count - 1
 			begin
-				context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("Structure {0}/{1}", ix + 1, context.Structures.Count - 1), context.Structures[ix].Name), true, false)
-                context.CurrentStructure = context.Structures[ix]
-                context.CurrentFileIndex = context.StructureFileIndex[ix]
+				context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("Structure {0}/{1}", ix + 1, structures.Count), structures[ix].Name), true, false)
+                context.CurrentStructure = structures[ix]
+                
+                if (context.FilesFirstMode) then
+                    context.CurrentFileIndex = -1
+                else
+                    context.CurrentFileIndex = context.StructureFileIndex[ix]
+
 				loop.CurrentIndex = ix
 
 				expander.Visit(node.Body)

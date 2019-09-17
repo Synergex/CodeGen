@@ -1,0 +1,498 @@
+;; *****************************************************************************
+;; 
+;;  Title:       ExpressionEvaluatorFilesLoop.dbl
+;; 
+;;  Type:        Partial class
+;; 
+;;  Description: Evaluates files loop expression nodes
+;; 
+;;  Date:        17th September 2019
+;; 
+;;  Author:      Mark Brugnoli-Vinten
+;; 
+;; *****************************************************************************
+;; 
+;;  Copyright (c) 2014, Synergex International, Inc.
+;;  All rights reserved.
+;; 
+;;  Redistribution and use in source and binary forms, with or without
+;;  modification, are permitted provided that the following conditions are met:
+;; 
+;;  * Redistributions of source code must retain the above copyright notice,
+;;    this list of conditions and the following disclaimer.
+;; 
+;;  * Redistributions in binary form must reproduce the above copyright notice,
+;;    this list of conditions and the following disclaimer in the documentation
+;;    and/or other materials provided with the distribution.
+;; 
+;;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;;  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;;  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;;  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;;  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;;  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;  POSSIBILITY OF SUCH DAMAGE.
+;; 
+;; *****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+import System.Threading.Tasks
+import CodeGen.RepositoryAPI
+
+.array 0
+
+namespace CodeGen.Engine
+
+    public partial class ExpressionEvaluator
+
+        filesLoopExpressionEvaluators, @Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>
+
+        private method registerFilesLoopExpressions, void
+            endparams
+        proc
+			
+            filesLoopExpressionEvaluators = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>()
+			
+            filesLoopExpressionEvaluators.Add("ASCII", evaluateFSloopAscii)
+            filesLoopExpressionEvaluators.Add("CHANGE_TRACKING", evaluateFSloopChangeTracking)
+            filesLoopExpressionEvaluators.Add("DESCRIPTION", evaluateFSloopDescription)
+            filesLoopExpressionEvaluators.Add("ISAM", evaluateFSloopIsam)
+            filesLoopExpressionEvaluators.Add("NOCHANGE_TRACKING", evaluateFSloopNoChangeTracking)
+            filesLoopExpressionEvaluators.Add("NODESCRIPTION", evaluateFSloopNoDescription)
+            filesLoopExpressionEvaluators.Add("NORECORDCOMPRESSION", evaluateFSloopNoRecordCompression)
+            filesLoopExpressionEvaluators.Add("NOSTORED_GRFA", evaluateFSloopNoStoredGrfa)
+            filesLoopExpressionEvaluators.Add("NOTASCII", evaluateFSloopNotAscii)
+            filesLoopExpressionEvaluators.Add("NOTISAM", evaluateFSloopNotIsam)
+            filesLoopExpressionEvaluators.Add("NOTRECORDTYPEFIXED", evaluateFSloopNotRecordTypeFixed)
+            filesLoopExpressionEvaluators.Add("NOTRECORDTYPEMULTIPLE", evaluateFSloopNotRecordTypeMultiple)
+            filesLoopExpressionEvaluators.Add("NOTRECORDTYPEVARIABLE", evaluateFSloopNotRecordTypeVariable)
+            filesLoopExpressionEvaluators.Add("NOTRELATIVE", evaluateFSloopNotRelative)
+            filesLoopExpressionEvaluators.Add("NOTSTATICRFA", evaluateFSloopNotStaticRfa)
+            filesLoopExpressionEvaluators.Add("NOTTERABYTE", evaluateFSloopNotTerabyte)
+            filesLoopExpressionEvaluators.Add("NOTUSERDEFINED", evaluateFSloopNotUserDefined)
+            filesLoopExpressionEvaluators.Add("NOUSERTEXT", evaluateFSloopNoUserText)
+            filesLoopExpressionEvaluators.Add("PAGESIZE1024", evaluateFSloopPageSize1024)
+            filesLoopExpressionEvaluators.Add("PAGESIZE16384", evaluateFSloopPageSize16384)
+            filesLoopExpressionEvaluators.Add("PAGESIZE2048", evaluateFSloopPageSize2048)
+            filesLoopExpressionEvaluators.Add("PAGESIZE32768", evaluateFSloopPageSize32768)
+            filesLoopExpressionEvaluators.Add("PAGESIZE4096", evaluateFSloopPageSize4096)
+            filesLoopExpressionEvaluators.Add("PAGESIZE512", evaluateFSloopPageSize512)
+            filesLoopExpressionEvaluators.Add("PAGESIZE8192", evaluateFSloopPageSize8192)
+            filesLoopExpressionEvaluators.Add("RECORDCOMPRESSION", evaluateFSloopRecordCompression)
+            filesLoopExpressionEvaluators.Add("RECORDTYPEFIXED", evaluateFSloopRecordTypeFixed)
+            filesLoopExpressionEvaluators.Add("RECORDTYPEMULTIPLE", evaluateFSloopRecordTypeMultiple)
+            filesLoopExpressionEvaluators.Add("RECORDTYPEVARIABLE", evaluateFSloopRecordTypeVariable)
+            filesLoopExpressionEvaluators.Add("RELATIVE", evaluateFSloopRelative)
+            filesLoopExpressionEvaluators.Add("STATICRFA", evaluateFSloopStaticRfa)
+            filesLoopExpressionEvaluators.Add("STORED_GRFA", evaluateFSloopStoredGrfa)
+            filesLoopExpressionEvaluators.Add("TERABYTE", evaluateFSloopTerabyte)
+            filesLoopExpressionEvaluators.Add("USERDEFINED", evaluateFSloopUserDefined)
+            filesLoopExpressionEvaluators.Add("USERTEXT", evaluateFSloopUserText)
+
+        endmethod
+		
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="tkn"></param>
+        ;;; <param name="template"></param>
+        ;;; <param name="loops"></param>
+        ;;; <param name="specific"></param>
+        ;;; <returns></returns>
+        public static method EvaluateFilesLoopExpression, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            specific, @Func<RpsFileCollection, RpsFile, int, boolean> 
+            endparams
+        proc
+            lambda isFilesLoop(node) node .is. FilesLoopNode
+            data loop, @FilesLoopNode
+            if (loops != ^null && loops.Count() > 0) 
+                loop = ^as(loops.FirstOrDefault(isFilesLoop), FilesLoopNode)
+
+            data currentFile, @RpsFile
+            data currentIndex, @int
+            if (loop == ^null) then
+            begin
+                if (template.Context.CurrentFile == ^null || !template.Context.FilesFirstMode)
+                begin
+                    throw new ApplicationException(String.Format("Attempt to use files loop token <{0}> with no current file!",tkn.Value))
+                end
+
+                currentFile = template.Context.CurrentFile
+                currentIndex = -1
+            end
+            else
+            begin
+                currentFile = loop.CurrentFile
+                currentIndex = loop.CurrentIndex
+            end
+
+            mreturn specific(template.Context.Files, currentFile, currentIndex)
+        endmethod
+
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+		
+        private static method evaluateFSloopAscii, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.FileType == "ASCII")
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopChangeTracking, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.ChangeTracking)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopDescription, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (!String.IsNullOrWhiteSpace(currentfile.Description))
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopIsam, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.FileType == "DBL ISAM")
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNoChangeTracking, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (!currentfile.ChangeTracking)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNoDescription, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (String.IsNullOrWhiteSpace(currentfile.Description))
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNoRecordCompression, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (!currentfile.RecordCompression)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNoStoredGrfa, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (!currentfile.StoredGRFA)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNotAscii, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.FileType != "ASCII")
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNotIsam, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.FileType != "DBL ISAM")
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNotRecordTypeFixed, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.RecordType != RpsRecordType.FixedLength)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNotRecordTypeMultiple, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.RecordType != RpsRecordType.MultipleFixedLength)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNotRecordTypeVariable, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.RecordType != RpsRecordType.VariableLength)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNotRelative, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.FileType != "RELATIVE")
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNotStaticRfa, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (!currentfile.StaticRFA)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNotTerabyte, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.Addressing == RpsFileAddressing.Addressing32Bit)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNotUserDefined, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.FileType != "USER DEFINED")
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopNoUserText, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (String.IsNullOrWhiteSpace(currentfile.UserText))
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopPageSize1024, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.PageSize == RpsFilePageSize.PageSize1024)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopPageSize16384, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.PageSize == RpsFilePageSize.PageSize16384)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopPageSize2048, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.PageSize == RpsFilePageSize.PageSize2048)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopPageSize32768, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.PageSize == RpsFilePageSize.PageSize32768)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopPageSize4096, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.PageSize == RpsFilePageSize.PageSize4096)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopPageSize512, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.PageSize == RpsFilePageSize.PageSize512)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopPageSize8192, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.PageSize == RpsFilePageSize.PageSize8192)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopRecordCompression, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.RecordCompression)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopRecordTypeFixed, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.RecordType == RpsRecordType.FixedLength)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopRecordTypeMultiple, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.RecordType == RpsRecordType.MultipleFixedLength)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopRecordTypeVariable, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.RecordType == RpsRecordType.VariableLength)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopRelative, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.FileType == "RELATIVE")
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopStaticRfa, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.StaticRFA)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopStoredGrfa, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.StoredGRFA)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopTerabyte, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.Addressing == RpsFileAddressing.Addressing40Bit)
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopUserDefined, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (currentfile.FileType == "USER DEFINED")
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFSloopUserText, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(files, currentfile, index) (!String.IsNullOrWhiteSpace(currentfile.UserText))
+            mreturn EvaluateFilesLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+	
+    endclass
+
+endnamespace
+
