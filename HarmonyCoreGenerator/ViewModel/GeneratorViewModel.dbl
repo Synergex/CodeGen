@@ -85,13 +85,43 @@ namespace HarmonyCoreGenerator.ViewModel
         private method doOpenSolution, void
             required in aSolutionFile, string
         proc
-            SolutionFolder = Path.GetDirectoryName(aSolutionFile)
             SolutionFile = Path.GetFileName(aSolutionFile)
-            SettingsFile = Path.Combine(_SolutionFolder, String.Format("{0}{1}",Path.GetFileNameWithoutExtension(_SolutionFile),Properties.Settings.Default.HarmonyCoreProjectFileExtension))
-            TasksetFile = Path.Combine(_SolutionFolder, String.Format("{0}{1}",Path.GetFileNameWithoutExtension(_SolutionFile),Properties.Settings.Default.CodeGenProjectFileExtension))
+
+            ;;Determine the folder the solution file is in
+            SolutionFolder = Path.GetDirectoryName(aSolutionFile)
 
             ;;Make sure we're in the solution folder
-            Directory.SetCurrentDirectory(_SolutionFolder)
+            if (String.IsNullOrWhiteSpace(_SolutionFolder)) then
+            begin
+                ;;Use current directory
+                SolutionFolder = Directory.GetCurrentDirectory()
+            end
+            else
+            begin
+                ;;Set current directory
+                OriginalFolder = Directory.GetCurrentDirectory()
+                Directory.SetCurrentDirectory(_SolutionFolder)
+            end
+
+            ;;Set the file specs for our main configuration files
+
+            SettingsFile = Path.Combine(
+            &   _SolutionFolder,
+            &   String.Format(
+            &       "{0}{1}",
+            &       Path.GetFileNameWithoutExtension(_SolutionFile),
+            &       Properties.Settings.Default.HarmonyCoreProjectFileExtension
+            &    )
+            &)
+
+            TasksetFile = Path.Combine(
+            &   _SolutionFolder,
+            &    String.Format(
+            &       "{0}{1}",
+            &       Path.GetFileNameWithoutExtension(_SolutionFile),
+            &       Properties.Settings.Default.CodeGenProjectFileExtension
+            &   )
+            &)
 
             data errors = new List<string>()
             data temp, string
@@ -141,6 +171,10 @@ namespace HarmonyCoreGenerator.ViewModel
                 if (!String.IsNullOrWhiteSpace(Options.UnitTestFolder) && !Directory.Exists(Options.UnitTestFolder))
                     errors.Add("Unit test folder not found!")
 
+                ;; Do we have a traditional bridge folder?
+                if (!String.IsNullOrWhiteSpace(Options.TraditionalBridgeFolder) && !Directory.Exists(Options.TraditionalBridgeFolder))
+                    errors.Add("Traditional Bridge folder not found!")
+
                 ;; Templates folder should be right below the solution folder.
                 if (!Directory.Exists(Options.TemplatesFolder))
                     errors.Add("Templates folder not found!")
@@ -149,9 +183,9 @@ namespace HarmonyCoreGenerator.ViewModel
                 ;TODO: Need to make this happen after the UI has been painted.
                 refreshRepository(false)
 
-                ;; For existing projects, show the code generation page
+                ;; For existing projects show the code generation page
                 if (errors.Count == 0)
-                    SelectedTabIndex = 3
+                    SelectedTabIndex = 4
             end
             else
             begin
@@ -166,9 +200,6 @@ namespace HarmonyCoreGenerator.ViewModel
 ;                &    _SolutionFolder,
 ;                &    Properties.Settings.Default.RepositoryFolder,
 ;                &    Properties.Settings.Default.RepositoryProject))
-
-
-
 
                 ;; TODO: For now we're assuming the repository project is in "schema centric" mode and Debug mode is being used
 
@@ -285,6 +316,21 @@ namespace HarmonyCoreGenerator.ViewModel
                         errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.TestProject))
                 end
 
+                ;; Do we have a traditional bridge folder?
+
+                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.TraditionalBridgeFolder)
+
+                if (!Directory.Exists(temp)) then
+                    Options.TraditionalBridgeFolder = String.Empty
+                else
+                begin
+                    Options.TraditionalBridgeFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
+                    Options.TraditionalBridgeProject = Properties.Settings.Default.TraditionalBridgeProject
+                    ;;Verify that the project is present
+                    if (!File.Exists(Path.Combine(Options.TraditionalBridgeFolder, Options.TraditionalBridgeProject)))
+                        errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.TraditionalBridgeProject))
+                end
+
                 ;; Load the repository
 
                 if (errors.Count == 0)
@@ -293,9 +339,12 @@ namespace HarmonyCoreGenerator.ViewModel
                     begin
                         data str, @RpsStructure
                         foreach str in rps.Structures
-                            Options.Structures.Add(new StructureRow(str))
+                        begin
+                            Options.ODataStructures.Add(new ODataStructureRow(str))
+                            Options.BridgeStructures.Add(new BridgeStructureRow(str))
+                        end
                     end
-                    ;; For new projects, show the structure selection page
+                    ;; For new projects, show the OData Features tab
                     if (errors.Count == 0)
                         SelectedTabIndex = 1
                 end
@@ -310,13 +359,15 @@ namespace HarmonyCoreGenerator.ViewModel
 
             if (errors.Count == 0) then
             begin
-                if (Options.Structures.Count > 0)
-                    SelectedStructure = Options.Structures.First()
+                if (Options.ODataStructures.Count > 0)
+                    SelectedOdataStructure = Options.ODataStructures.First()
+                
+                if (Options.BridgeStructures.Count > 0)
+                    SelectedBridgeStructure = Options.BridgeStructures.First()
 
                 SolutionOpen = true
 
                 WindowTitle = String.Format("{0} [{1}]",Properties.Settings.Default.WindowTitle,_SolutionFile)
-
             end
             else
             begin
@@ -400,88 +451,141 @@ namespace HarmonyCoreGenerator.ViewModel
             required in showNoChangesMessage, boolean
         proc
             data rps = new Repository(Options.RepositoryMainFile, Options.RepositoryTextFile, false)
-            data str, @RpsStructure
-            data row, @StructureRow
             
-            ;;Look for structures in our list that are no longer in the repository
+            ;;Look for structures in our OData structures list that are no longer in the repository
 
-            data rowsToDelete = new List<StructureRow>()
-            foreach row in Options.Structures
+            data ODataRow, @ODataStructureRow
+            data ODatarowsToDelete = new List<ODataStructureRow>()
+
+            foreach ODataRow in Options.ODataStructures
             begin
-                if (!rps.Structures.Any(lambda (s) { s.Name.Equals(row.Name) }))
+                if (!rps.Structures.Any(lambda (s) { s.Name.Equals(ODataRow.Name) }))
                 begin
-                    rowsToDelete.Add(row)
+                    ODatarowsToDelete.Add(ODataRow)
+                end
+            end
+
+            ;;Look for structures in our Bridge structures list that are no longer in the repository
+
+            data BridgeRow, @BridgeStructureRow
+            data BridgeRowsToDelete = new List<BridgeStructureRow>()
+
+            foreach BridgeRow in Options.BridgeStructures
+            begin
+                if (!rps.Structures.Any(lambda (s) { s.Name.Equals(BridgeRow.Name) }))
+                begin
+                    BridgeRowsToDelete.Add(BridgeRow)
                 end
             end
 
             ;;Look for structures in repository that are not in our list
 
-            data structuresToAdd = new List<RpsStructure>()
+            data str, @RpsStructure
+            data ODataStructuresToAdd = new List<RpsStructure>()
+            data BridgeStructuresToAdd = new List<RpsStructure>()
+
             foreach str in rps.Structures
             begin
-                if (!Options.Structures.Any(lambda(s) { s.Name.Equals(str.Name) }))
+                ;; OData
+                if (!Options.ODataStructures.Any(lambda(s) { s.Name.Equals(str.Name) }))
                 begin
-                    structuresToAdd.Add(str)
+                    ODataStructuresToAdd.Add(str)
+                end
+                ;; Bridge
+                if (!Options.BridgeStructures.Any(lambda(s) { s.Name.Equals(str.Name) }))
+                begin
+                    BridgeStructuresToAdd.Add(str)
                 end
             end
 
             ;;Tell the user what we are about to do and give them the chance to cancel
 
-            if (rowsToDelete.Count > 0 || structuresToAdd.Count > 0) then
+            if (ODatarowsToDelete.Count > 0 || ODataStructuresToAdd.Count > 0 || BridgeRowsToDelete.Count > 0 || BridgeStructuresToAdd.Count > 0) then
             begin
                 ;; Ensure the repository page is visible
                 if (SelectedTabIndex != 1)
                     SelectedTabIndex = 1
 
-                data caption = "Repository Canges Detected"
+                data caption = "Repository Changes Detected"
                 data message = String.Empty
 
-                if (structuresToAdd.Count > 0)
+                if (ODataStructuresToAdd.Count > 0)
                 begin
                     message += "Structures to be added:"
-                    foreach str in structuresToAdd
+                    foreach str in ODataStructuresToAdd
                     begin
                         message += Environment.NewLine + " - " + str.Name
                     end
                     message += Environment.NewLine
                 end
 
-                if (rowsToDelete.Count > 0)
+                if (ODatarowsToDelete.Count > 0)
                 begin
                     message += Environment.NewLine + "Structures to be removed:"
-                    foreach row in rowsToDelete
+                    foreach ODataRow in ODatarowsToDelete
                     begin
-                        message += Environment.NewLine + " - " + row.Name
+                        message += Environment.NewLine + " - " + ODataRow.Name
                     end
                     message += Environment.NewLine + "Note: Source files will NOT be removed from projects:"
                 end
 
                 if (MessageBox.Show(message,caption,MessageBoxButton.OKCancel,MessageBoxImage.Information,MessageBoxResult.Cancel) == MessageBoxResult.OK)
                 begin
-                    ;;Remove old structures
-                    foreach row in rowsToDelete
+                    ;;Remove old OData structures
+                    foreach ODataRow in ODataRowsToDelete
                     begin
-                        Options.Structures.Remove(row)
-                    end                    
+                        Options.ODataStructures.Remove(ODataRow)
+                    end
 
-                    ;;Add new structures, in alphabetical sequence
-                    data added = false
-                    foreach str in structuresToAdd
+                    ;;Remove old Bridge structures
+                    foreach BridgeRow in BridgeRowsToDelete
+                    begin
+                        Options.BridgeStructures.Remove(BridgeRow)
+                    end
+
+                    ;;Add new OData structures, in alphabetical sequence
+                    foreach str in ODataStructuresToAdd
                     begin
                         data ix, int
-                        for ix from 0 thru Options.Structures.Count
+                        data added = false
+
+                        for ix from 0 thru Options.ODataStructures.Count
                         begin
-                            if (Options.Structures[ix].Name > str.Name)
+                            if (Options.ODataStructures[ix].Name > str.Name)
                             begin
-                                Options.Structures.Insert(ix,new StructureRow(str))
+                                Options.ODataStructures.Insert(ix,new ODataStructureRow(str))
                                 added = true
                                 exitloop
                             end
                         end
+
                         ;;If we didn't already add it then add it at the end
                         if (!added)
                         begin
-                            Options.Structures.Add(new StructureRow(str))
+                            Options.ODataStructures.Add(new ODataStructureRow(str))
+                        end
+                    end
+
+                    ;;Add new Bridge structures, in alphabetical sequence
+                    foreach str in BridgeStructuresToAdd
+                    begin
+                        data ix, int
+                        data added = false
+
+                        for ix from 0 thru Options.BridgeStructures.Count
+                        begin
+                            if (Options.BridgeStructures[ix].Name > str.Name)
+                            begin
+                                Options.BridgeStructures.Insert(ix,new BridgeStructureRow(str))
+                                added = true
+                                exitloop
+                            end
+                        end
+
+                        ;;If we didn't already add it then add it at the end
+                        if (!added)
+                        begin
+                            Options.BridgeStructures.Add(new BridgeStructureRow(str))
                         end
                     end
 
@@ -497,16 +601,19 @@ namespace HarmonyCoreGenerator.ViewModel
                 end
             end
 
-            if (Options.Structures.Count > 0)
-                SelectedStructure = Options.Structures.First()
+            if (Options.ODataStructures.Count > 0)
+                SelectedODataStructure = Options.ODataStructures.First()
+
+            if (Options.BridgeStructures.Count > 0)
+                SelectedBridgeStructure = Options.BridgeStructures.First()
 
         endmethod
         
         private method generateCode, void
         proc
             ;; Ensure the code generation page is visible
-            if (SelectedTabIndex != 3)
-                SelectedTabIndex = 3
+            if (SelectedTabIndex != 4)
+                SelectedTabIndex = 4
 
             ;;Make sure we're in the solution folder
             Directory.SetCurrentDirectory(_SolutionFolder)
@@ -534,9 +641,12 @@ namespace HarmonyCoreGenerator.ViewModel
             &    LoggingLevel = CodeGenLoggingLevel
             &    }
             setDefines(taskset)
+
+            ;;Define code generation tasks based on options selected in the UI
+
             data task, @CodeGenTask
 
-            ;; Create a task to generate model and metadata classes
+            ;; OData model & metadata classes
 
             task = new CodeGenTask()
             task.Description = "Generate model and metadata classes"
@@ -550,7 +660,7 @@ namespace HarmonyCoreGenerator.ViewModel
             addStandardOptions(task)
             taskset.Tasks.Add(task)
 
-            ;; Create a task to generate controller classes
+            ;; OData controllers
 
             task = new CodeGenTask()
             task.Description = "Generate controller classes"
@@ -562,7 +672,7 @@ namespace HarmonyCoreGenerator.ViewModel
             addStandardOptions(task)
             taskset.Tasks.Add(task)
 
-            ;; Create a task to generate the DBContext class
+            ;; DBContext
 
             task = new CodeGenTask()
             task.Description = "Generate the DBContext class"
@@ -575,7 +685,7 @@ namespace HarmonyCoreGenerator.ViewModel
             addStandardOptions(task)
             taskset.Tasks.Add(task)
 
-            ;; Create a task to generate the EdbBuilder and Startup classes
+            ;; EdbBuilder and Startup classes
 
             task = new CodeGenTask()
             task.Description = "Generate the EdmBuilder and Startup classes"
@@ -591,7 +701,7 @@ namespace HarmonyCoreGenerator.ViewModel
             addStandardOptions(task)
             taskset.Tasks.Add(task)
 
-            ;; Create a task to generate self hosting program and environment
+            ;; Self hosting program & environment
 
             if (Options.GenerateSelfHost)
             begin
@@ -610,9 +720,9 @@ namespace HarmonyCoreGenerator.ViewModel
                 taskset.Tasks.Add(task)
             end
 
-            ;; Create tasks to generate swagger docs
+            ;; Swagger documentation
 
-            if (Options.GenerateSwaggerDocs)
+            if (Options.VersioningOrSwagger == VersioningOrSwaggerMode.GenerateSwaggerDoc)
             begin
                 task = new CodeGenTask()
                 task.Description = "Generate swagger documentation"
@@ -634,7 +744,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 taskset.Tasks.Add(task)
             end
 
-            ;; Create a task to generate Postman tests
+            ;; Postman tests
 
             if (Options.GeneratePostmanTests)
             begin
@@ -653,6 +763,8 @@ namespace HarmonyCoreGenerator.ViewModel
 
             if (Options.GenerateUnitTests)
             begin
+                ;; Client-side model, data loader and unit tests
+
                 task = new CodeGenTask()
                 task.Description = "Generate client-side models, data loaders and unit tests"
                 task.Templates.Add("ODataClientModel")
@@ -665,6 +777,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStandardOptions(task)
                 taskset.Tasks.Add(task)
 
+                ;; Test environment
+
                 task = new CodeGenTask()
                 task.Description = "Generate test environment"
                 task.Templates.Add("ODataTestEnvironment")
@@ -675,6 +789,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 ;; TODO: if we have a parameter file structure we need to add that here also
                 addStandardOptions(task)
                 taskset.Tasks.Add(task)
+
+                ;; Unit test environment and hosting program
 
                 task = new CodeGenTask()
                 task.Description = "Generate unit test environment and hosting program"
@@ -687,6 +803,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStandardOptions(task)
                 taskset.Tasks.Add(task)
 
+                ;; Test constants properties
+
                 task = new CodeGenTask()
                 task.Description = "Generate test constants class"
                 task.Templates.Add("ODataTestConstantsProperties")
@@ -697,6 +815,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
                 taskset.Tasks.Add(task)
+
+                ;; Test constants values (one time, no replace)
 
                 task = new CodeGenTask()
                 task.Description = "Generate test constants values"
@@ -987,10 +1107,10 @@ namespace HarmonyCoreGenerator.ViewModel
             if (Options.CreateTestFiles)
                 taskset.Defines.Add("DEFINED_ENABLE_CREATE_TEST_FILES")
 
-            if (Options.GenerateSwaggerDocs)
+            if (Options.VersioningOrSwagger == VersioningOrSwaggerMode.GenerateSwaggerDoc)
                 taskset.Defines.Add("DEFINED_ENABLE_SWAGGER_DOCS")
 
-            if (Options.EnableApiVersioning)
+            if (Options.VersioningOrSwagger == VersioningOrSwaggerMode.ApiVersioning)
                 taskset.Defines.Add("DEFINED_ENABLE_API_VERSIONING")
 
             if (Options.AlternateKeyEndpoints)
@@ -1079,8 +1199,8 @@ namespace HarmonyCoreGenerator.ViewModel
             begin
                 structureAndFileStructures = new List<string>()
                 structureAndFileAliases = new List<string>()
-                data row, @StructureRow
-                foreach row in Options.Structures.Where(lambda (row) { row.ProcessingMode.Equals("Structure and File") })
+                data row, @ODataStructureRow
+                foreach row in Options.ODataStructures.Where(lambda (row) { row.ProcessingMode.Equals("Structure and File") })
                 begin
                     structureAndFileStructures.Add(row.Name)
                     structureAndFileAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias)
@@ -1111,8 +1231,8 @@ namespace HarmonyCoreGenerator.ViewModel
             begin
                 structureOnlyStructures = new List<string>()
                 structureOnlyAliases = new List<string>()
-                data row, @StructureRow
-                foreach row in Options.Structures.Where(lambda (row) { row.ProcessingMode.Equals("Structure Only") })
+                data row, @ODataStructureRow
+                foreach row in Options.ODataStructures.Where(lambda (row) { row.ProcessingMode.Equals("Structure Only") })
                 begin
                     structureOnlyStructures.Add(row.Name)
                     structureOnlyAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias)
@@ -1144,8 +1264,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 customCodeStructures = new List<string>()
                 customCodeAliases = new List<string>()
 
-                data row, @StructureRow
-                foreach row in Options.Structures.Where(lambda (row) { row.ProcessingMode.Equals("Custom Code Only") })
+                data row, @ODataStructureRow
+                foreach row in Options.ODataStructures.Where(lambda (row) { row.ProcessingMode.Equals("Custom Code Only") })
                 begin
                     customCodeStructures.Add(row.Name)
                     customCodeAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias)
@@ -1177,8 +1297,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 traditionalBridgeStructures = new List<string>()
                 traditionalBridgeAliases = new List<string>()
 
-                data row, @StructureRow
-                foreach row in Options.Structures.Where(lambda (row) { row.ProcessingMode.Equals("Traditional Bridge Only") })
+                data row, @ODataStructureRow
+                foreach row in Options.ODataStructures.Where(lambda (row) { row.ProcessingMode.Equals("Traditional Bridge Only") })
                 begin
                     traditionalBridgeStructures.Add(row.Name)
                     traditionalBridgeAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias)
