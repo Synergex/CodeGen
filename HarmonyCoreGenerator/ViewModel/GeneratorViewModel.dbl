@@ -1,7 +1,4 @@
 
-import CodeGen.Engine
-import CodeGen.RepositoryAPI
-import HarmonyCoreGenerator.Model
 import Microsoft.Win32
 import Newtonsoft.Json
 import System.Collections.Generic
@@ -10,6 +7,10 @@ import System.IO
 import System.Linq
 import System.Windows
 import System.Xml.Linq
+import CodeGen.Engine
+import CodeGen.MethodCatalogAPI
+import CodeGen.RepositoryAPI
+import HarmonyCoreGenerator.Model
 
 .array 0
 
@@ -56,7 +57,7 @@ namespace HarmonyCoreGenerator.ViewModel
             dlg.CheckFileExists = true
             dlg.Multiselect = false
 
-            ;;If we have a lst used solution, default to it
+            ;;If we have a last used solution, default to it
             data lastSolution = Properties.Settings.Default.LastSolution
             if (!String.IsNullOrWhiteSpace(lastSolution) && File.Exists(lastSolution))
             begin
@@ -77,7 +78,7 @@ namespace HarmonyCoreGenerator.ViewModel
             end
 
         endmethod
-        
+
         ;;; <summary>
         ;;; Open a Visual Studio Solution
         ;;; </summary>
@@ -114,7 +115,7 @@ namespace HarmonyCoreGenerator.ViewModel
             &    )
             &)
 
-            TasksetFile = Path.Combine(
+            ODataTaskSetFile = Path.Combine(
             &   _SolutionFolder,
             &    String.Format(
             &       "{0}{1}",
@@ -122,6 +123,24 @@ namespace HarmonyCoreGenerator.ViewModel
             &       Properties.Settings.Default.CodeGenProjectFileExtension
             &   )
             &)
+
+            ODataTaskSetFile = Path.Combine(
+            &    _SolutionFolder,
+            &    String.Format(
+            &    "{0}.odata{1}",
+            &    Path.GetFileNameWithoutExtension(_SolutionFile),
+            &    Properties.Settings.Default.CodeGenProjectFileExtension
+            &    )
+            &    )
+
+            BridgeTaskSetFile = Path.Combine(
+            &    _SolutionFolder,
+            &    String.Format(
+            &    "{0}.bridge{1}",
+            &    Path.GetFileNameWithoutExtension(_SolutionFile),
+            &    Properties.Settings.Default.CodeGenProjectFileExtension
+            &    )
+            &    )
 
             data errors = new List<string>()
             data temp, string
@@ -185,7 +204,7 @@ namespace HarmonyCoreGenerator.ViewModel
 
                 ;; For existing projects show the code generation page
                 if (errors.Count == 0)
-                    SelectedTabIndex = 4
+                    SelectedTabIndex = 5
             end
             else
             begin
@@ -382,7 +401,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 SolutionFile = String.Empty
                 SolutionFolder = String.Empty
                 SettingsFile = String.Empty
-                TasksetFile = String.Empty
+                ODataTaskSetFile = String.Empty
+                BridgeTaskSetFile = String.Empty
                 Options = new HarmonyCoreOptions()
             end
             
@@ -428,6 +448,65 @@ namespace HarmonyCoreGenerator.ViewModel
             end
         endmethod
         
+        private method openSmc, void
+        proc
+            data dlg = new OpenFileDialog()
+
+            dlg.Title = "Open SMC Export File"
+            dlg.Filter = "Smc Export Files (*.xml)|*.xml"
+            dlg.CheckFileExists = true
+            dlg.Multiselect = false
+
+            ;;If we have a last used SMC file, default to it
+            data lastSmcFile = Properties.Settings.Default.LastSmcFile
+            if (!String.IsNullOrWhiteSpace(lastSmcFile) && File.Exists(lastSmcFile))
+            begin
+                dlg.InitialDirectory = Path.GetDirectoryName(lastSmcFile)
+                dlg.FileName = Path.GetFileName(lastSmcFile)
+            end
+
+            ;;Show the dialog
+            data result, Nullable<boolean>, dlg.ShowDialog()
+
+            if (result == true)
+            begin
+                ;;Default to the same solution next time
+                Properties.Settings.Default.LastSmcFile = dlg.FileName
+                Properties.Settings.Default.Save()
+
+                doOpenSmc(dlg.FileName)
+            end
+
+        endmethod
+
+        ;;; <summary>
+        ;;; Open an SMC Export File
+        ;;; </summary>
+        ;;; <param name="aSmcExportFile">Full path to the SMC export file to open</param>
+        private method doOpenSmc, void
+            required in aSmcExportFile, string
+        proc
+
+            Options.SmcExportFile = aSmcExportFile
+            Options.Interfaces = new ObservableCollection<MduInterfaceRow>()
+            SelectedInterfaceMethods = new ObservableCollection<SmcMethod>()
+
+            data smc = new smc(aSmcExportFile)
+
+            data iface, @SmcInterface
+            foreach iface in smc.Interfaces
+            begin
+                Options.Interfaces.Add(new MduInterfaceRow(iface))
+
+                data meth, @SmcMethod
+                foreach meth in iface.Methods
+                begin
+                    SelectedInterfaceMethods.Add(meth)
+                end
+            end
+
+        endmethod
+
         private method saveSettings, void
         proc
             try
@@ -609,11 +688,11 @@ namespace HarmonyCoreGenerator.ViewModel
 
         endmethod
         
-        private method generateCode, void
+        private method generateODataCode, void
         proc
             ;; Ensure the code generation page is visible
-            if (SelectedTabIndex != 4)
-                SelectedTabIndex = 4
+            if (SelectedTabIndex != 5)
+                SelectedTabIndex = 5
 
             ;;Make sure we're in the solution folder
             Directory.SetCurrentDirectory(_SolutionFolder)
@@ -640,11 +719,14 @@ namespace HarmonyCoreGenerator.ViewModel
             &    ListGeneratedFiles = true,
             &    LoggingLevel = CodeGenLoggingLevel
             &    }
-            setDefines(taskset)
+            setOdataDefines(taskset)
 
             ;;Define code generation tasks based on options selected in the UI
 
             data task, @CodeGenTask
+
+            ;;---------------------------------------------------------------------------------------------
+            ;; OData
 
             ;; OData model & metadata classes
 
@@ -759,7 +841,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 taskset.Tasks.Add(task)
             end
 
-            ;; Create tass to generatea unit test environment
+            ;;---------------------------------------------------------------------------------------------
+            ;; Unit tests
 
             if (Options.GenerateUnitTests)
             begin
@@ -830,18 +913,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 taskset.Tasks.Add(task)
             end
 
-            ;;------------------------------------------------------------------------
-            ;;Traditional bridge code generation tasks
-
-            ;;Need an option turned on
-            ;;Need at least one "Traditional Bridge Only" structure
-            ;;Need a traditional bridge project location and project file
-            ;;Need a traditional bridge templates location (or rename and move into main templates folder)
-
-
-
-
-            ;;------------------------------------------------------------------------
+            ;;---------------------------------------------------------------------------------------------
 
             ;; Do it all!
 
@@ -857,7 +929,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 CodeGenOutput = taskset.Messages
 
                 ;;Save the taskset to a file so we can manually generate from it later
-                taskset.SaveToFile(_TasksetFile)
+                taskset.SaveToFile(_ODataTaskSetFile)
 
                 ;;Add new files to the Visual Studio Solutions
                 data messages = new List<String>()
@@ -888,6 +960,123 @@ namespace HarmonyCoreGenerator.ViewModel
 
         endmethod
         
+        private method generateBridgeCode, void
+        proc
+            ;; Ensure the code generation page is visible
+            if (SelectedTabIndex != 5)
+                SelectedTabIndex = 5
+
+            ;;Make sure we're in the solution folder
+            Directory.SetCurrentDirectory(_SolutionFolder)
+
+            if (Options.UnsavedChanges)
+            begin
+                if (MessageBox.Show("Save configuration changes before generating?","There are Unsaved Changes",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.Yes) == MessageBoxResult.Yes)
+                begin
+                    saveSettings()
+                end
+            end
+
+            if (String.IsNullOrWhiteSpace(Options.SmcExportFile) || !File.Exists(Options.SmcExportFile) || Options.Interfaces.Count > 0)
+            begin
+                MessageBox.Show("xfServerPlus Migration is not configured!","Nothing to do!",MessageBoxButton.OK,MessageBoxImage.Information)
+                mreturn
+            end
+
+            StatusBarText = "Generating code..."
+
+            CodeGenOutput = new ObservableCollection<string>()
+
+            data taskset = new CodeGenTaskSet()
+            &    {
+            &    Description = "Code generation tasks for Harmony Core solution.",
+            &    RepositoryMainFile = Options.RepositoryMainFile,
+            &    RepositoryTextFile = Options.RepositoryTextFile,
+            &    TemplateFolder = Options.TemplatesFolder,
+            &    EchoCommands = true,
+            &    ListGeneratedFiles = true,
+            &    LoggingLevel = CodeGenLoggingLevel,
+            &    MethodCatalog = new Smc(Options.SmcExportFile)
+            &    }
+
+            if (Options.Authentication)
+                taskset.Defines.Add("DEFINED_ENABLE_AUTHENTICATION")
+
+            ;;Define code generation tasks based on options selected in the UI
+
+            data task, @CodeGenTask
+
+
+            ;;Do we have at least one interface selected for processing?
+            data iface, @MduInterfaceRow
+            foreach iface in Options.Interfaces
+            begin
+                ;;Is this interface selected for processing?
+                if (!iface.Exposed)
+                    nextloop
+
+                ;;Set the interface name and 
+                taskset.Interface = iface.InterfaceName
+
+                ;; Dispatcher classes
+                task = new CodeGenTask()
+                task.Description = "Generate traditional bridge dispatcher classes"
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.Templates.Add("InterfaceMethodDispatchers")
+                task.OutputFolder = Path.Combine(Options.TraditionalBridgeFolder,"Dispatchers")
+                task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeProject,"Dispatchers")
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeProject,"Models")))
+                addStandardOptions(task)
+                taskset.Tasks.Add(task)
+
+            end
+
+            ;;---------------------------------------------------------------------------------------------
+
+            ;; Do it all!
+
+            data codegen = new CodeGenerator(taskset)
+            data success, boolean
+
+            try
+            begin
+                ;;Generate code
+                success = codegen.GenerateCode()
+
+                ;;Display the results
+                CodeGenOutput = taskset.Messages
+
+                ;;Save the taskset to a file so we can manually generate from it later
+                taskset.SaveToFile(_BridgeTaskSetFile)
+
+                ;;Add new files to the Visual Studio Solutions
+                data messages = new List<String>()
+                updateProjectFiles(taskset,messages)
+
+                data message, string
+                foreach message in messages
+                    CodeGenOutput.Add(message)
+            end
+            catch (e, @Exception)
+            begin
+                StatusBarText = String.Format("Unexpected error during code generation. Error was '{0}'",e.Message)
+            end
+            endtry
+
+            if (success) then
+            begin
+                StatusBarText = "Success"
+            end
+            else
+            begin
+                StatusBarText = "Errors occured during code generation"
+            end
+
+            structureAndFileStructures = ^null
+            structureAndFileAliases = ^null
+
+        endmethod
+
         ;;; <summary>
         ;;; Extracts a list of all source files generated by a task set and
         ;;; adds them to the appropriate Visual Studio project if necessary.
@@ -1095,9 +1284,11 @@ namespace HarmonyCoreGenerator.ViewModel
 
         endmethod
 
-        private method setDefines, void
+        private method setOdataDefines, void
             taskset, @CodeGenTaskSet 
         proc
+            taskset.Defines.Clear()
+
             if (Options.FullCollectionEndpoints)
                 taskset.Defines.Add("DEFINED_ENABLE_GET_ALL")
 
@@ -1315,6 +1506,7 @@ namespace HarmonyCoreGenerator.ViewModel
             end
 
         endmethod
+
         private method addStandardOptions, void
             task, @CodeGenTask 
         proc
@@ -1330,6 +1522,12 @@ namespace HarmonyCoreGenerator.ViewModel
             task.UseAlternateFieldNames = Options.AlternateFieldNames
         endmethod
         
+        private method addBridgeStandardOptions, void
+            task, @CodeGenTask 
+        proc
+            task.ReplaceFiles = true
+        endmethod
+
     endclass
 
 endnamespace
