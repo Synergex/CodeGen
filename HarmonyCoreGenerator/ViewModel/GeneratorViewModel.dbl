@@ -452,7 +452,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 SolutionOpen = false
                 SolutionFile = String.Empty
                 SettingsFile = String.Empty
-                CodeGenOutput = new ObservableCollection<string>()
+                CodeGenOutput = new ObservableCollection<LogEntry>()
                 Options = new HarmonyCoreOptions()
                 SelectedTabIndex = 0
 
@@ -751,7 +751,7 @@ namespace HarmonyCoreGenerator.ViewModel
 
             StatusBarText = "Generating OData Code..."
 
-            CodeGenOutput = new ObservableCollection<string>()
+            CodeGenOutput = new ObservableCollection<LogEntry>()
 
             data taskset = new CodeGenTaskSet()
             &    {
@@ -784,6 +784,8 @@ namespace HarmonyCoreGenerator.ViewModel
             addStructureOnlyStructures(task)
             addCustomCodeStructures(task)
             addStandardOptions(task)
+            addhandler(task.StartingTask,StartingTask)
+            addhandler(task.TaskComplete,EndingTask)
             taskset.Tasks.Add(task)
 
             ;; OData controllers
@@ -796,6 +798,8 @@ namespace HarmonyCoreGenerator.ViewModel
             addStructureAndFileStructures(task)
             addStructureOnlyStructures(task)
             addStandardOptions(task)
+            addhandler(task.StartingTask,StartingTask)
+            addhandler(task.TaskComplete,EndingTask)
             taskset.Tasks.Add(task)
 
             ;; DBContext
@@ -809,6 +813,8 @@ namespace HarmonyCoreGenerator.ViewModel
             addStructureAndFileStructures(task)
             addStructureOnlyStructures(task)
             addStandardOptions(task)
+            addhandler(task.StartingTask,StartingTask)
+            addhandler(task.TaskComplete,EndingTask)
             taskset.Tasks.Add(task)
 
             ;; EdbBuilder and Startup classes
@@ -825,6 +831,8 @@ namespace HarmonyCoreGenerator.ViewModel
             addStructureAndFileStructures(task)
             addStructureOnlyStructures(task)
             addStandardOptions(task)
+            addhandler(task.StartingTask,StartingTask)
+            addhandler(task.TaskComplete,EndingTask)
             taskset.Tasks.Add(task)
 
             ;; Self hosting program & environment
@@ -843,6 +851,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 ;; TODO: if we have a parameter file structure we need to add that here also
                 addStandardOptions(task)
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
             end
 
@@ -858,6 +868,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 task = new CodeGenTask()
@@ -867,6 +879,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
             end
 
@@ -882,6 +896,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
             end
 
@@ -902,6 +918,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Test environment
@@ -915,6 +933,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 ;; TODO: if we have a parameter file structure we need to add that here also
                 addStandardOptions(task)
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Unit test environment and hosting program
@@ -928,6 +948,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.MultipleStructures = true
                 addStructureAndFileStructures(task)
                 addStandardOptions(task)
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Test constants properties
@@ -941,6 +963,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Test constants values (one time, no replace)
@@ -954,50 +978,61 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addNoReplaceOptions(task)
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
             end
 
             ;;---------------------------------------------------------------------------------------------
-
-            ;; Do it all!
-
-            data codegen = new CodeGenerator(taskset)
-            data success, boolean
+            ;; Execute the OData tasks
 
             try
             begin
-                ;;Generate code
+                data success, boolean
+                data codegen = new CodeGenerator(taskset)
+
+                ;;Generate the code
                 success = codegen.GenerateCode()
 
+                MessageBox.Show("Continue?")
+
                 ;;Display the results
-                CodeGenOutput = taskset.Messages
+                data msg, string
+                data msgs, @ObservableCollection<LogEntry>, new ObservableCollection<LogEntry>()
+                foreach msg in taskset.Messages
+                begin
+                    msgs.Add(new LogEntry(msg))
+                end
+                CodeGenOutput = msgs
 
                 ;;Save the taskset to a file so we can manually generate from it later
                 taskset.SaveToFile(_ODataTaskSetFile)
 
                 ;;Add new files to the Visual Studio Solutions
-                data messages = new List<String>()
+                data messages, @List<String>
                 updateProjectFiles(taskset,messages)
 
-                data message, string
-                foreach message in messages
-                    CodeGenOutput.Add(message)
+                ;;Display details of files added to projects
+                foreach msg in messages
+                begin
+                    CodeGenOutput.Add(new LogEntry(msg))
+                end
 
+                ;;Update the status bar
+                if (success) then
+                begin
+                    StatusBarText = "Success"
+                end
+                else
+                begin
+                    StatusBarText = "Errors occured during code generation"
+                end
             end
             catch (e, @Exception)
             begin
                 StatusBarText = String.Format("Unexpected error during code generation. Error was '{0}'",e.Message)
             end
             endtry
-
-            if (success) then
-            begin
-                StatusBarText = "Success"
-            end
-            else
-            begin
-                StatusBarText = "Errors occured during code generation"
-            end
 
             structureAndFileStructures = ^null
             structureAndFileAliases = ^null
@@ -1023,7 +1058,7 @@ namespace HarmonyCoreGenerator.ViewModel
 
             StatusBarText = "Generating Traditional Bridge Code..."
 
-            CodeGenOutput = new ObservableCollection<string>()
+            CodeGenOutput = new ObservableCollection<LogEntry>()
 
             data taskset = new CodeGenTaskSet()
             &    {
@@ -1062,6 +1097,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Dispatchers")
                 task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                 task.ReplaceFiles = true
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Main dispatcher class (Traditional Side)
@@ -1075,6 +1112,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Dispatchers")
                 task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                 task.ReplaceFiles = true
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Sample data generator class (Traditional Side)
@@ -1087,6 +1126,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.OutputFolder = Path.Combine(Options.TraditionalBridgeFolder,"Methods")
                 task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Methods")
                 task.ReplaceFiles = true
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Request and response models for the service class methods (.NET side)
@@ -1099,6 +1140,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.OutputFolder = Options.ModelsFolder
                 task.Namespace = Options.ModelsFolder
                 task.ReplaceFiles = true
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Service class (.NET side)
@@ -1112,6 +1155,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.Namespace = Options.ControllersFolder
                 task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                 task.ReplaceFiles = true
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Web API controller (.NET side)
@@ -1125,6 +1170,8 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.Namespace = Options.ControllersFolder
                 task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                 task.ReplaceFiles = true
+                addhandler(task.StartingTask,StartingTask)
+                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Postman tests for the WebAPI operations
@@ -1138,6 +1185,8 @@ namespace HarmonyCoreGenerator.ViewModel
                     task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
                     task.OutputFolder = SolutionFolder
                     task.ReplaceFiles = true
+                    addhandler(task.StartingTask,StartingTask)
+                    addhandler(task.TaskComplete,EndingTask)
                     taskset.Tasks.Add(task)
                 end
 
@@ -1154,36 +1203,55 @@ namespace HarmonyCoreGenerator.ViewModel
                     task.Namespace = Options.ControllersFolder
                     task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                     task.ReplaceFiles = true
+                    addhandler(task.StartingTask,StartingTask)
+                    addhandler(task.TaskComplete,EndingTask)
                     taskset.Tasks.Add(task)
                 end
 
             end
 
             ;;---------------------------------------------------------------------------------------------
-
-            ;; Do it all!
-
-            data codegen = new CodeGenerator(taskset)
-            data success, boolean
+            ;; Execute the Traditional Bridge tasks
 
             try
             begin
-                ;;Generate code
+                data success, boolean
+                data codegen = new CodeGenerator(taskset)
+
+                ;;Generate the code
                 success = codegen.GenerateCode()
 
                 ;;Display the results
-                CodeGenOutput = taskset.Messages
+                data msg, string
+                data msgs, @ObservableCollection<LogEntry>, new ObservableCollection<LogEntry>()
+                foreach msg in taskset.Messages
+                begin
+                    msgs.Add(new LogEntry(msg))
+                end
+                CodeGenOutput = msgs
 
                 ;;Save the taskset to a file so we can manually generate from it later
                 taskset.SaveToFile(_BridgeTaskSetFile)
 
                 ;;Add new files to the Visual Studio Solutions
-                data messages = new List<String>()
+                data messages, @List<String>
                 updateProjectFiles(taskset,messages)
 
-                data message, string
-                foreach message in messages
-                    CodeGenOutput.Add(message)
+                ;;Display details of files added to projects
+                foreach msg in messages
+                begin
+                    CodeGenOutput.Add(new LogEntry(msg))
+                end
+
+                ;;Update the status bar
+                if (success) then
+                begin
+                    StatusBarText = "Success"
+                end
+                else
+                begin
+                    StatusBarText = "Errors occured during code generation"
+                end
             end
             catch (e, @Exception)
             begin
@@ -1191,18 +1259,23 @@ namespace HarmonyCoreGenerator.ViewModel
             end
             endtry
 
-            if (success) then
-            begin
-                StatusBarText = "Success"
-            end
-            else
-            begin
-                StatusBarText = "Errors occured during code generation"
-            end
-
             structureAndFileStructures = ^null
             structureAndFileAliases = ^null
 
+        endmethod
+
+        public method StartingTask, void
+            task, @CodeGenTask
+        proc
+            CodeGenOutput.Add(new LogEntry("Starting task: " + task.Description))
+        endmethod
+
+        public method EndingTask, void
+            task, @CodeGenTask
+        proc
+            CodeGenOutput.Add(new LogEntry("Task complete"))
+            removehandler(task.StartingTask,StartingTask)
+            removehandler(task.TaskComplete,EndingTask)
         endmethod
 
         ;;; <summary>
@@ -1215,10 +1288,7 @@ namespace HarmonyCoreGenerator.ViewModel
             required out messages, @List<String>
         proc
             ;;Initialize the return messages collection
-            if (messages == ^null) then
-                messages = new List<String>()
-            else
-                messages.Clear()
+            messages = new List<String>()
 
             ;;Extract a list of all source files generated by the taskset
             data task, @CodeGenTask
@@ -1244,26 +1314,49 @@ namespace HarmonyCoreGenerator.ViewModel
             data hostFiles = new List<String>()
             data isolatedFiles = new List<String>()
             data unitTestFiles = new List<String>()
+            data traditionalBridgeFiles = new List<String>()
 
             data sourceFilePath, string
-            data sourceFileNameOnly, string
+            data removeString, string
+            data index, int
 
             foreach sourceFilePath in allNewFiles
             begin
-                sourceFileNameOnly = Path.GetFileName(sourceFilePath)
-
-                if (sourceFilePath.StartsWith(String.Format("{0}\",Options.ServicesFolder))) then
-                    servicesFiles.Add(sourceFileNameOnly)
-                else if (sourceFilePath.StartsWith(String.Format("{0}\",Options.ControllersFolder))) then
-                    controllersFiles.Add(sourceFileNameOnly)
-                else if (sourceFilePath.StartsWith(String.Format("{0}\",Options.SelfHostFolder))) then
-                    hostFiles.Add(sourceFileNameOnly)
-                else if (sourceFilePath.StartsWith(String.Format("{0}\",Options.IsolatedFolder))) then
-                    isolatedFiles.Add(sourceFileNameOnly)
-                else if (sourceFilePath.StartsWith(String.Format("{0}\",Options.ModelsFolder))) then
-                    modelsFiles.Add(sourceFileNameOnly)
-                else if (sourceFilePath.StartsWith(String.Format("{0}\",Options.UnitTestFolder)))
-                    unitTestFiles.Add(sourceFileNameOnly)
+                if (sourceFilePath.StartsWith(removeString=String.Format("{0}\",Options.ServicesFolder))) then
+                begin
+                    index = sourceFilePath.IndexOf(removeString)
+                    servicesFiles.Add((index < 0) ? sourceFilePath : sourceFilePath.Remove(index, removeString.Length))
+                end
+                else if (sourceFilePath.StartsWith(removeString=String.Format("{0}\",Options.ControllersFolder))) then
+                begin
+                    index = sourceFilePath.IndexOf(removeString)
+                    controllersFiles.Add((index < 0) ? sourceFilePath : sourceFilePath.Remove(index, removeString.Length))
+                end
+                else if (sourceFilePath.StartsWith(removeString=String.Format("{0}\",Options.SelfHostFolder))) then
+                begin
+                    index = sourceFilePath.IndexOf(removeString)
+                    hostFiles.Add((index < 0) ? sourceFilePath : sourceFilePath.Remove(index, removeString.Length))
+                end
+                else if (sourceFilePath.StartsWith(removeString=String.Format("{0}\",Options.IsolatedFolder))) then
+                begin
+                    index = sourceFilePath.IndexOf(removeString)
+                    isolatedFiles.Add((index < 0) ? sourceFilePath : sourceFilePath.Remove(index, removeString.Length))
+                end
+                else if (sourceFilePath.StartsWith(removeString=String.Format("{0}\",Options.ModelsFolder))) then
+                begin
+                    index = sourceFilePath.IndexOf(removeString)
+                    modelsFiles.Add((index < 0) ? sourceFilePath : sourceFilePath.Remove(index, removeString.Length))
+                end
+                else if (sourceFilePath.StartsWith(removeString=String.Format("{0}\",Options.UnitTestFolder))) then
+                begin
+                    index = sourceFilePath.IndexOf(removeString)
+                    unitTestFiles.Add((index < 0) ? sourceFilePath : sourceFilePath.Remove(index, removeString.Length))
+                end
+                else if (sourceFilePath.StartsWith(removeString=String.Format("{0}\",Options.TraditionalBridgeFolder)))
+                begin
+                    index = sourceFilePath.IndexOf(removeString)
+                    traditionalBridgeFiles.Add((index < 0) ? sourceFilePath : sourceFilePath.Remove(index, removeString.Length))
+                end
             end
 
             ;;Add any new files to the projects
@@ -1334,6 +1427,17 @@ namespace HarmonyCoreGenerator.ViewModel
                 end
             end
 
+            if (traditionalBridgeFiles.Count > 0)
+            begin
+                updateProjectFile(Path.Combine(Options.TraditionalBridgeFolder,Options.TraditionalBridgeProject),traditionalBridgeFiles)
+                if (unitTestFiles.Count != 0)
+                begin
+                    messages.Add("")
+                    messages.Add("New files were added to " + Options.TraditionalBridgeProject)
+                    messages.AddRange(traditionalBridgeFiles)
+                end
+            end
+
             if (messages.Count == 0)
             begin
                 messages.Add("")
@@ -1354,13 +1458,15 @@ namespace HarmonyCoreGenerator.ViewModel
 
             data sourceFilesAdded = new List<String>()
 
+            ;;Load the project file and get the root namespace of the document
             data xDoc = XDocument.Load(aProjectFile)
+            data testNs = xDoc.Root.GetDefaultNamespace()
 
             ;;Find all <ItemGroup> elements
-            data itemGroups = xDoc.Descendants("ItemGroup")
+            data itemGroups = xDoc.Descendants(testNs + "ItemGroup")
 
             ;;Find the <ItemGroup> that contains <Compile> elements
-            data itemGroupsWithCompileItems = itemGroups.Where(lambda (ig) { ig.Descendants("Compile").Count() > 0 })
+            data itemGroupsWithCompileItems = itemGroups.Where(lambda (ig) { ig.Descendants(testNs + "Compile").Count() > 0 })
 
             ;;Build a list of new <Compile> elements to add
             data newItems = new List<XElement>()
@@ -1377,7 +1483,7 @@ namespace HarmonyCoreGenerator.ViewModel
                             nextloop
                     end
                     ;;Add a new <Compile> element for the file
-                    data newItem = new XElement("Compile")
+                    data newItem = new XElement(testNs + "Compile")
                     newItem.SetAttributeValue("Include", newFile)
                     newItems.Add(newItem)
 
@@ -1399,7 +1505,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 begin
                     ;;No, add a new item group after the last one and add new items to it.
                     data lastItemGroup = itemGroups.LastOrDefault()
-                    lastItemGroup.AddAfterSelf(new XElement("ItemGroup", newItems.ToArray()))
+                    lastItemGroup.AddAfterSelf(new XElement(testNs + "ItemGroup", newItems.ToArray()))
                 end
             
                 ;;Save the updated project file
