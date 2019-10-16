@@ -107,22 +107,22 @@ namespace HarmonyCoreGenerator.ViewModel
             ;;Set the file specs for our main configuration files
 
             SettingsFile = Path.Combine(
-            &   _SolutionFolder,
-            &   String.Format(
-            &       "{0}{1}",
-            &       Path.GetFileNameWithoutExtension(_SolutionFile),
-            &       Properties.Settings.Default.HarmonyCoreProjectFileExtension
+            &    _SolutionFolder,
+            &    String.Format(
+            &    "{0}{1}",
+            &    Path.GetFileNameWithoutExtension(_SolutionFile),
+            &    Properties.Settings.Default.HarmonyCoreProjectFileExtension
             &    )
-            &)
+            &    )
 
             ODataTaskSetFile = Path.Combine(
-            &   _SolutionFolder,
+            &    _SolutionFolder,
             &    String.Format(
-            &       "{0}{1}",
-            &       Path.GetFileNameWithoutExtension(_SolutionFile),
-            &       Properties.Settings.Default.CodeGenProjectFileExtension
-            &   )
-            &)
+            &    "{0}{1}",
+            &    Path.GetFileNameWithoutExtension(_SolutionFile),
+            &    Properties.Settings.Default.CodeGenProjectFileExtension
+            &    )
+            &    )
 
             ODataTaskSetFile = Path.Combine(
             &    _SolutionFolder,
@@ -197,6 +197,19 @@ namespace HarmonyCoreGenerator.ViewModel
                 ;; Templates folder should be right below the solution folder.
                 if (!Directory.Exists(Options.TemplatesFolder))
                     errors.Add("Templates folder not found!")
+
+                ;;Do we have an SMC file?
+                if (!String.IsNullOrWhiteSpace(Options.SmcExportFile))
+                begin
+                    if (File.Exists(Options.SmcExportFile)) then
+                    begin
+                        refreshSmc()
+                    end
+                    else
+                    begin
+                        errors.Add("SMC export file not found!")
+                    end
+                end
 
                 ;; Check for repository changes
                 ;TODO: Need to make this happen after the UI has been painted.
@@ -497,12 +510,16 @@ namespace HarmonyCoreGenerator.ViewModel
             foreach iface in smc.Interfaces
             begin
                 Options.Interfaces.Add(new MduInterfaceRow(iface))
-
                 data meth, @SmcMethod
                 foreach meth in iface.Methods
                 begin
                     SelectedInterfaceMethods.Add(meth)
                 end
+            end
+
+            if (Options.Interfaces.Count>0)
+            begin
+                SelectedInterface = Options.Interfaces.First()
             end
 
         endmethod
@@ -688,6 +705,33 @@ namespace HarmonyCoreGenerator.ViewModel
 
         endmethod
         
+        private method refreshSmc, void
+        proc
+            ;;Select the first interface and dispay its methods
+            if (Options.Interfaces.Count>0)
+            begin
+                SelectedInterface = Options.Interfaces.First()
+
+                ;;Load the SMC
+                data catalog = new Smc(Options.SmcExportFile)
+
+                ;;Find the interface
+                data iface, @SmcInterface, catalog.Interfaces.FirstOrDefault(lambda(i) { i.Name.Equals(SelectedInterface.InterfaceName) } )
+
+                ;;Load the interfaces methods
+                if (iface!=^null)
+                begin
+                    SelectedInterfaceMethods = new ObservableCollection<SmcMethod>(iface.Methods)
+                end
+            end
+
+            ;;TODO: Look for interfaces in environment that are no longer in the SMC
+            
+            ;;TODO: Look for interfaces in the SMC that are not in our environment
+
+
+        endmethod
+
         private method generateODataCode, void
         proc
             ;; Ensure the code generation page is visible
@@ -705,7 +749,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 end
             end
 
-            StatusBarText = "Generating code..."
+            StatusBarText = "Generating OData Code..."
 
             CodeGenOutput = new ObservableCollection<string>()
 
@@ -977,13 +1021,7 @@ namespace HarmonyCoreGenerator.ViewModel
                 end
             end
 
-            if (String.IsNullOrWhiteSpace(Options.SmcExportFile) || !File.Exists(Options.SmcExportFile) || Options.Interfaces.Count > 0)
-            begin
-                MessageBox.Show("xfServerPlus Migration is not configured!","Nothing to do!",MessageBoxButton.OK,MessageBoxImage.Information)
-                mreturn
-            end
-
-            StatusBarText = "Generating code..."
+            StatusBarText = "Generating Traditional Bridge Code..."
 
             CodeGenOutput = new ObservableCollection<string>()
 
@@ -992,7 +1030,6 @@ namespace HarmonyCoreGenerator.ViewModel
             &    Description = "Code generation tasks for Harmony Core solution.",
             &    RepositoryMainFile = Options.RepositoryMainFile,
             &    RepositoryTextFile = Options.RepositoryTextFile,
-            &    TemplateFolder = Options.TemplatesFolder,
             &    EchoCommands = true,
             &    ListGeneratedFiles = true,
             &    LoggingLevel = CodeGenLoggingLevel,
@@ -1006,7 +1043,6 @@ namespace HarmonyCoreGenerator.ViewModel
 
             data task, @CodeGenTask
 
-
             ;;Do we have at least one interface selected for processing?
             data iface, @MduInterfaceRow
             foreach iface in Options.Interfaces
@@ -1015,19 +1051,111 @@ namespace HarmonyCoreGenerator.ViewModel
                 if (!iface.Exposed)
                     nextloop
 
-                ;;Set the interface name and 
+                ;; Dispatcher classes (Traditional Side)
 
-                ;; Dispatcher classes
                 task = new CodeGenTask()
-                task.Description = "Generate traditional bridge dispatcher classes"
+                task.Description = "Generate a dispatcher class for each method"
+                task.Templates.Add("InterfaceMethodDispatchers")
                 task.Interface = iface.InterfaceName
                 task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
-                task.Templates.Add("InterfaceMethodDispatchers")
                 task.OutputFolder = Path.Combine(Options.TraditionalBridgeFolder,"Dispatchers")
-                task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeProject,"Dispatchers")
-                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeProject,"Models")))
-                addStandardOptions(task)
+                task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Dispatchers")
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                task.ReplaceFiles = true
                 taskset.Tasks.Add(task)
+
+                ;; Main dispatcher class (Traditional Side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate main dispatcher class"
+                task.Templates.Add("InterfaceDispatcher")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Path.Combine(Options.TraditionalBridgeFolder,"Dispatchers")
+                task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Dispatchers")
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Sample data generator class (Traditional Side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate a class to generate sample response data"
+                task.Templates.Add("InterfaceTestResponses")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Path.Combine(Options.TraditionalBridgeFolder,"Methods")
+                task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Methods")
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Request and response models for the service class methods (.NET side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate request and response models for the service class methods"
+                task.Templates.Add("InterfaceServiceModels")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Options.ModelsFolder
+                task.Namespace = Options.ModelsFolder
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Service class (.NET side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate the service class (.NET side)"
+                task.Templates.Add("InterfaceService")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Options.ControllersFolder
+                task.Namespace = Options.ControllersFolder
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Web API controller (.NET side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate Web API controller (.NET side)"
+                task.Templates.Add("InterfaceController")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Options.ControllersFolder
+                task.Namespace = Options.ControllersFolder
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Postman tests for the WebAPI operations
+
+                if (Options.SmcPostmanTests)
+                begin
+                    task = new CodeGenTask()
+                    task.Description = "Generate Postman tests for the Interface"
+                    task.Templates.Add("InterfacePostmanTests")
+                    task.Interface = iface.InterfaceName
+                    task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                    task.OutputFolder = SolutionFolder
+                    task.ReplaceFiles = true
+                    taskset.Tasks.Add(task)
+                end
+
+                ;; SignalR Service
+
+                if (Options.SmcSignalRHubs)
+                begin
+                    task = new CodeGenTask()
+                    task.Description = "Generate a SignalR hub for the Interface"
+                    task.Templates.Add("SignalRHub ")
+                    task.Interface = iface.InterfaceName
+                    task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"SignalR")
+                    task.OutputFolder = Options.ControllersFolder
+                    task.Namespace = Options.ControllersFolder
+                    task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                    task.ReplaceFiles = true
+                    taskset.Tasks.Add(task)
+                end
 
             end
 
@@ -1522,12 +1650,6 @@ namespace HarmonyCoreGenerator.ViewModel
             task.UseAlternateFieldNames = Options.AlternateFieldNames
         endmethod
         
-        private method addBridgeStandardOptions, void
-            task, @CodeGenTask 
-        proc
-            task.ReplaceFiles = true
-        endmethod
-
     endclass
 
 endnamespace
