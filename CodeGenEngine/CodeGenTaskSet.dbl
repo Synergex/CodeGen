@@ -254,17 +254,29 @@ namespace CodeGen.Engine
             taskset, @CodeGenTaskSet
         enddelegate
 
+        public delegate TaskSetMessageEventHandler, void
+            message, @String
+        enddelegate
+
         public delegate TaskSetCompleteEventHandler, void
             taskset, @CodeGenTaskSet
         enddelegate
 
         public event StartingTaskSet, @StartingTaskSetEventHandler
+        public event TaskSetMessage, @TaskSetMessageEventHandler
         public event TaskSetComplete, @TaskSetCompleteEventHandler
 
         internal method RaiseStartingTaskSet, void
         proc
             if (StartingTaskSet!=^null)
                 raiseevent(StartingTaskSet,this)
+        endmethod
+
+        internal method RaiseTaskSetMessage, void
+            required in message, @string
+        proc
+            if (TaskSetMessage!=^null)
+                raiseevent(TaskSetMessage,message)
         endmethod
 
         internal method RaiseTaskSetComplete, void
@@ -296,20 +308,38 @@ namespace CodeGen.Engine
 
         internal method Log, void
             required in text, String
+            required in blankLineBefore, boolean
+            required in blankLineAfter, boolean
         proc
+            data eventMessage = String.Empty
+
+            ;;Log the message to this task
+
+            if (blankLineBefore)
+            begin
+                Messages.Add(new LogEntry(""))
+                eventMessage += Environment.NewLine
+            end
+
             Messages.Add(new LogEntry(text))
+            eventMessage += text
+
+            if (blankLineAfter)
+            begin
+                Messages.Add(new LogEntry(""))
+                eventMessage += Environment.NewLine
+            end
+
+            ;;And raise the TaskSetMessage event
+
+            RaiseTaskSetMessage(eventMessage)
+
         endmethod
 
         internal method Log, void
             required in text, String
-            required in blankLineBefore, boolean
-            required in blankLineAfter, boolean
         proc
-            if (blankLineBefore)
-                Messages.Add(new LogEntry(""))
-            Messages.Add(new LogEntry(text))
-            if (blankLineAfter)
-                Messages.Add(new LogEntry(""))
+            Log(text,false,false)
         endmethod
 
         internal method VerboseLog, void
@@ -319,25 +349,23 @@ namespace CodeGen.Engine
         proc
             if ((int)this.LoggingLevel>=(int)LoggingLevel.Verbose)
             begin
-                if (blankLineBefore)
-                    Messages.Add(new LogEntry(""))
-                Messages.Add(new LogEntry(text))
-                if (blankLineAfter)
-                    Messages.Add(new LogEntry(""))
+                Log(text,blankLineBefore,blankLineAfter)
             end
         endmethod
 
-        internal method VerboseLog	, void
+        internal method VerboseLog, void
             required in text, String
         proc
             if ((int)this.LoggingLevel>=(int)LoggingLevel.Verbose)
-                Messages.Add(new LogEntry(text))
+            begin
+                Log(text,false,false)
+            end
         endmethod
 
         internal method ErrorLog, boolean
             required in text, String
         proc
-            Messages.Add(new LogEntry(String.Format("ERROR: {0}",text)))
+            Log(String.Format("ERROR: {0}",text),false,false)
             LastErrorMessage = text
             mreturn true
         endmethod
@@ -345,7 +373,7 @@ namespace CodeGen.Engine
         internal method Warning, void
             required in text, String
         proc
-            Messages.Add(new LogEntry(String.Format("WARNING: {0}",text)))
+            Log(String.Format("WARNING: {0}",text),false,false)
         endmethod
 
         internal method DebugLog, void
@@ -355,11 +383,7 @@ namespace CodeGen.Engine
         proc
             if ((int)this.LoggingLevel>=(int)LoggingLevel.Debug)
             begin
-                if (blankLineBefore)
-                    Messages.Add(new LogEntry(""))
-                Messages.Add(new LogEntry(text))
-                if (blankLineAfter)
-                    Messages.Add(new LogEntry(""))
+                Log(text,blankLineBefore,blankLineAfter)
             end
         endmethod
 
@@ -367,14 +391,18 @@ namespace CodeGen.Engine
             required in text, String
         proc
             if ((int)this.LoggingLevel>=(int)LoggingLevel.Debug)
-                Messages.Add(new LogEntry(text))
+            begin
+                Log(text,false,false)
+            end
         endmethod
 
         internal method DevDebugLog, void
             required in text, String
         proc
             if (this.LoggingLevel==LoggingLevel.DeveloperDebug)
-                Messages.Add(new LogEntry(String.Format("DEVDBG: {0}",text)))
+            begin
+                Log(String.Format("DEVDBG: {0}",text),false,false)
+            end
         endmethod
 
 .endregion

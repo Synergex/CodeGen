@@ -579,8 +579,13 @@ namespace CodeGen.Engine
         proc
             ;;Log the message to this task
             Messages.Add(new LogEntry(text))
+
+            ;;And raise the TaskMessage event
+            RaiseTaskMessage(text)
+
             ;;And also to the task set
             TaskSet.Log(text)
+
         endmethod
 
         internal method Log, void
@@ -594,8 +599,19 @@ namespace CodeGen.Engine
             Messages.Add(new LogEntry(text))
             if (blankLineAfter)
                 Messages.Add(new LogEntry(""))
+
+            ;;And raise the TaskMessage event
+            data eventMessage = String.Empty
+            if (blankLineBefore)
+                eventMessage = Environment.NewLine
+            eventMessage += text
+            if (blankLineAfter)
+                eventMessage += Environment.NewLine
+            RaiseTaskMessage(eventMessage)
+
             ;;And also to the task set
             TaskSet.Log(text,blankLineBefore,blankLineAfter)
+
         endmethod
 
         internal method VerboseLog, void
@@ -605,12 +621,23 @@ namespace CodeGen.Engine
         proc
             if ((int)(TaskSet.LoggingLevel)>=(int)LoggingLevel.Verbose)
             begin
+
                 ;;Log the message to this task
                 if (blankLineBefore)
                     Messages.Add(new LogEntry(""))
                 Messages.Add(new LogEntry(text))
                 if (blankLineAfter)
                     Messages.Add(new LogEntry(""))
+
+                ;;And raise the TaskMessage event
+                data eventMessage = String.Empty
+                if (blankLineBefore)
+                    eventMessage = Environment.NewLine
+                eventMessage += text
+                if (blankLineAfter)
+                    eventMessage += Environment.NewLine
+                RaiseTaskMessage(eventMessage)
+
                 ;;And also to the task set
                 TaskSet.VerboseLog(text,blankLineBefore,blankLineAfter)
             end
@@ -623,6 +650,10 @@ namespace CodeGen.Engine
             begin
                 ;;Log the message to this task
                 Messages.Add(new LogEntry(text))
+
+                ;;And raise the TaskMessage event
+                RaiseTaskMessage(text)
+
                 ;;And also to the task set
                 TaskSet.VerboseLog(text)
             end
@@ -631,21 +662,37 @@ namespace CodeGen.Engine
         internal method ErrorLog, boolean
             required in text, String
         proc
+            ;;Format the message
+            data errorMessage = String.Format("ERROR:   {0}",text)
+
             ;;Log the message to this task
-            Messages.Add(new LogEntry(String.Format("ERROR:   {0}",text)))
+            Messages.Add(new LogEntry(errorMessage))
             LastErrorMessage = text
             Errors += 1
+
+            ;;And raise the TaskMessage event
+            RaiseTaskMessage(errorMessage)
+
             ;;And also to the task set
             TaskSet.ErrorLog(text)
+
             mreturn true
+
         endmethod
 
         internal method Warning, void
             required in text, String
         proc
+            ;;Format the message
+            data warningMessage = String.Format("WARNING: {0}",text)
+
             ;;Log the message to this task
-            Messages.Add(new LogEntry(String.Format("WARNING: {0}",text)))
+            Messages.Add(new LogEntry(warningMessage))
             Warnings += 1
+
+            ;;And raise the TaskMessage event
+            RaiseTaskMessage(warningMessage)
+
             ;;And also to the task set
             TaskSet.Warning(text)
         endmethod
@@ -663,6 +710,16 @@ namespace CodeGen.Engine
                 Messages.Add(new LogEntry(text))
                 if (blankLineAfter)
                     Messages.Add(new LogEntry(""))
+
+                ;;And raise the TaskMessage event
+                data eventMessage = String.Empty
+                if (blankLineBefore)
+                    eventMessage = Environment.NewLine
+                eventMessage += text
+                if (blankLineAfter)
+                    eventMessage += Environment.NewLine
+                RaiseTaskMessage(eventMessage)
+
                 ;;And also to the task set
                 TaskSet.DebugLog(text,blankLineBefore,blankLineAfter)
             end
@@ -675,6 +732,10 @@ namespace CodeGen.Engine
             begin
                 ;;Log the message to this task
                 Messages.Add(new LogEntry(text))
+
+                ;;And raise the TaskMessage event
+                RaiseTaskMessage(text)
+
                 ;;And also to the task set
                 TaskSet.DebugLog(text)
             end
@@ -687,6 +748,10 @@ namespace CodeGen.Engine
             begin
                 ;;Log the message to this task
                 Messages.Add(new LogEntry(String.Format("DEVDBG: {0}",text)))
+
+                ;;And raise the TaskMessage event
+                RaiseTaskMessage(text)
+
                 ;;And also to the task set
                 TaskSet.DevDebugLog(text)
             end
@@ -718,11 +783,17 @@ namespace CodeGen.Engine
             task, @CodeGenTask
         enddelegate
 
+        public delegate TaskMessageEventHandler, void
+            message, @String
+        enddelegate
+
         public delegate TaskCompleteEventHandler, void
             task, @CodeGenTask
         enddelegate
 
         public event StartingTask, @StartingTaskEventHandler
+
+        public event TaskMessage, @TaskMessageEventHandler
 
         public event TaskComplete, @TaskCompleteEventHandler
 
@@ -730,6 +801,13 @@ namespace CodeGen.Engine
         proc
             if (StartingTask!=^null)
                 raiseevent(StartingTask,this)
+        endmethod
+
+        internal method RaiseTaskMessage, void
+            required in aMessage, string
+        proc
+            if (TaskMessage!=^null)
+                raiseevent(TaskMessage,aMessage)
         endmethod
 
         internal method RaiseTaskComplete, void

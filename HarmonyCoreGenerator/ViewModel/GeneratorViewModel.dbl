@@ -14,6 +14,7 @@ import CodeGen.RepositoryAPI
 import HarmonyCoreGenerator.Model
 import MvvmTools
 import System.Diagnostics
+import Microsoft.VisualStudio.Threading
 
 .array 0
 
@@ -905,7 +906,7 @@ namespace HarmonyCoreGenerator.ViewModel
 
         endmethod
 
-        private method generateODataCode, void
+        private async method generateODataCode, void
         proc
             ;; Ensure the code generation page is visible
             SelectedTabIndex = (int)MainWindowTabPages.CodeGeneration
@@ -935,7 +936,13 @@ namespace HarmonyCoreGenerator.ViewModel
             &    ListGeneratedFiles = true,
             &    LoggingLevel = CodeGenLoggingLevel
             &    }
+
+            ;;Add defined values based on options selected in the UI
             setOdataDefines(taskset)
+
+            ;;Add event handlers to grab task set output
+            addhandler(taskset.TaskSetMessage,TaskSetMessage)
+            addhandler(taskset.TaskSetComplete,TaskSetComplate)
 
             ;;Define code generation tasks based on options selected in the UI
 
@@ -956,8 +963,6 @@ namespace HarmonyCoreGenerator.ViewModel
             addStructureOnlyStructures(task)
             addCustomCodeStructures(task)
             addStandardOptions(task)
-;            addhandler(task.StartingTask,StartingTask)
-;            addhandler(task.TaskComplete,EndingTask)
             taskset.Tasks.Add(task)
 
             ;; OData controllers
@@ -970,8 +975,6 @@ namespace HarmonyCoreGenerator.ViewModel
             addStructureAndFileStructures(task)
             addStructureOnlyStructures(task)
             addStandardOptions(task)
-;            addhandler(task.StartingTask,StartingTask)
-;            addhandler(task.TaskComplete,EndingTask)
             taskset.Tasks.Add(task)
 
             ;; DBContext
@@ -985,8 +988,6 @@ namespace HarmonyCoreGenerator.ViewModel
             addStructureAndFileStructures(task)
             addStructureOnlyStructures(task)
             addStandardOptions(task)
-;            addhandler(task.StartingTask,StartingTask)
-;            addhandler(task.TaskComplete,EndingTask)
             taskset.Tasks.Add(task)
 
             ;; EdbBuilder and Startup classes
@@ -1003,8 +1004,6 @@ namespace HarmonyCoreGenerator.ViewModel
             addStructureAndFileStructures(task)
             addStructureOnlyStructures(task)
             addStandardOptions(task)
-;            addhandler(task.StartingTask,StartingTask)
-;            addhandler(task.TaskComplete,EndingTask)
             taskset.Tasks.Add(task)
 
             ;; Self hosting program & environment
@@ -1023,8 +1022,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 ;; TODO: if we have a parameter file structure we need to add that here also
                 addStandardOptions(task)
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
             end
 
@@ -1040,8 +1037,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 task = new CodeGenTask()
@@ -1051,8 +1046,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
             end
 
@@ -1068,8 +1061,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
             end
 
@@ -1090,8 +1081,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Test environment
@@ -1105,8 +1094,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 ;; TODO: if we have a parameter file structure we need to add that here also
                 addStandardOptions(task)
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Unit test environment and hosting program
@@ -1120,8 +1107,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.MultipleStructures = true
                 addStructureAndFileStructures(task)
                 addStandardOptions(task)
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Test constants properties
@@ -1135,8 +1120,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addStandardOptions(task)
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Test constants values (one time, no replace)
@@ -1150,8 +1133,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 addStructureAndFileStructures(task)
                 addStructureOnlyStructures(task)
                 addNoReplaceOptions(task)
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
             end
 
@@ -1163,11 +1144,14 @@ namespace HarmonyCoreGenerator.ViewModel
                 data success, boolean
                 data codegen = new CodeGenerator(taskset)
 
+                ;;Get us off the UI thread
+                await System.Threading.Tasks.TaskScheduler.Default
+
                 ;;Generate the code
                 success = codegen.GenerateCode()
 
-                ;;Display the results
-                CodeGenOutput = taskset.Messages
+                ;;Get back onto the UI thread
+                await HarmonyCoreGenerator.App.JTF.SwitchToMainThreadAsync()
 
                 ;;Save the taskset to a file so we can manually generate from it later
                 taskset.SaveToFile(_ODataTaskSetFile)
@@ -1193,7 +1177,7 @@ namespace HarmonyCoreGenerator.ViewModel
 
         endmethod
         
-        private method generateBridgeCode, void
+        private async method generateBridgeCode, void
         proc
             ;; Ensure the code generation page is visible
             SelectedTabIndex = (int)MainWindowTabPages.CodeGeneration
@@ -1224,10 +1208,15 @@ namespace HarmonyCoreGenerator.ViewModel
             &    MethodCatalog = new Smc(Options.SmcExportFile)
             &    }
 
+            ;;Add defined values based on options selected in the UI
             if (Options.Authentication)
             begin
                 taskset.Defines.Add("DEFINED_ENABLE_AUTHENTICATION") 
             end
+
+            ;;Add event handlers to grab task set output
+            addhandler(taskset.TaskSetMessage,TaskSetMessage)
+            addhandler(taskset.TaskSetComplete,TaskSetComplate)
 
             ;;Define code generation tasks based on options selected in the UI
 
@@ -1254,8 +1243,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Dispatchers")
                 task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                 task.ReplaceFiles = true
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Main dispatcher class (Traditional Side)
@@ -1269,8 +1256,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Dispatchers")
                 task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                 task.ReplaceFiles = true
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Sample data generator class (Traditional Side)
@@ -1283,8 +1268,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.OutputFolder = Path.Combine(Options.TraditionalBridgeFolder,"Methods")
                 task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Methods")
                 task.ReplaceFiles = true
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Request and response models for the service class methods (.NET side)
@@ -1297,8 +1280,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.OutputFolder = Options.ModelsFolder
                 task.Namespace = Options.ModelsFolder
                 task.ReplaceFiles = true
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Service class (.NET side)
@@ -1312,8 +1293,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.Namespace = Options.ControllersFolder
                 task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                 task.ReplaceFiles = true
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Web API controller (.NET side)
@@ -1327,8 +1306,6 @@ namespace HarmonyCoreGenerator.ViewModel
                 task.Namespace = Options.ControllersFolder
                 task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                 task.ReplaceFiles = true
-;                addhandler(task.StartingTask,StartingTask)
-;                addhandler(task.TaskComplete,EndingTask)
                 taskset.Tasks.Add(task)
 
                 ;; Postman tests for the WebAPI operations
@@ -1342,8 +1319,6 @@ namespace HarmonyCoreGenerator.ViewModel
                     task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
                     task.OutputFolder = SolutionFolder
                     task.ReplaceFiles = true
-;                    addhandler(task.StartingTask,StartingTask)
-;                    addhandler(task.TaskComplete,EndingTask)
                     taskset.Tasks.Add(task)
                 end
 
@@ -1360,8 +1335,6 @@ namespace HarmonyCoreGenerator.ViewModel
                     task.Namespace = Options.ControllersFolder
                     task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
                     task.ReplaceFiles = true
-;                    addhandler(task.StartingTask,StartingTask)
-;                    addhandler(task.TaskComplete,EndingTask)
                     taskset.Tasks.Add(task)
                 end
 
@@ -1375,11 +1348,14 @@ namespace HarmonyCoreGenerator.ViewModel
                 data success, boolean
                 data codegen = new CodeGenerator(taskset)
 
+                ;;Get us off the UI thread
+                await System.Threading.Tasks.TaskScheduler.Default
+
                 ;;Generate the code
                 success = codegen.GenerateCode()
 
-                ;;Display the results
-                CodeGenOutput = taskset.Messages
+                ;;Get back onto the UI thread
+                await HarmonyCoreGenerator.App.JTF.SwitchToMainThreadAsync()
 
                 ;;Save the taskset to a file so we can manually generate from it later
                 taskset.SaveToFile(_BridgeTaskSetFile)
@@ -1405,27 +1381,28 @@ namespace HarmonyCoreGenerator.ViewModel
 
         endmethod
 
-;        ;;; <summary>
-;        ;;; Event handler to log as each code generation task begins
-;        ;;; </summary>
-;        ;;; <param name="task">Task that is beginning</param>
-;        public method StartingTask, void
-;            task, @CodeGenTask
-;        proc
-;            CodeGenOutput.Add(new LogEntry("Starting task: " + task.Description))
-;        endmethod
+        ;;; <summary>
+        ;;; Event handler to log as each code generation task begins
+        ;;; </summary>
+        ;;; <param name="task">Task that is beginning</param>
+        public async method TaskSetMessage, void
+            message, @String
+        proc
+            await HarmonyCoreGenerator.App.JTF.SwitchToMainThreadAsync()
+            CodeGenOutput.Add(new LogEntry(message))
+        endmethod
 
-;        ;;; <summary>
-;        ;;; Event handler to log as each code generation task ends
-;        ;;; </summary>
-;        ;;; <param name="task">Task that ended</param>
-;        public method EndingTask, void
-;            task, @CodeGenTask
-;        proc
-;            CodeGenOutput.Add(new LogEntry("Task complete"))
-;            removehandler(task.StartingTask,StartingTask)
-;            removehandler(task.TaskComplete,EndingTask)
-;        endmethod
+        ;;; <summary>
+        ;;; Event handler to log as each code generation taskset ends
+        ;;; </summary>
+        ;;; <param name="task">Taskset that is beginning</param>
+        public async method TaskSetComplate, void
+            taskset, @CodeGenTaskSet
+        proc
+            await HarmonyCoreGenerator.App.JTF.SwitchToMainThreadAsync()
+            removehandler(taskset.TaskSetMessage,TaskSetMessage)
+            removehandler(taskset.TaskSetComplete,TaskSetComplate)
+        endmethod
 
         ;;; <summary>
         ;;; Extracts a list of all source files generated by a task set and
