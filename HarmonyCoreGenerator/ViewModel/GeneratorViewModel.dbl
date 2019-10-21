@@ -70,27 +70,51 @@ namespace HarmonyCoreGenerator.ViewModel
             SelectedTabIndex = (int)MainWindowTabPages.CreateSolution
         endmethod
 
+        private async method AddToolOutputSafe, void
+            entry, @LogEntry
+        proc
+            await HarmonyCoreGenerator.App.JTF.SwitchToMainThreadAsync()
+            ToolOutput.Add(entry)
+        endmethod
+
         ;;; <summary>
         ;;; Create a new Visual Studio solution from the "harmonycore" project template.
         ;;; </summary>
-        private method doCreateSolution, void
+        private async method doCreateSolution, void
             param, @Object
         proc
+            ToolOutput = new ObservableCollection<LogEntry>()
+
             disposable data prc = new Process()
             prc.StartInfo.FileName = "dotnet"
             prc.StartInfo.Arguments = String.Format("new harmonycore -n {0} -o {0}",NewSolutionName)
             prc.StartInfo.CreateNoWindow = true
             prc.StartInfo.UseShellExecute = false
-            prc.StartInfo.RedirectStandardOutput = true
             prc.StartInfo.WorkingDirectory = NewSolutionFolder
+            prc.StartInfo.RedirectStandardOutput = true
+
+            lambda receiveProcessMessage(sender,eargs)
+            begin
+                if (!String.IsNullOrWhiteSpace(eargs.Data))
+                begin
+                    AddToolOutputSafe(new LogEntry(eargs.Data))
+                end
+            end
+
+            prc.OutputDataReceived += new DataReceivedEventHandler(receiveProcessMessage)
+
+            ;;Get us off the UI thread
+            await System.Threading.Tasks.TaskScheduler.Default
+
+            ;;Start the process
             prc.Start()
-
-            data sr, @StreamReader, prc.StandardOutput
-            ToolOutput = sr.ReadToEnd()
-            sr.Dispose()
-
+            prc.BeginOutputReadLine()
             prc.WaitForExit()
+            prc.Close()
             prc.Dispose()
+
+            ;;Get back onto the UI thread
+            await HarmonyCoreGenerator.App.JTF.SwitchToMainThreadAsync()
 
             data newFolder, string, Path.Combine(NewSolutionFolder,NewSolutionName)
             data newSolution, string, Path.Combine(newFolder,String.Format("{0}.sln",NewSolutionName))
@@ -103,15 +127,26 @@ namespace HarmonyCoreGenerator.ViewModel
                 prc.StartInfo.Arguments = "build"
                 prc.StartInfo.CreateNoWindow = true
                 prc.StartInfo.UseShellExecute = false
-                prc.StartInfo.RedirectStandardOutput = true
                 prc.StartInfo.WorkingDirectory = Path.Combine(newFolder,"Services.Host")
+                prc.StartInfo.RedirectStandardOutput = true
+
+                prc.OutputDataReceived += new DataReceivedEventHandler(receiveProcessMessage)
+
+                ;;Get us off the UI thread
+                await System.Threading.Tasks.TaskScheduler.Default
+
+                ;;Start the process
                 prc.Start()
-
-                sr = prc.StandardOutput
-                ToolOutput = sr.ReadToEnd()
-                sr.Dispose()
-
+                prc.BeginOutputReadLine()
                 prc.WaitForExit()
+
+                ;;Get back onto the UI thread
+                await HarmonyCoreGenerator.App.JTF.SwitchToMainThreadAsync()
+
+                data exitCode = prc.ExitCode
+
+                prc.Close()
+                prc.Dispose()
 
                 if (prc.ExitCode == 0) then
                 begin
@@ -1384,7 +1419,7 @@ namespace HarmonyCoreGenerator.ViewModel
         ;;; <summary>
         ;;; Event handler to log as each code generation task begins
         ;;; </summary>
-        ;;; <param name="task">Task that is beginning</param>
+        ;;; <param name="message">Task that is beginning</param>
         public async method TaskSetMessage, void
             message, @String
         proc
@@ -1395,7 +1430,7 @@ namespace HarmonyCoreGenerator.ViewModel
         ;;; <summary>
         ;;; Event handler to log as each code generation taskset ends
         ;;; </summary>
-        ;;; <param name="task">Taskset that is beginning</param>
+        ;;; <param name="taskset">Taskset that is beginning</param>
         public async method TaskSetComplate, void
             taskset, @CodeGenTaskSet
         proc
