@@ -13,19 +13,29 @@ import CodeGen.MethodCatalogAPI
 import CodeGen.RepositoryAPI
 import HarmonyCoreGenerator.Model
 import MvvmTools
+import System.Diagnostics
 
 .array 0
 
 namespace HarmonyCoreGenerator.ViewModel
     
+    public enum MainWindowTabPages
+        SolutionInfo,       0
+        ODataApis,          1
+        BridgeApis,         2
+        BridgeStructures,   3
+        Miscellaneous,      4
+        CodeGeneration,     5
+        CreateSolution,     6
+    endenum
+
     public partial class GeneratorViewModel extends ViewModelBase
 
         ;;; <summary>
         ;;; Constructor
-        ;;; </summary>        
+        ;;; </summary>
         public method GeneratorViewModel
         proc
-
             data commandLineArgs = Environment.GetCommandLineArgs()
 
             if (commandLineArgs.Length > 1) then
@@ -47,6 +57,93 @@ namespace HarmonyCoreGenerator.ViewModel
 
         endmethod
 
+        ;;; <summary>
+        ;;; Create a new Visual Studio solution from the "harmonycore" project template.
+        ;;; </summary>
+        private method startCreateSolution, void
+            param, @Object
+        proc
+            if (_SolutionOpen)
+                closeSolution()
+            CreateTabVisible = true
+            SelectedTabIndex = (int)MainWindowTabPages.CreateSolution
+        endmethod
+
+        ;;; <summary>
+        ;;; Create a new Visual Studio solution from the "harmonycore" project template.
+        ;;; </summary>
+        private method doCreateSolution, void
+            param, @Object
+        proc
+            disposable data prc = new Process()
+            prc.StartInfo.FileName = "dotnet"
+            prc.StartInfo.Arguments = String.Format("new harmonycore -n {0} -o {0}",NewSolutionName)
+            prc.StartInfo.CreateNoWindow = true
+            prc.StartInfo.UseShellExecute = false
+            prc.StartInfo.RedirectStandardOutput = true
+            prc.StartInfo.WorkingDirectory = NewSolutionFolder
+            prc.Start()
+
+            data sr, @StreamReader, prc.StandardOutput
+            ToolOutput = sr.ReadToEnd()
+            sr.Dispose()
+
+            prc.WaitForExit()
+            prc.Dispose()
+
+            data newFolder, string, Path.Combine(NewSolutionFolder,NewSolutionName)
+            data newSolution, string, Path.Combine(newFolder,String.Format("{0}.sln",NewSolutionName))
+
+            if (File.Exists(newSolution)) then
+            begin
+                ;;Build the solution
+                prc = new Process()
+                prc.StartInfo.FileName = "dotnet"
+                prc.StartInfo.Arguments = "build"
+                prc.StartInfo.CreateNoWindow = true
+                prc.StartInfo.UseShellExecute = false
+                prc.StartInfo.RedirectStandardOutput = true
+                prc.StartInfo.WorkingDirectory = Path.Combine(newFolder,"Services.Host")
+                prc.Start()
+
+                sr = prc.StandardOutput
+                ToolOutput = sr.ReadToEnd()
+                sr.Dispose()
+
+                prc.WaitForExit()
+
+                if (prc.ExitCode == 0) then
+                begin
+                    doOpenSolution(newSolution)
+                end
+                else
+                begin
+                    MessageBox.Show("Failed to build new solution","Build Failed",MessageBoxButton.OK,MessageBoxImage.Error)
+                    cancelCreateSolution(^null)
+                end
+            end
+            else
+            begin
+                MessageBox.Show("Failed to create solution","Create Failed",MessageBoxButton.OK,MessageBoxImage.Error)
+                cancelCreateSolution(^null)
+            end
+
+        endmethod
+
+        ;;; <summary>
+        ;;; Create a new Visual Studio solution from the "harmonycore" project template.
+        ;;; </summary>
+        private method cancelCreateSolution, void
+            param, @Object
+        proc
+            NewSolutionFolder = String.Empty
+            NewSolutionName = String.Empty
+            CreateTabVisible = false
+        endmethod
+
+        ;;; <summary>
+        ;;; Open an existing Visual Studio solution
+        ;;; </summary>
         private method openSolution, void
         proc
             if (_SolutionOpen)
@@ -120,15 +217,6 @@ namespace HarmonyCoreGenerator.ViewModel
             ODataTaskSetFile = Path.Combine(
             &    _SolutionFolder,
             &    String.Format(
-            &    "{0}{1}",
-            &    Path.GetFileNameWithoutExtension(_SolutionFile),
-            &    Properties.Settings.Default.CodeGenProjectFileExtension
-            &    )
-            &    )
-
-            ODataTaskSetFile = Path.Combine(
-            &    _SolutionFolder,
-            &    String.Format(
             &    "{0}.odata{1}",
             &    Path.GetFileNameWithoutExtension(_SolutionFile),
             &    Properties.Settings.Default.CodeGenProjectFileExtension
@@ -159,46 +247,68 @@ namespace HarmonyCoreGenerator.ViewModel
 
                 ;; Repository files
                 if (!File.Exists(Options.RepositoryMainFile))
+                begin
                     errors.Add("Repository main file not found!")
+                end
 
                 if (!File.Exists(Options.RepositoryTextFile))
+                begin
                     errors.Add("Repository text file not found!")
+                end
 
                 ;; User tokens file should be in the solution folder
                 if (!File.Exists(Options.UserTokensFile))
+                begin
                     errors.Add("user defined tokens file not found!")
+                end
 
                 ;; Verify the services folder is present
                 if (!Directory.Exists(Options.ServicesFolder))
+                begin
                     errors.Add("Services folder not found!")
+                end
 
                 ;; Verify the controllers folder is present
                 if (!Directory.Exists(Options.ControllersFolder))
+                begin
                     errors.Add("Controllers folder not found!")
+                end
 
                 ;; Verify the self host folder is present
                 if (!Directory.Exists(Options.SelfHostFolder))
+                begin
                     errors.Add("Self host folder not found!")
+                end
 
                 ;; Verify the isolated folder is present
                 if (!Directory.Exists(Options.IsolatedFolder))
+                begin
                     errors.Add("Isolated folder not found!")
+                end
 
                 ;; Verify the models folder is present
                 if (!Directory.Exists(Options.ModelsFolder))
+                begin
                     errors.Add("Models folder not found!")
+                end
 
                 ;; Do we have a unit tests folder?
                 if (!String.IsNullOrWhiteSpace(Options.UnitTestFolder) && !Directory.Exists(Options.UnitTestFolder))
+                begin
                     errors.Add("Unit test folder not found!")
+                end
 
                 ;; Do we have a traditional bridge folder?
                 if (!String.IsNullOrWhiteSpace(Options.TraditionalBridgeFolder) && !Directory.Exists(Options.TraditionalBridgeFolder))
+                begin
                     errors.Add("Traditional Bridge folder not found!")
+                end
 
                 ;; Templates folder should be right below the solution folder.
                 if (!Directory.Exists(Options.TemplatesFolder))
+                begin
                     errors.Add("Templates folder not found!")
+                end
 
                 ;;Do we have an SMC file?
                 if (!String.IsNullOrWhiteSpace(Options.SmcExportFile))
@@ -219,7 +329,9 @@ namespace HarmonyCoreGenerator.ViewModel
 
                 ;; For existing projects show the code generation page
                 if (errors.Count == 0)
-                    SelectedTabIndex = 5
+                begin
+                    SelectedTabIndex = (int)MainWindowTabPages.CodeGeneration
+                end
             end
             else
             begin
@@ -240,39 +352,55 @@ namespace HarmonyCoreGenerator.ViewModel
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug", Properties.Settings.Default.RepositoryMainFile)
 
                 if (File.Exists(temp)) then
+                begin
                     Options.RepositoryMainFile = FileTools.GetRelativePath(_SolutionFolder,temp)
+                end
                 else
+                begin
                     errors.Add(String.Format("Repository main file '{0}' was not found in the expected location!",Properties.Settings.Default.RepositoryMainFile))
+                end
 
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug", Properties.Settings.Default.RepositoryTextFile)
 
                 if (File.Exists(temp)) then
+                begin
                     Options.RepositoryTextFile = FileTools.GetRelativePath(_SolutionFolder,temp)
+                end
                 else
+                begin
                     errors.Add(String.Format("Repository text file '{0}' was not found in the expected location!",Properties.Settings.Default.RepositoryTextFile))
+                end
 
                 ;; User tokens file should be in the solution folder
 
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.UserTokenFile)
 
                 if (File.Exists(temp)) then
+                begin
                     Options.UserTokensFile = FileTools.GetRelativePath(_SolutionFolder,temp)
+                end
                 else
+                begin
                     errors.Add(String.Format("File '{0}' was not found in the solution directory!",Properties.Settings.Default.UserTokenFile))
+                end
 
                 ;; Verify the services folder is present
 
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.ServicesFolder)
 
                 if (!Directory.Exists(temp)) then
+                begin
                     errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.ServicesFolder))
+                end
                 else
                 begin
                     Options.ServicesFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     Options.ServicesProject = Properties.Settings.Default.ServicesProject
                     ;;Verify that the project is present
                     if (!File.Exists(Path.Combine(Options.ServicesFolder, Options.ServicesProject)))
+                    begin
                         errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.ServicesProject))
+                    end
                 end
 
                 ;; Verify the controllers folder is present
@@ -280,14 +408,18 @@ namespace HarmonyCoreGenerator.ViewModel
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.ControllersFolder)
 
                 if (!Directory.Exists(temp)) then
+                begin
                     errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.ControllersFolder))
+                end
                 else
                 begin
                     Options.ControllersFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     Options.ControllersProject = Properties.Settings.Default.ControllersProject
                     ;;Verify that the project is present
                     if (!File.Exists(Path.Combine(Options.ControllersFolder, Options.ControllersProject)))
+                    begin
                         errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.ControllersProject))
+                    end
                 end
 
                 ;; Verify the self host folder is present
@@ -295,14 +427,18 @@ namespace HarmonyCoreGenerator.ViewModel
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.HostFolder)
 
                 if (!Directory.Exists(temp)) then
+                begin
                     errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.HostFolder))
+                end
                 else
                 begin
                     Options.SelfHostFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     Options.SelfHostProject = Properties.Settings.Default.HostProject
                     ;;Verify that the project is present
                     if (!File.Exists(Path.Combine(Options.SelfHostFolder, Options.SelfHostProject)))
+                    begin
                         errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.HostProject))
+                    end
                 end
 
                 ;; Verify the isolated folder is present
@@ -310,14 +446,18 @@ namespace HarmonyCoreGenerator.ViewModel
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.IsolatedFolder)
 
                 if (!Directory.Exists(temp)) then
+                begin
                     errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.IsolatedFolder))
+                end
                 else
                 begin
                     Options.IsolatedFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     Options.IsolatedProject = Properties.Settings.Default.IsolatedProject
                     ;;Verify that the project is present
                     if (!File.Exists(Path.Combine(Options.IsolatedFolder, Options.IsolatedProject)))
+                    begin
                         errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.IsolatedProject))
+                    end
                 end
 
                 ;; Verify the models folder is present
@@ -325,14 +465,18 @@ namespace HarmonyCoreGenerator.ViewModel
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.ModelsFolder)
 
                 if (!Directory.Exists(temp)) then
+                begin
                     errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.ModelsFolder))
+                end
                 else
                 begin
                     Options.ModelsFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     Options.ModelsProject = Properties.Settings.Default.ModelsProject
                     ;;Verify that the project is present
                     if (!File.Exists(Path.Combine(Options.ModelsFolder, Options.ModelsProject)))
+                    begin
                         errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.ModelsProject))
+                    end
                 end
 
                 ;; Do we have a unit tests folder?
@@ -340,14 +484,18 @@ namespace HarmonyCoreGenerator.ViewModel
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.TestFolder)
 
                 if (!Directory.Exists(temp)) then
+                begin
                     Options.UnitTestFolder = String.Empty
+                end
                 else
                 begin
                     Options.UnitTestFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     Options.UnitTestProject = Properties.Settings.Default.TestProject
                     ;;Verify that the project is present
                     if (!File.Exists(Path.Combine(Options.UnitTestFolder, Options.UnitTestProject)))
+                    begin
                         errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.TestProject))
+                    end
                 end
 
                 ;; Do we have a traditional bridge folder?
@@ -355,14 +503,18 @@ namespace HarmonyCoreGenerator.ViewModel
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.TraditionalBridgeFolder)
 
                 if (!Directory.Exists(temp)) then
+                begin
                     Options.TraditionalBridgeFolder = String.Empty
+                end
                 else
                 begin
                     Options.TraditionalBridgeFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
                     Options.TraditionalBridgeProject = Properties.Settings.Default.TraditionalBridgeProject
                     ;;Verify that the project is present
                     if (!File.Exists(Path.Combine(Options.TraditionalBridgeFolder, Options.TraditionalBridgeProject)))
+                    begin
                         errors.Add(String.Format("Project '{0}' was not found!",Properties.Settings.Default.TraditionalBridgeProject))
+                    end
                 end
 
                 ;; Load the repository
@@ -380,26 +532,39 @@ namespace HarmonyCoreGenerator.ViewModel
                     end
                     ;; For new projects, show the OData Features tab
                     if (errors.Count == 0)
-                        SelectedTabIndex = 1
+                    begin
+                        SelectedTabIndex = (int)MainWindowTabPages.ODataApis 
+                    end
                 end
 
                 ;; Templates folder should be right below the solution folder.
                 temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.TemplatesFolder)
                 if (Directory.Exists(temp)) then
-                    Options.TemplatesFolder = FileTools.GetRelativePath(_SolutionFolder,temp)
+                begin
+                    Options.TemplatesFolder = FileTools.GetRelativePath(_SolutionFolder,temp) 
+                end
                 else
-                    errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.TemplatesFolder))
+                begin
+                    errors.Add(String.Format("Folder '{0}' was not found in the solution directory!",Properties.Settings.Default.TemplatesFolder)) 
+                end
             end
 
             if (errors.Count == 0) then
             begin
                 if (Options.ODataStructures.Count > 0)
-                    SelectedOdataStructure = Options.ODataStructures.First()
+                begin
+                    SelectedOdataStructure = Options.ODataStructures.First() 
+                end
                 
                 if (Options.BridgeStructures.Count > 0)
-                    SelectedBridgeStructure = Options.BridgeStructures.First()
+                begin
+                    SelectedBridgeStructure = Options.BridgeStructures.First() 
+                end
 
                 SolutionOpen = true
+
+                CreateTabVisible = false
+                SolutionTabsVisible = true
 
                 WindowTitle = String.Format("{0} [{1}]",Properties.Settings.Default.WindowTitle,_SolutionFile)
             end
@@ -408,11 +573,15 @@ namespace HarmonyCoreGenerator.ViewModel
                 data message = "The solution configuration was not as expected"
                 data error, string
                 foreach error in errors
-                    message = message + Environment.NewLine + " - " + error
+                begin
+                    message = message + Environment.NewLine + " - " + error 
+                end
 
                 MessageBox.Show(message, "Unsupported Configuration", MessageBoxButton.OK, MessageBoxImage.Exclamation)
 
                 ;; Clear things down so the UI is blank
+                CreateTabVisible = false
+                SolutionTabsVisible = false
                 SolutionFile = String.Empty
                 SolutionFolder = String.Empty
                 SettingsFile = String.Empty
@@ -452,14 +621,15 @@ namespace HarmonyCoreGenerator.ViewModel
                 end
 
                 SolutionOpen = false
+                CreateTabVisible = false
+                SolutionTabsVisible = false
                 SolutionFile = String.Empty
                 SettingsFile = String.Empty
                 CodeGenOutput = new ObservableCollection<LogEntry>()
                 Options = new HarmonyCoreOptions()
-                SelectedTabIndex = 0
+                SelectedTabIndex = (int)MainWindowTabPages.SolutionInfo
 
                 WindowTitle = String.Format("{0}",Properties.Settings.Default.WindowTitle)
-
             end
         endmethod
         
@@ -514,11 +684,6 @@ namespace HarmonyCoreGenerator.ViewModel
             foreach iface in smc.Interfaces
             begin
                 Options.Interfaces.Add(new MduInterfaceRow(iface))
-                data meth, @SmcMethod
-;                foreach meth in iface.Methods
-;                begin
-;                    SelectedInterfaceMethods.Add(meth)
-;                end
             end
 
             if (Options.Interfaces.Count>0)
@@ -604,11 +769,8 @@ namespace HarmonyCoreGenerator.ViewModel
 
             if (ODatarowsToDelete.Count > 0 || ODataStructuresToAdd.Count > 0 || BridgeRowsToDelete.Count > 0 || BridgeStructuresToAdd.Count > 0) then
             begin
-                ;; Ensure the repository page is visible
-                if (SelectedTabIndex != 1)
-                begin
-                    SelectedTabIndex = 1
-                end
+                ;; Ensure the OData page is visible
+                SelectedTabIndex = (int)MainWindowTabPages.ODataApis
 
                 data caption = "Repository Changes Detected"
                 data message = String.Empty
@@ -746,10 +908,7 @@ namespace HarmonyCoreGenerator.ViewModel
         private method generateODataCode, void
         proc
             ;; Ensure the code generation page is visible
-            if (SelectedTabIndex != 5)
-            begin
-                SelectedTabIndex = 5
-            end
+            SelectedTabIndex = (int)MainWindowTabPages.CodeGeneration
 
             ;;Make sure we're in the solution folder
             Directory.SetCurrentDirectory(_SolutionFolder)
@@ -1037,10 +1196,7 @@ namespace HarmonyCoreGenerator.ViewModel
         private method generateBridgeCode, void
         proc
             ;; Ensure the code generation page is visible
-            if (SelectedTabIndex != 5)
-            begin
-                SelectedTabIndex = 5
-            end
+            SelectedTabIndex = (int)MainWindowTabPages.CodeGeneration
 
             ;;Make sure we're in the solution folder
             Directory.SetCurrentDirectory(_SolutionFolder)
@@ -1069,7 +1225,9 @@ namespace HarmonyCoreGenerator.ViewModel
             &    }
 
             if (Options.Authentication)
-                taskset.Defines.Add("DEFINED_ENABLE_AUTHENTICATION")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_AUTHENTICATION") 
+            end
 
             ;;Define code generation tasks based on options selected in the UI
 
@@ -1493,7 +1651,9 @@ namespace HarmonyCoreGenerator.ViewModel
                     begin
                         data itemGroup = itemGroupsWithCompileItems.FirstOrDefault()
                         if (itemGroup.Descendants().Any(lambda(xe) { xe.FirstAttribute.Value.Equals(newFile) }))
-                            nextloop
+                        begin
+                            nextloop 
+                        end
                     end
                     ;;Add a new <Compile> element for the file
                     data newItem = new XElement(testNs + "Compile")
@@ -1537,91 +1697,149 @@ namespace HarmonyCoreGenerator.ViewModel
             taskset.Defines.Clear()
 
             if (Options.FullCollectionEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_GET_ALL")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_GET_ALL") 
+            end
 
             if (Options.PrimaryKeyEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_GET_ONE")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_GET_ONE") 
+            end
 
             if (Options.CreateTestFiles)
-                taskset.Defines.Add("DEFINED_ENABLE_CREATE_TEST_FILES")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_CREATE_TEST_FILES") 
+            end
 
             if (Options.VersioningOrSwagger == VersioningOrSwaggerMode.GenerateSwaggerDoc)
-                taskset.Defines.Add("DEFINED_ENABLE_SWAGGER_DOCS")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_SWAGGER_DOCS") 
+            end
 
             if (Options.VersioningOrSwagger == VersioningOrSwaggerMode.ApiVersioning)
-                taskset.Defines.Add("DEFINED_ENABLE_API_VERSIONING")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_API_VERSIONING") 
+            end
 
             if (Options.AlternateKeyEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_ALTERNATE_KEYS")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_ALTERNATE_KEYS") 
+            end
 
             if (Options.CollectionCountEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_COUNT")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_COUNT") 
+            end
 
             if (Options.IndividualPropertyEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_PROPERTY_ENDPOINTS")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_PROPERTY_ENDPOINTS") 
+            end
 
             if (Options.DocumentPropertyEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_PROPERTY_VALUE_DOCS")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_PROPERTY_VALUE_DOCS") 
+            end
 
             if (Options.ODataSelect)
-                taskset.Defines.Add("DEFINED_ENABLE_SELECT")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_SELECT") 
+            end
 
             if (Options.ODataFilter)
-                taskset.Defines.Add("DEFINED_ENABLE_FILTER")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_FILTER") 
+            end
 
             if (Options.ODataOrderBy)
-                taskset.Defines.Add("DEFINED_ENABLE_ORDERBY")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_ORDERBY") 
+            end
 
             if (Options.ODataTop)
-                taskset.Defines.Add("DEFINED_ENABLE_TOP")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_TOP") 
+            end
 
             if (Options.ODataSkip)
-                taskset.Defines.Add("DEFINED_ENABLE_SKIP")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_SKIP") 
+            end
 
             if (Options.ODataRelations)
-                taskset.Defines.Add("DEFINED_ENABLE_RELATIONS")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_RELATIONS") 
+            end
 
             if (Options.PutEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_PUT")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_PUT") 
+            end
 
             if (Options.PostEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_POST")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_POST") 
+            end
 
             if (Options.PatchEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_PATCH")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_PATCH") 
+            end
 
             if (Options.DeleteEndpoints)
-                taskset.Defines.Add("DEFINED_ENABLE_DELETE")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_DELETE") 
+            end
 
             if (Options.StoredProcedureRouting)
-                taskset.Defines.Add("DEFINED_ENABLE_SPROC")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_SPROC") 
+            end
 
             if (Options.AdapterRouting)
-                taskset.Defines.Add("DEFINED_ENABLE_ADAPTER_ROUTING")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_ADAPTER_ROUTING") 
+            end
 
             if (Options.Authentication)
-                taskset.Defines.Add("DEFINED_ENABLE_AUTHENTICATION")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_AUTHENTICATION") 
+            end
 
             if (Options.CustomAuthentication)
-                taskset.Defines.Add("DEFINED_ENABLE_CUSTOM_AUTHENTICATION")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_CUSTOM_AUTHENTICATION") 
+            end
 
             if (Options.FieldSecurity)
-                taskset.Defines.Add("DEFINED_ENABLE_FIELD_SECURITY")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_FIELD_SECURITY") 
+            end
 
             if (Options.CaseSensitiveUrls)
-                taskset.Defines.Add("DEFINED_ENABLE_CASE_SENSITIVE_URL")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_CASE_SENSITIVE_URL") 
+            end
 
             if (Options.CrossDomainBrowsing)
-                taskset.Defines.Add("DEFINED_ENABLE_CORS")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_CORS") 
+            end
 
             if (Options.IISSupport)
-                taskset.Defines.Add("DEFINED_ENABLE_IIS_SUPPORT")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_IIS_SUPPORT") 
+            end
 
             if (Options.ReadOnlyProperties)
-                taskset.Defines.Add("DEFINED_ENABLE_READ_ONLY_PROPERTIES")
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_READ_ONLY_PROPERTIES") 
+            end
 
             if (Options.ODataSelect || Options.ODataFilter || Options.ODataOrderBy || Options.ODataTop || Options.ODataSkip || Options.ODataRelations)
-                taskset.Defines.Add("DEFINED_PARAM_OPTIONS_PRESENT")
+            begin
+                taskset.Defines.Add("DEFINED_PARAM_OPTIONS_PRESENT") 
+            end
 
         endmethod
         
