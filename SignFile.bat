@@ -23,7 +23,6 @@ rem This is the command used with the certificate on the physical USB device.
 
 if "%ERRORLEVEL%"=="0" (
   echo SUCCESS!
-  if exist SendMsiToDownloads.bat call SendMsiToDownloads.bat
 )
 
 goto done
