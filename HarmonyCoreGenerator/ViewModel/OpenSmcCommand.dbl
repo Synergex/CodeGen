@@ -1,0 +1,97 @@
+
+import CodeGen.MethodCatalogAPI
+import HarmonyCoreGenerator.Model
+import Microsoft.Win32
+import MvvmTools
+import System
+import System.Collections.ObjectModel
+import System.IO
+import System.Linq
+import System.Windows.Input
+
+namespace HarmonyCoreGenerator.ViewModel
+
+    public partial class GeneratorViewModel
+
+.region "OpenSmcCommand"
+
+        private _OpenSmcCommand, @ICommand
+
+        public property OpenSmcCommand, @ICommand
+            method get
+            proc
+                lambda execute(param)
+                begin
+                    openSmc()
+                end
+                if (_OpenSmcCommand == ^null)
+                    _OpenSmcCommand = new RelayCommand(execute)
+                mreturn _OpenSmcCommand
+            endmethod
+        endproperty
+
+        private method openSmc, void
+        proc
+            data dlg = new OpenFileDialog()
+
+            dlg.Title = "Open SMC Export File"
+            dlg.Filter = "Smc Export Files (*.xml)|*.xml"
+            dlg.CheckFileExists = true
+            dlg.Multiselect = false
+
+            ;;If we have a last used SMC file, default to it
+            data lastSmcFile = Properties.Settings.Default.LastSmcFile
+            if (!String.IsNullOrWhiteSpace(lastSmcFile) && File.Exists(lastSmcFile))
+            begin
+                dlg.InitialDirectory = Path.GetDirectoryName(lastSmcFile)
+                dlg.FileName = Path.GetFileName(lastSmcFile)
+            end
+
+            ;;Show the dialog
+            data result, Nullable<boolean>, dlg.ShowDialog()
+
+            if (result == true)
+            begin
+                ;;Default to the same solution next time
+                Properties.Settings.Default.LastSmcFile = dlg.FileName
+                Properties.Settings.Default.Save()
+
+                doOpenSmc(dlg.FileName)
+            end
+
+        endmethod
+
+        ;;; <summary>
+        ;;; Open an SMC Export File
+        ;;; </summary>
+        ;;; <param name="aSmcExportFile">Full path to the SMC export file to open</param>
+        private method doOpenSmc, void
+            required in aSmcExportFile, string
+        proc
+
+            Options.SmcExportFile = aSmcExportFile
+            Options.Interfaces = new ObservableCollection<MduInterfaceRow>()
+            SelectedInterfaceMethods = new ObservableCollection<SmcMethod>()
+
+            ;;Parse the SMC XML file into an @Smc object
+            data smc = new smc(aSmcExportFile)
+
+            ;;Iterate through the interfaces in the SMC and add them to the UI
+            data iface, @SmcInterface
+            foreach iface in smc.Interfaces
+            begin
+                Options.Interfaces.Add(new MduInterfaceRow(iface))
+            end
+
+            if (Options.Interfaces.Count>0)
+            begin
+                SelectedInterface = Options.Interfaces.First()
+            end
+
+        endmethod
+
+.endregion
+
+    endclass
+
+endnamespace

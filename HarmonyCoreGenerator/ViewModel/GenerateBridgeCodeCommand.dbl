@@ -1,0 +1,285 @@
+
+import CodeGen.Engine
+import CodeGen.MethodCatalogAPI
+import HarmonyCoreGenerator.Model
+import Microsoft.VisualStudio.Threading
+import MvvmTools
+import System
+import System.Collections.Generic
+import System.Collections.ObjectModel
+import System.IO
+import System.Linq
+import System.Windows
+import System.Windows.Input
+
+namespace HarmonyCoreGenerator.ViewModel
+
+    public partial class GeneratorViewModel
+
+.region "GenerateBridgeCodeCommand"
+
+        private _GenerateBridgeCodeCommand, @ICommand
+
+        public property GenerateBridgeCodeCommand, @ICommand
+            method get
+            proc
+                lambda execute(param)
+                begin
+                    generateBridgeCode()
+                end
+                lambda canExecute(param)
+                begin
+                    mreturn _SolutionOpen && !String.IsNullOrWhiteSpace(Options.SmcExportFile) && File.Exists(Options.SmcExportFile) && Options.Interfaces.Count > 0 && Options.Interfaces.FirstOrDefault(lambda(i) {i.Exposed == true}) != ^null
+                end
+                if (_GenerateBridgeCodeCommand == ^null)
+                    _GenerateBridgeCodeCommand = new RelayCommand(execute, canExecute)
+                mreturn _GenerateBridgeCodeCommand
+            endmethod
+        endproperty
+
+.endregion
+
+.region "Helper Methods"
+
+        private async method generateBridgeCode, void
+        proc
+            ;; Ensure the code generation page is visible
+            SelectedTabIndex = (int)MainWindowTabPages.CodeGeneration
+
+            ;;Make sure we're in the solution folder
+            Directory.SetCurrentDirectory(_SolutionFolder)
+
+            if (Options.UnsavedChanges)
+            begin
+                if (MessageBox.Show("Save configuration changes before generating?","There are Unsaved Changes",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.Yes) == MessageBoxResult.Yes)
+                begin
+                    saveSettings()
+                end
+            end
+
+            StatusBarText = "Generating Traditional Bridge Code..."
+
+            CodeGenOutput.Clear()
+
+            data taskset = new CodeGenTaskSet()
+            &    {
+            &    Description = "Code generation tasks for Harmony Core solution.",
+            &    RepositoryMainFile = Options.RepositoryMainFile,
+            &    RepositoryTextFile = Options.RepositoryTextFile,
+            &    EchoCommands = true,
+            &    ListGeneratedFiles = true,
+            &    LoggingLevel = CodeGenLoggingLevel,
+            &    MethodCatalog = new Smc(Options.SmcExportFile)
+            &    }
+
+            ;;Add defined values based on options selected in the UI
+            if (Options.Authentication)
+            begin
+                taskset.Defines.Add("DEFINED_ENABLE_AUTHENTICATION") 
+            end
+
+            ;;Add event handlers to grab task set output
+            addhandler(taskset.TaskSetMessage,TaskSetMessage)
+            addhandler(taskset.TaskSetComplete,TaskSetComplate)
+
+            ;;Define code generation tasks based on options selected in the UI
+
+            data task, @CodeGenTask
+            data iface, @MduInterfaceRow
+
+            ;;Do we have at least one interface selected for processing?
+            foreach iface in Options.Interfaces
+            begin
+                ;;Is this interface selected for processing?
+                if (!iface.Exposed)
+                begin
+                    nextloop
+                end
+
+                ;; Dispatcher classes (Traditional Side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate a dispatcher class for each method"
+                task.Templates.Add("InterfaceMethodDispatchers")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Path.Combine(Options.TraditionalBridgeFolder,"Dispatchers")
+                task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Dispatchers")
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Main dispatcher class (Traditional Side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate main dispatcher class"
+                task.Templates.Add("InterfaceDispatcher")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Path.Combine(Options.TraditionalBridgeFolder,"Dispatchers")
+                task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Dispatchers")
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Sample data generator class (Traditional Side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate a class to generate sample response data"
+                task.Templates.Add("InterfaceTestResponses")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Path.Combine(Options.TraditionalBridgeFolder,"Methods")
+                task.Namespace = String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Methods")
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Request and response models for the service class methods (.NET side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate request and response models for the service class methods"
+                task.Templates.Add("InterfaceServiceModels")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Options.ModelsFolder
+                task.Namespace = Options.ModelsFolder
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Service class (.NET side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate the service class (.NET side)"
+                task.Templates.Add("InterfaceService")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Options.ControllersFolder
+                task.Namespace = Options.ControllersFolder
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Web API controller (.NET side)
+
+                task = new CodeGenTask()
+                task.Description = "Generate Web API controller (.NET side)"
+                task.Templates.Add("InterfaceController")
+                task.Interface = iface.InterfaceName
+                task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                task.OutputFolder = Options.ControllersFolder
+                task.Namespace = Options.ControllersFolder
+                task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                task.ReplaceFiles = true
+                taskset.Tasks.Add(task)
+
+                ;; Postman tests for the WebAPI operations
+
+                if (Options.SmcPostmanTests)
+                begin
+                    task = new CodeGenTask()
+                    task.Description = "Generate Postman tests for the Interface"
+                    task.Templates.Add("InterfacePostmanTests")
+                    task.Interface = iface.InterfaceName
+                    task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"TraditionalBridge")
+                    task.OutputFolder = SolutionFolder
+                    task.ReplaceFiles = true
+                    taskset.Tasks.Add(task)
+                end
+
+                ;; SignalR Service
+
+                if (Options.SmcSignalRHubs)
+                begin
+                    task = new CodeGenTask()
+                    task.Description = "Generate a SignalR hub for the Interface"
+                    task.Templates.Add("SignalRHub ")
+                    task.Interface = iface.InterfaceName
+                    task.TemplateFolder = Path.Combine(Options.TemplatesFolder,"SignalR")
+                    task.OutputFolder = Options.ControllersFolder
+                    task.Namespace = Options.ControllersFolder
+                    task.UserTokens.Add(new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",Options.TraditionalBridgeFolder,"Models")))
+                    task.ReplaceFiles = true
+                    taskset.Tasks.Add(task)
+                end
+
+            end
+
+            ;;---------------------------------------------------------------------------------------------
+            ;; Execute the Traditional Bridge tasks
+
+            try
+            begin
+                data success, boolean
+                data codegen = new CodeGenerator(taskset)
+
+                ;;Get us off the UI thread
+                await System.Threading.Tasks.TaskScheduler.Default
+
+                ;;Generate the code
+                success = codegen.GenerateCode()
+
+                ;;Get back onto the UI thread
+                await HarmonyCoreGenerator.App.JTF.SwitchToMainThreadAsync()
+
+                ;;Save the taskset to a file so we can manually generate from it later
+                taskset.SaveToFile(_BridgeTaskSetFile)
+
+                ;;Add new files to the Visual Studio Solutions
+                data messages, @ObservableCollection<LogEntry>
+                updateProjectFiles(taskset,messages)
+
+                ;;Display details of files added to projects
+                CodeGenOutput.AddRange(messages)
+
+                ;;Update the status bar
+                StatusBarText = success ? "Success" : "Errors occured during code generation"
+            end
+            catch (e, @Exception)
+            begin
+                StatusBarText = String.Format("Unexpected error during code generation. Error was '{0}'",e.Message)
+            end
+            endtry
+
+            structureAndFileStructures = ^null
+            structureAndFileAliases = ^null
+
+        endmethod
+
+        private static traditionalBridgeStructures, @List<string>
+        private static traditionalBridgeAliases, @List<string>
+        
+        private method addTraditionalBridgeStructures, void
+            task, @CodeGenTask 
+        proc
+
+            ;; One time only per code generation pass
+
+            if (traditionalBridgeStructures == ^null)
+            begin
+                traditionalBridgeStructures = new List<string>()
+                traditionalBridgeAliases = new List<string>()
+
+                data row, @ODataStructureRow
+                foreach row in Options.ODataStructures.Where(lambda (row) { row.ProcessingMode.Equals("Traditional Bridge Only") })
+                begin
+                    traditionalBridgeStructures.Add(row.Name)
+                    traditionalBridgeAliases.Add(String.IsNullOrWhiteSpace(row.Alias) ? row.Name : row.Alias)
+                end
+            end
+
+            ;; Add the structures to the current task
+
+            data ix, int
+            for ix from 0 thru traditionalBridgeStructures.Count - 1
+            begin
+                task.Structures.Add(traditionalBridgeStructures[ix])
+                task.Aliases.Add(traditionalBridgeAliases[ix])
+            end
+
+        endmethod
+
+.endregion
+
+    endclass
+
+endnamespace

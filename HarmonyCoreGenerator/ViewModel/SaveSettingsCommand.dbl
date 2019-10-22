@@ -1,0 +1,59 @@
+
+import MvvmTools
+import Newtonsoft.Json
+import System
+import System.IO
+import System.Windows
+import System.Windows.Input
+
+namespace HarmonyCoreGenerator.ViewModel
+
+    public partial class GeneratorViewModel
+
+.region "SaveSettingsCommand"
+
+        private _SaveSettingsCommand, @ICommand
+
+        public property SaveSettingsCommand, @ICommand
+            method get
+            proc
+                lambda execute(param)
+                begin
+                    saveSettings()
+                end
+                lambda canExecute(param)
+                begin
+                    mreturn _SolutionOpen
+                end
+                if (_SaveSettingsCommand == ^null)
+                    _SaveSettingsCommand = new RelayCommand(execute, canExecute)
+                mreturn _SaveSettingsCommand
+            endmethod
+        endproperty
+
+        private method saveSettings, void
+        proc
+            try
+            begin
+                ;;Serialoze the Options object into a JSON string
+                data jsonData = JsonConvert.SerializeObject(
+                &    Options,
+                &    Formatting.Indented, 
+                &    new JsonSerializerSettings() {DefaultValueHandling = DefaultValueHandling.Include}
+                &    )
+                ;;And save the string to the Harmony Core project settings file
+                File.WriteAllText(_SettingsFile, jsonData)
+                Options.ChangesSaved()
+            end
+            catch (ex, @Exception)
+            begin
+                MessageBox.Show("Failed to save settings! Error was " + ex.Message)
+            end
+            endtry
+        endmethod
+        
+.endregion
+
+    endclass
+
+endnamespace

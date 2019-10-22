@@ -1,0 +1,205 @@
+
+import CodeGen.RepositoryAPI
+import HarmonyCoreGenerator.Model
+import MvvmTools
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Windows
+import System.Windows.Input
+
+namespace HarmonyCoreGenerator.ViewModel
+
+    public partial class GeneratorViewModel
+
+.region "RefreshRepositoryCommand"
+
+        private _RefreshRepositoryCommand, @ICommand
+
+        public property RefreshRepositoryCommand, @ICommand
+            method get
+            proc
+                lambda execute(param)
+                begin
+                    refreshRepository(true)
+                end
+                lambda canExecute(param)
+                begin
+                    mreturn _SolutionOpen
+                end
+                if (_RefreshRepositoryCommand == ^null)
+                    _RefreshRepositoryCommand = new RelayCommand(execute, canExecute)
+                mreturn _RefreshRepositoryCommand
+            endmethod
+        endproperty
+
+        private method refreshRepository, void
+            required in showNoChangesMessage, boolean
+        proc
+            data rps = new Repository(Options.RepositoryMainFile, Options.RepositoryTextFile, false)
+            
+            ;;Look for structures in our OData structures list that are no longer in the repository
+
+            data ODataRow, @ODataStructureRow
+            data ODatarowsToDelete = new List<ODataStructureRow>()
+
+            foreach ODataRow in Options.ODataStructures
+            begin
+                if (!rps.Structures.Any(lambda (s) { s.Name.Equals(ODataRow.Name) }))
+                begin
+                    ODatarowsToDelete.Add(ODataRow)
+                end
+            end
+
+            ;;Look for structures in our Bridge structures list that are no longer in the repository
+
+            data BridgeRow, @BridgeStructureRow
+            data BridgeRowsToDelete = new List<BridgeStructureRow>()
+
+            foreach BridgeRow in Options.BridgeStructures
+            begin
+                if (!rps.Structures.Any(lambda (s) { s.Name.Equals(BridgeRow.Name) }))
+                begin
+                    BridgeRowsToDelete.Add(BridgeRow)
+                end
+            end
+
+            ;;Look for structures in repository that are not in our list
+
+            data str, @RpsStructure
+            data ODataStructuresToAdd = new List<RpsStructure>()
+            data BridgeStructuresToAdd = new List<RpsStructure>()
+
+            foreach str in rps.Structures
+            begin
+                ;; OData
+                if (!Options.ODataStructures.Any(lambda(s) { s.Name.Equals(str.Name) }))
+                begin
+                    ODataStructuresToAdd.Add(str)
+                end
+                ;; Bridge
+                if (!Options.BridgeStructures.Any(lambda(s) { s.Name.Equals(str.Name) }))
+                begin
+                    BridgeStructuresToAdd.Add(str)
+                end
+            end
+
+            ;;Tell the user what we are about to do and give them the chance to cancel
+
+            if (ODatarowsToDelete.Count > 0 || ODataStructuresToAdd.Count > 0 || BridgeRowsToDelete.Count > 0 || BridgeStructuresToAdd.Count > 0) then
+            begin
+                ;; Ensure the OData page is visible
+                SelectedTabIndex = (int)MainWindowTabPages.ODataApis
+
+                data caption = "Repository Changes Detected"
+                data message = String.Empty
+
+                if (ODataStructuresToAdd.Count > 0)
+                begin
+                    message += "Structures to be added:"
+                    foreach str in ODataStructuresToAdd
+                    begin
+                        message += Environment.NewLine + " - " + str.Name
+                    end
+                    message += Environment.NewLine
+                end
+
+                if (ODatarowsToDelete.Count > 0)
+                begin
+                    message += Environment.NewLine + "Structures to be removed:"
+                    foreach ODataRow in ODatarowsToDelete
+                    begin
+                        message += Environment.NewLine + " - " + ODataRow.Name
+                    end
+                    message += Environment.NewLine + "Note: Source files will NOT be removed from projects:"
+                end
+
+                if (MessageBox.Show(message,caption,MessageBoxButton.OKCancel,MessageBoxImage.Information,MessageBoxResult.Cancel) == MessageBoxResult.OK)
+                begin
+                    ;;Remove old OData structures
+                    foreach ODataRow in ODataRowsToDelete
+                    begin
+                        Options.ODataStructures.Remove(ODataRow)
+                    end
+
+                    ;;Remove old Bridge structures
+                    foreach BridgeRow in BridgeRowsToDelete
+                    begin
+                        Options.BridgeStructures.Remove(BridgeRow)
+                    end
+
+                    ;;Add new OData structures, in alphabetical sequence
+                    foreach str in ODataStructuresToAdd
+                    begin
+                        data ix, int
+                        data added = false
+
+                        for ix from 0 thru Options.ODataStructures.Count
+                        begin
+                            if (Options.ODataStructures[ix].Name > str.Name)
+                            begin
+                                Options.ODataStructures.Insert(ix,new ODataStructureRow(str))
+                                added = true
+                                exitloop
+                            end
+                        end
+
+                        ;;If we didn't already add it then add it at the end
+                        if (!added)
+                        begin
+                            Options.ODataStructures.Add(new ODataStructureRow(str))
+                        end
+                    end
+
+                    ;;Add new Bridge structures, in alphabetical sequence
+                    foreach str in BridgeStructuresToAdd
+                    begin
+                        data ix, int
+                        data added = false
+
+                        for ix from 0 thru Options.BridgeStructures.Count
+                        begin
+                            if (Options.BridgeStructures[ix].Name > str.Name)
+                            begin
+                                Options.BridgeStructures.Insert(ix,new BridgeStructureRow(str))
+                                added = true
+                                exitloop
+                            end
+                        end
+
+                        ;;If we didn't already add it then add it at the end
+                        if (!added)
+                        begin
+                            Options.BridgeStructures.Add(new BridgeStructureRow(str))
+                        end
+                    end
+
+                    saveSettings()
+
+                end
+            end
+            else
+            begin
+                if (showNoChangesMessage)
+                begin
+                    MessageBox.Show("No repository changes were found.","Refresh Repository",MessageBoxButton.OK,MessageBoxImage.Information)
+                end
+            end
+
+            if (Options.ODataStructures.Count > 0)
+            begin
+                SelectedODataStructure = Options.ODataStructures.First()
+            end
+
+            if (Options.BridgeStructures.Count > 0)
+            begin
+                SelectedBridgeStructure = Options.BridgeStructures.First()
+            end
+
+        endmethod
+        
+.endregion
+
+    endclass
+
+endnamespace

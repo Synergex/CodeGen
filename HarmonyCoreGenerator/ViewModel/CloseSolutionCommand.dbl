@@ -1,0 +1,65 @@
+
+import HarmonyCoreGenerator.Model
+import MvvmTools
+import System
+import System.Windows
+import System.Windows.Input
+
+namespace HarmonyCoreGenerator.ViewModel
+
+    public partial class GeneratorViewModel
+
+.region "CloseSolutionCommand"
+
+        private _CloseSolutionCommand, @ICommand
+
+        public property CloseSolutionCommand, @ICommand
+            method get
+            proc
+                lambda execute(param)
+                begin
+                    closeSolution()
+                end
+                lambda canExecute(param)
+                begin
+                    mreturn _SolutionOpen
+                end
+                if (_CloseSolutionCommand == ^null)
+                    _CloseSolutionCommand = new RelayCommand(execute, canExecute)
+                mreturn _CloseSolutionCommand
+            endmethod
+        endproperty
+
+        private method closeSolution, void
+        proc
+            if (_SolutionOpen)
+            begin
+                if (Options.UnsavedChanges)
+                begin
+                    if (MessageBox.Show("Save changes before closing the solution?", "Unsaved Changes", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes) == MessageBoxResult.Yes)
+                    begin
+                        saveSettings()
+                    end
+                end
+
+                SolutionOpen = false
+                CreateTabVisible = false
+                SolutionTabsVisible = false
+                SolutionFile = String.Empty
+                SettingsFile = String.Empty
+                CodeGenOutput.Clear()
+                Options = new HarmonyCoreOptions()
+                SelectedTabIndex = (int)MainWindowTabPages.SolutionInfo
+
+                Properties.Settings.Default.LastSolution = String.Empty
+                Properties.Settings.Default.Save()
+
+                WindowTitle = String.Format("{0}",Properties.Settings.Default.WindowTitle)
+            end
+        endmethod
+        
+.endregion
+
+    endclass
+
+endnamespace
