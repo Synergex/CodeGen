@@ -6,7 +6,14 @@ rem is currently in the bin\release\netcoreapp2.0 folder. Running this script wi
 rem any version that might be installed on the system.
 rem
 
-call "%VS150COMNTOOLS%VsDevCmd.bat"
+if exist "%VS150ENTCOMNTOOLS%VsDevCmd.bat" (
+  call "%VS150ENTCOMNTOOLS%VsDevCmd.bat"
+) else (
+    if exist "%VS150COMNTOOLS%VsDevCmd.bat" (
+      call "%VS150COMNTOOLS%VsDevCmd.bat"
+    )
+)
+
 call "%SYNERGYDE64%dbl\dblvars64.bat" > nul
 
 set CODEGEN_ROOT=%~dp0..
@@ -16,7 +23,7 @@ set RPSDAT=%CODEGEN_ROOT%\SampleRepository
 set RPSMFIL=%CODEGEN_ROOT%\SampleRepository\rpsmain.ism
 set RPSTFIL=%CODEGEN_ROOT%\SampleRepository\rpstext.ism
 
-PATH=%CODEGEN_ROOT%\DotNetCore\distribution\windows\release;%PATH%
+PATH=%CODEGEN_ROOT%\DotNetCore\distribution\windows;%PATH%
 
 cd /d %CODEGEN_OUTDIR%
 
@@ -24,7 +31,7 @@ cls
 echo.
 codegen -version
 echo.
-echo CodeGen Executable : %CODEGEN_ROOT%\DotNetCore\distribution\windows\release\CodeGen.exe
+echo CodeGen Executable : %CODEGEN_ROOT%\DotNetCore\distribution\windows\CodeGen.exe
 echo Repository         : %RPSMFIL%
 echo Template folder    : %CODEGEN_TPLDIR%
 echo Output folder      : %CODEGEN_OUTDIR%
