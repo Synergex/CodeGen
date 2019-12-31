@@ -42,6 +42,8 @@
 
 import Microsoft.Win32
 import System
+import Newtonsoft.Json
+import Newtonsoft.Json.Serialization
 import System.Collections
 import System.Collections.Generic
 import System.Collections.ObjectModel
@@ -49,7 +51,6 @@ import System.IO
 import System.Linq
 import System.Reflection
 import System.Text
-import CodeGen.Engine
 import CodeGen.Engine
 import CodeGen.RepositoryAPI
 
@@ -546,6 +547,7 @@ namespace CodeGen.Engine
             try
             begin
                 context.Repository = new Repository()
+
                 if (context.DeveloperDebugLoggingEnabled)
                 begin
                     context.CurrentTask.DevDebugLog("Repository opened")
@@ -1015,7 +1017,7 @@ namespace CodeGen.Engine
             ;;-------------------------------------------------------------------------
             ;;Do we have Repository structures specified in the task?
 
-            if (!errStatus && (context.CurrentTask.Structures.Count>0))
+            if (!errStatus && ((context.CurrentTask.Structures != ^null && context.CurrentTask.Structures.Count > 0) || (context.TaskSet.Structures.Count > 0)))
             begin
                 if (context.FileDefinition!=^null) then
                     errStatus = context.CurrentTask.Errorlog("You can't specify both a repository file and repository structures at the same time!")
@@ -1023,7 +1025,7 @@ namespace CodeGen.Engine
                     errStatus = context.CurrentTask.Errorlog("You can't specify a window script and repository structures at the same time!")
                 else if (!String.IsNullOrEmpty(context.CurrentTask.ProformaFile)) then
                     errStatus = context.CurrentTask.Errorlog("You can't specify a proforma file and repository structures at the same time!")
-                else
+                else if (context.CurrentTask.Structures != ^null && context.CurrentTask.Structures.Count>0) then
                 begin
                     ;;All or specific structures?
                     if (context.CurrentTask.Structures[0]=="*") then
@@ -1067,16 +1069,62 @@ namespace CodeGen.Engine
                             endtry
                         end
                     end
-
-                    ;;Default all structures to use the first file assigned
-                    if (!errStatus)
+                end
+                else if (context.Taskset.Structures.Count > 0)
+                begin
+                    ;;All or specific structures?
+                    if (context.Taskset.Structures[0]=="*") then
                     begin
+                        ;;Process all structures
+                        try
+                        begin
+                            context.Structures = new RpsStructureCollection(RpsLoadMode.Load,context.CurrentTask.UseAlternateFieldNames)
+                            if (context.Structures.Count == 0)
+                                errStatus = context.CurrentTask.Errorlog("Your repository contains no structures!")
+                        end
+                        catch (ex, @RpsException)
+                        begin
+                            errStatus = context.CurrentTask.Errorlog(ex.Message)
+                        end
+                        endtry
+                    end
+                    else
+                    begin
+                        ;;Process specified structures
                         data ix, int
-                        context.StructureFileIndex = new int[context.Structures.Count]
-                        for ix from 0 thru context.Structures.Count - 1
-                            context.StructureFileIndex[ix] = 0
+                        for ix from 0 thru context.Taskset.Structures.Count-1 
+                        begin
+                            try
+                            begin
+                                data newStructure, @RpsStructure, new RpsStructure(context.Taskset.Structures[ix],context.CurrentTask.UseAlternateFieldNames)
+                                if (!String.IsNullOrWhiteSpace(context.SelectionWindowScript))
+                                begin
+                                    if (!ProcessSelectionWindows(context,newStructure))
+                                    begin
+                                        errStatus = context.CurrentTask.Errorlog(String.Format("Failed to resolve selection windows for structure {0}.",newStructure.Name))
+                                        exitloop
+                                    end
+                                end
+                                context.Structures.Add(newStructure)
+                            end
+                            catch (ex)
+                            begin
+                                errStatus = context.CurrentTask.Errorlog(ex.Message)
+                            end
+                            endtry
+                        end
                     end
                 end
+
+                ;;Default all structures to use the first file assigned
+                if (!errStatus)
+                begin
+                    data ix, int
+                    context.StructureFileIndex = new int[context.Structures.Count]
+                    for ix from 0 thru context.Structures.Count - 1
+                        context.StructureFileIndex[ix] = 0
+                end
+
             end
 
             ;;-------------------------------------------------------------------------
@@ -1235,7 +1283,7 @@ namespace CodeGen.Engine
                     tmpStr.Alias = tmpStr.Name
 
                 ;;Now apply specific aliases from the command line
-                if (context.CurrentTask.Aliases.Count>0)
+                if (context.CurrentTask.Aliases != ^null && context.CurrentTask.Aliases.Count>0) then
                 begin
                     if (!String.IsNullOrWhiteSpace(context.CurrentTask.WindowScript)) then
                         errStatus = context.CurrentTask.Errorlog("Can't use WindowScript and Aliases properties together!")
@@ -1250,6 +1298,26 @@ namespace CodeGen.Engine
                             if (!String.IsNullOrWhiteSpace(context.CurrentTask.Aliases[AliasIndex]))
                             begin
                                 context.Structures[AliasIndex].Alias = context.CurrentTask.Aliases[AliasIndex].ToUpper()
+                                context.CurrentTask.DebugLog(" - Structure " + context.Structures[AliasIndex].Name + " aliased as " + context.Structures[AliasIndex].Alias)
+                            end
+                        end
+                    end
+                end
+                else if (context.Taskset.Aliases.Count > 0)
+                begin
+                    if (!String.IsNullOrWhiteSpace(context.CurrentTask.WindowScript)) then
+                        errStatus = context.CurrentTask.Errorlog("Can't use WindowScript and Aliases properties together!")
+                    else if (context.TaskSet.Aliases.Count > context.Structures.Count) then
+                        errStatus = context.CurrentTask.Errorlog("More aliases than repository structures!")
+                    else
+                    begin
+                        context.CurrentTask.DebugLog("Applying structure aliases",true,false)
+                        data AliasIndex, int
+                        for AliasIndex from 0 thru context.TaskSet.Aliases.Count - 1
+                        begin
+                            if (!String.IsNullOrWhiteSpace(context.TaskSet.Aliases[AliasIndex]))
+                            begin
+                                context.Structures[AliasIndex].Alias = context.TaskSet.Aliases[AliasIndex].ToUpper()
                                 context.CurrentTask.DebugLog(" - Structure " + context.Structures[AliasIndex].Name + " aliased as " + context.Structures[AliasIndex].Alias)
                             end
                         end
