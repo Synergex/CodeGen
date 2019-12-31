@@ -45,6 +45,7 @@ import System.Collections.Generic
 import System.Linq
 import System.Text
 import System.Threading.Tasks
+import CodeGen.RepositoryAPI
 
 .array 0
 
@@ -330,6 +331,65 @@ namespace CodeGen.Engine
             begin
                 tokenText = tokenText.Replace("REMAINING_INCLUSIVE_MAX_","")
                 remainingValue = loop.MaxIndex - loop.CurrentIndex + 1
+            end
+
+            if (int.TryParse(tokenText,maxValue))
+            begin
+                lambda doExpand(loop) String.Format("{0}", (remainingValue < maxValue) ? remainingValue : maxValue )
+                mreturn ExpandLoopUtilityToken(tkn, template, loops, doExpand)
+            end
+
+            throw new ApplicationException("Invalid loop utility token " + tkn.Value)
+
+        endmethod
+
+        private static method replicationExpandLoopUtilRemainingMax, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            ;This method will be called to expand the following tokens:
+            ;
+            ;<REPLICATION_REMAINING_EXCLUSIVE_MAX_value>
+            ;<REPLICATION_REMAINING_INCLUSIVE_MAX_value>
+            ;
+            ;Where value is a numeric literal
+            ;
+            ;The bahavior is identical to that of expandLoopUtilRemainingMax (above)
+            ;except that the loops MaxIndex is reduced by the number of fields being
+            ;excluded via the special token REPLICATOR_EXCLUDE in field user text or
+            ;long descripotions.
+
+            lambda isLoopNode(node) (node .is. LoopNode)
+            data loop, @LoopNode, loops.Last(isLoopNode)
+
+            data tokenText = tkn.Value
+            data maxValue = 0
+            data remainingValue = 0
+
+            ;;Figure out how many fields have been excluded
+
+            data fld, @RpsField
+            data excludedFieldCount = 0
+
+            foreach fld in template.Context.CurrentStructure.Fields
+            begin
+                if (fld.UserText.Contains("REPLICATOR_EXCLUDE") || fld.LongDescription.Contains("REPLICATOR_EXCLUDE"))
+                begin
+                    excludedFieldCount += 1
+                end
+            end
+
+            if (tokenText.StartsWith("REPLICATION_REMAINING_EXCLUSIVE_MAX_")) then
+            begin
+                tokenText = tokenText.Replace("REPLICATION_REMAINING_EXCLUSIVE_MAX_","")
+                remainingValue = loop.MaxIndex - excludedFieldCount - loop.CurrentIndex
+            end
+            else if (tokenText.StartsWith("REPLICATION_REMAINING_INCLUSIVE_MAX_"))
+            begin
+                tokenText = tokenText.Replace("REPLICATION_REMAINING_INCLUSIVE_MAX_","")
+                remainingValue = loop.MaxIndex - excludedFieldCount - loop.CurrentIndex + 1
             end
 
             if (int.TryParse(tokenText,maxValue))
