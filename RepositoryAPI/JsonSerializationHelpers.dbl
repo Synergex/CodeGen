@@ -1,0 +1,71 @@
+
+import Newtonsoft.Json
+import Newtonsoft.Json.Serialization
+import System
+import System.Collections.Generic
+import System.Linq
+import System.Text
+
+namespace CodeGen.RepositoryAPI
+
+    ;;; <summary>
+    ;;; Used to exclude a specific type when serializing types to JSON with JSON.NET
+    ;;; </summary>
+    public class DynamicContractResolver extends DefaultContractResolver
+
+        private mTypesToIgnore, @List<Type>
+
+        public method DynamicContractResolver
+        proc
+            ;;Specific types to ignore
+            mTypesToIgnore = new List<Type>()
+            &    {
+            &    ^typeof(Synergex.SynergyDE.VariantDesc), 
+            &    ^typeof(System.IntPtr) 
+            &    }
+        endmethod
+
+        protected override method CreateProperties, @IList<JsonProperty>
+            aTheType, @Type
+            aMemberSerialization, MemberSerialization
+        proc
+            data properties, @IList<JsonProperty>, parent.CreateProperties(aTheType, aMemberSerialization)
+            ;;Ignore the specific types, and anything with a name beginning with $
+            properties = properties.Where(lambda(p) { !mTypesToIgnore.Contains(p.PropertyType) && !p.PropertyName.StartsWith("$") }).ToList()
+            mreturn properties
+        endmethod
+
+    endclass
+
+    public class RpsStructureConverter extends JsonConverter
+
+        ;;Turn an RpsStructure object into a structure name
+        public override method WriteJson, void
+            writer, @JsonWriter
+            value, @object
+            serializer, @JsonSerializer
+        proc
+            data str = (@RpsStructure)value
+            writer.WriteValue(str.Name)
+        endmethod
+
+        ;;Turn a structure name into an RpsStructure object
+        public override method ReadJson, @object
+            reader, @JsonReader
+            objectType, @Type
+            existingValue, @object
+            serializer, @JsonSerializer
+        proc
+            data str = new RpsStructure((string)reader.Value)
+            mreturn str
+        endmethod
+
+        public override method CanConvert, boolean
+            objectType, @Type
+        proc
+            mreturn objectType == ^typeof(RpsStructure)
+        endmethod
+
+    endclass
+
+endnamespace

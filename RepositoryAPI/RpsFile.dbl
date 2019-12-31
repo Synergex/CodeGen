@@ -45,24 +45,26 @@
 .undefine DDINFO_DEFINES_ONLY
 
 import CodeGen.RepositoryAPI
+import Newtonsoft.Json
+import Newtonsoft.Json.Converters
 import System.Collections.Generic
 
 namespace CodeGen.RepositoryAPI
 
     public class RpsFile
 
-		public override method ToString, String
-			endparams
-		proc
-			mreturn String.Format("RpsFile: {0}",this.Name)
-		endmethod
-		
-		;;File attribute data
+        public override method ToString, String
+            endparams
+        proc
+            mreturn String.Format("RpsFile: {0}",this.Name)
+        endmethod
+
+        ;;File attribute data
         protected mfl_info          ,fl_info
         protected mKeys             ,@RpsKeyCollection
         protected mStructures       ,@RpsStructureCollection
-		protected mStructureNames	,@List<string>
-		protected mOdbcTableNames	,@List<string>
+        protected mStructureNames	,@List<string>
+        protected mOdbcTableNames	,@List<string>
 
         private mUseAltrernateFieldNames, boolean
 
@@ -127,38 +129,38 @@ namespace CodeGen.RepositoryAPI
                 dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_portable,tmpPortableInts)
                 if (Repository.RpsControl.error)
                     throw new RpsFileException("Failed to get portable integer specifications for repository file "+this.Name)
-				this.PortableIntsSpecs = %atrim(tmpPortableInts)
+                this.PortableIntsSpecs = %atrim(tmpPortableInts)
             end
 
-			;;Load structure names and ODBC table names
-			
-			mStructureNames = new List<String>()
-			mOdbcTableNames = new List<String>()
+            ;;Load structure names and ODBC table names
 
-			if (mfl_info.fli_nmstructs)
-			begin
-				data strNames,  D_HANDLE, %mem_proc(DM_ALLOC,^size(strIdentifier)*mfl_info.fli_nmstructs)
-				data odbcNames, D_HANDLE, %mem_proc(DM_ALLOC,^size(strIdentifier)*mfl_info.fli_nmstructs)
-				
-				xcall dd_file(Repository.RpsControl,DDL_STRS,mfl_info.fli_nmstructs,^m(strIdentifier,strNames),,,^m(strIdentifier,odbcNames))
+            mStructureNames = new List<String>()
+            mOdbcTableNames = new List<String>()
 
-				data strName, string
-				data odbcName, string
+            if (mfl_info.fli_nmstructs)
+            begin
+                data strNames,  D_HANDLE, %mem_proc(DM_ALLOC,^size(strIdentifier)*mfl_info.fli_nmstructs)
+                data odbcNames, D_HANDLE, %mem_proc(DM_ALLOC,^size(strIdentifier)*mfl_info.fli_nmstructs)
 
-				data ix, int
-				for ix from 1 thru mfl_info.fli_nmstructs
-				begin
-					strName = %atrim(^m(strIdentifier[ix],strNames))
-					odbcName = %atrim(^m(strIdentifier[ix],odbcNames))
-					if (String.IsNullOrWhiteSpace(odbcName))
-						odbcName = strName
-					mStructureNames.Add(strName)
-					mOdbcTableNames.Add(odbcName)
-				end
+                xcall dd_file(Repository.RpsControl,DDL_STRS,mfl_info.fli_nmstructs,^m(strIdentifier,strNames),,,^m(strIdentifier,odbcNames))
 
-				strNames  = %mem_proc(DM_FREE,strNames)
-				odbcNames = %mem_proc(DM_FREE,odbcNames)
-			end
+                data strName, string
+                data odbcName, string
+
+                data ix, int
+                for ix from 1 thru mfl_info.fli_nmstructs
+                begin
+                    strName = %atrim(^m(strIdentifier[ix],strNames))
+                    odbcName = %atrim(^m(strIdentifier[ix],odbcNames))
+                    if (String.IsNullOrWhiteSpace(odbcName))
+                        odbcName = strName
+                    mStructureNames.Add(strName)
+                    mOdbcTableNames.Add(odbcName)
+                end
+
+                strNames  = %mem_proc(DM_FREE,strNames)
+                odbcNames = %mem_proc(DM_FREE,odbcNames)
+            end
 
             ;;Defualt the file's key density to 50% if not specified
             if (!mfl_info.fli_density)
@@ -169,22 +171,34 @@ namespace CodeGen.RepositoryAPI
         ;;---------------------------------------------------------------------
         ;;Public properties to expose the files attributes to the outside world
 
-        ;; Repository file name
+        ;;; <summary>
+        ;;; Repository file name
+        ;;; </summary>
         public readwrite property Name, String, String.Empty
 
-        ;; Desctiption
+        ;;; <summary>
+        ;;; Desctiption
+        ;;; </summary>
         public readwrite property Description, String, String.Empty
 
-        ;; Long description
+        ;;; <summary>
+        ;;; Long description
+        ;;; </summary>
         public readwrite property LongDescription, String, String.Empty
 
-        ;; User text string
+        ;;; <summary>
+        ;;; User text string
+        ;;; </summary>
         public readwrite property UserText, String, String.Empty
 
-        ;; Portable integer specifications
+        ;;; <summary>
+        ;;; Portable integer specifications
+        ;;; </summary>
         public readwrite property PortableIntsSpecs, String, String.Empty
 
-        ;; Timestamp of last modification
+        ;;; <summary>
+        ;;; Timestamp of last modification
+        ;;; </summary>
         public property LastModified, String
             method get
             proc
@@ -192,7 +206,9 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; File type (a15, e.g., "DBL ISAM", "ASCII")
+        ;;; <summary>
+        ;;; File type (a15, e.g., "DBL ISAM", "ASCII")
+        ;;; </summary>
         public property FileType, String
             method get
             proc
@@ -200,7 +216,9 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Actual filename
+        ;;; <summary>
+        ;;; Actual filename
+        ;;; </summary>
         public property FileSpec, String
             method get
             proc
@@ -208,7 +226,9 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Is file definition "temporary"?
+        ;;; <summary>
+        ;;; Is file definition temporary?
+        ;;; </summary>
         public property TempFile, boolean
             method get
             proc
@@ -216,7 +236,9 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Number of structures assigned to the file
+        ;;; <summary>
+        ;;; Number of structures assigned to the file
+        ;;; </summary>
         public property StructureCount, int
             method get
             proc
@@ -224,7 +246,9 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; First (or only) assigned structure
+        ;;; <summary>
+        ;;; First (or only) assigned structure
+        ;;; </summary>
         public property FirstStructure, String
             method get
             proc
@@ -232,10 +256,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Record type (enum RpsRecordType)
-        ;; FixedLength, 0
-        ;; VariableLength, 1
-        ;; MultipleFixedLength, 2
+        {JsonConverter(^typeof(StringEnumConverter))}
+        ;;; <summary>
+        ;;; Record type
+        ;;; </summary>
         public property RecordType, RpsRecordType
             method get
             proc
@@ -243,14 +267,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;;Page (index block) size (enum RpsFilePageSize)
-        ;;  PageSize512, 1
-        ;;  PageSize1024, 0
-        ;;  PageSize2048, 2
-        ;;  PageSize4096, 3
-        ;;  PageSize8192, 4
-		;;  PageSize16384, 5
-		;;  PageSize32768, 6
+        {JsonConverter(^typeof(StringEnumConverter))}
+        ;;; <summary>
+        ;;; Page (index block) size
+        ;;; </summary>
         public property PageSize, RpsFilePageSize
             method get
             proc
@@ -258,7 +278,9 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; File density
+        ;;; <summary>
+        ;;; File density
+        ;;; </summary>
         public property Density, int
             method get
             proc
@@ -266,9 +288,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; File addressing
-        ;;   Addressing32Bit, 0
-        ;;   Addressing40Bit, 1
+        {JsonConverter(^typeof(StringEnumConverter))}
+        ;;; <summary>
+        ;;; File addressing
+        ;;; </summary>
         public property Addressing, RpsFileAddressing
             method get
             proc
@@ -276,7 +299,9 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Compress record data?
+        ;;; <summary>
+        ;;; Compress record data?
+        ;;; </summary>
         public property RecordCompression, boolean
             method get
             proc
@@ -284,7 +309,9 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;; Static RFA's?
+        ;;; <summary>
+        ;;; Static RFA's?
+        ;;; </summary>
         public property StaticRFA, boolean
             method get
             proc
@@ -292,23 +319,30 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-		;;Change tracking?
-		public property ChangeTracking, boolean
-			method get
-			proc
-				mreturn mfl_info.fli_track
-			endmethod
-		endproperty
+        ;;; <summary>
+        ;;; Change tracking?
+        ;;; </summary>
+        public property ChangeTracking, boolean
+            method get
+            proc
+                mreturn mfl_info.fli_track
+            endmethod
+        endproperty
 
-		;;Stored GRFAs?
-		public property StoredGRFA, boolean
-			method get
-			proc
-				mreturn mfl_info.fli_sgrfa
-			endmethod
-		endproperty
+        ;;; <summary>
+        ;;; Stored GRFAs?
+        ;;; </summary>
+        public property StoredGRFA, boolean
+            method get
+            proc
+                mreturn mfl_info.fli_sgrfa
+            endmethod
+        endproperty
 
-        ;;Keys collection - if there is a structure assigned
+        {JsonIgnore}
+        ;;; <summary>
+        ;;; Keys collection - if there is a structure assigned
+        ;;; </summary>
         public property Keys, @RpsKeyCollection
             method get
             proc
@@ -318,7 +352,10 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-        ;;Collection of structures assigned to the file
+        {JsonIgnore}
+        ;;; <summary>
+        ;;; Collection of structures assigned to the file
+        ;;; </summary>
         public property Structures, @RpsStructureCollection
             method get
             proc
@@ -328,21 +365,25 @@ namespace CodeGen.RepositoryAPI
             endmethod
         endproperty
 
-		;;Collection of assigned structure NAMES and ODBC TABLE NAMES 
-		public property StructureNames, @List<string>
-			method get
-			proc
-				mreturn mStructureNames
-			endmethod
-		endproperty
+        ;;; <summary>
+        ;;; Collection of assigned structure NAMES and ODBC TABLE NAMES 
+        ;;; </summary>
+        public property StructureNames, @List<string>
+            method get
+            proc
+                mreturn mStructureNames
+            endmethod
+        endproperty
 
-		;;Collection of assigned structure NAMES and ODBC TABLE NAMES 
-		public property OdbcTableNames, @List<string>
-			method get
-			proc
-				mreturn mOdbcTableNames
-			endmethod
-		endproperty
+        ;;; <summary>
+        ;;; Collection of assigned structure NAMES and ODBC TABLE NAMES 
+        ;;; </summary>
+        public property OdbcTableNames, @List<string>
+            method get
+            proc
+                mreturn mOdbcTableNames
+            endmethod
+        endproperty
 
     endclass
 
