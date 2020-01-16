@@ -1,0 +1,175 @@
+;;*****************************************************************************
+;;
+;; Title:       RepositoryOverride.dbl
+;;
+;; Description: Classes and tools to apply repository overrides based on a
+;;              metadata in a JSON file.
+;;
+;; Date:        15th January 2020
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2020, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections
+import System.Collections.Generic
+import System.IO
+import System.Linq
+import System.Text
+import CodeGen.RepositoryAPI
+import Newtonsoft.Json
+
+namespace CodeGen.Engine
+
+    public static class RepositoryOverride
+
+        public static method ApplyOverrides, boolean
+            required inout context, @CodeGenContext
+        proc
+            data errStatus = false
+
+            data overrides, @OverrideRepository
+
+            ;;Override files must be in the templates folder
+            data overrideFile = Path.Combine(context.TemplateFolder,context.CurrentTask.RepositoryOverrideFile)
+
+            ;;Does the override file exist?
+            if (File.Exists(overrideFile)) then
+            begin
+                ;;Read and de-serialize the override file
+
+                data jsonData = File.ReadAllText(overrideFile)
+
+                try
+                begin
+                    overrides = JsonConvert.DeserializeObject<OverrideRepository>(jsonData)
+                end
+                catch (e, @Exception)
+                begin
+                    errStatus = context.CurrentTask.ErrorLog("Failed to read or deserialize repository override file " + overrideFile + "!")
+                end
+                endtry
+            end
+            else
+            begin
+                errStatus = context.CurrentTask.ErrorLog("Repository override file " + overrideFile + " not found!")
+            end
+
+            if (!errStatus)
+            begin
+                ;;Do we have override structures?
+                data ostr, @OverrideStructure
+                if (overrides.Structures == ^null) then
+                begin
+                    errStatus = context.CurrentTask.ErrorLog("Repository override file contains no structures!")
+                end
+                else
+                begin
+                    ;;Iterate through the override structures
+                    foreach ostr in overrides.Structures
+                    begin
+                        ;;Find the matching repository structure in the repository
+                        data str, @RpsStructure, context.Repository.Structures.FirstOrDefault(lambda(s) { s.Name == ostr.Name })
+                        if (str == ^null) then
+                        begin
+                            errStatus = context.CurrentTask.ErrorLog("Repository override file structure " + ostr.Name + " not found in repository!")
+                            exitloop
+                        end
+                        else
+                        begin
+                            ;;Do we have excluded keys?
+                            if (ostr.ExcludeKeys != ^null)
+                            begin
+                                ;;Iterate through the excluded keys
+                                data excludedKeyName, string
+                                foreach excludedKeyName in ostr.ExcludeKeys
+                                begin
+                                    ;;Find the matching repository key in the repository structure
+                                    data key, @RpsKey, str.Keys.FirstOrDefault(lambda(k) { k.Name == excludedKeyName })
+                                    if (key == ^null) then
+                                    begin
+                                        errStatus = context.CurrentTask.ErrorLog("Repository override file key " + ostr.Name + "." + excludedKeyName + " not found in repository structure " + ostr.Name + "!")
+                                        exitloop
+                                    end
+                                    else
+                                    begin
+                                        ;;And remove it
+                                        str.Keys.Remove(key)
+
+                                        ;;Is the structure selected for processing in this task?
+                                        data str2, @RpsStructure, context.Structures.FirstOrDefault(lambda(s) { s.Name == ostr.Name })
+                                        if (str2 != ^null)
+                                        begin
+                                            ;;Find the matching repository key in the repository structure
+                                            key = str2.Keys.FirstOrDefault(lambda(k) { k.Name == excludedKeyName })
+                                            str2.Keys.Remove(key)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            mreturn errStatus
+
+        endmethod
+
+        ;
+        ; {
+        ;   "Structures": [
+        ;     {
+        ;       "Name": "STR1",
+        ;       "ExcludeKeys": [ "KEY1", "KEY2" ]
+        ;     },
+        ;     {
+        ;       "Name": "STR2",
+        ;       "ExcludeKeys": [ "KEY1", "KEY2" ]
+        ;     }
+        ;   ]
+        ; }
+        ;
+
+        private class OverrideRepository
+            public readwrite property Structures, @IEnumerable<OverrideStructure>
+        endclass
+
+        private class OverrideStructure
+            public readwrite property Name, string
+            public readwrite property ExcludeKeys, [#]string
+        endclass
+
+    endclass
+
+
+endnamespace
