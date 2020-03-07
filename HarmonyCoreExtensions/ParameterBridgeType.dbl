@@ -184,7 +184,24 @@ namespace HarmonyCoreExtensions
                 end
                 (ParameterType.Structure),
                 begin
-                    result = String.Concat("@",param.StructureName)
+                    ;;We need to use the "NoAlias" form of the structure name
+                    ;;and also take into account any structure alias that is
+                    ;;in place in the CodeGen environment, because the structure
+                    ;;name here is the original structure name from the SMC.
+
+                    ;;Locate the repository structure and use the alias
+                    data str, @RpsStructure, template.Context.Repository.Structures.FirstOrDefault(lambda(s) {s.Name.Equals(param.StructureName)} )
+
+                    if (str!=^null) then
+                    begin
+                        data typeName, string, str.Alias.EndsWith("S") ? str.Alias.Substring(0,str.Alias.Length-1) : str.Alias
+                        result = String.Concat("@",StringTools.PascalCase(typeName))
+                    end
+                    else
+                    begin
+                        ;;No match, do the best we can
+                        result = String.Concat("@",param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                    end
                 end
                 (ParameterType.Handle),
                 begin
