@@ -473,11 +473,12 @@ namespace CodeGen.Engine
                 end
 
                 (TokenType.Control),
-                begin
+				begin
                     if (tkn.Value == "ELSE") then
-                    begin
+					begin
+                        data closeToken, @Token
                         ;; int endOfElse = processElse(list, tokens, ix, state, ref errors);
-                        data endOfElse = processElse(currentIfNode, tokens, ix, state, errors)
+                        data endOfElse = processElse(currentIfNode, tokens, ix, state, errors, closeToken)
                         if (endOfElse != -1)
                         begin
                             ix = endOfElse
@@ -594,7 +595,8 @@ namespace CodeGen.Engine
 			required in    startIndex,	int 
 			required in    state,		@Stack<ParserState> 
 			required inout errors,		@List<Tuple<int, int, String>> 
-            required out   ctrlNode,    @ConditionalNode
+			required out   ctrlNode,    @ConditionalNode
+            required out   closeToken,  @Token
 		proc
 			
 			data tkn, @Token
@@ -619,8 +621,10 @@ namespace CodeGen.Engine
 						begin
 							data endOfProcessed = process(ctrlNode.Body, tokens, ix, state, errors, ctrlNode)
 
-							if ((endOfProcessed != -1) && tokens[endOfProcessed].Closer)
-								ctrlNode.CloseToken = tokens[endOfProcessed]
+							if ((endOfProcessed != -1) && tokens[endOfProcessed].Closer) then
+								ctrlNode.CloseToken = closeToken = tokens[endOfProcessed]
+							else
+								closeToken = ctrlNode.CloseToken
 
 							;; Check if we've got a trailing expression, this is not validated/required it is simply ignored
 							if (((endOfProcessed != -1) && ((tokens.Count - 1) > (endOfProcessed + 1))) && (tokens[endOfProcessed + 1].TypeOfToken == TokenType.Expression))
@@ -661,10 +665,13 @@ namespace CodeGen.Engine
             required in    startIndex,	int 
             required in    state,		@Stack<ParserState> 
             required inout errors,		@List<Tuple<int, int, String>> 
-        proc
+		proc
+            data closeToken, @Token
 			data ctrlNode, @ConditionalNode, new IfNode() {Body = new List<ITreeNode>(), OpenToken = tokens[startIndex]}
 			list.Add(ctrlNode)
-            mreturn processConditional(tokens, startIndex, state, errors, ctrlNode)
+			data resultPos = processConditional(tokens, startIndex, state, errors, ctrlNode, closeToken)
+			ctrlNode.CloseToken = closeToken
+            mreturn resultPos
         endmethod
 
 		private static method processElse, int
@@ -672,7 +679,8 @@ namespace CodeGen.Engine
             required in    tokens,		@List<Token> 
             required in    startIndex,	int 
             required in    state,		@Stack<ParserState> 
-            required inout errors,		@List<Tuple<int, int, String>> 
+			required inout errors,		@List<Tuple<int, int, String>> 
+			required out   closeToken,  @Token
         proc
             data ix, int
             for ix from startIndex thru tokens.Count - 1
@@ -683,7 +691,9 @@ namespace CodeGen.Engine
                 begin
                     ctrlNode.Next = new ElseNode() {OpenToken = tkn, Body = new List<ITreeNode>()}
 
-                   mreturn processConditional(tokens, startIndex, state, errors, ctrlNode.Next)
+					data resultPos = processConditional(tokens, startIndex, state, errors, ctrlNode.Next, closeToken)
+					ctrlNode.CloseToken = closeToken
+                    mreturn resultPos
                 end
                 else
                 begin
