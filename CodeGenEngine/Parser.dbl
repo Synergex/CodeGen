@@ -451,7 +451,7 @@ namespace CodeGen.Engine
             required in    startIndex,		int 
             required in    state,			@Stack<ParserState> 
             required inout errors,			@List<Tuple<int, int, String>> 
-            required in    currentIfNode,	@IfNode 
+            required in    currentIfNode,	@ConditionalNode 
         proc
             data ix, int
             for ix from startIndex thru tokens.Count - 1
@@ -589,6 +589,72 @@ namespace CodeGen.Engine
 
         endmethod
 
+		private static method processConditional, int
+			required in    tokens,		@List<Token> 
+			required in    startIndex,	int 
+			required in    state,		@Stack<ParserState> 
+			required inout errors,		@List<Tuple<int, int, String>> 
+            required out   ctrlNode,    @ConditionalNode
+		proc
+			
+			data tkn, @Token
+
+			try
+			begin
+				data ix, int
+
+				for ix from startIndex + 1 thru tokens.Count - 1
+				begin
+					tkn = tokens[ix]
+
+					using (tkn.TypeOfToken) select
+
+					(TokenType.Expression),
+						ctrlNode.Expression = new ExpressionNode() { Value = tkn }
+
+					(),
+					begin
+						state.Push(ParserState.LookingForElseToken)
+						try
+						begin
+							data endOfProcessed = process(ctrlNode.Body, tokens, ix, state, errors, ctrlNode)
+
+							if ((endOfProcessed != -1) && tokens[endOfProcessed].Closer)
+								ctrlNode.CloseToken = tokens[endOfProcessed]
+
+							;; Check if we've got a trailing expression, this is not validated/required it is simply ignored
+							if (((endOfProcessed != -1) && ((tokens.Count - 1) > (endOfProcessed + 1))) && (tokens[endOfProcessed + 1].TypeOfToken == TokenType.Expression))
+								^incr(endOfProcessed, true)
+
+							mreturn endOfProcessed
+
+						end
+						catch (e, @ArgumentOutOfRangeException)
+						begin
+							throw new ApplicationException("CodeGen encountered an ArgumentOutOfRangeException in an area that usually indicates bad template code. Check that your opening anc closing tokens match!")
+						end
+						finally
+						begin
+							state.Pop()
+						end
+						endtry
+					end
+
+					endusing
+				end
+
+			end
+			finally
+			begin
+				if (ctrlNode.Expression == ^null && ctrlNode .is. IfNode)
+					reportParserError(errors, tkn, "CODEGEN BUG: Parser encountered an IfNode without an associated ExpressionNode. This indicates a bug in Tokenizer.")
+			end
+			endtry
+
+			mreturn -1
+		endmethod
+
+
         private static method processControl, int
             required in    list,		@List<ITreeNode> 
             required in    tokens,		@List<Token> 
@@ -596,70 +662,13 @@ namespace CodeGen.Engine
             required in    state,		@Stack<ParserState> 
             required inout errors,		@List<Tuple<int, int, String>> 
         proc
-            data ctrlNode = new IfNode() {Body = new List<ITreeNode>(), OpenToken = tokens[startIndex]}
-
-            list.Add(ctrlNode)
-
-            data tkn, @Token
-
-            try
-            begin
-                data ix, int
-
-                for ix from startIndex + 1 thru tokens.Count - 1
-                begin
-                    tkn = tokens[ix]
-
-                    using (tkn.TypeOfToken) select
-
-                    (TokenType.Expression),
-                        ctrlNode.Expression = new ExpressionNode() { Value = tkn }
-
-                    (),
-                    begin
-                        state.Push(ParserState.LookingForElseToken)
-                        try
-                        begin
-                            data endOfProcessed = process(ctrlNode.Body, tokens, ix, state, errors, ctrlNode)
-
-                            if ((endOfProcessed != -1) && tokens[endOfProcessed].Closer)
-                                ctrlNode.CloseToken = tokens[endOfProcessed]
-
-                            ;; Check if we've got a trailing expression, this is not validated/required it is simply ignored
-                            if (((endOfProcessed != -1) && ((tokens.Count - 1) > (endOfProcessed + 1))) && (tokens[endOfProcessed + 1].TypeOfToken == TokenType.Expression))
-                                ^incr(endOfProcessed, true)
-
-                            mreturn endOfProcessed
-
-                        end
-                        catch (e, @ArgumentOutOfRangeException)
-                        begin
-                            throw new ApplicationException("CodeGen encountered an ArgumentOutOfRangeException in an area that usually indicates bad template code. Check that your opening anc closing tokens match!")
-                        end
-                        finally
-                        begin
-                            state.Pop()
-                        end
-                        endtry
-                    end
-
-                    endusing
-                end
-
-            end
-            finally
-            begin
-                if (ctrlNode.Expression == ^null)
-                    reportParserError(errors, tkn, "CODEGEN BUG: Parser encountered an IfNode without an associated ExpressionNode. This indicates a bug in Tokenizer.")
-            end
-            endtry
-
-            mreturn -1
-
+			data ctrlNode, @ConditionalNode, new IfNode() {Body = new List<ITreeNode>(), OpenToken = tokens[startIndex]}
+			list.Add(ctrlNode)
+            mreturn processConditional(tokens, startIndex, state, errors, ctrlNode)
         endmethod
 
-        private static method processElse, int
-            required in    ctrlNode,	@IfNode 
+		private static method processElse, int
+            required in    ctrlNode,	@ConditionalNode 
             required in    tokens,		@List<Token> 
             required in    startIndex,	int 
             required in    state,		@Stack<ParserState> 
@@ -672,14 +681,9 @@ namespace CodeGen.Engine
 
                 if ((tkn.TypeOfToken == TokenType.Control) && (tkn.Value == "ELSE")) then
                 begin
-                    ctrlNode.Else = new ElseNode() {OpenToken = tkn, Body = new List<ITreeNode>()}
+                    ctrlNode.Next = new ElseNode() {OpenToken = tkn, Body = new List<ITreeNode>()}
 
-                    data endOfProcessed = process(ctrlNode.Else.Body, tokens, ix + 1, state, errors, ^null)
-
-                    if (((endOfProcessed != -1) && (endOfProcessed < tokens.Count)) && tokens[endOfProcessed].Closer)
-                        set ctrlNode.CloseToken, ctrlNode.Else.CloseToken = tokens[endOfProcessed]
-
-                    mreturn endOfProcessed
+                   mreturn processConditional(tokens, startIndex, state, errors, ctrlNode.Next)
                 end
                 else
                 begin

@@ -79,6 +79,8 @@ namespace CodeGen.Engine
         ;; canonicalNameLookup seems lind of pointless. It seems to contain matching names for opener and closer tokens, but the kay and value are always the same? I assume it isn't being used anywhere?
         private canonicalNameLookup, @Dictionary<string, string>, new Dictionary<string, string>()
 
+		private allowsExpressions, @HashSet<string>, new HashSet<string>()
+
         private customValidity, @List<TokenValidity>
         private userTokenValidity, @List<TokenValidity>
         private loopUtilityTokenValidity, @List<TokenValidity>
@@ -521,8 +523,8 @@ namespace CodeGen.Engine
             &    { new TokenMeta() {Name = "COUNTER_2_RESET", TypeOfToken = TokenType.CounterInstruction, IsPaired = false, Validity = TokenValidity.Anywhere} }, 
             &    { new TokenMeta() {Name = "COUNTER_2_VALUE", TypeOfToken = TokenType.Counter, IsPaired = false, Validity = TokenValidity.Anywhere} }, 
             &    
-            &    { new TokenMeta() {Name = "IF", TypeOfToken = TokenType.Control, IsPaired = true, Validity = TokenValidity.Anywhere} }, 
-            &    { new TokenMeta() {Name = "ELSE", TypeOfToken = TokenType.Control, IsPaired = true, Validity = TokenValidity.Anywhere} }, 
+            &    { new TokenMeta() {Name = "IF", TypeOfToken = TokenType.Control, IsPaired = true, Validity = TokenValidity.Anywhere, CanHaveExpression = true} }, 
+            &    { new TokenMeta() {Name = "ELSE", TypeOfToken = TokenType.Control, IsPaired = true, Validity = TokenValidity.Anywhere, CanHaveExpression = true} }, 
             &    
             &    { new TokenMeta() {Name = "STRUCTURE#1", TypeOfToken = TokenType.NotInLoop, IsPaired = false, Validity = TokenValidity.NotInLoop, RequiresRepository = true} }, 
             &    { new TokenMeta() {Name = "STRUCTURE#2", TypeOfToken = TokenType.NotInLoop, IsPaired = false, Validity = TokenValidity.NotInLoop, RequiresRepository = true} }, 
@@ -1123,6 +1125,9 @@ namespace CodeGen.Engine
             ;; If this is a paired token then add the closer to the closer lookup table
             if (meta.IsPaired)
                 closerLookup.Add(meta.Name)
+
+			if(meta.CanHaveExpression)
+                allowsExpressions.Add(meta.Name)
 
         endmethod
 
@@ -1731,10 +1736,6 @@ namespace CodeGen.Engine
                     begin
                         ;; So we found a > or a space after an <
 
-                        ;; For it to be a POSSIBLE expression the previous two characters need to be IF
-                        if ((templateCode[ix] == ' ') && (ix >= 2) && (templateCode[ix - 2] == 'I') && (templateCode[ix - 1] == 'F'))
-                            isExpression = true
-
                         ;; Get the start and end indexes of the VALUE of the possible token (withoit the < > or " ")
                         data realStartIndex, int, (possibleTokenStartsAt + 1)
                         data realEndIndex, int, ix - 1
@@ -1744,7 +1745,13 @@ namespace CodeGen.Engine
                         ;; Make sure we aren't looking at a > or " " immediately after the <
                         if ((realEndIndex - realStartIndex + 1) > 0) then
                         begin
-                            data nextToken, string, templateCode.Substring(realStartIndex, realEndIndex - realStartIndex + 1)
+							data nextToken, string, templateCode.Substring(realStartIndex, realEndIndex - realStartIndex + 1)
+
+							;; For it to be a POSSIBLE expression the previous two characters need to be IF
+							if ((templateCode[ix] == ' ') && allowsExpressions.Contains(nextToken))
+								isExpression = true
+
+
                             if (nextToken.Contains(':') && (nextToken != ":")) then
                             begin
                                 nextToken = nextToken.Split(':')[0]
