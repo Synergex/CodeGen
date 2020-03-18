@@ -590,6 +590,80 @@ namespace CodeGen.Engine
 
         endmethod
 
+		private static method ProcessOperator, void
+			operatorStack, @Stack<Token>
+            expressionStack, @Stack<ExpressionNode>
+		proc
+			data tkn = operatorStack.Pop()
+			if(tkn.Value == '(') then
+			begin
+				data expr = expressionStack.Pop()
+				expressionStack.Push(new GroupExpressionNode() { Value = tkn, Expression = expr })
+			end
+			else if(tkn.Value == 'NOT') then
+			begin
+				data expr = expressionStack.Pop()
+				expressionStack.Push(new UnaryExpressionNode() { Value = tkn, Expression = expr })
+			end
+			else if(tkn.Value == 'AND' || tkn.Value == 'OR') then
+			begin
+				data expr1 = expressionStack.Pop()
+				data expr2 = expressionStack.Pop()
+				expressionStack.Push(new BinaryExpressionNode() { Value = tkn, Left = expr1, Right = expr2 })
+			end
+			else
+				throw new Exception("expression processor resulted in too few operands")
+        endmethod
+
+
+		private static method ProcessExpressionNode, @ExpressionNode
+			required in     tokens,		@List<Token> 
+			required inout  index,	    int 
+		proc
+			data operatorStack = new Stack<Token>()
+			data expressionStack = new Stack<ExpressionNode>()
+
+			while(index < tokens.Count - 1)
+			begin
+				data tkn = tokens[index]
+				if(tkn.TypeOfToken == TokenType.Expression) then
+				begin
+					if(tkn.Value == '(' || tkn.Value == 'NOT' || tkn.Value == 'AND' || tkn.Value == 'OR') then
+					begin
+						operatorStack.Push(tkn)
+					end
+					else if(tkn.Value == ')') then
+					begin
+                        data targetToken = operatorStack.LastOrDefault(lambda(opTkn) { opTkn.Value == '(' })
+						while(operatorStack.Contains(targetToken))
+						begin
+							ProcessOperator(operatorStack, expressionStack)
+						end
+					end
+					else
+					begin
+                        expressionStack.Push(new ExpressionNode() { Value = tkn })
+					end
+					incr index
+				end
+				else
+				begin
+                    decr index
+					while(operatorStack.Count > 0)
+					begin
+						ProcessOperator(operatorStack, expressionStack)
+					end
+
+					if(expressionStack.Count > 1) then
+						throw new Exception("expression processor resulted in too many operands")
+					else if(expressionStack.Count == 0) then
+						throw new Exception("expression processor resulted in too few operands")
+					else
+                        mreturn expressionStack.Peek()
+				end
+			end
+        endmethod
+
 		private static method processConditional, int
 			required in    tokens,		@List<Token> 
 			required in    startIndex,	int 
@@ -612,8 +686,9 @@ namespace CodeGen.Engine
 					using (tkn.TypeOfToken) select
 
 					(TokenType.Expression),
-						ctrlNode.Expression = new ExpressionNode() { Value = tkn }
-
+					begin
+						ctrlNode.Expression = ProcessExpressionNode(tokens, ix)
+                    end
 					(),
 					begin
 						state.Push(ParserState.LookingForElseToken)

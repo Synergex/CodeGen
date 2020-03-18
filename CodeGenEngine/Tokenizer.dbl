@@ -80,6 +80,7 @@ namespace CodeGen.Engine
         private canonicalNameLookup, @Dictionary<string, string>, new Dictionary<string, string>()
 
 		private allowsExpressions, @HashSet<string>, new HashSet<string>()
+        private expressionGlue, @HashSet<string>, new HashSet<string>()
 
         private customValidity, @List<TokenValidity>
         private userTokenValidity, @List<TokenValidity>
@@ -1064,6 +1065,18 @@ namespace CodeGen.Engine
             expressions.Add("VOID_SUBROUTINE",                  TokenValidity.MethodLoop)
             expressions.Add("WEB",                              TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop | TokenValidity.RelationSegmentLoop)
 
+			expressions.Add("AND",                  TokenValidity.Anywhere)
+			expressions.Add("OR",                  TokenValidity.Anywhere)
+			expressions.Add("NOT",                  TokenValidity.Anywhere)
+			expressions.Add("(",                  TokenValidity.Anywhere)
+			expressions.Add(")",                  TokenValidity.Anywhere)
+
+			expressionGlue.Add("AND")
+			expressionGlue.Add("OR")
+			expressionGlue.Add("NOT")
+			expressionGlue.Add("(")
+			expressionGlue.Add(")")
+
             if (context != ^null)
             begin
                 data define, string
@@ -1433,7 +1446,7 @@ namespace CodeGen.Engine
 
             while (ix < templateCode.Length) do
             begin
-                data nextToken, @PossibleToken, nextPossibleToken(ix, templateCode)
+                data nextToken, @PossibleToken, nextPossibleToken(ix, templateCode, tokens.LastOrDefault())
 
                 if (nextToken == ^null) then
                 begin
@@ -1450,8 +1463,8 @@ namespace CodeGen.Engine
                     ;; Is the token a closer?
                     data closer = nextTokenValue.StartsWith("/")
 
-                    ;; The next token isn't here, so we have just text. Add a Text token.
-                    if (nextToken.StartsAtPosition != ix)
+					;; The next token isn't here, so we have just text. Add a Text token.
+                    if (nextToken.StartsAtPosition != ix && nextToken.StartsAtPosition > ix)
                         tokens.Add(new Token(fileName, ix, nextToken.StartsAtPosition - 1, false, templateCode.Substring(ix, nextToken.StartsAtPosition - ix), TokenType.Text, TokenModifier.None, ^null, lineStarts, false, false))
 
                     if (nextToken.IsComment) then
@@ -1575,17 +1588,28 @@ namespace CodeGen.Engine
 
                     ix = nextToken.EndsAtPosition + 1
 
-                    if (nextToken.IsExpression)
-                    begin
-                        data nextExpression, @Tuple<int, int, List<TokenValidity>>, nextExpressionToken(ix, templateCode)
-                        if (nextExpression != ^null)
+                    if (nextToken.IsExpression && !nextToken.IsCloser)
+					begin
+                        data expressionError = ""
+						data nextExpression, @Tuple<int, int, List<TokenValidity>>, nextExpressionToken(ix, templateCode, expressionError)
+						if(!string.IsNullOrWhiteSpace(expressionError))
+							reportError(expressionError)
+                        while (nextExpression != ^null)
                         begin
                             data expressionValue, string, templateCode.Substring(nextExpression.Item1, nextExpression.Item2 - nextExpression.Item1)
                             ;; TODO: Does this expression require repository structure processing?
-                            data requiresRps, boolean, false
+							data requiresRps, boolean, false
                             tokens.Add(new Token(fileName, nextExpression.Item1, nextExpression.Item2, false, expressionValue, TokenType.Expression, TokenModifier.None, nextExpression.Item3, lineStarts, requiresRps, false))
-                            ix = nextExpression.Item2 + 1
-                        end
+							if(expressionValue == '(' || expressionValue == ')' || templateCode[nextExpression.Item2] == ')') then
+								ix = nextExpression.Item2
+                            else
+								ix = nextExpression.Item2 + 1
+
+						    nextExpression = nextExpressionToken(ix, templateCode, expressionError)
+						end
+
+						if(ix < templateCode.Length && templateCode[ix] == '>')
+                            incr ix
                     end
 
                 end
@@ -1663,13 +1687,14 @@ namespace CodeGen.Engine
         ;;; <returns>PossibleToken instance, or null if no possible tokens found.</returns>
         private method nextPossibleToken, @PossibleToken
             searchFrom, int 
-            templateCode, string 
+			templateCode, string 
+            lastToken, @Token
         proc
-            data foundPossibleToken = false
+            data foundPossibleToken = lastToken != ^null ? lastToken.TypeOfToken == TokenType.Expression : false
             data isCloser = false
             data isComment = false
-            data isExpression = false
-            data possibleTokenStartsAt, int, -1
+            data isExpression = foundPossibleToken && templateCode[searchFrom - 1] != '>'
+            data possibleTokenStartsAt, int, foundPossibleToken ? searchFrom - 1 : -1
 
             ;; Character by character looking for a token
             data ix, int
@@ -1677,7 +1702,6 @@ namespace CodeGen.Engine
             begin
                 ;; Did we find a newline?
                 data foundNewLine, boolean, (((templateCode[ix] == %char(13)) && (templateCode.Length > ix + 1) && (templateCode[ix + 1] == %char(10))) || (templateCode[ix] == %char(10)))
-
                 ;; Did we find the start of a template file comment (;//)?
                 if (templateCode.Length > ix + 2 && templateCode[ix] == ';' && templateCode[ix + 1] == '/' && templateCode[ix + 2] == '/') then
                 begin
@@ -1713,7 +1737,7 @@ namespace CodeGen.Engine
                         isCloser = false
                         foundPossibleToken = true
                         possibleTokenStartsAt = ix
-                    end
+					end
                 end
                 else
                 begin
@@ -1736,8 +1760,9 @@ namespace CodeGen.Engine
                     begin
                         ;; So we found a > or a space after an <
 
-                        ;; Get the start and end indexes of the VALUE of the possible token (withoit the < > or " ")
-                        data realStartIndex, int, (possibleTokenStartsAt + 1)
+						;; Get the start and end indexes of the VALUE of the possible token (withoit the < > or " ")
+                        data skipStartLetter = templateCode[possibleTokenStartsAt] == '<' || templateCode[possibleTokenStartsAt] == ' '
+                        data realStartIndex, int, skipStartLetter ? possibleTokenStartsAt + 1 : possibleTokenStartsAt
                         data realEndIndex, int, ix - 1
                         if (isCloser)
                             realStartIndex += 1
@@ -1854,7 +1879,8 @@ namespace CodeGen.Engine
         ;;; <returns></returns>
         private method nextExpressionToken, @Tuple<int, int, List<TokenValidity>>
             startIndex, int 
-            templateCode, string 
+			templateCode, string 
+            out errorText, string
         proc
             data startedToken, boolean, false
             data startedTokenIndex, int, -1
@@ -1864,19 +1890,21 @@ namespace CodeGen.Engine
             begin
                 if (!startedToken) then
                 begin
-                    if (char.IsLetter(templateCode[ix]))
+                    if (char.IsLetter(templateCode[ix])) then
                     begin
                         startedToken = true
                         startedTokenIndex = ix
-                    end
+					end
+					else if(templateCode[ix] == '(' || templateCode[ix] == ')')
+                        mreturn Tuple.Create(ix, ix + 1, userTokenValidity)
                 end
                 else
-                begin
+				begin
                     if (char.IsLetterOrDigit(templateCode[ix]) || (templateCode[ix] == '_')) then
                     begin
                         nextloop
                     end
-                    else if ((templateCode[ix] == ' ') || (templateCode[ix] == '>')) then
+                    else if ((templateCode[ix] == ' ') || (templateCode[ix] == '>') || (templateCode[ix] == ')')) then
                     begin
                         data expressionType, @List<TokenValidity>
                         data expstring, string, templateCode.Substring(startedTokenIndex, ix - startedTokenIndex)
@@ -1909,12 +1937,16 @@ namespace CodeGen.Engine
                         &    ||   expstring.StartsWith("TOTAL_ITEMS_")) then
                         begin
                             mreturn Tuple.Create(startedTokenIndex, ix, loopUtilityTokenValidity)
-                        end
+						end
+						else if(expressionGlue.Contains(expstring)) then
+						begin
+                            mreturn Tuple.Create(startedTokenIndex, ix, userTokenValidity)
+						end
                         else
                         begin
-                            ;; Invalid expression
-                            reportError(String.Format("Invalid expression <IF {0}> at offset {1}!", expstring, startedTokenIndex - 4, ""))
-                            exitloop
+							;; Invalid expression
+							errorText = String.Format("Invalid expression <IF {0}> at offset {1}!", expstring, startedTokenIndex - 4, "")
+                            mreturn ^null
                         end
                     end
                     else if (char.IsControl(templateCode[ix])) then
