@@ -93,12 +93,14 @@ namespace CodeGen.Engine
         ;;; <param name="loops"></param>
         ;;; <returns></returns>
         public method EvaluateExpression, boolean
-            currentContext, TokenType 
+            currentContextFn, @Func<ExpressionNode, TokenType>
             expression, @ExpressionNode 
             template, @FileNode 
             loops, @IEnumerable<LoopNode> 
             endparams
-        proc
+		proc
+            data currentContext = currentContextFn(expression)
+
             lambda doNoEvaluatorMessage()
             begin
                 mreturn string.Format("CODEGEN BUG: No evaluator method was found for the {0} expression <IF {1}>. Define a new evaluator method in ExpressionEvaluator.", currentContext.ToString(), expression.Value.Value)
@@ -112,7 +114,30 @@ namespace CodeGen.Engine
             data badEvaluationRequestMessage, @Func<string>, doBadEvaluationRequestMessage
 
             lambda doFindAndRunEvaluator(evaluators)
-            begin
+			begin
+				if(expression .is. UnaryExpressionNode) then
+				begin
+					if(expression.Value.Value == "NOT")
+					begin
+						mreturn !EvaluateExpression(currentContextFn, ((@UnaryExpressionNode)expression).Expression, template, loops)
+					end
+				end
+				else if(expression .is. BinaryExpressionNode) then
+				begin
+					data leftExpr = ((@BinaryExpressionNode)expression).Left
+                    data rightExpr = ((@BinaryExpressionNode)expression).Right
+                    if(expression.Value.Value == "AND") then
+						mreturn EvaluateExpression(currentContextFn, leftExpr, template, loops) && 
+						&	EvaluateExpression(currentContextFn, rightExpr, template, loops)
+					else if(expression.Value.Value == "OR") 
+						mreturn EvaluateExpression(currentContextFn, leftExpr, template, loops) || 
+						&	EvaluateExpression(currentContextFn, rightExpr, template, loops)
+				end
+				else if(expression .is. GroupExpressionNode)
+				begin
+					mreturn EvaluateExpression(currentContextFn, ((@GroupExpressionNode)expression).Expression, template, loops)
+				end
+
                 ;;Normal expressions
                 if (evaluators.ContainsKey(expression.Value.Value)) then
                     mreturn evaluators[expression.Value.Value](expression.Value, template, loops)
