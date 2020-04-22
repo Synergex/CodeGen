@@ -62,7 +62,9 @@ namespace CodeGen.Engine
 
             loopProcessors.Add("FIELD_LOOP", processFieldLoop)
             loopProcessors.Add("KEY_LOOP", processKeyLoop)
+            loopProcessors.Add("KEY_LOOP_UNIQUE", processKeyLoopUnique)
             loopProcessors.Add("ALTERNATE_KEY_LOOP", processAlternateKeyLoop)
+            loopProcessors.Add("ALTERNATE_KEY_LOOP_UNIQUE", processAlternateKeyLoopUnique)
             loopProcessors.Add("FOREIGN_KEY_LOOP", processForeignKeyLoop)
             loopProcessors.Add("PRIMARY_KEY", processPrimaryKeyLoop)
             loopProcessors.Add("UNIQUE_KEY", processUniqueKeyLoop)
@@ -186,6 +188,138 @@ namespace CodeGen.Engine
 
         endmethod
 
+        private static method processKeyLoopUnique, void
+            required in node,@LoopNode 
+            required in template,@FileNode 
+            required in loops,@IEnumerable<LoopNode> 
+            required in expander,@ITreeNodeVisitor 
+        proc
+            ;;This is like a key loop, except that it will exclude any keys that
+            ;;use the exact same segments as a key that has already been processed.
+
+            data loop = ^as(node, KeyLoopNode)
+            data context = template.Context
+
+            if (template.Context.CurrentStructure.Keys.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+
+            data ix, int
+
+            loop.MaxIndex = template.Context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+
+            loop.FirstUniqueKeyNumber = -1
+            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            begin
+                ;;Skip any Foreign keys
+                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                    nextloop
+                ;;Look for the first unique key
+                if (template.Context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                begin
+                    loop.FirstUniqueKeyNumber = ix
+                    exitloop
+                end
+            end
+
+            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+
+            data prevKeysSegments = new List<RpsKeySegmentCollection>()
+            data otherKeySegments, @RpsKeySegmentCollection 
+
+            ;;Iterate through all the keys in the structure
+            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            begin
+                ;; Skip any foreign keys
+                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                    nextloop
+
+                ;;If we get here we have an access key. Assume it's a duplicate and we'll look for a difference
+                data segmentsMatchAnotherKey = false
+
+                ;;If we havent processed any other keys yet then we can't have a duplicate, so this one gets included
+                if (prevKeysSegments.Count > 0)
+                begin
+                    ;;We have processed other keys, so make sure the segments of this key don't match any we have already processed
+                    data segmentsMatchThisKey, boolean
+                    data thisKeySegments, @RpsKeySegmentCollection, template.Context.CurrentStructure.Keys[ix].Segments
+
+                    data iy, int
+                    for iy from 0 thru prevKeysSegments.Count - 1
+                    begin
+                        ;;Assume we have a duplicate, look for a difference
+                        segmentsMatchThisKey = true
+                        otherKeySegments = prevKeysSegments[iy]
+
+                        ;;Same number of segments?
+                        if (thisKeySegments.Count != otherKeySegments.Count) then
+                        begin
+                            ;;Different segment count, not a duplicate
+                            segmentsMatchThisKey = false
+                        end
+                        else
+                        begin
+                            ;;Same segment count, look at each segment
+                            data thisKeySeg, @RpsKeySegment
+                            data otherKeySeg, @RpsKeySegment
+
+                            data iz, int
+                            data allSegmentsMatch = true
+
+                            ;;Iterate through the segments looking for a diff
+                            for iz from 0 thru thisKeySegments.Count - 1
+                            begin
+                                thisKeySeg = thisKeySegments[iz]
+                                otherKeySeg = otherKeySegments[iz]
+
+                                using thisKeySeg.SegmentType select
+                                (RpsKeySegmentType.Field),
+                                begin
+                                    if ((otherKeySeg.SegmentType != RpsKeySegmentType.Field) || (!otherKeySeg.Field.Equals(thisKeySeg.Field)))
+                                    begin
+                                        allSegmentsMatch = false
+                                    end
+                                end
+                                (RpsKeySegmentType.Literal),
+                                begin
+                                    if ((otherKeySeg.SegmentType != RpsKeySegmentType.Literal) || (!otherKeySeg.LiteralValue.Equals(thisKeySeg.LiteralValue)))
+                                    begin
+                                        allSegmentsMatch = false
+                                    end
+                                end
+                                (RpsKeySegmentType.External),
+                                begin
+                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'External' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                                end
+                                (RpsKeySegmentType.RecordNumber),
+                                begin
+                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'Record Number' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                                end
+                                endusing
+                            end
+
+                            if (allSegmentsMatch)
+                            begin
+                                segmentsMatchAnotherKey = true
+                                exitloop
+                            end
+                        end
+                    end
+                end
+
+                if (!segmentsMatchAnotherKey)
+                begin
+                    ;; Then process as normal
+                    loop.CurrentKey = template.Context.CurrentStructure.Keys[ix]
+                    loop.CurrentIndex = ix
+
+                    expander.Visit(node.Body)
+
+                    prevKeysSegments.Add(loop.CurrentKey.Segments)
+                end
+            end
+
+        endmethod
+
         private static method processAlternateKeyLoop, void
             required in node,@LoopNode 
             required in template,@FileNode 
@@ -220,7 +354,7 @@ namespace CodeGen.Engine
 
             for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
             begin
-                ;; Skip the first key and any alternate keys
+                ;; Skip the first key and any foreign keys
                 if ((ix == 0) || (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
                     nextloop
 
@@ -229,6 +363,138 @@ namespace CodeGen.Engine
                 loop.CurrentIndex = ix
 
                 expander.Visit(node.Body)
+            end
+
+        endmethod
+
+        private static method processAlternateKeyLoopUnique, void
+            required in node,@LoopNode 
+            required in template,@FileNode 
+            required in loops,@IEnumerable<LoopNode> 
+            required in expander,@ITreeNodeVisitor 
+        proc
+            ;;This is like an alternate key loop, except that it will exclude any keys that
+            ;;use the exact same segments as a key that has already been processed.
+
+            data loop = ^as(node, KeyLoopNode)
+            data context = template.Context
+
+            if (template.Context.CurrentStructure.Keys.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+
+            data ix, int
+
+            loop.MaxIndex = template.Context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+
+            loop.FirstUniqueKeyNumber = -1
+            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            begin
+                ;;Skip any Foreign keys
+                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                    nextloop
+                ;;Look for the first unique key
+                if (template.Context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                begin
+                    loop.FirstUniqueKeyNumber = ix
+                    exitloop
+                end
+            end
+
+            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+
+            data prevKeysSegments = new List<RpsKeySegmentCollection>()
+            data otherKeySegments, @RpsKeySegmentCollection 
+
+            ;;Iterate through all the keys in the structure
+            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            begin
+                ;; Skip the first key and any foreign keys
+                if ((ix == 0) || (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
+                    nextloop
+
+                ;;If we get here we have an alternate access key. Assume it's a duplicate and we'll look for a difference
+                data segmentsMatchAnotherKey = false
+
+                ;;If we havent processed any other keys yet then we can't have a duplicate, so this one gets included
+                if (prevKeysSegments.Count > 0)
+                begin
+                    ;;We have processed other keys, so make sure the segments of this key don't match any we have already processed
+                    data segmentsMatchThisKey, boolean
+                    data thisKeySegments, @RpsKeySegmentCollection, template.Context.CurrentStructure.Keys[ix].Segments
+
+                    data iy, int
+                    for iy from 0 thru prevKeysSegments.Count - 1
+                    begin
+                        ;;Assume we have a duplicate, look for a difference
+                        segmentsMatchThisKey = true
+                        otherKeySegments = prevKeysSegments[iy]
+
+                        ;;Same number of segments?
+                        if (thisKeySegments.Count != otherKeySegments.Count) then
+                        begin
+                            ;;Different segment count, not a duplicate
+                            segmentsMatchThisKey = false
+                        end
+                        else
+                        begin
+                            ;;Same segment count, look at each segment
+                            data thisKeySeg, @RpsKeySegment
+                            data otherKeySeg, @RpsKeySegment
+
+                            data iz, int
+                            data allSegmentsMatch = true
+
+                            ;;Iterate through the segments looking for a diff
+                            for iz from 0 thru thisKeySegments.Count - 1
+                            begin
+                                thisKeySeg = thisKeySegments[iz]
+                                otherKeySeg = otherKeySegments[iz]
+
+                                using thisKeySeg.SegmentType select
+                                (RpsKeySegmentType.Field),
+                                begin
+                                    if ((otherKeySeg.SegmentType != RpsKeySegmentType.Field) || (!otherKeySeg.Field.Equals(thisKeySeg.Field)))
+                                    begin
+                                        allSegmentsMatch = false
+                                    end
+                                end
+                                (RpsKeySegmentType.Literal),
+                                begin
+                                    if ((otherKeySeg.SegmentType != RpsKeySegmentType.Literal) || (!otherKeySeg.LiteralValue.Equals(thisKeySeg.LiteralValue)))
+                                    begin
+                                        allSegmentsMatch = false
+                                    end
+                                end
+                                (RpsKeySegmentType.External),
+                                begin
+                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'External' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                                end
+                                (RpsKeySegmentType.RecordNumber),
+                                begin
+                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'Record Number' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                                end
+                                endusing
+                            end
+
+                            if (allSegmentsMatch)
+                            begin
+                                segmentsMatchAnotherKey = true
+                                exitloop
+                            end
+                        end
+                    end
+                end
+
+                if (!segmentsMatchAnotherKey)
+                begin
+                    ;; Then process as normal
+                    loop.CurrentKey = template.Context.CurrentStructure.Keys[ix]
+                    loop.CurrentIndex = ix
+
+                    expander.Visit(node.Body)
+
+                    prevKeysSegments.Add(loop.CurrentKey.Segments)
+                end
             end
 
         endmethod
