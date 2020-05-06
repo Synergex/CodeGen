@@ -79,7 +79,7 @@ namespace HarmonyCoreExtensions
                         foreach customRelation in customRelationSpecs
                         begin
                             data relationLookup = string.Format("{0}-{1}-{2}-{3}", customRelation.FromStructure, customRelation.ToStructure, customRelation.FromKey, customRelation.ToKey)
-                            data madeRelation = MakeRelation(customRelation.FromStructure, customRelation.ToStructure, customRelation.FromKey, customRelation.ToKey, customRelation.RequiresMatch)
+                            data madeRelation = MakeRelation(customRelation.FromStructure, customRelation.ToStructure, customRelation.FromKey, customRelation.ToKey, customRelation.RequiresMatch, customRelation.ValidationMode)
 
                             if(!string.IsNullOrWhitespace(customRelation.BackRelation))
                                 madeRelation.BackRelation = customRelation.BackRelation
@@ -149,7 +149,7 @@ namespace HarmonyCoreExtensions
                 required in fromKey,        @string
                 required in toKey,          @string
             proc
-                mreturn MakeRelation(fromStructure,toStructure,fromKey,toKey,true)
+                mreturn MakeRelation(fromStructure,toStructure,fromKey,toKey,false,RelationValidationMode.None)
             endmethod
 
             ;;; <summary>
@@ -167,6 +167,7 @@ namespace HarmonyCoreExtensions
                 required in fromKey,        @string
                 required in toKey,          @string
                 required in aRequiresMatch, boolean
+                required in aValidationMode, RelationValidationMode
             proc
                 data fromRealStructure = Context.Structures.FirstOrDefault(lambda(str) { str.Name == fromStructure })
                 if (fromRealStructure == ^null)
@@ -198,6 +199,7 @@ namespace HarmonyCoreExtensions
                 madeRelation.FromStructure = fromStructure
                 madeRelation.ToStructure = toStructure
                 madeRelation.RequiresMatch = aRequiresMatch
+                madeRelation.ValidationMode = aValidationMode
                 SynthesizeRelationInfo(fromRealStructure, toRealStructure, realFromKey, realToKey, madeRelation)
                 mreturn madeRelation
             endmethod
@@ -405,6 +407,29 @@ namespace HarmonyCoreExtensions
         proc
             data targetRelation = GetRelationSpec(context, fromStructure, toStr, fromkey, tokey, false)
             mreturn targetRelation.RequiresMatch
+        endmethod
+
+        ;;; <summary>
+        ;;; What is the ValidationMode of the relation?
+        ;;; </summary>
+        ;;; <param name="context"></param>
+        ;;; <param name="fromStructure"></param>
+        ;;; <param name="fromkey"></param>
+        ;;; <param name="tostr"></param>
+        ;;; <param name="tokey"></param>
+        ;;; <returns>True if matching data is required</returns>
+        public static method ValidationMode, RelationValidationMode
+            required in context,        @CodeGenContext
+            required in fromStructure,  @RpsStructure
+            required in fromkey,        @RpsKey
+            required in tostr,          @RpsStructure
+            required in tokey,          @RpsKey
+        proc
+            data targetRelation = GetRelationSpec(context, fromStructure, toStr, fromkey, tokey, false)
+            ;;Figure out a default based on the value of the DEPRECATED property RequiresMatch
+            data notPresentDefault, RelationValidationMode, targetRelation.RequiresMatch ? RelationValidationMode.Always : RelationValidationMode.None
+            ;;Return the value. If not specified, use the default based on RequiresMatch.
+            mreturn targetRelation.ValidationMode != RelationValidationMode.Unspecified ? targetRelation.ValidationMode : notPresentDefault
         endmethod
 
     endclass
