@@ -247,23 +247,45 @@ namespace HarmonyCoreGenerator.ViewModel
 ;                &    Properties.Settings.Default.RepositoryProject))
 
                 ;; TODO: For now we're assuming the repository project is in "schema centric" mode and Debug mode is being used
+				;;build repository if its missing/out of date
+				data rpsOutputFolder = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug")
+				data rpsMFile = Path.Combine(rpsOutputFolder, Properties.Settings.Default.RepositoryMainFile)
+				data rpsTFile = Path.Combine(rpsOutputFolder, Properties.Settings.Default.RepositoryTextFile)
+				data projectOptions =  new Microsoft.Build.Definition.ProjectOptions()
+				data evalContext = Microsoft.Build.Evaluation.Context.EvaluationContext.Create(Microsoft.Build.Evaluation.Context.EvaluationContext.SharingPolicy.Isolated)
+                projectOptions.EvaluationContext = evalContext
+                projectOptions.GlobalProperties = new Dictionary<String, String>()
+				projectOptions.GlobalProperties.Add("SolutionDir", _SolutionFolder + "\")
+				data projectDir = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder)
+				data msbuildRepositoryProject = Microsoft.Build.Evaluation.Project.FromFile(Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "Repository.synproj"), projectOptions)
+				if(msbuildRepositoryProject.Build("Build"))
+				begin
+					rpsMFile = msbuildRepositoryProject.GetPropertyValue("MOutputName")
+					rpsTFile = msbuildRepositoryProject.GetPropertyValue("TOutputName")
 
-                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug", Properties.Settings.Default.RepositoryMainFile)
+					if(string.IsNullOrWhiteSpace(Path.GetDirectoryName(rpsMFile)))
+                        rpsMFile = Path.Combine(projectDir, rpsMFile)
 
-                if (File.Exists(temp)) then
+					if(string.IsNullOrWhiteSpace(Path.GetDirectoryName(rpsTFile)))
+						rpsTFile = Path.Combine(projectDir, rpsTFile)
+
+					rpsOutputFolder = Path.GetDirectoryName(rpsMFile)
+				end
+
+				msbuildRepositoryProject.ProjectCollection.UnloadProject(msbuildRepositoryProject)
+
+                if (File.Exists(rpsMFile)) then
                 begin
-                    Options.RepositoryMainFile = FileTools.GetRelativePath(_SolutionFolder,temp)
+                    Options.RepositoryMainFile = FileTools.GetRelativePath(_SolutionFolder,rpsMFile)
                 end
                 else
                 begin
                     errors.Add(String.Format("Repository main file '{0}' was not found in the expected location!",Properties.Settings.Default.RepositoryMainFile))
                 end
 
-                temp = Path.Combine(_SolutionFolder, Properties.Settings.Default.RepositoryFolder, "bin", "Debug", Properties.Settings.Default.RepositoryTextFile)
-
-                if (File.Exists(temp)) then
+                if (File.Exists(rpsTFile)) then
                 begin
-                    Options.RepositoryTextFile = FileTools.GetRelativePath(_SolutionFolder,temp)
+                    Options.RepositoryTextFile = FileTools.GetRelativePath(_SolutionFolder,rpsTFile)
                 end
                 else
                 begin
