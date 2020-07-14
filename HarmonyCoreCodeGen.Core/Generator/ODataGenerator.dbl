@@ -1,0 +1,87 @@
+import System
+import System.Collections.Generic
+import System.Text
+import HarmonyCoreGenerator.Model
+import CodeGen.Engine
+import System.IO
+
+namespace HarmonyCoreGenerator.Generator
+
+	public class ODataGenerator extends GeneratorBase
+
+		public override method ApplyDefaults, void
+			targetSolution, @HarmonyCoreGenerator.Model.Solution 
+			endparams
+		proc
+			if(string.IsNullOrWhiteSpace(targetSolution.UnitTestsBaseNamespace) && (targetSolution.GenerateUnitTests ?? false))
+			begin
+				targetSolution.UnitTestsBaseNamespace = "Services.Test"
+			end
+		endmethod
+
+		public override method ValidateSolution, @List<string>
+			targetSolution, @HarmonyCoreGenerator.Model.Solution 
+			endparams
+		proc
+			mreturn new List<string>()
+		endmethod
+
+		public override method GenerateTasks, @List<CodeGen.Engine.CodeGenTask>
+			targetSolution, @HarmonyCoreGenerator.Model.Solution 
+			endparams
+		proc
+			data result = new List<CodeGen.Engine.CodeGenTask>()
+			;; OData controllers
+			result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate controller classes", targetSolution.ControllersNamespace, targetSolution.ControllersFolder, false, ^nameof(ODataGenerator), new string[#] { "ODataController" }, ^null)) 
+
+			;; EdbBuilder and Startup classes
+			result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate the EdmBuilder and Startup classes", targetSolution.ModelsNamespace, targetSolution.ServicesFolder, true, ^nameof(ODataGenerator), new string[#] { "ODataEdmBuilder", "ODataStartup" }, ^null)) 
+
+			;; Self hosting program & environment
+			if (targetSolution.GenerateSelfHost ?? true)
+			begin
+				result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate self hosting program and environment", targetSolution.SelfHostNamespace, targetSolution.SelfHostFolder, true, ^nameof(ODataGenerator), new string[#] { "ODataSelfHost", "ODataSelfHostEnvironment" }, ^null)) 
+			end
+
+			;; Swagger documentation
+
+			if ((targetSolution.VersioningOrSwagger ?? HarmonyCoreGenerator.Model.VersioningOrSwaggerMode.None) == HarmonyCoreGenerator.Model.VersioningOrSwaggerMode.GenerateSwaggerDoc)
+			begin
+				result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate swagger documentation", "", Path.Combine(targetSolution.ServicesFolder, "wwwroot"), true, ^nameof(ODataGenerator), new string[#] { "ODataSwaggerYaml" }, ^null)) 
+				result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate swagger complex types documentation", "", Path.Combine(targetSolution.ServicesFolder, "wwwroot"), false, ^nameof(ODataGenerator), new string[#] { "ODataSwaggerType" }, ^null)) 
+			end
+
+			;; Postman tests
+
+			if (targetSolution.GeneratePostmanTests ?? false)
+			begin
+				result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate Postman tests", "", targetSolution.SolutionFolder, true, ^nameof(ODataGenerator), new string[#] { "ODataPostManTests" }, ^null)) 
+			end
+
+			;;---------------------------------------------------------------------------------------------
+			;; Unit tests
+
+			if (targetSolution.GenerateUnitTests ?? false)
+			begin
+				;; Client-side model, data loader and unit tests
+				result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate client-side models, data loaders and unit tests", targetSolution.UnitTestsBaseNamespace, targetSolution.UnitTestFolder, false, ^nameof(ODataGenerator), new string[#] { "ODataClientModel", "ODataTestDataLoader", "ODataUnitTests" }, ^null)) 
+				
+				;; Test environment
+				result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate test environment", targetSolution.UnitTestsBaseNamespace, targetSolution.UnitTestFolder, true, ^nameof(ODataGenerator), new string[#] { "ODataUnitTestHost" }, ^null)) 
+				
+				;; Unit test environment and hosting program
+				result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate unit test environment and hosting program", targetSolution.UnitTestsBaseNamespace, targetSolution.UnitTestFolder, true, ^nameof(ODataGenerator), new string[#] { "ODataUnitTestEnvironment", "ODataUnitTestHost" }, ^null)) 
+
+				;; Test constants properties
+				result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate test constants class", targetSolution.UnitTestsBaseNamespace, targetSolution.UnitTestFolder, true, ^nameof(ODataGenerator), new string[#] { "ODataTestConstantsProperties" }, ^null)) 
+				data constValueTask = GeneratorBase.StructureTaskHelper(targetSolution, "Generate test constants values", targetSolution.UnitTestsBaseNamespace, targetSolution.UnitTestFolder, true, ^nameof(ODataGenerator), new string[#] { "ODataTestConstantsValues" }, ^null)
+				constValueTask.ReplaceFiles = false
+				;; Test constants values (one time, no replace)
+				result.Add(constValueTask) 
+			end
+			mreturn result
+		endmethod
+	
+	endclass
+
+endnamespace

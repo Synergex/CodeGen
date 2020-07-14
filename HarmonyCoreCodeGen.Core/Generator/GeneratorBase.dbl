@@ -1,0 +1,259 @@
+import System
+import System.Collections.Generic
+import System.Text
+import HarmonyCoreGenerator.Model
+import CodeGen.Engine
+import System.Linq
+
+namespace HarmonyCoreGenerator.Generator
+
+	public abstract class GeneratorBase
+		public readwrite property Priority, int
+
+		public abstract method ValidateSolution, @List<string>
+			solution, @Solution
+		proc
+		endmethod
+
+		public abstract method ApplyDefaults, void
+			solution, @Solution
+		proc
+		endmethod
+
+		public abstract method GenerateTasks, @List<CodeGenTask>
+			solution, @Solution 
+		proc
+		endmethod
+
+
+		public static method DescribeGenerators, @string
+			enabledGenerators, @HashSet<string>
+		proc
+			data hasOData = enabledGenerators.Contains(^nameof(ODataGenerator))
+			data hasModels = enabledGenerators.Contains(^nameof(ModelGenerator))
+			data hasTraditionalBridge = enabledGenerators.Contains(^nameof(TraditionalBridgeGenerator))
+			data hasEfCore = enabledGenerators.Contains(^nameof(EFCoreGenerator))
+			data hasSignalR = enabledGenerators.Contains(^nameof(SignalRGenerator))
+			data hasWebApi = enabledGenerators.Contains(^nameof(WebApiGenerator))
+
+			data generatorResults = new List<string>()
+			if(hasOData && hasModels && hasEfCore)
+			begin
+				generatorResults.Add("Generated OData Services")
+			end
+
+			if(!hasOData && hasModels && hasEfCore)
+			begin
+				generatorResults.Add("EF Core Provider")
+			end
+
+			if(hasOData && hasModels && !hasEfCore)
+			begin
+				generatorResults.Add("Custom OData Services")
+			end
+
+			if(hasTraditionalBridge && !hasSignalR && !hasWebApi)
+			begin
+				generatorResults.Add("Custom Traditional Bridge Services")
+			end
+
+			if(hasTraditionalBridge && (hasSignalR || hasWebApi))
+			begin
+				generatorResults.Add("Generated Traditional Bridge Services")
+			end
+
+			data resultDescription = string.Join(" | ", generatorResults)
+			if(String.IsNullOrWhiteSpace(resultDescription)) then
+				mreturn "None"
+			else
+				mreturn resultDescription
+
+		endmethod
+
+		public static method ShortCodeGenerators, @string
+			enabledGenerators, @HashSet<string>
+		proc
+			data hasOData = enabledGenerators.Contains(^nameof(ODataGenerator))
+			data hasModels = enabledGenerators.Contains(^nameof(ModelGenerator))
+			data hasTraditionalBridge = enabledGenerators.Contains(^nameof(TraditionalBridgeGenerator))
+			data hasEfCore = enabledGenerators.Contains(^nameof(EFCoreGenerator))
+			data hasSignalR = enabledGenerators.Contains(^nameof(SignalRGenerator))
+			data hasWebApi = enabledGenerators.Contains(^nameof(WebApiGenerator))
+
+			data generatorResults = new List<string>()
+			if(hasOData && hasModels && hasEfCore)
+			begin
+				generatorResults.Add("OData")
+			end
+
+			if(!hasOData && hasModels && hasEfCore)
+			begin
+				generatorResults.Add("EF")
+			end
+
+			if(hasOData && hasModels && !hasEfCore)
+			begin
+				generatorResults.Add("CustomOData")
+			end
+
+			if(hasTraditionalBridge && !hasSignalR && !hasWebApi)
+			begin
+				generatorResults.Add("CustomTB")
+			end
+
+			if(hasTraditionalBridge && hasSignalR)
+			begin
+				generatorResults.Add("TBSignalR")
+			end
+
+			if(hasTraditionalBridge && hasWebApi)
+			begin
+				generatorResults.Add("TBWebApi")
+			end
+
+			data resultDescription = string.Join(" | ", generatorResults)
+			if(String.IsNullOrWhiteSpace(resultDescription)) then
+				mreturn "None"
+			else
+				mreturn resultDescription
+
+		endmethod
+
+		private static method TryAdd, void
+			hash, @HashSet<string>
+			{ParamArray}
+			items, [#]string
+		proc
+			data item, @string
+			foreach item in items
+			begin
+				if(!hash.Contains(item))
+					hash.Add(item)
+			end
+
+		endmethod
+
+		public static method ParseGeneratorShortCodes, @HashSet<string>
+			shortCodes, @string 
+		proc
+			data result = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase)
+			data splitCodes = shortCodes?.Split(new char[#] { '|' }, StringSplitOptions.RemoveEmptyEntries)
+			data code, @string
+			foreach code in splitCodes
+			begin
+				using code.Trim().ToLower() select
+				("tbwebapi"),
+					TryAdd(result, ^nameof(TraditionalBridgeGenerator), ^nameof(WebApiGenerator), ^nameof(ModelGenerator))
+				("tbsignalr"),
+					TryAdd(result, ^nameof(TraditionalBridgeGenerator), ^nameof(SignalRGenerator), ^nameof(ModelGenerator))
+				("customtb"),
+					TryAdd(result, ^nameof(TraditionalBridgeGenerator), ^nameof(ModelGenerator))
+				("customodata"),
+					TryAdd(result, ^nameof(ODataGenerator), ^nameof(ModelGenerator))
+				("ef"),
+					TryAdd(result, ^nameof(EFCoreGenerator), ^nameof(ModelGenerator))
+				("odata"),
+					TryAdd(result, ^nameof(EFCoreGenerator), ^nameof(ModelGenerator), ^nameof(ODataGenerator))
+				(),
+					throw new InvalidOperationException(string.Format("invalid generator code {0}", code))
+				endusing
+			end
+		endmethod
+
+
+		public static method GetTargetStructures, @List<StructureEx>
+			generatorName, @string
+			targetSolution, @Solution
+		proc
+			mreturn targetSolution.ExtendedStructures.Where(lambda(struct) { struct.EnabledGenerators.Contains(generatorName) }).ToList()
+		endmethod
+	
+		public static method GetTargetInterfaces, @List<InterfaceEx>
+			generatorName, @string
+			targetSolution, @Solution
+		proc
+			lambda interfacePicker(iface)
+			begin
+				if(generatorName == ^nameof(TraditionalBridgeGenerator)) then
+					mreturn iface.GenerateInterface
+				else if(generatorName == ^nameof(ODataGenerator)) then
+					mreturn iface.GenerateODataController
+				else if(generatorName == ^nameof(WebApiGenerator)) then
+					mreturn iface.GenerateWebAPIController
+				else if(generatorName == ^nameof(SignalRGenerator)) then
+					mreturn iface.GenerateSignalRHub
+				else
+					mreturn false
+			end
+
+			mreturn targetSolution.ExtendedInterfaces.Where(interfacePicker).ToList()
+		endmethod
+
+		public static method StructureTaskHelper, @CodeGenTask
+			targetSolution, @Solution
+			taskDescription, @string
+			taskNamespace, @string
+			taskOutput, @string
+			multiStructure, boolean
+			generatorNameForStructures, @string
+			targetTemplates, [#]@string
+			userTokens, [#]@UserToken
+			default templateFolder, @string, ^null
+		proc
+			data task = new CodeGen.Engine.CodeGenTask()
+			task.Description = taskDescription
+			task.Templates.AddRange<String>(targetTemplates)
+			if(!string.IsNullOrEmpty(templateFolder))
+				task.TemplateFolder = templateFolder
+
+			task.OutputFolder = taskOutput
+			task.Namespace = taskNamespace
+			task.AllowTemplateFolder = true
+			task.ReplaceFiles = true
+			task.MultipleStructures = multiStructure
+			task.UserTokens.AddRange<UserToken>(MergeTokens(targetSolution.GetUserDefinedTokens(), userTokens))
+			task.Structures.AddRange<String>(GetTargetStructures(generatorNameForStructures, targetSolution).Select(lambda(struct) { struct.Name }))
+			mreturn task
+		endmethod
+
+		public static method InterfaceTaskHelper, @CodeGenTask
+			targetSolution, @Solution
+			taskDescription, @string
+			taskNamespace, @string
+			taskOutput, @string
+			targetInterface, @InterfaceEx
+			generatorName, @string
+			targetTemplates, [#]@string
+			userTokens, [#]@UserToken
+			default templateFolder, @string, ^null
+		proc
+			data task = StructureTaskHelper(targetSolution, taskDescription, taskNamespace, taskOutput, false, generatorName, targetTemplates, userTokens, templateFolder)
+			task.Interface = targetInterface.Name
+
+			mreturn task
+		endmethod
+
+		public static method MergeTokens, @IEnumerable<UserToken>
+			baseTokens, @IEnumerable<UserToken>
+			overrideTokens, @IEnumerable<UserToken>
+		proc
+			lambda keyFnc(tkn) tkn.Name
+			data result, @Dictionary<string, UserToken>, baseTokens.ToDictionary((@Func<UserToken, string>)keyFnc)
+			data overrideToken, @UserToken
+			if(overrideTokens != ^null)
+			begin
+				foreach overrideToken in overrideTokens
+				begin
+					if(result.ContainsKey(overrideToken.Name)) then
+						result[overrideToken.Name] = overrideToken
+					else
+						result.Add(overrideToken.Name, overrideToken)
+				end
+			end
+
+			mreturn result.Values
+		endmethod
+
+	endclass
+
+endnamespace

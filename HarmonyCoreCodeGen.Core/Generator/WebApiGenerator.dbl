@@ -1,0 +1,53 @@
+import System
+import System.Collections.Generic
+import System.Text
+import System.IO
+import HarmonyCoreGenerator.Model
+import CodeGen.Engine
+
+
+namespace HarmonyCoreGenerator.Generator
+
+	public class WebApiGenerator extends GeneratorBase
+
+		public override method ApplyDefaults, void
+			solution, @HarmonyCoreGenerator.Model.Solution 
+			endparams
+		proc
+			
+		endmethod
+
+		public override method ValidateSolution, @List<string>
+			solution, @HarmonyCoreGenerator.Model.Solution 
+			endparams
+		proc
+			mreturn new List<string>()
+		endmethod
+
+		public override method GenerateTasks, @List<CodeGen.Engine.CodeGenTask>
+			targetSolution, @HarmonyCoreGenerator.Model.Solution 
+			endparams
+		proc
+			data result = new List<CodeGen.Engine.CodeGenTask>()
+			data iface, @InterfaceEx
+			foreach iface in GeneratorBase.GetTargetInterfaces(^nameof(TraditionalBridgeGenerator), targetSolution)
+			begin
+				;; Web API controller (.NET side)
+				data modelsNamespace = new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",targetSolution.TraditionalBridgeFolder,"Models"))
+				result.Add(GeneratorBase.InterfaceTaskHelper(targetSolution, "Generate Web API controller (.NET side)", String.Format("{0}.{1}",targetSolution.TraditionalBridgeFolder,"Models"), Path.Combine(targetSolution.TraditionalBridgeFolder,"Models"), iface, ^nameof(WebApiGenerator), 
+				&	new string[#] { "InterfaceController" }, new UserToken[#] { modelsNamespace }, Path.Combine(targetSolution.TemplatesFolder,"TraditionalBridge"))) 
+
+				;; Postman tests for the WebAPI operations
+
+				if (targetSolution.SmcPostmanTests)
+				begin
+					result.Add(GeneratorBase.InterfaceTaskHelper(targetSolution, "Generate Postman tests for the Interface", string.Empty, targetSolution.SolutionFolder, iface, ^nameof(WebApiGenerator), 
+					&	new string[#] { "InterfacePostmanTests" }, ^null, Path.Combine(targetSolution.TemplatesFolder,"TraditionalBridge"))) 
+				end
+			end
+
+			mreturn result
+		endmethod
+	endclass
+
+endnamespace

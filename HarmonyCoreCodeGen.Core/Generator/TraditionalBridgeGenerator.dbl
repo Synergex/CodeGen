@@ -1,0 +1,70 @@
+import System
+import System.Collections.Generic
+import System.Text
+import CodeGen.Engine
+import HarmonyCoreGenerator.Model
+import System.IO
+
+
+namespace HarmonyCoreGenerator.Generator
+
+	public class TraditionalBridgeGenerator extends GeneratorBase
+
+		public override method ApplyDefaults, void
+			solution, @HarmonyCoreGenerator.Model.Solution 
+			endparams
+		proc
+			
+		endmethod
+
+		public override method ValidateSolution, @List<string>
+			solution, @HarmonyCoreGenerator.Model.Solution 
+			endparams
+		proc
+			mreturn new List<string>()
+		endmethod
+
+		public override method GenerateTasks, @List<CodeGen.Engine.CodeGenTask>
+			targetSolution, @HarmonyCoreGenerator.Model.Solution 
+			endparams
+		proc
+			;;using structures referenced by target interface
+			;;generate traditional side models
+			;;.net client models
+			data modelsNamespace = new UserToken("MODELS_NAMESPACE", String.Format("{0}.{1}",targetSolution.TraditionalBridgeFolder,"Models"))
+			data result = new List<CodeGen.Engine.CodeGenTask>()
+			data iface, @InterfaceEx
+			foreach iface in GeneratorBase.GetTargetInterfaces(^nameof(TraditionalBridgeGenerator), targetSolution)
+			begin
+				
+				result.Add(GeneratorBase.InterfaceTaskHelper(targetSolution, "Generate a dispatcher class for each method", String.Format("{0}.{1}",targetSolution.TraditionalBridgeFolder,"Dispatchers"), Path.Combine(targetSolution.TraditionalBridgeFolder,"Dispatchers"), iface, ^nameof(TraditionalBridgeGenerator), 
+				&	new string[#] { "InterfaceMethodDispatchers" }, new UserToken[#] { modelsNamespace }, Path.Combine(targetSolution.TemplatesFolder,"TraditionalBridge"))) 
+
+				;; Main dispatcher class (Traditional Side)
+				result.Add(GeneratorBase.InterfaceTaskHelper(targetSolution, "Generate main dispatcher class", String.Format("{0}.{1}",targetSolution.TraditionalBridgeFolder,"Dispatchers"), Path.Combine(targetSolution.TraditionalBridgeFolder,"Dispatchers"), iface, ^nameof(TraditionalBridgeGenerator), 
+				&	new string[#] { "InterfaceDispatcher" }, new UserToken[#] { modelsNamespace }, Path.Combine(targetSolution.TemplatesFolder,"TraditionalBridge"))) 
+
+				;; Sample data generator class (Traditional Side)
+				result.Add(GeneratorBase.InterfaceTaskHelper(targetSolution, "Generate a class to generate sample response data", String.Format("{0}.{1}",targetSolution.TraditionalBridgeFolder,"Methods"), Path.Combine(targetSolution.TraditionalBridgeFolder,"Methods"), iface, ^nameof(TraditionalBridgeGenerator), 
+				&	new string[#] { "InterfaceTestResponses" }, new UserToken[#] { modelsNamespace }, Path.Combine(targetSolution.TemplatesFolder,"TraditionalBridge")))
+
+				;; Request and response models for the service class methods (.NET side)
+				result.Add(GeneratorBase.InterfaceTaskHelper(targetSolution, "Generate request and response models for the service class methods", targetSolution.ModelsNamespace, targetSolution.ModelsFolder, iface, ^nameof(TraditionalBridgeGenerator), 
+				&	new string[#] { "InterfaceServiceModels" }, new UserToken[#] { modelsNamespace }, Path.Combine(targetSolution.TemplatesFolder,"TraditionalBridge")))
+
+				;; Service class (.NET side)
+				result.Add(GeneratorBase.InterfaceTaskHelper(targetSolution, "Generate the service class (.NET side)", targetSolution.ControllersNamespace, targetSolution.ControllersFolder, iface, ^nameof(TraditionalBridgeGenerator), 
+				&	new string[#] { "InterfaceService" }, new UserToken[#] { modelsNamespace }, Path.Combine(targetSolution.TemplatesFolder,"TraditionalBridge")))
+			end
+
+			;; Parameter model classes (Traditional Side)
+			result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate data models for structure parameters", String.Format("{0}.{1}",targetSolution.TraditionalBridgeFolder,"Models"), Path.Combine(targetSolution.TraditionalBridgeFolder,"Models"), true, ^nameof(TraditionalBridgeGenerator), 
+			&	new string[#] { "InterfaceModels" }, new UserToken[#] { modelsNamespace }, Path.Combine(targetSolution.TemplatesFolder,"TraditionalBridge"))) 
+
+			result.Add(GeneratorBase.StructureTaskHelper(targetSolution, "Generate model and metadata classes", targetSolution.ModelsNamespace, targetSolution.ModelsFolder, true, ^nameof(ModelGenerator), new string[#] { "ODataModel", "ODataMetaData" }, ^null, Path.Combine(targetSolution.TemplatesFolder,"TraditionalBridge"))) 
+
+			mreturn result
+		endmethod
+	endclass
+
+endnamespace
