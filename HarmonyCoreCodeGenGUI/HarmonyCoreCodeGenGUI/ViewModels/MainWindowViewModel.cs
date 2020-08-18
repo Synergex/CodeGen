@@ -1,12 +1,15 @@
-﻿using GalaSoft.MvvmLight;
+﻿using CodeGen.Engine;
+using GalaSoft.MvvmLight;
 using GalaSoft.MvvmLight.CommandWpf;
 using GalaSoft.MvvmLight.Messaging;
-using HarmonyCore.CliTool;
 using HarmonyCoreCodeGenGUI.Properties;
 using HarmonyCoreGenerator.Model;
+using Microsoft.Build.Locator;
 using Microsoft.Win32;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -18,7 +21,6 @@ namespace HarmonyCoreCodeGenGUI.ViewModels
     public class MainWindowViewModel : ViewModelBase
     {
         private string _solutionDir;
-        private SolutionInfo _solutionInfo;
         private Solution _solution;
 
         public MainWindowViewModel()
@@ -51,10 +53,14 @@ namespace HarmonyCoreCodeGenGUI.ViewModels
                 {
                     StatusBarTextBlockText = "Loading...";
 
-                    // Create SolutionInfo/Solution
+                    // Create Solution
                     _solutionDir = Path.GetDirectoryName(openFileDialog.FileName);
-                    _solutionInfo = new SolutionInfo(Directory.GetFiles(_solutionDir, "*.synproj", SearchOption.AllDirectories), _solutionDir);
-                    _solution = _solutionInfo.CodeGenSolution;
+
+                    // Calling Register methods will subscribe to AssemblyResolve event. After this we can
+                    // safely call code that use MSBuild types (in the Builder class).
+                    if (!MSBuildLocator.IsRegistered)
+                        MSBuildLocator.RegisterMSBuildPath(MSBuildLocator.QueryVisualStudioInstances().ToList().FirstOrDefault().MSBuildPath);
+                    _solution = Solution.LoadSolution(openFileDialog.FileName, _solutionDir);
 
                     if (_solution != null)
                     {
@@ -75,6 +81,7 @@ namespace HarmonyCoreCodeGenGUI.ViewModels
 
                         SaveMenuItemIsEnabled = true;
                         CloseMenuItemIsEnabled = true;
+                        RegenerateFilesMenuItemIsEnabled = true;
 
                         StatusBarTextBlockText = "Loaded successfully";
                     }
@@ -86,15 +93,16 @@ namespace HarmonyCoreCodeGenGUI.ViewModels
             }
             catch (Exception e)
             {
-                MessageBox.Show(e.ToString(), e.GetType().ToString());
+                MessageBox.Show(e.ToString(), e.GetType().ToString(), MessageBoxButton.OK, MessageBoxImage.Error);
                 throw;
             }
         }
-        private void SaveMenuItemCommandMethod()
+        private void SaveMenuItemCommandMethod(bool setStatusBarTextBlockText = true)
         {
             try
             {
-                StatusBarTextBlockText = "Saving...";
+                if (setStatusBarTextBlockText)
+                    StatusBarTextBlockText = "Saving...";
 
                 // Get info from viewmodels, save altered solution
                 Messenger.Default.Send(new NotificationMessageAction<SettingsTabViewModel>(string.Empty, settingsTabViewModel =>
@@ -235,24 +243,79 @@ namespace HarmonyCoreCodeGenGUI.ViewModels
                     }));
                 }
 
-                _solutionInfo.SaveSolution();
+                // Save solution
+                JsonSerializerSettings settings = new JsonSerializerSettings
+                {
+                    Formatting = Formatting.Indented,
+                    NullValueHandling = NullValueHandling.Ignore
+                };
+                File.WriteAllText(Path.Combine(_solutionDir, "Harmony.Core.CodeGen.json"), JsonConvert.SerializeObject(_solution, settings));
 
-                StatusBarTextBlockText = "Saved successfully";
+                if (setStatusBarTextBlockText)
+                    StatusBarTextBlockText = "Saved successfully";
             }
             catch (Exception e)
             {
-                MessageBox.Show(e.ToString(), e.GetType().ToString());
+                MessageBox.Show(e.ToString(), e.GetType().ToString(), MessageBoxButton.OK, MessageBoxImage.Error);
                 throw;
             }
         }
-        private void RegenerateFilesMenuItemCommandMethod() { }
+        private void RegenerateFilesMenuItemCommandMethod()
+        {
+            try
+            {
+                SaveMenuItemCommandMethod(false);
+                StatusBarTextBlockText = "Regenerating files...";
+
+                // Set current dir to solution dir since folders are partial pathed
+                Directory.SetCurrentDirectory(_solutionDir);
+                GenerateResult result = _solution.GenerateSolution((task, message) => { }, CancellationToken.None);
+                
+                // Display messages with errors
+                // Get all tasks with errors
+                IEnumerable<CodeGenTask> tasksWithErrors = result.CodeGenTasks.Where(k => k.Errors > 0);
+                if (tasksWithErrors.Any())
+                {
+                    List<string> messages = new List<string>
+                    {
+                        "Errors during code generation:",
+                        Environment.NewLine
+                    };
+
+                    // Construct list of messages that will be displayed
+                    foreach (CodeGenTask item in tasksWithErrors)
+                    {
+                        // Get task descriptions
+                        messages.Add(item.Description);
+                        foreach (LogEntry item2 in item.Messages)
+                        {
+                            // Get those tasks' messages, if they aren't blank
+                            if (!string.IsNullOrWhiteSpace(item2.Message))
+                                messages.Add(item2.Message);
+                        }
+                        messages.Add(string.Empty);
+                    }
+                    MessageBox.Show(string.Join(Environment.NewLine, messages), Resources.Title, MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                }
+                if (result.Failed)
+                {
+                    ;
+                }
+
+                StatusBarTextBlockText = "Regenerated successfully";
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.ToString(), e.GetType().ToString(), MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
+        }
         private void CloseMenuItemCommandMethod()
         {
             StatusBarTextBlockText = "Closing...";
 
             // Clean up everything
             _solutionDir = null;
-            _solutionInfo = null;
             _solution = null;
 
             TabControlSelectedIndex = 0;
@@ -268,6 +331,7 @@ namespace HarmonyCoreCodeGenGUI.ViewModels
             OpenMenuItemIsEnabled = true;
             SaveMenuItemIsEnabled = false;
             CloseMenuItemIsEnabled = false;
+            RegenerateFilesMenuItemIsEnabled = false;
 
             Messenger.Default.Send(new Solution());
 
@@ -449,6 +513,8 @@ namespace HarmonyCoreCodeGenGUI.ViewModels
 
         #region StatusBarTextBlockText
         private string _statusBarTextBlockText;
+
+        [SuppressMessage("Reliability", "CA2011:Avoid infinite recursion", Justification = "Text is only set if value is not 'Ready', and it sets the value to 'Ready'")]
         public string StatusBarTextBlockText
         {
             get
