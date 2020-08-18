@@ -4,6 +4,7 @@ import System.Text
 import HarmonyCoreGenerator.Model
 import CodeGen.Engine
 import System.Linq
+import System.IO
 
 namespace HarmonyCoreGenerator.Generator
 
@@ -188,6 +189,41 @@ namespace HarmonyCoreGenerator.Generator
 
 			mreturn targetSolution.ExtendedInterfaces.Where(interfacePicker).ToList()
 		endmethod
+;		this cant be implemented for user tokens, because they apply to the entire task. Some tasks likle dbcontext 
+;		are run for all structures at the same time and this cant be broken up
+;		public static method StructureTaskHelper, @IEnumerable<CodeGenTask>
+;			targetSolution, @Solution
+;			taskDescription, @string
+;			taskNamespace, @string
+;			taskOutput, @string
+;			multiStructure, boolean
+;			generatorNameForStructures, @string
+;			targetTemplates, [#]@string
+;			userTokens, [#]@UserToken
+;			default templateFolder, @string, ^null
+;		proc
+;			data targetStructures = GetTargetStructures(generatorNameForStructures, targetSolution)
+;			data userTokenGroups = new Dictionary<string, List<StructureEx>>()
+;			data struct, @StructureEx
+;			foreach struct in targetStructures
+;			begin
+;				data structTokenIdentifier = string.Join("|", struct.GetUserTokens(targetSolution).Select(lambda(tkn) { tkn.Name }))
+;				data sameTokens, @List<StructureEx>
+;				if(!userTokenGroups.TryGetValue(structTokenIdentifier, sameTokens))
+;				begin
+;					sameTokens = new List<StructureEx>()
+;					userTokenGroups.Add(structTokenIdentifier, sameTokens)
+;				end
+;				sameTokens.Add(struct)
+;			end
+;
+;			data sameTokenStructures, @List<StructureEx>
+;			foreach sameTokenStructures in targetStructures.Values
+;			begin
+;				StructureTaskHelperInternal(targetSolution, taskDescription, taskNamespace, taskOutput, 
+;			end
+;		endmethod
+
 
 		public static method StructureTaskHelper, @CodeGenTask
 			targetSolution, @Solution
@@ -200,6 +236,7 @@ namespace HarmonyCoreGenerator.Generator
 			userTokens, [#]@UserToken
 			default templateFolder, @string, ^null
 		proc
+			data targetStructures = GetTargetStructures(generatorNameForStructures, targetSolution)
 			data task = new CodeGen.Engine.CodeGenTask()
 			task.Description = taskDescription
 			task.Templates.AddRange<String>(targetTemplates)
@@ -207,12 +244,16 @@ namespace HarmonyCoreGenerator.Generator
 				task.TemplateFolder = templateFolder
 
 			task.OutputFolder = taskOutput
+
+			if(!Directory.Exists(taskOutput))
+				Directory.CreateDirectory(taskOutput)
+
 			task.Namespace = taskNamespace
 			task.AllowTemplateFolder = true
 			task.ReplaceFiles = true
 			task.MultipleStructures = multiStructure
 			task.UserTokens.AddRange<UserToken>(MergeTokens(targetSolution.GetUserDefinedTokens(), userTokens))
-			task.Structures.AddRange<String>(GetTargetStructures(generatorNameForStructures, targetSolution).Select(lambda(struct) { struct.Name }))
+			task.Structures.AddRange<String>(targetStructures.Select(lambda(struct) { struct.Name }))
 			mreturn task
 		endmethod
 

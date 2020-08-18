@@ -14,6 +14,8 @@ import System.Diagnostics
 import CodeGen.MethodCatalogAPI
 import Microsoft.Build.Logging
 import Microsoft.Build.Framework
+import Newtonsoft.Json.Linq
+import Newtonsoft.Json
 
 namespace HarmonyCoreGenerator.Model
 
@@ -38,6 +40,7 @@ namespace HarmonyCoreGenerator.Model
 		public readwrite property UnitTestsBaseNamespace, @string
 
 		public readwrite property DataFolder, @string
+		{JsonIgnore}
 		public readwrite property SolutionFolder, @string
 
 		public readwrite property APIDocsPath, @string
@@ -166,7 +169,10 @@ namespace HarmonyCoreGenerator.Model
 					stexDictionary.Add("NO_ALTERNATE_KEY_ENDPOINTS", true)
 				if(!(IndividualPropertyEndpoints ?? true))
 					stexDictionary.Add("NO_PROPERTY_ENDPOINTS", true)
-
+				if(!(stex.EnableRelations ?? ODataRelations ?? true))
+					stexDictionary.Add("HARMONYCORE_RELATIONS_ENABLED", true)
+				if(!(stex.EnableRelationValidation ?? ODataRelationValidation ?? true))
+					stexDictionary.Add("HARMONYCORE_RELATIONS_VALIDATION_ENABLED", true)
 
 				data fieldLookup, @KeyValuePair<string, Dictionary<string, Object>>
 				foreach fieldLookup in stex.Fields
@@ -218,6 +224,7 @@ namespace HarmonyCoreGenerator.Model
 			result.Add(new UserToken("CUSTOM_AUTH_ENDPOINT_PATH", CustomAuthEndpointPath ?? "GetToken"))
 			result.Add(new UserToken("CUSTOM_AUTH_USERNAME", CustomAuthUserName ?? "username"))
 			result.Add(new UserToken("CUSTOM_AUTH_PASSWORD", CustomAuthPassword ?? "password"))
+			
 			mreturn result
 		endmethod
 
@@ -354,13 +361,15 @@ namespace HarmonyCoreGenerator.Model
 			userTokens, @string
 			solutionDir, @string
 		proc
+			data templatesFolder = Path.Combine(solutionDir, "Templates")
 			data result = new Solution()
-			result.SolutionFolder = solutionDir
 			data structures = new List<StructureEx>()
 			data interfaces = new List<InterfaceEx>()
 			data setMatcher = new Regex("^set\s(\w+)\s?=\s?([^\v]+)$")
 			data batTextLines = File.ReadAllLines(targetRegenBat)
 			data line, @string
+
+			result.SolutionFolder = solutionDir
 			foreach line in batTextLines
 			begin
 				data lineMatch = setMatcher.Match(line)
@@ -377,6 +386,10 @@ namespace HarmonyCoreGenerator.Model
 						result.ServicesProject = value 
 						result.ServicesNamespace = value 
 						result.ServicesFolder = value
+					end
+					("repositoryproject"),
+					begin
+						result.RepositoryProject = value 
 					end
 					("modelsproject"),
 					begin
@@ -426,7 +439,7 @@ namespace HarmonyCoreGenerator.Model
 							data index = 0
 							for index from 0 thru Math.Min(splitStructures.Length, result.ExtendedStructures.Count) by 1
 							begin
-								structures[index].Alias = splitStructures[index]
+								structures[index].Aliases = new List<string>() { splitStructures[index] }
 							end
 						end
 					end
@@ -439,7 +452,8 @@ namespace HarmonyCoreGenerator.Model
 							data index = 0
 							for index from 0 thru Math.Min(splitStructures.Length, result.ExtendedStructures.Count) by 1
 							begin
-								structures[index].Files = new List<string>() { splitStructures[index] }
+								data targetAlias = structures[index].Aliases.FirstOrDefault() ?? structures[index].Name
+								structures[index].Files = new Dictionary<string, string>() { { targetAlias, splitStructures[index]} }
 							end
 						end
 					end
@@ -681,12 +695,50 @@ namespace HarmonyCoreGenerator.Model
 						if(!existingStruct.EnabledGenerators.Contains(newGenerator))
 							existingStruct.EnabledGenerators.Add(newGenerator)
 					end
+
+					existingStruct.Aliases.AddRange(struct.Aliases)
+					data fileKvp, @KeyValuePair<string, string>
+					foreach fileKvp in struct.Files
+					begin
+						if(existingStruct.Files.ContainsKey(fileKvp.Key))
+						begin
+							if(string.Compare(fileKvp.Value, existingStruct.Files[fileKvp.Key], true) == 0) then
+								nextloop
+							else
+								throw new InvalidOperationException(string.Format("duplicate alias -> file mapping detected {0} -> {1} and {2} -> {3}", fileKvp.Key, fileKvp.Value, fileKvp.Key, existingStruct.Files[fileKvp.Key]))
+						end
+
+						existingStruct.Files.Add(fileKvp.Key, fileKvp.Value)
+					end
+
 				end
 				else
 				begin
 					structureLookup.Add(struct.Name, struct)
 				end
 			end
+
+			data customizationFile = Path.Combine(templatesFolder, "HarmonyCoreCustomization.json")
+			data json = File.ReadAllText(customizationFile)
+			data configFileObject = (@JObject)JsonConvert.DeserializeObject(json)
+			data configProp = configFileObject.Property("CustomRelations")
+			if(configProp != ^null && configProp.Value != ^null)
+			begin
+				data customRelationSpecs = configProp.Value.ToObject<List<CustomRelationSpec>>()
+				data rel, @CustomRelationSpec
+				foreach rel in customRelationSpecs
+				begin
+					if(structureLookup.ContainsKey(rel.FromStructure))
+					begin
+						data targetStructure = structureLookup[rel.FromStructure]
+						if(targetStructure.RelationsSpecs == ^null)
+							targetStructure.RelationsSpecs = new List<CustomRelationSpec>()
+
+						targetStructure.RelationsSpecs.Add(rel)
+					end
+				end
+			end
+
 
 			result.ExtendedStructures = structureLookup.Values.ToList()
 			result.ExtendedInterfaces = interfaces
@@ -696,6 +748,11 @@ namespace HarmonyCoreGenerator.Model
 			tempContext.Taskset.Tasks.Add(new CodeGenTask() { UserTokenFile = userTokens })
 			tempContext.CurrentTask = tempContext.Taskset.Tasks.First()
 			UserTokenCollection.LoadTokensFromFile(tempContext)
+
+			
+
+			;;data rel, @CustomRelationSpec
+			;;foreach rel in relations.Relations
 
 			data ut, @UserToken
 			foreach ut in tempContext.UserTokens
@@ -779,6 +836,7 @@ namespace HarmonyCoreGenerator.Model
 
 			FixRPS(result)
 			FixProps(result)
+
 			mreturn result
 		endmethod
 
@@ -950,6 +1008,117 @@ namespace HarmonyCoreGenerator.Model
 
 			
 			data taskSet = new CodeGenTaskSet()
+
+			if(ODataSkip)
+				taskSet.Defines.Add("DEFINED_ENABLE_SKIP")
+
+			if(ODataTop)
+				taskSet.Defines.Add("DEFINED_ENABLE_TOP")
+
+			if(ODataOrderBy)
+				taskSet.Defines.Add("DEFINED_ENABLE_ORDERBY")
+
+			if(ODataFilter)
+				taskSet.Defines.Add("DEFINED_ENABLE_FILTER")
+
+			if(ODataSelect)
+				taskSet.Defines.Add("DEFINED_ENABLE_SELECT")
+
+			if(IndividualPropertyEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_PROPERTY_ENDPOINTS")
+
+			if(CollectionCountEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_COUNT")
+
+			if(AlternateKeyEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_ALTERNATE_KEYS")
+
+			if(GeneratePostmanTests)
+				taskSet.Defines.Add("DEFINED_ENABLE_POSTMAN_TESTS")
+
+			if(PrimaryKeyEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_GET_ONE")
+
+			if(FullCollectionEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_GET_ALL")
+
+			if(GenerateUnitTests)
+				taskSet.Defines.Add("DEFINED_ENABLE_UNIT_TEST_GENERATION")
+
+			if(SmcSignalRHubs)
+				taskSet.Defines.Add("DEFINED_ENABLE_SIGNALR")
+
+			if(FieldSecurity)
+				taskSet.Defines.Add("DEFINED_ENABLE_FIELD_SECURITY")
+
+			if(CustomAuthentication)
+				taskSet.Defines.Add("DEFINED_ENABLE_CUSTOM_AUTHENTICATION")
+
+			if(Authentication)
+				taskSet.Defines.Add("DEFINED_ENABLE_AUTHENTICATION")
+
+			if(EnableNewtonsoftJson)
+				taskSet.Defines.Add("DEFINED_ENABLE_ADAPTER_ROUTING")
+
+			if(StoredProcedureRouting)
+				taskSet.Defines.Add("DEFINED_ENABLE_SPROC")
+
+			if(DeleteEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_DELETE")
+
+			if(PatchEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_PATCH")
+
+			if(PostEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_POST")
+
+			if(PutEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_PUT")
+
+			if(EnableNewtonsoftJson)
+				taskSet.Defines.Add("DEFINED_ENABLE_NEWTONSOFT")
+
+			if(this.TraditionalBridge != ^null)
+			begin
+				taskSet.Defines.Add("DEFINED_ENABLE_TRADITIONAL_BRIDGE_GENERATION")
+
+				;;Internal Compiler error
+				;;if(this.TraditionalBridge?.EnableOptionalParameters ?? false)
+				if(this.TraditionalBridge.EnableOptionalParameters)
+					taskSet.Defines.Add("DEFINED_ENABLE_BRIDGE_OPTIONAL_PARAMETERS")
+
+				if(this.TraditionalBridge.EnableSampleDispatchers)
+					taskSet.Defines.Add("DEFINED_ENABLE_BRIDGE_SAMPLE_DISPATCHERS")
+
+				if(this.TraditionalBridge.EnableXFServerPlusMigration)
+					taskSet.Defines.Add("DEFINED_ENABLE_XFSERVERPLUS_MIGRATION")
+			end
+
+
+			if(ReadOnlyProperties)
+				taskSet.Defines.Add("DEFINED_ENABLE_READ_ONLY_PROPERTIES")
+
+			if(AlternateFieldNames)
+				taskSet.Defines.Add("DEFINED_ENABLE_ALTERNATE_FIELD_NAMES")
+
+			if(FieldOverlays)
+				taskSet.Defines.Add("DEFINED_ENABLE_OVERLAYS")
+
+			if(IISSupport)
+				taskSet.Defines.Add("DEFINED_ENABLE_IIS_SUPPORT")
+
+			if(CrossDomainBrowsing)
+				taskSet.Defines.Add("DEFINED_ENABLE_CORS")
+
+			if(CaseSensitiveUrls)
+				taskSet.Defines.Add("DEFINED_ENABLE_CASE_SENSITIVE_URL")
+
+			if(ODataRelations)
+				taskSet.Defines.Add("DEFINED_ENABLE_RELATIONS")
+
+			if(ODataRelationValidation)
+				taskSet.Defines.Add("DEFINED_ENABLE_RELATIONS_VALIDATION")
+
 			taskSet.Tasks.AddRange<CodeGenTask>(result.CodeGenTasks)
 			taskSet.RepositoryMainFile = RPSMFIL
 			taskSet.RepositoryTextFile = RPSTFIL
@@ -1022,6 +1191,16 @@ namespace HarmonyCoreGenerator.Model
 
 			data context = new CodeGenContext(taskSet)
 			context.ExtendedRepositoryProperties = GetExtendedStructureProperties()
+			
+			;;compiler bug
+			;;context.Structures = new RpsStructureCollection(RpsLoadMode.Load, AlternateFieldNames ?? false)
+			;;internal compiler error
+			;;data altFieldNames = AlternateFieldNames ?? false
+			data altFieldNames = false
+			if(AlternateFieldNames.HasValue)
+				altFieldNames = AlternateFieldNames.Value
+
+			context.Structures = new RpsStructureCollection(RpsLoadMode.Load, altFieldNames)
 			context.Properties.TryAdd(^typeof(HarmonyCoreExtensions.Helpers.RelationLookup), new HarmonyCoreExtensions.Helpers.RelationLookup(context, loadedRelations))
 			;;create code generator
 			data codegenInstance = new CodeGenerator(taskSet, context)
