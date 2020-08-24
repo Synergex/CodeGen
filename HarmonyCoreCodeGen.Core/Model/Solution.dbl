@@ -299,7 +299,7 @@ namespace HarmonyCoreGenerator.Model
 
 			if(string.IsNullOrWhiteSpace(Path.GetDirectoryName(rpsTFile)))
 				rpsTFile = Path.Combine(projectDir, rpsTFile)
-                     
+					 
 			rpsOutputFolder = Path.GetDirectoryName(rpsMFile)
 			
 
@@ -365,7 +365,7 @@ namespace HarmonyCoreGenerator.Model
 			data result = new Solution()
 			data structures = new List<StructureEx>()
 			data interfaces = new List<InterfaceEx>()
-			data setMatcher = new Regex("set\s(\w+)\s?=\s?([^\v]+)")
+			data setMatcher = new Regex("^set\s(\w+)\s?=\s?([^\v]+)$")
 			data batTextLines = File.ReadAllLines(targetRegenBat)
 			data line, @string
 
@@ -718,23 +718,26 @@ namespace HarmonyCoreGenerator.Model
 				end
 			end
 
-			data customizationFile = Path.Combine(templatesFolder, "HarmonyCoreCustomization.json")
-			data json = File.ReadAllText(customizationFile)
-			data configFileObject = (@JObject)JsonConvert.DeserializeObject(json)
-			data configProp = configFileObject.Property("CustomRelations")
-			if(configProp != ^null && configProp.Value != ^null)
+			data customizationFile = Path.Combine(templatesFolder, "HarmonyCoreCustomization.json");
+			if (File.Exists(customizationFile))
 			begin
-				data customRelationSpecs = configProp.Value.ToObject<List<CustomRelationSpec>>()
-				data rel, @CustomRelationSpec
-				foreach rel in customRelationSpecs
+				data json = File.ReadAllText(customizationFile)
+				data configFileObject = (@JObject)JsonConvert.DeserializeObject(json)
+				data configProp = configFileObject.Property("CustomRelations")
+				if(configProp != ^null && configProp.Value != ^null)
 				begin
-					if(structureLookup.ContainsKey(rel.FromStructure))
+					data customRelationSpecs = configProp.Value.ToObject<List<CustomRelationSpec>>()
+					data rel, @CustomRelationSpec
+					foreach rel in customRelationSpecs
 					begin
-						data targetStructure = structureLookup[rel.FromStructure]
-						if(targetStructure.RelationsSpecs == ^null)
-							targetStructure.RelationsSpecs = new List<CustomRelationSpec>()
+						if(structureLookup.ContainsKey(rel.FromStructure))
+						begin
+							data targetStructure = structureLookup[rel.FromStructure]
+							if(targetStructure.RelationsSpecs == ^null)
+								targetStructure.RelationsSpecs = new List<CustomRelationSpec>()
 
-						targetStructure.RelationsSpecs.Add(rel)
+							targetStructure.RelationsSpecs.Add(rel)
+						end
 					end
 				end
 			end
@@ -887,7 +890,7 @@ namespace HarmonyCoreGenerator.Model
 
 			end
 
-			if(this.TraditionalBridge.SMC != ^null)
+			if(this.TraditionalBridge?.SMC != ^null)
 			begin
 
 
@@ -1009,116 +1012,6 @@ namespace HarmonyCoreGenerator.Model
 			
 			data taskSet = new CodeGenTaskSet()
 
-			if(ODataSkip)
-				taskSet.Defines.Add("DEFINED_ENABLE_SKIP")
-
-			if(ODataTop)
-				taskSet.Defines.Add("DEFINED_ENABLE_TOP")
-
-			if(ODataOrderBy)
-				taskSet.Defines.Add("DEFINED_ENABLE_ORDERBY")
-
-			if(ODataFilter)
-				taskSet.Defines.Add("DEFINED_ENABLE_FILTER")
-
-			if(ODataSelect)
-				taskSet.Defines.Add("DEFINED_ENABLE_SELECT")
-
-			if(IndividualPropertyEndpoints)
-				taskSet.Defines.Add("DEFINED_ENABLE_PROPERTY_ENDPOINTS")
-
-			if(CollectionCountEndpoints)
-				taskSet.Defines.Add("DEFINED_ENABLE_COUNT")
-
-			if(AlternateKeyEndpoints)
-				taskSet.Defines.Add("DEFINED_ENABLE_ALTERNATE_KEYS")
-
-			if(GeneratePostmanTests)
-				taskSet.Defines.Add("DEFINED_ENABLE_POSTMAN_TESTS")
-
-			if(PrimaryKeyEndpoints)
-				taskSet.Defines.Add("DEFINED_ENABLE_GET_ONE")
-
-			if(FullCollectionEndpoints)
-				taskSet.Defines.Add("DEFINED_ENABLE_GET_ALL")
-
-			if(GenerateUnitTests)
-				taskSet.Defines.Add("DEFINED_ENABLE_UNIT_TEST_GENERATION")
-
-			if(SmcSignalRHubs)
-				taskSet.Defines.Add("DEFINED_ENABLE_SIGNALR")
-
-			if(FieldSecurity)
-				taskSet.Defines.Add("DEFINED_ENABLE_FIELD_SECURITY")
-
-			if(CustomAuthentication)
-				taskSet.Defines.Add("DEFINED_ENABLE_CUSTOM_AUTHENTICATION")
-
-			if(Authentication)
-				taskSet.Defines.Add("DEFINED_ENABLE_AUTHENTICATION")
-
-			if(EnableNewtonsoftJson)
-				taskSet.Defines.Add("DEFINED_ENABLE_ADAPTER_ROUTING")
-
-			if(StoredProcedureRouting)
-				taskSet.Defines.Add("DEFINED_ENABLE_SPROC")
-
-			if(DeleteEndpoints)
-				taskSet.Defines.Add("DEFINED_ENABLE_DELETE")
-
-			if(PatchEndpoints)
-				taskSet.Defines.Add("DEFINED_ENABLE_PATCH")
-
-			if(PostEndpoints)
-				taskSet.Defines.Add("DEFINED_ENABLE_POST")
-
-			if(PutEndpoints)
-				taskSet.Defines.Add("DEFINED_ENABLE_PUT")
-
-			if(EnableNewtonsoftJson)
-				taskSet.Defines.Add("DEFINED_ENABLE_NEWTONSOFT")
-
-			if(this.TraditionalBridge != ^null)
-			begin
-				taskSet.Defines.Add("DEFINED_ENABLE_TRADITIONAL_BRIDGE_GENERATION")
-
-				;;Internal Compiler error
-				;;if(this.TraditionalBridge?.EnableOptionalParameters ?? false)
-				if(this.TraditionalBridge.EnableOptionalParameters)
-					taskSet.Defines.Add("DEFINED_ENABLE_BRIDGE_OPTIONAL_PARAMETERS")
-
-				if(this.TraditionalBridge.EnableSampleDispatchers)
-					taskSet.Defines.Add("DEFINED_ENABLE_BRIDGE_SAMPLE_DISPATCHERS")
-
-				if(this.TraditionalBridge.EnableXFServerPlusMigration)
-					taskSet.Defines.Add("DEFINED_ENABLE_XFSERVERPLUS_MIGRATION")
-			end
-
-
-			if(ReadOnlyProperties)
-				taskSet.Defines.Add("DEFINED_ENABLE_READ_ONLY_PROPERTIES")
-
-			if(AlternateFieldNames)
-				taskSet.Defines.Add("DEFINED_ENABLE_ALTERNATE_FIELD_NAMES")
-
-			if(FieldOverlays)
-				taskSet.Defines.Add("DEFINED_ENABLE_OVERLAYS")
-
-			if(IISSupport)
-				taskSet.Defines.Add("DEFINED_ENABLE_IIS_SUPPORT")
-
-			if(CrossDomainBrowsing)
-				taskSet.Defines.Add("DEFINED_ENABLE_CORS")
-
-			if(CaseSensitiveUrls)
-				taskSet.Defines.Add("DEFINED_ENABLE_CASE_SENSITIVE_URL")
-
-			if(ODataRelations)
-				taskSet.Defines.Add("DEFINED_ENABLE_RELATIONS")
-
-			if(ODataRelationValidation)
-				taskSet.Defines.Add("DEFINED_ENABLE_RELATIONS_VALIDATION")
-
 			taskSet.Tasks.AddRange<CodeGenTask>(result.CodeGenTasks)
 			taskSet.RepositoryMainFile = RPSMFIL
 			taskSet.RepositoryTextFile = RPSTFIL
@@ -1126,6 +1019,69 @@ namespace HarmonyCoreGenerator.Model
 				taskSet.MethodCatalog = this.TraditionalBridge.Smc
 
 			taskSet.TemplateFolder = Path.Combine(SolutionFolder, "Templates")
+
+			;; Set defines
+			if (CreateTestFiles)
+				taskSet.Defines.Add("DEFINED_ENABLE_CREATE_TEST_FILES")
+			if (DisableFileLogicals)
+				taskSet.Defines.Add("DEFINED_DO_NOT_SET_FILE_LOGICALS")
+			if (FullCollectionEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_GET_ALL")
+			if (PrimaryKeyEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_GET_ONE")
+			if (AlternateKeyEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_ALTERNATE_KEYS")
+			if (CollectionCountEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_COUNT")
+			if (IndividualPropertyEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_PROPERTY_ENDPOINTS")
+			if (ODataSelect)
+				taskSet.Defines.Add("DEFINED_ENABLE_SELECT")
+			if (ODataFilter)
+				taskSet.Defines.Add("DEFINED_ENABLE_FILTER")
+			if (ODataOrderBy)
+				taskSet.Defines.Add("DEFINED_ENABLE_ORDERBY")
+			if (ODataTop)
+				taskSet.Defines.Add("DEFINED_ENABLE_TOP")
+			if (ODataSkip)
+				taskSet.Defines.Add("DEFINED_ENABLE_SKIP")
+			if (ODataRelations)
+				taskSet.Defines.Add("DEFINED_ENABLE_RELATIONS")
+			if (ODataRelationValidation)
+				taskSet.Defines.Add("DEFINED_ENABLE_RELATIONS_VALIDATION")
+			if (PutEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_PUT")
+			if (PostEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_POST")
+			if (PatchEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_PATCH")
+			if (DeleteEndpoints)
+				taskSet.Defines.Add("DEFINED_ENABLE_DELETE")
+			if (StoredProcedureRouting)
+				taskSet.Defines.Add("DEFINED_ENABLE_SPROC")
+			if (AdapterRouting)
+				taskSet.Defines.Add("DEFINED_ENABLE_ADAPTER_ROUTING")
+			if (Authentication)
+				taskSet.Defines.Add("DEFINED_ENABLE_AUTHENTICATION")
+			if (CustomAuthentication)
+				taskSet.Defines.Add("DEFINED_ENABLE_CUSTOM_AUTHENTICATION")
+			if (FieldSecurity)
+				taskSet.Defines.Add("DEFINED_ENABLE_FIELD_SECURITY")
+			if (SmcSignalRHubs)
+				taskSet.Defines.Add("DEFINED_ENABLE_SIGNALR")
+			if (CaseSensitiveUrls)
+				taskSet.Defines.Add("DEFINED_ENABLE_CASE_SENSITIVE_URL")
+			if (CrossDomainBrowsing)
+				taskSet.Defines.Add("DEFINED_ENABLE_CORS")
+			if (IISSupport)
+				taskSet.Defines.Add("DEFINED_ENABLE_IIS_SUPPORT")
+			if (ReadOnlyProperties)
+				taskSet.Defines.Add("DEFINED_ENABLE_READ_ONLY_PROPERTIES")
+			if (TraditionalBridge != ^null && TraditionalBridge.EnableSampleDispatchers)
+				taskSet.Defines.Add("DEFINED_ENABLE_BRIDGE_SAMPLE_DISPATCHERS")
+			if (EnableNewtonsoftJson)
+				taskSet.Defines.Add("DEFINED_ENABLE_NEWTONSOFT")
+
 			data context = new CodeGenContext(taskSet)
 			context.ExtendedRepositoryProperties = GetExtendedStructureProperties()
 			
