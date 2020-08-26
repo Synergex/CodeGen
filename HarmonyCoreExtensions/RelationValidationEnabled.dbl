@@ -1,10 +1,10 @@
 ;;*****************************************************************************
 ;;
-;; Title:       SegmentDataType.dbl
+;; Title:       RelationValidationEnabled.dbl
 ;;
 ;; Type:        Class
 ;;
-;; Description: A custom key segment loop expansion token for use with Harmony Core
+;; Description: A custom generic loop expression token for use with Harmony Core
 ;;
 ;; Date:        25th August 2020
 ;;
@@ -42,64 +42,53 @@
 
 import System
 import System.Collections.Generic
+import System.Text
 import CodeGen.Engine
+import System.Linq
 import CodeGen.RepositoryAPI
 
 namespace HarmonyCoreExtensions
 
-    public class SegmentDataType implements IExpansionToken
+    public class RelationValidationEnabled implements IExpressionToken 
 
         public property TokenName, String
             method get
             proc
-                mreturn "HARMONYCORE_SEGMENT_DATATYPE"
+                mreturn "HARMONYCORE_RELATIONS_VALIDATION_ENABLED"
             endmethod
         endproperty
 
         public property Description, String
             method get
             proc
-                mreturn "An example of a custom field loop token."
+                mreturn "Does the structure have relation validation enabled?"
             endmethod
         endproperty
 
         public property Validity, TokenValidity
             method get
             proc
-                mreturn TokenValidity.KeySegmentLoop
+                mreturn TokenValidity.Anywhere
             endmethod
         endproperty
 
-        public property TokenCase, TokenCaseMode
-            method get
-            proc
-                mreturn TokenCaseMode.UppercaseOnly
-            endmethod
-        endproperty
-
-        public method Expand, String
+        public method Evaluate, Boolean
             tkn, @Token
             template, @FileNode 
             loops, @IEnumerable<LoopNode>
             endparams
         proc
-            lambda doExpand(str, ky, segment, index)
-            begin
-                data field, @RpsField
-                foreach field in str.Fields
-                begin
-                    if (field.OriginalName == segment.Field)
-                    begin
-                        data propValue = field.GetProperty<string>(template, "HARMONYCORE_CUSTOM_FIELD_DATATYPE")
-                        if(propValue != ^null) then
-                            mreturn propValue
-                        else
-                            mreturn field.SnType
-                    end
-                end
-                throw new InvalidOperationException("failed to find segment data type")
-            end
-            mreturn TokenExpander.ExpandKeySegmentLoopToken(tkn, template, loops, doExpand)
+            mreturn RelationValidationEnabledHelper(template.Context, template.Context.CurrentStructure.GetProperty<string>(template, TokenName))
+        endmethod
+
+        private method RelationValidationEnabledHelper, boolean
+            context, @CodeGenContext
+            prop, @string
+        proc
+            if(string.IsNullOrWhiteSpace(prop)) then
+                mreturn context.Taskset.Defines.Contains("DEFINED_ENABLE_RELATIONS_VALIDATION")
+            else
+                mreturn Boolean.Parse(prop)
         endmethod
 
     endclass
