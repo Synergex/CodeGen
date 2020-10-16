@@ -1,0 +1,5 @@
+/*! HelpSmith Web Help System 3.1
+* http://www.helpsmith.com
+* Copyright (c) 2007-2020 Divcom Software */
+var an=getQueryAnchor();$(document).ready(function(){$(window).on("resize",function(){alignDocument()}).trigger("resize");an&&scrollToAnchor(an)});function getQueryAnchor(){var a=location.hash;return""!=a?(a=a.substring(1),a=a.replace(/[^\w]|[\s]/g,"")):""}function scrollToAnchor(a){!a||0>=$("#non-scrolling-area").length||0>=$("#container").length||(location.hash="#"+a)}
+function alignDocument(){var a=$("#non-scrolling-area");if(!(0>=a.length)){var b=$("#container");if(!(0>=b.length)){var c=b.find("> #content-background");if(!(0>=c.length)){var d=c.find("> #content");if(!(0>=d.length))try{var e=a.outerHeight(!0);b.css({top:a.position().top+e,height:$(window).innerHeight()-e});c.css({height:Math.max(d.innerHeight(),b.height())})}catch(f){}}}}};
