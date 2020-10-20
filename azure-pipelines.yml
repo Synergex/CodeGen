@@ -1,4 +1,4 @@
-# .NET Desktop
+# CodeGen Build Pipeline
 # Build and run tests for .NET Desktop or Windows classic desktop solutions.
 # Add steps that publish symbols, save build artifacts, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/apps/windows/dot-net
@@ -6,74 +6,77 @@
 trigger:
 - master
 
-pool:
- name: 'CodeGen Pool'
- demands:
-  - SDE32
-  - SDE64
-  - SDI
-  - WIX
-  - HELPSMITH
+jobs:
+- job: CodeGenBuild
+  timeoutInMinutes: 10
 
-variables:
-- group: Secure
-- name: solution
-  value: 'CodeGen.sln'
-- name: currentVersion
-  value: '5.5.9'
-- name: buildPlatform
-  value: 'Any CPU'
-- name: buildConfiguration
-  value: 'Deploy'
+  pool:
+   name: 'CodeGen Pool'
+   demands:
+    - SDE32
+    - SDE64
+    - SDI
+    - WIX
+    - HELPSMITH
 
-steps:
-- task: NuGetToolInstaller@1
-  displayName: 'Get NuGet tool'
+  variables:
+  - group: Secure
+  - name: solution
+    value: 'CodeGen.sln'
+  - name: currentVersion
+    value: '5.5.9'
+  - name: buildPlatform
+    value: 'Any CPU'
+  - name: buildConfiguration
+    value: 'Deploy'
 
-- task: NuGetCommand@2
-  displayName: 'Restore NuGet packages'
-  inputs:
-    restoreSolution: '$(solution)'
+  steps:
+  - task: NuGetToolInstaller@1
+    displayName: 'Get NuGet tool'
 
-- task: BatchScript@1
-  displayName: 'Configure SDE environment'
-  inputs:
-    filename: '$(SYNERGYDE32)\dbl\dblvars32.bat'
-    arguments: 
-    modifyEnvironment: true
+  - task: NuGetCommand@2
+    displayName: 'Restore NuGet packages'
+    inputs:
+      restoreSolution: '$(solution)'
 
-- task: VSBuild@1
-  displayName: 'Build CodeGen solution and installer'
-  inputs:
-    solution: '$(solution)'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+  - task: BatchScript@1
+    displayName: 'Configure SDE environment'
+    inputs:
+      filename: '$(SYNERGYDE32)\dbl\dblvars32.bat'
+      arguments: 
+      modifyEnvironment: true
 
-#- task: VSTest@2
-#  displayName: 'Run unit tests'
-#  inputs:
-#    platform: '$(buildPlatform)'
-#    configuration: '$(buildConfiguration)'
+  - task: VSBuild@1
+    displayName: 'Build CodeGen solution and installer'
+    inputs:
+      solution: '$(solution)'
+      platform: '$(buildPlatform)'
+      configuration: '$(buildConfiguration)'
 
-- task: DownloadSecureFile@1
-  displayName: 'Doanload AuthentiCode certificate'
-  name: cert
-  inputs:
-    secureFile: 63ee1fbd-46e2-49cc-abcc-f7cf5eeec575
+  - task: VSTest@2
+    displayName: 'Run unit tests'
+    inputs:
+      platform: '$(buildPlatform)'
+      configuration: '$(buildConfiguration)'
 
-- task: CmdLine@2
-  displayName: 'Sign MSI file'
-  inputs:
-    script: '"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool.exe" sign /v /td sha256 /tr http://timestamp.digicert.com /fd sha256 /f $(cert.secureFilePath) /p "$(SigPass)" /d "CodeGen" /du "www.synergex.com" bin\release\CodeGen_$(currentVersion).msi'
+  - task: DownloadSecureFile@1
+    displayName: 'Doanload AuthentiCode certificate'
+    name: cert
+    inputs:
+      secureFile: 63ee1fbd-46e2-49cc-abcc-f7cf5eeec575
 
-# Publish build artifacts to Azure Pipelines or a Windows file share
-- task: PublishBuildArtifacts@1
-  displayName: 'Save MSI file as artifact'
-  inputs:
-    pathToPublish: 'bin\release\CodeGen_$(currentVersion).msi' 
-    artifactName: 'CodeGen-Installer' 
-    #publishLocation: 'Container' # Options: container, filePath
-    #targetPath: # Required when publishLocation == FilePath
-    #parallel: false # Optional
-    #parallelCount: # Optional
-    #fileCopyOptions: #Optional
+  - task: CmdLine@2
+    displayName: 'Sign MSI file'
+    inputs:
+      script: '"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool.exe" sign /v /td sha256 /tr http://timestamp.digicert.com /fd sha256 /f $(cert.secureFilePath) /p "$(SigPass)" /d "CodeGen" /du "www.synergex.com" bin\release\CodeGen_$(currentVersion).msi'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Save MSI file as artifact'
+    inputs:
+      pathToPublish: 'bin\release\CodeGen_$(currentVersion).msi' 
+      artifactName: 'CodeGen-Installer' 
+      #publishLocation: 'Container' # Options: container, filePath
+      #targetPath: # Required when publishLocation == FilePath
+      #parallel: false # Optional
+      #parallelCount: # Optional
+      #fileCopyOptions: #Optional
