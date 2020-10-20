@@ -28,40 +28,47 @@ variables:
 
 steps:
 - task: NuGetToolInstaller@1
+  displayName: 'Get NuGet tool'
 
 - task: NuGetCommand@2
+  displayName: 'Restore NuGet packages'
   inputs:
     restoreSolution: '$(solution)'
 
 - task: BatchScript@1
-  displayName: 'Profile Environment'
+  displayName: 'Configure SDE environment'
   inputs:
     filename: '$(SYNERGYDE32)\dbl\dblvars32.bat'
     arguments: 
     modifyEnvironment: true
 
 - task: VSBuild@1
+  displayName: 'Build CodeGen solution and installer'
   inputs:
     solution: '$(solution)'
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
 
 #- task: VSTest@2
+#  displayName: 'Run unit tests'
 #  inputs:
 #    platform: '$(buildPlatform)'
 #    configuration: '$(buildConfiguration)'
 
 - task: DownloadSecureFile@1
+  displayName: 'Doanload AuthentiCode certificate'
   name: cert
   inputs:
     secureFile: 63ee1fbd-46e2-49cc-abcc-f7cf5eeec575
 
 - task: CmdLine@2
+  displayName: 'Sign MSI file'
   inputs:
-    script: 'signtool sign /v /td sha256 /tr http://timestamp.digicert.com /fd sha256 /f $(cert.secureFilePath) /p "$(SigPass)" /d "CodeGen" /du "www.synergex.com" bin\release\CodeGen_$(currentVersion).msi'
+    script: '"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool.exe" sign /v /td sha256 /tr http://timestamp.digicert.com /fd sha256 /f $(cert.secureFilePath) /p "$(SigPass)" /d "CodeGen" /du "www.synergex.com" bin\release\CodeGen_$(currentVersion).msi'
 
 # Publish build artifacts to Azure Pipelines or a Windows file share
 - task: PublishBuildArtifacts@1
+  displayName: 'Save MSI file as artifact'
   inputs:
     pathToPublish: 'bin\release\CodeGen_$(currentVersion).msi' 
     artifactName: 'CodeGen-Installer' 
