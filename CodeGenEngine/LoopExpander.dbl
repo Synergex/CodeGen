@@ -153,20 +153,25 @@ namespace CodeGen.Engine
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
 
-            if (template.Context.CurrentStructure.Keys.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+            ;;Do we have any keys?
+            if (context.CurrentStructure.Keys.Count == 0)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            end
 
-            loop.MaxIndex = template.Context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
 
             data ix, int
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (template.Context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -175,13 +180,13 @@ namespace CodeGen.Engine
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
 
-                loop.CurrentKey = template.Context.CurrentStructure.Keys[ix]
+                loop.CurrentKey = context.CurrentStructure.Keys[ix]
                 loop.CurrentIndex = ix
                 expander.Visit(node.Body)
             end
@@ -200,21 +205,25 @@ namespace CodeGen.Engine
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
 
-            if (template.Context.CurrentStructure.Keys.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+            if (context.CurrentStructure.Keys.Count == 0)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            end
 
             data ix, int
 
-            loop.MaxIndex = template.Context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
 
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (template.Context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -227,10 +236,10 @@ namespace CodeGen.Engine
             data otherKeySegments, @RpsKeySegmentCollection 
 
             ;;Iterate through all the keys in the structure
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;; Skip any foreign keys
-                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
 
                 ;;If we get here we have an access key. Assume it's a duplicate and we'll look for a difference
@@ -241,7 +250,7 @@ namespace CodeGen.Engine
                 begin
                     ;;We have processed other keys, so make sure the segments of this key don't match any we have already processed
                     data segmentsMatchThisKey, boolean
-                    data thisKeySegments, @RpsKeySegmentCollection, template.Context.CurrentStructure.Keys[ix].Segments
+                    data thisKeySegments, @RpsKeySegmentCollection, context.CurrentStructure.Keys[ix].Segments
 
                     data iy, int
                     for iy from 0 thru prevKeysSegments.Count - 1
@@ -288,11 +297,11 @@ namespace CodeGen.Engine
                                 end
                                 (RpsKeySegmentType.External),
                                 begin
-                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'External' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'External' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
                                 end
                                 (RpsKeySegmentType.RecordNumber),
                                 begin
-                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'Record Number' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'Record Number' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
                                 end
                                 endusing
                             end
@@ -309,7 +318,7 @@ namespace CodeGen.Engine
                 if (!segmentsMatchAnotherKey)
                 begin
                     ;; Then process as normal
-                    loop.CurrentKey = template.Context.CurrentStructure.Keys[ix]
+                    loop.CurrentKey = context.CurrentStructure.Keys[ix]
                     loop.CurrentIndex = ix
 
                     expander.Visit(node.Body)
@@ -329,21 +338,25 @@ namespace CodeGen.Engine
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
 
-            if (template.Context.CurrentStructure.Keys.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+            if (context.CurrentStructure.Keys.Count == 0)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            end
 
             data ix, int
 
-            loop.MaxIndex = template.Context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
 
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (template.Context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -352,14 +365,14 @@ namespace CodeGen.Engine
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;; Skip the first key and any foreign keys
-                if ((ix == 0) || (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
+                if ((ix == 0) || (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
                     nextloop
 
                 ;; Then process as normal
-                loop.CurrentKey = template.Context.CurrentStructure.Keys[ix]
+                loop.CurrentKey = context.CurrentStructure.Keys[ix]
                 loop.CurrentIndex = ix
 
                 expander.Visit(node.Body)
@@ -379,21 +392,25 @@ namespace CodeGen.Engine
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
 
-            if (template.Context.CurrentStructure.Keys.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+            if (context.CurrentStructure.Keys.Count == 0)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            end
 
             data ix, int
 
-            loop.MaxIndex = template.Context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
 
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (template.Context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -406,10 +423,10 @@ namespace CodeGen.Engine
             data otherKeySegments, @RpsKeySegmentCollection 
 
             ;;Iterate through all the keys in the structure
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;; Skip the first key and any foreign keys
-                if ((ix == 0) || (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
+                if ((ix == 0) || (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
                     nextloop
 
                 ;;If we get here we have an alternate access key. Assume it's a duplicate and we'll look for a difference
@@ -420,7 +437,7 @@ namespace CodeGen.Engine
                 begin
                     ;;We have processed other keys, so make sure the segments of this key don't match any we have already processed
                     data segmentsMatchThisKey, boolean
-                    data thisKeySegments, @RpsKeySegmentCollection, template.Context.CurrentStructure.Keys[ix].Segments
+                    data thisKeySegments, @RpsKeySegmentCollection, context.CurrentStructure.Keys[ix].Segments
 
                     data iy, int
                     for iy from 0 thru prevKeysSegments.Count - 1
@@ -467,11 +484,11 @@ namespace CodeGen.Engine
                                 end
                                 (RpsKeySegmentType.External),
                                 begin
-                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'External' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'External' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
                                 end
                                 (RpsKeySegmentType.RecordNumber),
                                 begin
-                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'Record Number' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                                    throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because an unsupported key segment type of 'Record Number' was encountered!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
                                 end
                                 endusing
                             end
@@ -488,7 +505,7 @@ namespace CodeGen.Engine
                 if (!segmentsMatchAnotherKey)
                 begin
                     ;; Then process as normal
-                    loop.CurrentKey = template.Context.CurrentStructure.Keys[ix]
+                    loop.CurrentKey = context.CurrentStructure.Keys[ix]
                     loop.CurrentIndex = ix
 
                     expander.Visit(node.Body)
@@ -508,7 +525,7 @@ namespace CodeGen.Engine
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
 
-            loop.MaxIndex = template.Context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Foreign }) -1
+            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Foreign }) -1
 
             ;;If we don't have any foreign keys then we're done!
             if (loop.MaxIndex == -1)
@@ -519,7 +536,7 @@ namespace CodeGen.Engine
             data currentKey, @RpsKey
             loop.CurrentIndex = -1
 
-            foreach currentKey in template.Context.CurrentStructure.Keys
+            foreach currentKey in context.CurrentStructure.Keys
             begin
                 ;;Only process foreign keys
                 if (currentKey.KeyType == RpsKeyType.Foreign)
@@ -541,25 +558,29 @@ namespace CodeGen.Engine
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
 
-            if (template.Context.CurrentStructure.Keys.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+            if (context.CurrentStructure.Keys.Count == 0)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            end
 
-            if ((template.Context.CurrentTask.PrimaryKeyNumber > 0) && (template.Context.CurrentTask.PrimaryKeyNumber > (template.Context.CurrentStructure.Keys.Count - 1)))
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed using alternate key {3} because structure {4} only has {5} keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentTask.PrimaryKeyNumber, template.Context.CurrentStructure.Name, template.Context.CurrentStructure.Keys.Count + 1))
+            if ((context.CurrentTask.PrimaryKeyNumber > 0) && (context.CurrentTask.PrimaryKeyNumber > (context.CurrentStructure.Keys.Count - 1)))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed using alternate key {3} because structure {4} only has {5} keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentTask.PrimaryKeyNumber, context.CurrentStructure.Name, context.CurrentStructure.Keys.Count + 1))
 
-            loop.CurrentKey = template.Context.CurrentStructure.Keys[template.Context.CurrentTask.PrimaryKeyNumber]
-            loop.CurrentIndex = template.Context.CurrentTask.PrimaryKeyNumber
-            loop.MaxIndex = template.Context.CurrentTask.PrimaryKeyNumber
+            loop.CurrentKey = context.CurrentStructure.Keys[context.CurrentTask.PrimaryKeyNumber]
+            loop.CurrentIndex = context.CurrentTask.PrimaryKeyNumber
+            loop.MaxIndex = context.CurrentTask.PrimaryKeyNumber
 
             data ix, int
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (template.Context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -581,25 +602,33 @@ namespace CodeGen.Engine
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
 
-            if (template.Context.CurrentStructure.Keys.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+            if (context.CurrentStructure.Keys.Count == 0)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            end
 
-            if (!template.Context.CurrentStructure.Keys.Any(lambda (k) {(k.Duplicates == RpsKeyDuplicates.NoDuplicates) && (k.KeyType == RpsKeyType.Access)}))
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no unique keys!",node.OpenToken.Value,node.OpenToken.StartLineNumber,template.Context.CurrentTemplateBaseName,template.Context.CurrentStructure.Name))
+            if (!context.CurrentStructure.Keys.Any(lambda (k) {(k.Duplicates == RpsKeyDuplicates.NoDuplicates) && (k.KeyType == RpsKeyType.Access)}))
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no unique keys!",node.OpenToken.Value,node.OpenToken.StartLineNumber,context.CurrentTemplateBaseName,context.CurrentStructure.Name))
+            end
 
-            loop.CurrentKey = template.Context.CurrentStructure.Keys.First(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates})
-            loop.CurrentIndex = template.Context.CurrentStructure.Keys.IndexOf(loop.CurrentKey)
+            loop.CurrentKey = context.CurrentStructure.Keys.First(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates})
+            loop.CurrentIndex = context.CurrentStructure.Keys.IndexOf(loop.CurrentKey)
             loop.MaxIndex = loop.CurrentIndex
 
             data ix, int
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru template.Context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (template.Context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (template.Context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -621,20 +650,28 @@ namespace CodeGen.Engine
             data loop = ^as(node, EnumLoopNode)
             data context = template.Context
 
-            if (template.Context.Repository == ^null)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no repository is being processed!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+            if (context.Repository == ^null)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no repository is being processed!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
+            end
 
-            if (template.Context.Repository.Enumerations.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+            if (context.Repository.Enumerations.Count == 0)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
+            end
 
-            loop.MaxIndex = template.Context.Repository.Enumerations.Count - 1
+            loop.MaxIndex = context.Repository.Enumerations.Count - 1
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} enums", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             data ix, int
-            for ix from 0 thru template.Context.Repository.Enumerations.Count - 1
+            for ix from 0 thru context.Repository.Enumerations.Count - 1
             begin
-                loop.CurrentEnumeration = template.Context.Repository.Enumerations[ix]
+                loop.CurrentEnumeration = context.Repository.Enumerations[ix]
                 loop.CurrentIndex = ix
 
                 expander.Visit(node.Body)
@@ -651,11 +688,15 @@ namespace CodeGen.Engine
             data loop = ^as(node, EnumLoopNode)
             data context = template.Context
 
-            if (template.Context.Repository.Enumerations.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+            if (context.Repository.Enumerations.Count == 0)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no enumerations are defined!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
+            end
 
             ;;Build a collection of enums that are referred to by the current structure
-            data enumsToProcess = new RpsEnumCollection(template.Context.CurrentStructure.Name)
+            data enumsToProcess = new RpsEnumCollection(context.CurrentStructure.Name)
 
             loop.MaxIndex = enumsToProcess.Count - 1
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} enums", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
@@ -685,26 +726,30 @@ namespace CodeGen.Engine
             data loop = ^as(node, RelationLoopNode)
             data context = template.Context
 
-            if (template.Context.CurrentStructure.Relations.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no relations!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, template.Context.CurrentStructure.Name))
+            if (context.CurrentStructure.Relations.Count == 0)
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no relations!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            end
 
-            loop.MaxIndex = template.Context.CurrentStructure.Relations.Count - 1
+            loop.MaxIndex = context.CurrentStructure.Relations.Count - 1
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} relations", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             data ix, int
-            for ix from 0 thru template.Context.CurrentStructure.Relations.Count - 1
+            for ix from 0 thru context.CurrentStructure.Relations.Count - 1
             begin
-                loop.CurrentRelation = template.Context.CurrentStructure.Relations[ix]
+                loop.CurrentRelation = context.CurrentStructure.Relations[ix]
                 loop.CurrentIndex = ix
 
                 ;;Locate the "from key" information
                 lambda isFromKey(k) k.Name == loop.CurrentRelation.FromKey
-                loop.FromKey = template.Context.CurrentStructure.Keys.First(isFromKey)
+                loop.FromKey = context.CurrentStructure.Keys.First(isFromKey)
 
                 ;;Load the "to structure" information
                 lambda isToStructure(s) s.Name == loop.CurrentRelation.ToStructure
-                loop.ToStructure = template.Context.Structures.FirstOrDefault(isToStructure)
+                loop.ToStructure = context.Structures.FirstOrDefault(isToStructure)
 
                 ;;If the to structure was not found then it's not currently being processed
                 ;;so we'll load it directly from the repository
@@ -744,19 +789,19 @@ namespace CodeGen.Engine
             data loop = ^as(node, ButtonLoopNode)
             data context = template.Context
 
-            template.Context.Buttons = new WscButtonCollection()
+            context.Buttons = new WscButtonCollection()
 
-            if ((template.Context.Buttons == ^null) || (template.Context.Buttons.Count == 0))
+            if ((context.Buttons == ^null) || (context.Buttons.Count == 0))
                 mreturn
 
-            loop.MaxIndex = template.Context.Buttons.Count - 1
+            loop.MaxIndex = context.Buttons.Count - 1
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} buttons", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             data ix, int
-            for ix from 0 thru template.Context.Buttons.Count - 1
+            for ix from 0 thru context.Buttons.Count - 1
             begin
-                loop.CurrentButton = template.Context.Buttons[ix]
+                loop.CurrentButton = context.Buttons[ix]
                 loop.CurrentIndex = ix
 
                 expander.Visit(node.Body)
@@ -774,7 +819,11 @@ namespace CodeGen.Engine
             data context = template.Context
 
             if (context.CurrentStructure.Files.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} is not assigned to any files!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            begin
+                if (!context.Taskset.EmptyLoopFail)
+                    mreturn
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} is not assigned to any files!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            end
 
             loop.MaxIndex = context.CurrentStructure.Files.Count - 1
 
@@ -800,19 +849,18 @@ namespace CodeGen.Engine
             data loop = ^as(node, TagLoopNode)
             data context = template.Context
 
-            loop.MaxIndex = template.Context.CurrentStructure.Tags.Count - 1
+            loop.MaxIndex = context.CurrentStructure.Tags.Count - 1
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} tags", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             ;; Tag loops just do nothing if no tags are defined!
             data ix, int
-            for ix from 0 thru template.Context.CurrentStructure.Tags.Count - 1
+            for ix from 0 thru context.CurrentStructure.Tags.Count - 1
             begin
-                loop.CurrentTag = template.Context.CurrentStructure.Tags[ix]
+                loop.CurrentTag = context.CurrentStructure.Tags[ix]
                 loop.CurrentIndex = ix
 
                 expander.Visit(node.Body)
-
             end
 
         endmethod
@@ -841,7 +889,6 @@ namespace CodeGen.Engine
                     loop.CurrentIndex = ix
 
                     expander.Visit(node.Body)
-
                 end
             end
 
@@ -873,7 +920,6 @@ namespace CodeGen.Engine
 
                     expander.Visit(node.Body)
                 end
-
             end
 
         endmethod
@@ -1197,10 +1243,10 @@ namespace CodeGen.Engine
 
             ;;Make sure we have SMC data
             if (taskSet.MethodCatalog == ^null)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no SMC data is available. Use the -smc command line option.", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no SMC data is available. Use the -smc command line option.", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             if (taskSet.MethodCatalog.Interfaces.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the SMC data contains no interface definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the SMC data contains no interface definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             loop.MaxIndex = taskSet.MethodCatalog.Interfaces.Count - 1
 
@@ -1242,13 +1288,13 @@ namespace CodeGen.Engine
 
             ;;Make sure we have SMC data
             if (taskSet.MethodCatalog == ^null)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no SMC data is available. Use the -smc command line option.", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no SMC data is available. Use the -smc command line option.", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             if (taskSet.MethodCatalog.Interfaces.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the SMC data contains no interface definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the SMC data contains no interface definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             if (currentInterface.Methods.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the current interface contains no method definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the current interface contains no method definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             loop.MaxIndex = currentInterface.Methods.Count - 1
 
@@ -1296,13 +1342,13 @@ namespace CodeGen.Engine
 
             ;;Make sure we have SMC data
             if (taskSet.MethodCatalog == ^null)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no SMC data is available. Use the -smc command line option.", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because no SMC data is available. Use the -smc command line option.", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             if (taskSet.MethodCatalog.Interfaces.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the SMC data contains no interface definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the SMC data contains no interface definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             if (currentInterface.Methods.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the current interface contains no method definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the current interface contains no method definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             ;;If there are no parameters, do nothing!
             if (outerLoop.CurrentMethod.Parameters.Count == 0)
@@ -1344,7 +1390,7 @@ namespace CodeGen.Engine
                     end
                     catch (ex, @Exception)
                     begin
-                        throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because method {3} parameter {4} ({5}) refers to repository enum {6} which was not found!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, loop.CurrentMethod.Name, ix+1, loop.CurrentParameter.Name, enumName))
+                        throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because method {3} parameter {4} ({5}) refers to repository enum {6} which was not found!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, loop.CurrentMethod.Name, ix+1, loop.CurrentParameter.Name, enumName))
                     end
                     endtry
 
@@ -1369,7 +1415,7 @@ namespace CodeGen.Engine
                     end
                     catch (ex, @Exception)
                     begin
-                        throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because method {3} parameter {4} ({5}) refers to repository structure {6} which was not found!", node.OpenToken.Value, node.OpenToken.StartLineNumber, template.Context.CurrentTemplateBaseName, loop.CurrentMethod.Name, ix+1, loop.CurrentParameter.Name, structureName))
+                        throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because method {3} parameter {4} ({5}) refers to repository structure {6} which was not found!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, loop.CurrentMethod.Name, ix+1, loop.CurrentParameter.Name, structureName))
                     end
                     endtry
 

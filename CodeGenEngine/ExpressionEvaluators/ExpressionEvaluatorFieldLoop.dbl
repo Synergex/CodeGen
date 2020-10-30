@@ -228,6 +228,7 @@ namespace CodeGen.Engine
             fieldLoopExpressionEvaluators.Add("RANGE", evaluateFieldRange)
             fieldLoopExpressionEvaluators.Add("READONLY", evaluateFieldReadOnly)
             fieldLoopExpressionEvaluators.Add("READWRITE", evaluateFieldReadWrite)
+            fieldLoopExpressionEvaluators.Add("RELATION", evaluateFieldRelation)
             fieldLoopExpressionEvaluators.Add("REPORT", evaluateFieldReport)
             fieldLoopExpressionEvaluators.Add("REPORT_CENTER", evaluateFieldReportCenter)
             fieldLoopExpressionEvaluators.Add("REPORT_LEFT", evaluateFieldReportLeft)
@@ -2217,6 +2218,30 @@ namespace CodeGen.Engine
             endparams
         proc
             lambda doEvaluate(str, field, index) (!field.ReadOnly)
+            mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldRelation, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                ;;Return true if the field is associated with the only segment of a relations FROM key
+                data rel, @RpsRelation
+                foreach rel in str.Relations
+                begin
+                    ;;Is this relations FROM KEY based on the current field?
+                    data fromKey, @RpsKey, str.Keys.FirstOrDefault(lambda(k) { k.Segments.Count==1 && k.Segments[0].SegmentType==RpsKeySegmentType.Field && k.Segments[0].field==field.Name })
+                    if (fromKey != ^null)
+                    begin
+                        mreturn true
+                    end
+                end
+                mreturn false
+            end
             mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
