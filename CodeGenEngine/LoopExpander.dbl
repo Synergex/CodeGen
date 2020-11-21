@@ -1274,17 +1274,18 @@ namespace CodeGen.Engine
             data taskset = context.Taskset
             data task = context.CurrentTask
             data currentInterface, @SmcInterface
-            try
+
+            data result = loops.FirstOrDefault(lambda (loopnode) {loopnode .is. InterfaceLoopNode})
+            if (result != ^null) then
             begin
-                data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. InterfaceLoopNode}), InterfaceLoopNode)
+                data outerLoop = ^as(result, InterfaceLoopNode)
                 currentInterface = outerLoop.CurrentInterface
             end
-            catch (e, @InvalidOperationException)
+            else
             begin
                 ;;We're not using an <INTERFACE_LOOP> so there is no "outer" loop
                 currentInterface = taskset.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.Equals(task.Interface)})
             end
-            endtry
 
             ;;Make sure we have SMC data
             if (taskSet.MethodCatalog == ^null)
@@ -1328,17 +1329,20 @@ namespace CodeGen.Engine
             ;;Get a handle on the current SMC Interface. This is either the current interface being processed in
             ;;an outer interface loop, or the interface specified via the -interface command line option if no
             ;;interface loop is being used.
-            try
+        
             begin
-                data outerOuterLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. InterfaceLoopNode}), InterfaceLoopNode)
-                currentInterface = outerOuterLoop.CurrentInterface
+                data result = loops.FirstOrDefault(lambda (loopnode) {loopnode .is. InterfaceLoopNode})
+                if (result != ^null) then
+                begin
+                    data outerOuterLoop = ^as(result, InterfaceLoopNode)
+                    currentInterface = outerOuterLoop.CurrentInterface
+                end
+                else
+                begin
+                    ;;We're not using an <INTERFACE_LOOP> so there is no "outer outer" loop
+                    currentInterface = taskset.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.Equals(task.Interface)})
+                end
             end
-            catch (e, @InvalidOperationException)
-            begin
-                ;;We're not using an <INTERFACE_LOOP> so there is no "outer outer" loop
-                currentInterface = taskset.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.Equals(task.Interface)})
-            end
-            endtry
 
             ;;Make sure we have SMC data
             if (taskSet.MethodCatalog == ^null)
