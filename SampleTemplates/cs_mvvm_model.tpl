@@ -115,7 +115,7 @@ namespace <MVVM_DATA_NAMESPACE>
             get { return mEnable<Field_odbcname>; }
             set { mEnable<Field_odbcname> = value; onPropertyChanged("Enable<Field_odbcname>");}
         }
-        <IF NOCOERCEBOOLEAN>
+        <IF NOT COERCE_BOOLEAN>
         public int Max<Field_odbcname>
             { get { return <FIELD_SIZE> ; } }
         </IF>
@@ -136,7 +136,7 @@ namespace <MVVM_DATA_NAMESPACE>
                     string.Format("{0,-<FIELD_SIZE>}", m<Field_odbcname>)<,>
                     </IF>
                     <IF DECIMAL>
-                    <IF NOCOERCEBOOLEAN>
+                    <IF NOT COERCE_BOOLEAN>
                     <IF PRECISION>
                     m<Field_odbcname>.ToString("{0:D<FIELD_SIZE>}")<,>
                     </IF>
@@ -144,7 +144,7 @@ namespace <MVVM_DATA_NAMESPACE>
                     string.Format("D<FIELD_SIZE>", m<Field_odbcname>)<,>
                     </IF>
                     </IF>
-                    <IF COERCEBOOLEAN>
+                    <IF COERCE_BOOLEAN>
                     ToSynergy.BooleanValue(m<Field_odbcname>),
                     </IF>
                     </IF>
@@ -202,7 +202,7 @@ namespace <MVVM_DATA_NAMESPACE>
             <Field_odbcname> = mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim();
             </IF>
             <IF DECIMAL>
-            <IF NOCOERCEBOOLEAN>
+            <IF NOT COERCE_BOOLEAN>
             <IF PRECISION>
             if(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim().Length!=0)
                 <Field_odbcname> = decimal.Parse(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
@@ -212,7 +212,7 @@ namespace <MVVM_DATA_NAMESPACE>
                 <Field_odbcname> = int.Parse(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
             </IF>
             </IF>
-            <IF COERCEBOOLEAN>
+            <IF COERCE_BOOLEAN>
             if(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim().Length!=0)
                 if (int.Parse(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>)) != 0)
                     <Field_odbcname> = true; else m<Field_odbcname> = false;
