@@ -82,6 +82,7 @@ namespace CodeGen.Engine
             fieldLoopTokenExpanders.Add("FIELD_DIMENSION3_INDEX", expandFieldDim3Index)
             fieldLoopTokenExpanders.Add("FIELD_DIMENSION4_INDEX", expandFieldDim4Index)
             fieldLoopTokenExpanders.Add("FIELD_DRILLM", expandFieldDrillMethod)
+            fieldLoopTokenExpanders.Add("FIELD_DRILL_PIXEL_COL", expandFieldDrillPixelCol)
             fieldLoopTokenExpanders.Add("FIELD_ELEMENT", expandFieldElement)
             fieldLoopTokenExpanders.Add("FIELD_ELEMENT0", expandFieldElement0)
             fieldLoopTokenExpanders.Add("FIELD_ENUMBASEVAL", expandFieldEnumBaseVal)
@@ -94,6 +95,7 @@ namespace CodeGen.Engine
             fieldLoopTokenExpanders.Add("FIELD_HELPID", expandFieldHelpId)
             fieldLoopTokenExpanders.Add("FIELD_HYPERM", expandFieldHyperMethod)
             fieldLoopTokenExpanders.Add("FIELD_INFOLINE", expandFieldInfoLine)
+            fieldLoopTokenExpanders.Add("FIELD_INPUT_LENGTH", expandFieldInputLength)
             fieldLoopTokenExpanders.Add("FIELD_LDESC", expandFieldLongDescription)
             fieldLoopTokenExpanders.Add("FIELD_LDESC2", expandFieldLongDescription2)
             fieldLoopTokenExpanders.Add("FIELD_LEAVEM", expandFieldLeaveMethod)
@@ -105,17 +107,18 @@ namespace CodeGen.Engine
             fieldLoopTokenExpanders.Add("FIELD_NOECHO_CHAR", expandFieldNoEchoChar)
             fieldLoopTokenExpanders.Add("FIELD_OCDEFAULT", expandFieldOcDefault)
             fieldLoopTokenExpanders.Add("FIELD_OCTYPE", expandFieldOcType)
+            fieldLoopTokenExpanders.Add("FIELD_ODBCNAME", expandFieldOdbcName)
             fieldLoopTokenExpanders.Add("FIELD_ORIGINAL_NAME", expandFieldOriginalName)
             fieldLoopTokenExpanders.Add("FIELD_ORIGINAL_NAME_MODIFIED", expandFieldOriginalNameModified)
+            fieldLoopTokenExpanders.Add("FIELD_OVERLAY_FIELD", expandFieldOverlayField)
+            fieldLoopTokenExpanders.Add("FIELD_OVERLAY_OFFSET", expandFieldOverlayOffset)
+            fieldLoopTokenExpanders.Add("FIELD_OVERLAY_SPEC", expandFieldOverlaySpec)
             fieldLoopTokenExpanders.Add("FIELD_PATH", expandFieldPath)
             fieldLoopTokenExpanders.Add("FIELD_PATH_CONV", expandFieldPathConv)
             fieldLoopTokenExpanders.Add("FIELD_PII_TYPE", expandFieldPiiType)
             fieldLoopTokenExpanders.Add("FIELD_PIXEL_COL", expandFieldPixelCol)
             fieldLoopTokenExpanders.Add("FIELD_PIXEL_ROW", expandFieldPixelRow)
             fieldLoopTokenExpanders.Add("FIELD_PIXEL_WIDTH", expandFieldPixelWidth)
-            fieldLoopTokenExpanders.Add("FIELD_DRILL_PIXEL_COL", expandFieldDrillPixelCol)
-            fieldLoopTokenExpanders.Add("FIELD_INPUT_LENGTH", expandFieldInputLength)
-            fieldLoopTokenExpanders.Add("FIELD_ODBCNAME", expandFieldOdbcName)
             fieldLoopTokenExpanders.Add("FIELD_POSITION", expandFieldPosition)
             fieldLoopTokenExpanders.Add("FIELD_POSITION_ZERO", expandFieldPositionZero)
             fieldLoopTokenExpanders.Add("FIELD_PRECISION", expandFieldPrecision)
@@ -1126,6 +1129,46 @@ namespace CodeGen.Engine
             mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
         endmethod
 
+        private static method expandFieldOverlayField, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field) field.OverlaysField
+            mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandFieldOverlayOffset, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field) field.OverlayOffset.ToString()
+            mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandFieldOverlaySpec, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (String.IsNullOrWhiteSpace(field.OverlaysField)) then
+                begin
+                    mreturn ""
+                end
+                else
+                begin
+                    mreturn String.Format("@{0}{1}",field.OverlaysField,field.OverlayOffset>0 ? " + " + field.OverlayOffset.ToString() : "")
+                end
+            end
+            mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
         private static method expandFieldPosition, string
             tkn, @Token 
             template, @FileNode 
@@ -1510,12 +1553,12 @@ namespace CodeGen.Engine
                 if ((field.IsGroup && !String.IsNullOrWhiteSpace(field.GroupStructure)) && template.Context.CurrentTask.ImplicitGroupNoExpand) then
                 begin
                     ;; We've got an implicit group that has not been expanded
-                    tmpSpec = field.TypeCode
+                    tmpSpec = String.Format("{0}{1}",field.TypeCode,Convert.ToString(field.Size))
                 end
                 else if ((field.IsGroup && String.IsNullOrWhiteSpace(field.GroupStructure)) && template.Context.CurrentTask.ExplicitGroupNoExpand) then
                 begin
                     ;; We've got an explicit group that has not been expanded
-                    tmpSpec = field.TypeCode
+                    tmpSpec = String.Format("{0}{1}",field.TypeCode,Convert.ToString(field.Size))
                 end
                 else
                 begin
@@ -1524,27 +1567,47 @@ namespace CodeGen.Engine
                         tmpSpec = "BOOLEAN"
                     (RpsFieldDataType.Binary),
                     begin
-                        ;; Can't currently happen because of %CheckStructure
-                        nop
+                        tmpSpec = String.Format("{0}{1}",field.TypeCode,Convert.ToString(field.Size))
                     end
                     (RpsFieldDataType.StructField),
                     begin
-                        ;; Can't currently happen because of %CheckStructure
-                        tmpSpec = field.UserFieldType
+                        data prefix = template.Context.Taskset.StructFieldPrefix
+                        tmpSpec = String.IsNullOrWhiteSpace(prefix) ?  field.StructFieldStructure : String.Format("{0}{1}",prefix,field.StructFieldStructure)
                     end
                     (RpsFieldDataType.Enum),
                     begin
-                        ;; Can't currently happen because of %CheckStructure
-                        tmpSpec = field.UserFieldType
+                        tmpSpec = field.EnumName
                     end
                     (),
                     begin
-                        tmpSpec = field.TypeCode + Convert.ToString(field.Size)
+                        tmpSpec = String.Format("{0}{1}",field.TypeCode,Convert.ToString(field.Size))
                         if (field.Precision > 0)
                             tmpSpec += "." + Convert.ToString(field.Precision)
                     end
                     endusing
                 end
+
+                ;;Do we have an unexpanded array?
+                if (template.Context.CurrentTask.PreserveArrays && ((Field.ArrayDimension[0]>1)||(Field.ArrayDimension[1])||(Field.ArrayDimension[2])||(Field.ArrayDimension[3])))
+                begin
+                    if (field.ArrayDimension[3]) then
+                    begin
+                        tmpSpec = String.Format("[{0},{1},{2},{3}]{4}",Field.ArrayDimension[0],Field.ArrayDimension[1],Field.ArrayDimension[2],Field.ArrayDimension[3],tmpSpec)
+                    end
+                    else if (field.ArrayDimension[2]) then
+                    begin
+                        tmpSpec = String.Format("[{0},{1},{2}]{3}",Field.ArrayDimension[0],Field.ArrayDimension[1],Field.ArrayDimension[2],tmpSpec)
+                    end
+                    else if (field.ArrayDimension[1]) then
+                    begin
+                        tmpSpec = String.Format("[{0},{1}]{2}",Field.ArrayDimension[0],Field.ArrayDimension[1],tmpSpec)
+                    end
+                    else
+                    begin
+                        tmpSpec = String.Format("[{0}]{1}",Field.ArrayDimension[0],tmpSpec)
+                    end
+                end
+
                 mreturn tmpSpec
             end
             mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)

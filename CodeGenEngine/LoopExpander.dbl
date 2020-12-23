@@ -66,6 +66,7 @@ namespace CodeGen.Engine
             loopProcessors.Add("ALTERNATE_KEY_LOOP", processAlternateKeyLoop)
             loopProcessors.Add("ALTERNATE_KEY_LOOP_UNIQUE", processAlternateKeyLoopUnique)
             loopProcessors.Add("FOREIGN_KEY_LOOP", processForeignKeyLoop)
+            loopProcessors.Add("PARTIAL_KEY_LOOP", processPartialKeyLoop)
             loopProcessors.Add("PRIMARY_KEY", processPrimaryKeyLoop)
             loopProcessors.Add("UNIQUE_KEY", processUniqueKeyLoop)
             loopProcessors.Add("ENUM_LOOP", processEnumLoop)
@@ -101,10 +102,10 @@ namespace CodeGen.Engine
         ;;; <param name="loopContext"></param>
         ;;; <param name="visitor"></param>
         public static method ProcessLoop, void
-            required in node,@LoopNode 
-            required in tpl,@FileNode 
-            required in loopContext,@IEnumerable<LoopNode> 
-            required in visitor,@ITreeNodeVisitor 
+            required in node,           @LoopNode 
+            required in tpl,            @FileNode 
+            required in loopContext,    @IEnumerable<LoopNode> 
+            required in visitor,        @ITreeNodeVisitor 
         proc
             if (loopProcessors.ContainsKey(node.OpenToken.Value)) then
                 loopProcessors[node.OpenToken.Value](node, tpl, loopContext, visitor)
@@ -145,10 +146,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processKeyLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
@@ -194,10 +195,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processKeyLoopUnique, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             ;;This is like a key loop, except that it will exclude any keys that
             ;;use the exact same segments as a key that has already been processed.
@@ -330,10 +331,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processAlternateKeyLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
@@ -381,10 +382,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processAlternateKeyLoopUnique, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             ;;This is like an alternate key loop, except that it will exclude any keys that
             ;;use the exact same segments as a key that has already been processed.
@@ -517,10 +518,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processForeignKeyLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
@@ -549,11 +550,128 @@ namespace CodeGen.Engine
 
         endmethod
 
+        private static method processPartialKeyLoop, void
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
+        proc
+            data loop = ^as(node, KeyLoopNode)
+            data context = template.Context
+
+            ; If there are no multi-segment access keys, we're done
+            if (context.CurrentStructure.Keys.Count<RpsKey>(lambda(k) { k.KeyType == RpsKeyType.Access && k.Segments.Count > 1 }) == 0)
+                mreturn
+
+            data ix, int
+            loop.FirstUniqueKeyNumber = -1
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            begin
+                ;;Skip any Foreign keys
+                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                    nextloop
+                ;;Look for the first unique key
+                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                begin
+                    loop.FirstUniqueKeyNumber = ix
+                    exitloop
+                end
+            end
+
+            data keysToProcess = new List<KeyValuePair<int,int>>()
+
+            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            begin
+                data thisKey = context.CurrentStructure.Keys[ix]
+
+                ;;Skip any Foreign or single-segment keys
+                if (thisKey.KeyType == RpsKeyType.Foreign || thisKey.Segments.Count == 1)
+                    nextloop
+
+                ;;Skip any keys that don't have a matching CODEGEN_PARTIAL_KEY_n token in the structure long description
+                data longDescription = context.CurrentStructure.LongDescription
+                data partialKeyToken = String.Format("CODEGEN_PARTIAL_KEY_{0}",ix)
+                if (!longDescription.Contains(partialKeyToken))
+                    nextloop
+
+                ;;Does the CODEGEN_PARTIAL_KEY_n token restrict the key segments to use?
+                longDescription = longDescription.Substring(longDescription.IndexOf(partialKeyToken)+partialKeyToken.Length)
+                data iy, int
+
+                if (String.IsNullOrWhiteSpace(longDescription) || longDescription.Substring(0,1)!="=") then
+                begin
+                    ;;No, all segments
+                    for iy from thisKey.Segments.Count-1 thru 1 by -1
+                    begin
+                        keysToProcess.Add(new KeyValuePair<int,int>(ix,iy))
+                    end
+                end
+                else
+                begin
+                    ;;Yes, restricted segments. Strip off the = and make sure we have a comma-delimited list of integers followed by a ;
+                    longDescription = longDescription.Substring(1)
+                    data semiPos = longDescription.IndexOf(";")
+                    if (semiPos == -1)
+                    begin
+                        throw new ApplicationException(String.Format("An invalid {0} token was encountered while processing structure {1}",partialKeyToken,context.CurrentStructure.Name))
+                    end
+                    ;;Strip off the ; and everything after
+                    longDescription = longDescription.Substring(0,semiPos)
+                    ;;If there is nothing left, it's a problem
+                    if (String.IsNullOrWhiteSpace(longDescription))
+                    begin
+                        throw new ApplicationException(String.Format("An invalid {0} token was encountered while processing structure {1}",partialKeyToken,context.CurrentStructure.Name))
+                    end
+                    ;;All that should be left is a comma-delimited list of integers
+                    data segmentNumbersStringArray = longDescription.Split(",")
+                    data segmentNumberInt, int
+                    for iy from segmentNumbersStringArray.Length -1 thru 0 by -1
+                    begin
+                        if (int.TryParse(segmentNumbersStringArray[iy],segmentNumberInt)) then
+                        begin
+                            ;;Highest segment number can't be more than the total number of segments - 1, and can't be less than 1.
+                            if (segmentNumberInt < 1 || segmentNumberInt > thisKey.Segments.Count - 1)
+                            begin
+                                throw new ApplicationException(String.Format("An invalid highest segment number {0} was encountered while {1} for structure {2}",segmentNumberInt,partialKeyToken,context.CurrentStructure.Name))
+                            end
+                            keysToProcess.Add(new KeyValuePair<int,int>(ix,segmentNumberInt))
+                        end
+                        else
+                        begin
+                            throw new ApplicationException(String.Format("An invalid {0} token was encountered while processing structure {1}",partialKeyToken,context.CurrentStructure.Name))
+                        end
+                    end
+                end
+            end
+
+            ;;Now process the loop, potentially processing the same key multiple times
+
+            loop.MaxIndex = keysToProcess.Count - 1
+            loop.CurrentIndex = -1
+
+            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+
+            data keyToProcess, @KeyValuePair<int,int>
+
+            foreach keyToProcess in keysToProcess
+            begin
+                ;;Select the key and current loop index
+                loop.CurrentKey = context.CurrentStructure.Keys[keyToProcess.Key]
+                loop.CurrentIndex += 1
+
+                ;;Specify the highest segment number to be processed
+                loop.HighestSegmentToProcess = keyToProcess.Value
+
+                expander.Visit(node.Body)
+            end
+
+        endmethod
+
         private static method processPrimaryKeyLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
@@ -594,10 +712,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processUniqueKeyLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
@@ -642,10 +760,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processEnumLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, EnumLoopNode)
             data context = template.Context
@@ -680,10 +798,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processStructureEnumLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, EnumLoopNode)
             data context = template.Context
@@ -718,10 +836,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processRelationLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, RelationLoopNode)
             data context = template.Context
@@ -779,10 +897,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processButtonLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             ;; TODO: Button loops need context data
 
@@ -810,10 +928,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processFileLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, FileLoopNode)
             data context = template.Context
@@ -841,10 +959,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processTagLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, TagLoopNode)
             data context = template.Context
@@ -866,10 +984,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processFieldSelectionLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. FieldLoopNode}), FieldLoopNode)
             data loop = ^as(node, SelectionLoopNode)
@@ -895,10 +1013,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processKeySegmentLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
             data loop = ^as(node, SegmentLoopNode)
@@ -907,12 +1025,12 @@ namespace CodeGen.Engine
             if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
                 loop.CurrentKey = outerLoop.CurrentKey
-                loop.MaxIndex = outerLoop.CurrentKey.Segments.Count - 1
+                loop.MaxIndex = outerLoop.HighestSegmentToProcess ? outerLoop.HighestSegmentToProcess - 1 : outerLoop.CurrentKey.Segments.Count - 1
 
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
                 data ix, int
-                for ix from 0 thru outerLoop.CurrentKey.Segments.Count - 1
+                for ix from 0 thru loop.MaxIndex
                 begin
                     loop.CurrentSegment = outerLoop.CurrentKey.Segments[ix]
                     loop.CurrentIndex = ix
@@ -945,10 +1063,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processKeySegmentFilterLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
             data loop = ^as(node, SegmentLoopNode)
@@ -977,10 +1095,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processFirstKeySegmentLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
             data loop = ^as(node, SegmentLoopNode)
@@ -1003,10 +1121,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method ProcessSecondKeySegmentLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
             data loop = ^as(node, SegmentLoopNode)
@@ -1029,10 +1147,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processEnumMemberLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. EnumLoopNode}), EnumLoopNode)
             data loop = ^as(node, EnumMemberLoopNode)
@@ -1055,10 +1173,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processFromKeySegmentLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
             data loop = ^as(node, RelationSegmentLoopNode)
@@ -1087,10 +1205,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processFromKeySegmentLoopRestricted, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
             data loop = ^as(node, RelationSegmentLoopNode)
@@ -1128,10 +1246,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processToKeySegmentLoop, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
             data loop = ^as(node, RelationSegmentLoopNode)
@@ -1158,10 +1276,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processToKeySegmentLoopRestricted, void
-            required in node,@LoopNode 
-            required in template,@FileNode 
-            required in loops,@IEnumerable<LoopNode> 
-            required in expander,@ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
             data loop = ^as(node, RelationSegmentLoopNode)
@@ -1197,10 +1315,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processStructureLoop, void
-            required in node, @LoopNode 
-            required in template, @FileNode 
-            required in loops, @IEnumerable<LoopNode> 
-            required in expander, @ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, StructureLoopNode)
             data context = template.Context
@@ -1231,10 +1349,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processInterfaceLoop, void
-            required in node, @LoopNode 
-            required in template, @FileNode 
-            required in loops, @IEnumerable<LoopNode> 
-            required in expander, @ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, InterfaceLoopNode)
             data context = template.Context
@@ -1264,10 +1382,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processMethodLoop, void
-            required in node, @LoopNode 
-            required in template, @FileNode 
-            required in loops, @IEnumerable<LoopNode> 
-            required in expander, @ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data loop = ^as(node, MethodLoopNode)
             data context = template.Context
@@ -1314,10 +1432,10 @@ namespace CodeGen.Engine
         endmethod
 
         private static method processParameterLoop, void
-            required in node, @LoopNode 
-            required in template, @FileNode 
-            required in loops, @IEnumerable<LoopNode> 
-            required in expander, @ITreeNodeVisitor 
+            required in node,       @LoopNode 
+            required in template,   @FileNode 
+            required in loops,      @IEnumerable<LoopNode> 
+            required in expander,   @ITreeNodeVisitor 
         proc
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. MethodLoopNode}), MethodLoopNode)
             data loop = ^as(node, ParameterLoopNode)
