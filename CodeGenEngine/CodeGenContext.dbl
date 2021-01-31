@@ -81,13 +81,23 @@ namespace CodeGen.Engine
         ;;; </summary>
         public readwrite property Repository,               @Repository
 
+        ;;; <summary>
+        ;;; Current repository structure in use
+        ;;; </summary>
+        public property CurrentStructure, @Stack<RpsStructure>
+            method get
+            proc
+                mreturn mCurrentStructure
+            end
+        endproperty
+        private mCurrentStructure, @Stack<RpsStructure>
+
         ;;Other context
 
         public readwrite property Buttons,                  @WscButtonCollection
         public readwrite property Counter1,                 int
         public readwrite property Counter2,                 int
         public readwrite property CurrentFileIndex,         int
-        public readwrite property CurrentStructure,         @RpsStructure
         public readwrite property CurrentTask,              @CodeGenTask
         public readwrite property CurrentTemplate,          String
 
@@ -123,7 +133,7 @@ namespace CodeGen.Engine
             Counter1 = 0
             Counter2 = 0
             CurrentFileIndex = 0
-            CurrentStructure = ^null
+            mCurrentStructure = ^null
             CurrentTask = ^null
             CurrentTemplate = String.Empty
             FileDefinition = ^null
@@ -205,6 +215,85 @@ namespace CodeGen.Engine
 .endregion
 
 .region "Public methods"
+
+        public method SetCurrentStructure, void
+            required in aStructure, @RpsStructure
+        proc
+            if (mCurrentStructure == ^null) then
+            begin
+                mCurrentStructure = new Stack<RpsStructure>()
+                mCurrentStructure.Push(aStructure)
+            end
+            else
+            begin
+                using mCurrentStructure.Count select
+                (0),
+                    mCurrentStructure.Push(aStructure)
+                (1),
+                begin
+                    mCurrentStructure.Clear()
+                    mCurrentStructure.Push(aStructure)
+                end
+                (),
+                begin
+                    throw new ApplicationException("Current structure can't be set when a nested structure is being processed!")
+                end
+                endusing
+            end
+        endmethod
+
+        public method GetCurrentStructure, @RpsStructure
+        proc
+            if (mCurrentStructure == ^null || mCurrentStructure.Count==0) then
+            begin
+                mreturn ^null
+            end
+            else
+            begin
+                mreturn mCurrentStructure.Peek()
+            end
+        endmethod
+
+        public method ClearCurrentStructure, void
+        proc
+            if (mCurrentStructure!=^null)
+            begin
+                using mCurrentStructure.Count select
+                (0),
+                    nop
+                (1),
+                    mCurrentStructure.Clear()
+                (),
+                    nop
+                endusing
+            end
+        end
+
+        public method AddNestedStructure, void
+            required in aStructure, @RpsStructure
+        proc
+            if (mCurrentStructure == ^null || mCurrentStructure.Count==0) then
+            begin
+                throw new ApplicationException("Can't add a nested structure when no structure is being processed!")
+            end
+            else
+            begin
+                mCurrentStructure.Push(aStructure)
+            end
+        endmethod
+
+        public method RemoveNestedStructure, void
+            required in aStructure, @RpsStructure
+        proc
+            if (mCurrentStructure == ^null || mCurrentStructure.Count<=1) then
+            begin
+                throw new ApplicationException("No nested structure to remove!")
+            end
+            else
+            begin
+                mCurrentStructure.Pop()
+            end
+        endmethod
 
         public property VerboseLoggingEnabled, boolean
             method get

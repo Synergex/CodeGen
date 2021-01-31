@@ -204,6 +204,7 @@ namespace CodeGen.Engine
 
             lambda isFieldOrSegmentLoop(node) (node .is. FieldLoopNode || node .is. SegmentLoopNode)
             data loop, @LoopNode, loops.Last(isFieldOrSegmentLoop)
+            data currentStructure = template.Context.GetCurrentStructure()
 
             data str, @RpsStructure
             data fld, @RpsField
@@ -211,7 +212,7 @@ namespace CodeGen.Engine
             if (loop .is. FieldLoopNode) then
             begin
                 ;;We're in a field loop
-                str = template.Context.CurrentStructure
+                str = currentStructure
                 fld = ((@FieldLoopNode)loop).CurrentField
             end
             else if (loop .is. RelationSegmentLoopNode) then
@@ -223,7 +224,7 @@ namespace CodeGen.Engine
                 data relationLoop, @RelationLoopNode, ^as(loops.First(isRelationLoop), @RelationLoopNode)
 
                 ;;Determine which structure we're dealing with, based on the TYPE of relation segment loop (FROM_KEY_SEGMENT_LOOP or TO_KEY_SEGMENT_LOOP)
-                str = loop.OpenToken.Value.StartsWith("FROM_KEY_SEGMENT_LOOP") ? template.Context.CurrentStructure : relationLoop.ToStructure
+                str = loop.OpenToken.Value.StartsWith("FROM_KEY_SEGMENT_LOOP") ? currentStructure : relationLoop.ToStructure
 
                 ;;Now get a handle on the full definition of the key segment we're dealing with
                 data segment, @RpsKeySegment, ((@RelationSegmentLoopNode)loop).CurrentSegment
@@ -246,9 +247,9 @@ namespace CodeGen.Engine
                 ;;can be specified as a literal value).
 
                 if (segloop.CurrentField == ^null)
-                    throw new ApplicationException(String.Format("Can't use field loop token in segment loop for structure {0} key {1} segment {2}. No associated field!",template.Context.CurrentStructure.Name, segloop.CurrentKey.Name, segloop.CurrentIndex + 1))
+                    throw new ApplicationException(String.Format("Can't use field loop token in segment loop for structure {0} key {1} segment {2}. No associated field!",currentStructure.Name, segloop.CurrentKey.Name, segloop.CurrentIndex + 1))
 
-                str = template.Context.CurrentStructure
+                str = currentStructure
                 fld = segloop.CurrentField
             end
 

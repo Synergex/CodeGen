@@ -121,24 +121,25 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, FieldLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             ;;Make sure we have a current structure. We could get here at runtime if the developer tries to use a field loop
             ;;within a parameter loop, with a non-structure parameter!
-            if (context.CurrentStructure == ^null)
+            if (currentStructure == ^null)
                 throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because there is no current structure!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             ;;Make sure the current structure has fields
-            if (context.CurrentStructure.Fields.Count == 0)
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no fields!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+            if (currentStructure.Fields.Count == 0)
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no fields!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
 
-            loop.MaxIndex = context.CurrentStructure.Fields.Count - 1
+            loop.MaxIndex = currentStructure.Fields.Count - 1
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} fields", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             data ix, int
-            for ix from 0 thru context.CurrentStructure.Fields.Count - 1
+            for ix from 0 thru currentStructure.Fields.Count - 1
             begin
-                loop.CurrentField = context.CurrentStructure.Fields[ix]
+                loop.CurrentField = currentStructure.Fields[ix]
                 loop.CurrentIndex = ix
                 expander.Visit(node.Body)
             end
@@ -153,26 +154,27 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             ;;Do we have any keys?
-            if (context.CurrentStructure.Keys.Count == 0)
+            if (currentStructure.Keys.Count == 0)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
-            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+            loop.MaxIndex = currentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
 
             data ix, int
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (currentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -181,13 +183,13 @@ namespace CodeGen.Engine
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
 
-                loop.CurrentKey = context.CurrentStructure.Keys[ix]
+                loop.CurrentKey = currentStructure.Keys[ix]
                 loop.CurrentIndex = ix
                 expander.Visit(node.Body)
             end
@@ -205,26 +207,27 @@ namespace CodeGen.Engine
 
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
-            if (context.CurrentStructure.Keys.Count == 0)
+            if (currentStructure.Keys.Count == 0)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
             data ix, int
 
-            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+            loop.MaxIndex = currentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
 
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (currentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -237,10 +240,10 @@ namespace CodeGen.Engine
             data otherKeySegments, @RpsKeySegmentCollection 
 
             ;;Iterate through all the keys in the structure
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;; Skip any foreign keys
-                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
 
                 ;;If we get here we have an access key. Assume it's a duplicate and we'll look for a difference
@@ -251,7 +254,7 @@ namespace CodeGen.Engine
                 begin
                     ;;We have processed other keys, so make sure the segments of this key don't match any we have already processed
                     data segmentsMatchThisKey, boolean
-                    data thisKeySegments, @RpsKeySegmentCollection, context.CurrentStructure.Keys[ix].Segments
+                    data thisKeySegments, @RpsKeySegmentCollection, currentStructure.Keys[ix].Segments
 
                     data iy, int
                     for iy from 0 thru prevKeysSegments.Count - 1
@@ -319,7 +322,7 @@ namespace CodeGen.Engine
                 if (!segmentsMatchAnotherKey)
                 begin
                     ;; Then process as normal
-                    loop.CurrentKey = context.CurrentStructure.Keys[ix]
+                    loop.CurrentKey = currentStructure.Keys[ix]
                     loop.CurrentIndex = ix
 
                     expander.Visit(node.Body)
@@ -338,26 +341,27 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
-            if (context.CurrentStructure.Keys.Count == 0)
+            if (currentStructure.Keys.Count == 0)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
             data ix, int
 
-            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+            loop.MaxIndex = currentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
 
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (currentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -366,14 +370,14 @@ namespace CodeGen.Engine
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;; Skip the first key and any foreign keys
-                if ((ix == 0) || (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
+                if ((ix == 0) || (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
                     nextloop
 
                 ;; Then process as normal
-                loop.CurrentKey = context.CurrentStructure.Keys[ix]
+                loop.CurrentKey = currentStructure.Keys[ix]
                 loop.CurrentIndex = ix
 
                 expander.Visit(node.Body)
@@ -392,26 +396,27 @@ namespace CodeGen.Engine
 
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
-            if (context.CurrentStructure.Keys.Count == 0)
+            if (currentStructure.Keys.Count == 0)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
             data ix, int
 
-            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
+            loop.MaxIndex = currentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
 
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (currentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -424,10 +429,10 @@ namespace CodeGen.Engine
             data otherKeySegments, @RpsKeySegmentCollection 
 
             ;;Iterate through all the keys in the structure
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;; Skip the first key and any foreign keys
-                if ((ix == 0) || (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
+                if ((ix == 0) || (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
                     nextloop
 
                 ;;If we get here we have an alternate access key. Assume it's a duplicate and we'll look for a difference
@@ -438,7 +443,7 @@ namespace CodeGen.Engine
                 begin
                     ;;We have processed other keys, so make sure the segments of this key don't match any we have already processed
                     data segmentsMatchThisKey, boolean
-                    data thisKeySegments, @RpsKeySegmentCollection, context.CurrentStructure.Keys[ix].Segments
+                    data thisKeySegments, @RpsKeySegmentCollection, currentStructure.Keys[ix].Segments
 
                     data iy, int
                     for iy from 0 thru prevKeysSegments.Count - 1
@@ -506,7 +511,7 @@ namespace CodeGen.Engine
                 if (!segmentsMatchAnotherKey)
                 begin
                     ;; Then process as normal
-                    loop.CurrentKey = context.CurrentStructure.Keys[ix]
+                    loop.CurrentKey = currentStructure.Keys[ix]
                     loop.CurrentIndex = ix
 
                     expander.Visit(node.Body)
@@ -525,8 +530,9 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
-            loop.MaxIndex = context.CurrentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Foreign }) -1
+            loop.MaxIndex = currentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Foreign }) -1
 
             ;;If we don't have any foreign keys then we're done!
             if (loop.MaxIndex == -1)
@@ -537,7 +543,7 @@ namespace CodeGen.Engine
             data currentKey, @RpsKey
             loop.CurrentIndex = -1
 
-            foreach currentKey in context.CurrentStructure.Keys
+            foreach currentKey in currentStructure.Keys
             begin
                 ;;Only process foreign keys
                 if (currentKey.KeyType == RpsKeyType.Foreign)
@@ -558,20 +564,21 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             ; If there are no multi-segment access keys, we're done
-            if (context.CurrentStructure.Keys.Count<RpsKey>(lambda(k) { k.KeyType == RpsKeyType.Access && k.Segments.Count > 1 }) == 0)
+            if (currentStructure.Keys.Count<RpsKey>(lambda(k) { k.KeyType == RpsKeyType.Access && k.Segments.Count > 1 }) == 0)
                 mreturn
 
             data ix, int
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (currentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -580,16 +587,16 @@ namespace CodeGen.Engine
 
             data keysToProcess = new List<KeyValuePair<int,int>>()
 
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
-                data thisKey = context.CurrentStructure.Keys[ix]
+                data thisKey = currentStructure.Keys[ix]
 
                 ;;Skip any Foreign or single-segment keys
                 if (thisKey.KeyType == RpsKeyType.Foreign || thisKey.Segments.Count == 1)
                     nextloop
 
                 ;;Skip any keys that don't have a matching CODEGEN_PARTIAL_KEY_n token in the structure long description
-                data longDescription = context.CurrentStructure.LongDescription
+                data longDescription = currentStructure.LongDescription
                 data partialKeyToken = String.Format("CODEGEN_PARTIAL_KEY_{0}",ix)
                 if (!longDescription.Contains(partialKeyToken))
                     nextloop
@@ -613,14 +620,14 @@ namespace CodeGen.Engine
                     data semiPos = longDescription.IndexOf(";")
                     if (semiPos == -1)
                     begin
-                        throw new ApplicationException(String.Format("An invalid {0} token was encountered while processing structure {1}",partialKeyToken,context.CurrentStructure.Name))
+                        throw new ApplicationException(String.Format("An invalid {0} token was encountered while processing structure {1}",partialKeyToken,currentStructure.Name))
                     end
                     ;;Strip off the ; and everything after
                     longDescription = longDescription.Substring(0,semiPos)
                     ;;If there is nothing left, it's a problem
                     if (String.IsNullOrWhiteSpace(longDescription))
                     begin
-                        throw new ApplicationException(String.Format("An invalid {0} token was encountered while processing structure {1}",partialKeyToken,context.CurrentStructure.Name))
+                        throw new ApplicationException(String.Format("An invalid {0} token was encountered while processing structure {1}",partialKeyToken,currentStructure.Name))
                     end
                     ;;All that should be left is a comma-delimited list of integers
                     data segmentNumbersStringArray = longDescription.Split(",")
@@ -632,13 +639,13 @@ namespace CodeGen.Engine
                             ;;Highest segment number can't be more than the total number of segments - 1, and can't be less than 1.
                             if (segmentNumberInt < 1 || segmentNumberInt > thisKey.Segments.Count - 1)
                             begin
-                                throw new ApplicationException(String.Format("An invalid highest segment number {0} was encountered while {1} for structure {2}",segmentNumberInt,partialKeyToken,context.CurrentStructure.Name))
+                                throw new ApplicationException(String.Format("An invalid highest segment number {0} was encountered while {1} for structure {2}",segmentNumberInt,partialKeyToken,currentStructure.Name))
                             end
                             keysToProcess.Add(new KeyValuePair<int,int>(ix,segmentNumberInt))
                         end
                         else
                         begin
-                            throw new ApplicationException(String.Format("An invalid {0} token was encountered while processing structure {1}",partialKeyToken,context.CurrentStructure.Name))
+                            throw new ApplicationException(String.Format("An invalid {0} token was encountered while processing structure {1}",partialKeyToken,currentStructure.Name))
                         end
                     end
                 end
@@ -656,7 +663,7 @@ namespace CodeGen.Engine
             foreach keyToProcess in keysToProcess
             begin
                 ;;Select the key and current loop index
-                loop.CurrentKey = context.CurrentStructure.Keys[keyToProcess.Key]
+                loop.CurrentKey = currentStructure.Keys[keyToProcess.Key]
                 loop.CurrentIndex += 1
 
                 ;;Specify the highest segment number to be processed
@@ -675,30 +682,31 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
-            if (context.CurrentStructure.Keys.Count == 0)
+            if (currentStructure.Keys.Count == 0)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
-            if ((context.CurrentTask.PrimaryKeyNumber > 0) && (context.CurrentTask.PrimaryKeyNumber > (context.CurrentStructure.Keys.Count - 1)))
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed using alternate key {3} because structure {4} only has {5} keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentTask.PrimaryKeyNumber, context.CurrentStructure.Name, context.CurrentStructure.Keys.Count + 1))
+            if ((context.CurrentTask.PrimaryKeyNumber > 0) && (context.CurrentTask.PrimaryKeyNumber > (currentStructure.Keys.Count - 1)))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed using alternate key {3} because structure {4} only has {5} keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentTask.PrimaryKeyNumber, currentStructure.Name, currentStructure.Keys.Count + 1))
 
-            loop.CurrentKey = context.CurrentStructure.Keys[context.CurrentTask.PrimaryKeyNumber]
+            loop.CurrentKey = currentStructure.Keys[context.CurrentTask.PrimaryKeyNumber]
             loop.CurrentIndex = context.CurrentTask.PrimaryKeyNumber
             loop.MaxIndex = context.CurrentTask.PrimaryKeyNumber
 
             data ix, int
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (currentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -719,34 +727,35 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, KeyLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
-            if (context.CurrentStructure.Keys.Count == 0)
+            if (currentStructure.Keys.Count == 0)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
-            if (!context.CurrentStructure.Keys.Any(lambda (k) {(k.Duplicates == RpsKeyDuplicates.NoDuplicates) && (k.KeyType == RpsKeyType.Access)}))
+            if (!currentStructure.Keys.Any(lambda (k) {(k.Duplicates == RpsKeyDuplicates.NoDuplicates) && (k.KeyType == RpsKeyType.Access)}))
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no unique keys!",node.OpenToken.Value,node.OpenToken.StartLineNumber,context.CurrentTemplateBaseName,context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no unique keys!",node.OpenToken.Value,node.OpenToken.StartLineNumber,context.CurrentTemplateBaseName,currentStructure.Name))
             end
 
-            loop.CurrentKey = context.CurrentStructure.Keys.First(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates})
-            loop.CurrentIndex = context.CurrentStructure.Keys.IndexOf(loop.CurrentKey)
+            loop.CurrentKey = currentStructure.Keys.First(lambda (k) {k.Duplicates == RpsKeyDuplicates.NoDuplicates})
+            loop.CurrentIndex = currentStructure.Keys.IndexOf(loop.CurrentKey)
             loop.MaxIndex = loop.CurrentIndex
 
             data ix, int
             loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru context.CurrentStructure.Keys.Count - 1
+            for ix from 0 thru currentStructure.Keys.Count - 1
             begin
                 ;;Skip any Foreign keys
-                if (context.CurrentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
+                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
                     nextloop
                 ;;Look for the first unique key
-                if (context.CurrentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                if (currentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
                 begin
                     loop.FirstUniqueKeyNumber = ix
                     exitloop
@@ -805,6 +814,7 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, EnumLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             if (context.Repository.Enumerations.Count == 0)
             begin
@@ -814,7 +824,7 @@ namespace CodeGen.Engine
             end
 
             ;;Build a collection of enums that are referred to by the current structure
-            data enumsToProcess = new RpsEnumCollection(context.CurrentStructure.Name)
+            data enumsToProcess = new RpsEnumCollection(currentStructure.Name)
 
             loop.MaxIndex = enumsToProcess.Count - 1
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} enums", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
@@ -843,27 +853,28 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, RelationLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
-            if (context.CurrentStructure.Relations.Count == 0)
+            if (currentStructure.Relations.Count == 0)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no relations!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no relations!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
-            loop.MaxIndex = context.CurrentStructure.Relations.Count - 1
+            loop.MaxIndex = currentStructure.Relations.Count - 1
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} relations", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             data ix, int
-            for ix from 0 thru context.CurrentStructure.Relations.Count - 1
+            for ix from 0 thru currentStructure.Relations.Count - 1
             begin
-                loop.CurrentRelation = context.CurrentStructure.Relations[ix]
+                loop.CurrentRelation = currentStructure.Relations[ix]
                 loop.CurrentIndex = ix
 
                 ;;Locate the "from key" information
                 lambda isFromKey(k) k.Name == loop.CurrentRelation.FromKey
-                loop.FromKey = context.CurrentStructure.Keys.First(isFromKey)
+                loop.FromKey = context.GetCurrentStructure().Keys.First(isFromKey)
 
                 ;;Load the "to structure" information
                 lambda isToStructure(s) s.Name == loop.CurrentRelation.ToStructure
@@ -935,22 +946,23 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, FileLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
-            if (context.CurrentStructure.Files.Count == 0)
+            if (currentStructure.Files.Count == 0)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} is not assigned to any files!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, context.CurrentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} is not assigned to any files!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
-            loop.MaxIndex = context.CurrentStructure.Files.Count - 1
+            loop.MaxIndex = currentStructure.Files.Count - 1
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} files", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             data ix, int
-            for ix from 0 thru context.CurrentStructure.Files.Count - 1
+            for ix from 0 thru currentStructure.Files.Count - 1
             begin
-                loop.CurrentFile = context.CurrentStructure.Files[ix]
+                loop.CurrentFile = currentStructure.Files[ix]
                 loop.CurrentIndex = ix
 
                 expander.Visit(node.Body)
@@ -966,16 +978,17 @@ namespace CodeGen.Engine
         proc
             data loop = ^as(node, TagLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
-            loop.MaxIndex = context.CurrentStructure.Tags.Count - 1
+            loop.MaxIndex = currentStructure.Tags.Count - 1
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} tags", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             ;; Tag loops just do nothing if no tags are defined!
             data ix, int
-            for ix from 0 thru context.CurrentStructure.Tags.Count - 1
+            for ix from 0 thru currentStructure.Tags.Count - 1
             begin
-                loop.CurrentTag = context.CurrentStructure.Tags[ix]
+                loop.CurrentTag = currentStructure.Tags[ix]
                 loop.CurrentIndex = ix
 
                 expander.Visit(node.Body)
@@ -1021,6 +1034,7 @@ namespace CodeGen.Engine
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
             data loop = ^as(node, SegmentLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
@@ -1034,7 +1048,7 @@ namespace CodeGen.Engine
                 begin
                     loop.CurrentSegment = outerLoop.CurrentKey.Segments[ix]
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(context.CurrentStructure, loop.CurrentSegment)
+                    loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
 
                     expander.Visit(node.Body)
                 end
@@ -1071,6 +1085,7 @@ namespace CodeGen.Engine
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
             data loop = ^as(node, SegmentLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
@@ -1084,7 +1099,7 @@ namespace CodeGen.Engine
                 begin
                     loop.CurrentSegment = outerLoop.CurrentKey.Segments[ix]
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(context.CurrentStructure, loop.CurrentSegment)
+                    loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
 
                     expander.Visit(node.Body)
 
@@ -1103,6 +1118,7 @@ namespace CodeGen.Engine
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
             data loop = ^as(node, SegmentLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
@@ -1111,7 +1127,7 @@ namespace CodeGen.Engine
                 loop.CurrentSegment = outerLoop.CurrentKey.Segments[0]
                 loop.CurrentIndex = 0
                 loop.MaxIndex = 0
-                loop.CurrentField = getFieldForSegment(context.CurrentStructure, loop.CurrentSegment)
+                loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
 
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> 1 segment", string.Format("<{0}>", loop.OpenToken.Value)))
 
@@ -1129,6 +1145,7 @@ namespace CodeGen.Engine
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. KeyLoopNode}), KeyLoopNode)
             data loop = ^as(node, SegmentLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             if (outerLoop.CurrentKey.Segments.Count > 1)
             begin
@@ -1137,7 +1154,7 @@ namespace CodeGen.Engine
                 loop.CurrentSegment = outerLoop.CurrentKey.Segments[1]
                 loop.CurrentIndex = 1
                 loop.MaxIndex = 1
-                loop.CurrentField = getFieldForSegment(context.CurrentStructure, loop.CurrentSegment)
+                loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
 
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> 1 segment", string.Format("<{0}>", loop.OpenToken.Value)))
 
@@ -1181,6 +1198,7 @@ namespace CodeGen.Engine
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
             data loop = ^as(node, RelationSegmentLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             if (outerLoop.FromKey.Segments.Count > 0)
             begin
@@ -1197,7 +1215,7 @@ namespace CodeGen.Engine
                 begin
                     loop.CurrentSegment = outerLoop.FromKey.Segments[ix]
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(context.CurrentStructure, loop.CurrentSegment)
+                    loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
 
                     expander.Visit(node.Body)
                 end
@@ -1213,6 +1231,7 @@ namespace CodeGen.Engine
             data outerLoop = ^as(loops.First(lambda (loopnode) {loopnode .is. RelationLoopNode}), RelationLoopNode)
             data loop = ^as(node, RelationSegmentLoopNode)
             data context = template.Context
+            data currentStructure = context.GetCurrentStructure()
 
             if (outerLoop.FromKey.Segments.Count > 0)
             begin
@@ -1231,7 +1250,7 @@ namespace CodeGen.Engine
                 begin
                     loop.CurrentSegment = outerLoop.FromKey.Segments[ix]
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(context.CurrentStructure, loop.CurrentSegment)
+                    loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
 
                     lengthSoFar += loop.CurrentSegment.Length
                     if (lengthSoFar == outerLoop.ToKey.Size)
@@ -1323,6 +1342,7 @@ namespace CodeGen.Engine
             data loop = ^as(node, StructureLoopNode)
             data context = template.Context
             data task = context.CurrentTask
+            data currentStructure = context.GetCurrentStructure()
 
             if (!context.MultiStructureMode)
                 throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because multi-structure mode (-ms) has not been enabled!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
@@ -1336,7 +1356,7 @@ namespace CodeGen.Engine
             for ix from 0 thru context.Structures.Count - 1
             begin
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1}", String.Format("Structure {0}/{1}", ix + 1, context.Structures.Count - 1), context.Structures[ix].Name), true, false)
-                context.CurrentStructure = context.Structures[ix]
+                context.SetCurrentStructure(context.Structures[ix])
                 context.CurrentFileIndex = context.StructureFileIndex[ix]
                 loop.CurrentIndex = ix
 
@@ -1481,7 +1501,7 @@ namespace CodeGen.Engine
 
             loop.MaxIndex = outerLoop.CurrentMethod.Parameters.Count - 1
 
-            context.CurrentStructure =^null
+            context.ClearCurrentStructure()
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} parameters", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             ;;Maintain lists of the enums and structures we have already encountered so we can support <IF FIRST_INSTANCE_OF_...>
@@ -1533,7 +1553,7 @@ namespace CodeGen.Engine
                     try
                     begin
                         loop.CurrentStructure = new RpsStructure(structureName,context.CurrentTask.UseAlternateFieldNames)
-                        context.CurrentStructure = loop.CurrentStructure
+                        context.SetCurrentStructure(loop.CurrentStructure)
                     end
                     catch (ex, @Exception)
                     begin
@@ -1551,7 +1571,7 @@ namespace CodeGen.Engine
             end
 
             ;;Make sure we don't leave a current structure behind
-            context.CurrentStructure = ^null
+            context.ClearCurrentStructure()
 
         endmethod
 
