@@ -105,7 +105,45 @@ namespace CodeGen.Engine
     ;;; Represents a field loop token in a template file.
     ;;; </summary>
     public class FieldLoopNode extends LoopNode
-        public CurrentField, @RpsField
+        
+        private mCurrentField, @Stack<RpsField>, new Stack<RpsField>()
+
+        public method SetCurrentField, void
+            required in aField, @RpsField
+        proc
+            using mCurrentField.Count select
+            (0),
+                mCurrentField.Push(aField)
+            (),
+            begin
+                mCurrentField.Pop()
+                mCurrentField.Push(aField)
+            end
+            endusing
+        endmethod
+
+        public method GetCurrentField, @RpsField
+        proc
+            mreturn mCurrentField.Count > 0 ? mCurrentField.Peek() : ^null
+        endmethod
+
+        public method AddNestedField, void
+            required in aField, @RpsField
+        proc
+            if (mCurrentField.Count > 0) then
+                mCurrentField.Push(aField)
+            else
+                throw new ApplicationException("Can't add nested field when no main field is being processed!")
+        endmethod
+
+        public method RemoveNestedField, void
+        proc
+            if (mCurrentField.Count > 1) then
+                mCurrentField.Pop()
+            else
+                throw new ApplicationException("No nested field to remove!")
+        endmethod
+
     endclass
 
     ;;; <summary>

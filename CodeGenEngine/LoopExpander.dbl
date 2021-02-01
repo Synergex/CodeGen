@@ -55,8 +55,12 @@ namespace CodeGen.Engine
 
         private static loopProcessors, @Dictionary<string, Action<LoopNode, FileNode, IEnumerable<LoopNode>, ITreeNodeVisitor>>
 
+        ;;; <summary>
+        ;;; Constructor
+        ;;; </summary>
         static method LoopExpander
         proc
+            ;; Declare the methods responsible for processing each type of loop
 
             loopProcessors = new Dictionary<string, Action<LoopNode, FileNode, IEnumerable<LoopNode>, ITreeNodeVisitor>>()
 
@@ -107,10 +111,17 @@ namespace CodeGen.Engine
             required in loopContext,    @IEnumerable<LoopNode> 
             required in visitor,        @ITreeNodeVisitor 
         proc
+            ;; Lookup the processing method for the loop needing to be processed
             if (loopProcessors.ContainsKey(node.OpenToken.Value)) then
+            begin
+                ;; And call it
                 loopProcessors[node.OpenToken.Value](node, tpl, loopContext, visitor)
+            end
             else
-                throw new ApplicationException(String.Format("CODEGEN BUG: LoopExpander doesn't define a processor for <{0}>!", node.OpenToken.Value))
+            begin
+                ;; Not found (CodeGen bug)
+                throw new ApplicationException(String.Format("CODEGEN BUG: LoopExpander doesn't define a loop processor method for <{0}>!", node.OpenToken.Value))
+            end
         endmethod
 
         private static method processFieldLoop, void
@@ -139,7 +150,7 @@ namespace CodeGen.Engine
             data ix, int
             for ix from 0 thru currentStructure.Fields.Count - 1
             begin
-                loop.CurrentField = currentStructure.Fields[ix]
+                loop.SetCurrentField(currentStructure.Fields[ix])
                 loop.CurrentIndex = ix
                 expander.Visit(node.Body)
             end
@@ -1006,17 +1017,17 @@ namespace CodeGen.Engine
             data loop = ^as(node, SelectionLoopNode)
             data context = template.Context
 
-            if (outerLoop.CurrentField.SelectionList.Count > 0)
+            if (outerLoop.GetCurrentField().SelectionList.Count > 0)
             begin
-                loop.MaxIndex = outerLoop.CurrentField.SelectionList.Count - 1
-                loop.CurrentField = outerLoop.CurrentField
+                loop.MaxIndex = outerLoop.GetCurrentField().SelectionList.Count - 1
+                loop.CurrentField = outerLoop.GetCurrentField()
 
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} selections", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
                 data ix, int
-                for ix from 0 thru outerLoop.CurrentField.SelectionList.Count - 1
+                for ix from 0 thru outerLoop.GetCurrentField().SelectionList.Count - 1
                 begin
-                    loop.CurrentSelection = outerLoop.CurrentField.SelectionList[ix]
+                    loop.CurrentSelection = outerLoop.GetCurrentField().SelectionList[ix]
                     loop.CurrentIndex = ix
 
                     expander.Visit(node.Body)
