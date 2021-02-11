@@ -1136,7 +1136,7 @@ proc
                 begin
                     Console.WriteLine("ERROR: SMC export file contains no structures.")
                     ok = false
-                    exitCode = 1
+                    ;exitCode = 1
                 end
                 else
                 begin
@@ -1327,7 +1327,7 @@ proc
     begin
         if (taskSet.MethodCatalog == ^null) then
         begin
-            Console.WriteLine("ERROR: The -interface may not be used without the -smc option!")
+            Console.WriteLine("ERROR: The -interface option may not be used without the -smc option!")
             ok = false
             exitCode = 1
         end
@@ -1355,6 +1355,48 @@ proc
         end
     end
 
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to constrain interface loops to a subset of interfaces?
+
+    if (ok && CommandLineParser.Parse("iloop",ClValues))
+    begin
+        if (taskSet.MethodCatalog == ^null) then
+        begin
+            Console.WriteLine("ERROR: The -iloop option may not be used without the -smc option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (CommandLineParser.Parse("interface")) then
+        begin
+            Console.WriteLine("ERROR: The -iloop option may not be used with the -interface option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!ClValues.Count) then
+        begin
+            Console.WriteLine("ERROR: No interface name(s) specified after the -iloop option!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            data candidateInterface, string
+            foreach candidateInterface in ClValues
+            begin
+                if (taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.Equals(ClValues[0])}) != ^null) then
+                begin
+                    task.InterfaceLoopInterfaces.Add(candidateInterface)
+                end
+                else
+                begin
+                    Console.WriteLine("ERROR: Interface {0} was not found in the method catalog export file!",ClValues[0])
+                    ok = false
+                    exitCode = 1
+                end
+            end
+        end
+    end
+        
     ;;-------------------------------------------------------------------------
     ;;Do we have any button processing settings?
 

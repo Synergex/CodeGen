@@ -1397,14 +1397,22 @@ namespace CodeGen.Engine
             if (taskSet.MethodCatalog.Interfaces.Count == 0)
                 throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the SMC data contains no interface definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
-            loop.MaxIndex = taskSet.MethodCatalog.Interfaces.Count - 1
+            loop.MaxIndex = task.InterfaceLoopInterfaces.Count > 0 ? task.InterfaceLoopInterfaces.Count-1 : taskSet.MethodCatalog.Interfaces.Count - 1
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} interfaces", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
             data ix, int
-            for ix from 0 thru taskSet.MethodCatalog.Interfaces.Count - 1
+            for ix from 0 thru loop.MaxIndex
             begin
-                loop.CurrentInterface = taskSet.MethodCatalog.Interfaces[ix]
+                if (task.InterfaceLoopInterfaces.Count > 0) then
+                begin
+                    loop.CurrentInterface = taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.Equals(task.InterfaceLoopInterfaces[ix])})
+                end
+                else
+                begin
+                    loop.CurrentInterface = taskSet.MethodCatalog.Interfaces[ix]
+                end
+
                 loop.CurrentIndex = ix
 
                 expander.Visit(node.Body)
