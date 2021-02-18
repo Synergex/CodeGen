@@ -107,7 +107,7 @@ namespace CodeGen.Engine
             fieldLoopTokenExpanders.Add("FIELD_MAXVALUE", expandFieldMaxValue)
             fieldLoopTokenExpanders.Add("FIELD_MINVALUE", expandFieldMinValue)
             fieldLoopTokenExpanders.Add("FIELD_NAME", expandFieldName)
-            fieldLoopTokenExpanders.Add("FIELD_NETNAME", expandFieldSqlName)
+            fieldLoopTokenExpanders.Add("FIELD_NETNAME", expandFieldNetName)
             fieldLoopTokenExpanders.Add("FIELD_NET_ALTNAME", expandFieldSqlAltname)
             fieldLoopTokenExpanders.Add("FIELD_NOECHO_CHAR", expandFieldNoEchoChar)
             fieldLoopTokenExpanders.Add("FIELD_OCDEFAULT", expandFieldOcDefault)
@@ -1219,6 +1219,16 @@ namespace CodeGen.Engine
             mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
         endmethod
 
+        private static method expandFieldNetName, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field) field.SqlName
+            mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
         private static method expandFieldOdbcName, string
             tkn, @Token 
             template, @FileNode 
@@ -1819,8 +1829,11 @@ namespace CodeGen.Engine
             loops, @IEnumerable<LoopNode> 
             endparams
         proc
-            lambda doExpand(str, field) field.SqlName
-            ;; This one is also used for <FIELD_NETNAME>
+            lambda doExpand(str, field)
+            begin
+                data task, @CodeGenTask, template.Context.CurrentTask
+                mreturn task.Tweaks.Count > 0 && task.Tweaks.Contains("SQLNAMENO$") ? field.SqlName.Replace("$","") : field.SqlName
+            end
             mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
         endmethod
 
