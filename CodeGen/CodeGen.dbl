@@ -1092,71 +1092,6 @@ proc
     end
 
     ;;-------------------------------------------------------------------------
-    ;;Are we being asked to process structured referneced in a "Synergy Method Catalog" XML file?
-
-    if (ok && CommandLineParser.Parse("smcstrs",ClValues))
-    begin
-        if (CommandLineParser.Parse("smc")) then
-        begin
-            Console.WriteLine("ERROR: The -smcstrs and -smc options may not be used together!")
-            ok = false
-            exitCode = 1
-        end
-        else if (task.Structures.Count > 0) then
-        begin
-            Console.WriteLine("ERROR: The -smcstrs and -s options may not be used together!")
-            ok = false
-            exitCode = 1
-        end
-        else if (!ClValues.Count) then
-        begin
-            Console.WriteLine("ERROR: No SMC export file specified after the -smcstrs option!")
-            ok = false
-            exitCode = 1
-        end
-        else if (ClValues.Count > 1) then
-        begin
-            Console.WriteLine("ERROR: Only one SMC export file may be specified after the -smcstrs option!")
-            ok = false
-            exitCode = 1
-        end
-        else if (!File.Exists(ClValues[0])) then
-        begin
-            Console.WriteLine("ERROR: Specified SMC export file was not found!")
-            ok = false
-            exitCode = 1
-        end
-        else
-        begin
-            try
-            begin
-                taskSet.MethodCatalog = new Smc(ClValues[0])
-
-                if (taskSet.MethodCatalog.Structures.Count == 0) then
-                begin
-                    Console.WriteLine("ERROR: SMC export file contains no structures.")
-                    ok = false
-                    ;exitCode = 1
-                end
-                else
-                begin
-                    data str, @RpsStructure
-                    foreach str in taskSet.MethodCatalog.Structures
-                        task.Structures.Add(str.Name)
-                end
-            end
-            catch (ex, @Exception)
-            begin
-                data errMsg, string, String.Format("ERROR: Failed to load structures from SMC export file. {0}",ex.Message)
-                Console.WriteLine(ex.Message)
-                ok = false
-                exitCode = 1
-            end
-            endtry
-        end
-    end
-
-    ;;-------------------------------------------------------------------------
     ;;Are we being asked to process multiple structures at the same time (in the same template)
 
     if (ok && CommandLineParser.Parse("ms"))
@@ -1276,58 +1211,13 @@ proc
     end
 
     ;;-------------------------------------------------------------------------
-    ;;Are we being asked to process a "Synergy Method Catalog" XML file?
-
-    if (ok && CommandLineParser.Parse("smc",ClValues))
-    begin
-        if (task.Structures.Count > 0) then
-        begin
-            Console.WriteLine("ERROR: The -smc and -s options may not be used together!")
-            ok = false
-            exitCode = 1
-        end
-        else if (!ClValues.Count) then
-        begin
-            Console.WriteLine("ERROR: No SMC export file specified after the -smc option!")
-            ok = false
-            exitCode = 1
-        end
-        else if (ClValues.Count > 1) then
-        begin
-            Console.WriteLine("ERROR: Only one SMC export file may be specified after the -smc option!")
-            ok = false
-            exitCode = 1
-        end
-        else if (!File.Exists(ClValues[0])) then
-        begin
-            Console.WriteLine("ERROR: Specified SMC export file was not found!")
-            ok = false
-            exitCode = 1
-        end
-        else
-        begin
-            try
-            begin
-                taskSet.MethodCatalog = new Smc(ClValues[0])
-            end
-            catch (ex, @Exception)
-            begin
-                Console.WriteLine(ex.Message)
-                ok = false
-                exitCode = 1
-            end
-            endtry
-        end
-    end
-
-    ;;-------------------------------------------------------------------------
     ;;Are we being asked to process a specific interface from the Synergy Method Catalog?
 
     if (ok && CommandLineParser.Parse("interface",ClValues))
     begin
-        if (taskSet.MethodCatalog == ^null) then
+        if (!CommandLineParser.Parse("smc") && !CommandLineParser.Parse("smcstrs")) then
         begin
-            Console.WriteLine("ERROR: The -interface option may not be used without the -smc option!")
+            Console.WriteLine("ERROR: The -interface option may only be used with the -smc or -smcstrs options!")
             ok = false
             exitCode = 1
         end
@@ -1343,15 +1233,192 @@ proc
             ok = false
             exitCode = 1
         end
-        else if (taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.Equals(ClValues[0])}) == ^null) then
+        else
         begin
-            Console.WriteLine("ERROR: Interface {0} was not found in the method catalog export file!",ClValues[0])
+            task.Interface = ClValues[0]
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to process a "Synergy Method Catalog" XML file?
+
+    if (ok && CommandLineParser.Parse("smc",ClValues))
+    begin
+        if (task.Structures.Count > 0) then
+        begin
+            Console.WriteLine("ERROR: The -smc and -s options may not be used together!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!ClValues.Count) then
+        begin
+            Console.WriteLine("ERROR: No method catalog export file specified after the -smc option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count > 1) then
+        begin
+            Console.WriteLine("ERROR: Only one method catalog export file may be specified after the -smc option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!File.Exists(ClValues[0])) then
+        begin
+            Console.WriteLine("ERROR: Specified method catalog export file was not found!")
             ok = false
             exitCode = 1
         end
         else
         begin
-            task.Interface = ClValues[0]
+            try
+            begin
+                ;;If there were command-line repository files specified, the logicals have not yet been set!
+                if (!String.IsNullOrWhiteSpace(taskSet.RepositoryMainFile) && !String.IsNullOrWhiteSpace(taskSet.RepositoryTextFile))
+                begin
+                    data sts, int
+                    xcall setlog("RPSMFIL",taskSet.RepositoryMainFile,sts)
+                    xcall setlog("RPSTFIL",taskSet.RepositoryTextFile,sts)
+                end
+
+                taskSet.MethodCatalog = new Smc(ClValues[0])
+
+                ;;If we have an interface name, make sure it exists in the catalog
+                if (!String.IsNullOrWhiteSpace(task.Interface))
+                begin
+                    if (taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(i) {i.Name==task.Interface}) == ^null)
+                    begin
+                        Console.WriteLine("ERROR: Interface {0} was not funnd in the method catalog!")
+                        ok = false
+                        exitCode = 1
+                    end
+                end
+            end
+            catch (ex, @Exception)
+            begin
+                Console.WriteLine(ex.Message)
+                ok = false
+                exitCode = 1
+            end
+            endtry
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to process structured referneced in a "Synergy Method Catalog" XML file?
+
+    if (ok && CommandLineParser.Parse("smcstrs",ClValues))
+    begin
+        if (CommandLineParser.Parse("smc")) then
+        begin
+            Console.WriteLine("ERROR: The -smcstrs and -smc options may not be used together!")
+            ok = false
+            exitCode = 1
+        end
+        else if (task.Structures.Count > 0) then
+        begin
+            Console.WriteLine("ERROR: The -smcstrs and -s options may not be used together!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!ClValues.Count) then
+        begin
+            Console.WriteLine("ERROR: No method catalog export file specified after the -smcstrs option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count > 1) then
+        begin
+            Console.WriteLine("ERROR: Only one method catalog export file may be specified after the -smcstrs option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!File.Exists(ClValues[0])) then
+        begin
+            Console.WriteLine("ERROR: Specified method catalog export file was not found!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            try
+            begin
+                ;;If there were command-line repository files specified, the logicals have not yet been set!
+                if (!String.IsNullOrWhiteSpace(taskSet.RepositoryMainFile) && !String.IsNullOrWhiteSpace(taskSet.RepositoryTextFile))
+                begin
+                    data sts, int
+                    xcall setlog("RPSMFIL",taskSet.RepositoryMainFile,sts)
+                    xcall setlog("RPSTFIL",taskSet.RepositoryTextFile,sts)
+                end
+
+                taskSet.MethodCatalog = new Smc(ClValues[0])
+
+                ;;If we have an interface name, make sure it exists in the catalog
+                if (!String.IsNullOrWhiteSpace(task.Interface))
+                begin
+                    if (taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(i) {i.Name==task.Interface}) == ^null)
+                    begin
+                        Console.WriteLine("ERROR: Interface {0} was not funnd in the method catalog!")
+                        ok = false
+                        exitCode = 1
+                    end
+                end
+                
+                if (ok)
+                begin
+                    if (taskSet.MethodCatalog.Structures.Count == 0) then
+                    begin
+                        Console.WriteLine("INFO: Method catalog export file contains no structures!")
+                        ok = false
+                        ;exitCode = 1
+                    end
+                    else
+                    begin
+                        ;;Method catalog has structutures, but does our interface reference any?
+                        data str, @RpsStructure
+                        foreach str in taskSet.MethodCatalog.Structures
+                        begin
+                            if (String.IsNullOrWhiteSpace(task.Interface)) then
+                            begin
+                                ;;No interface specified, process all structures in the SMC
+                                task.Structures.Add(str.Name)
+                            end
+                            else
+                            begin
+                                ;;Interface specified, process only those structures in the SMC that are used by the interface.
+                                data i, @SmcInterface, taskSet.MethodCatalog.Interfaces.First(lambda(if) {if.Name==task.Interface})
+
+                                data m, @SmcMethod
+                                foreach m in i.Methods
+                                begin
+                                    data p, @SmcParameter
+                                    foreach p in m.Parameters
+                                    begin
+                                        if ( !String.IsNullOrWhiteSpace(p.StructureName) && !task.Structures.Contains(p.StructureName) )
+                                        begin
+                                            task.Structures.Add(p.StructureName)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        if (task.Structures.Count == 0)
+                        begin
+                            ;;Interface does not reference any structures!
+                            Console.WriteLine("INFO: Method catalog interface references no structures!")
+                            ok = false
+                            ;exitCode = 1
+                        end
+                    end
+                end
+            end
+            catch (ex, @Exception)
+            begin
+                data errMsg, string, String.Format("ERROR: Failed to load structures from method catalog export file. {0}",ex.Message)
+                Console.WriteLine(ex.Message)
+                ok = false
+                exitCode = 1
+            end
+            endtry
         end
     end
 
