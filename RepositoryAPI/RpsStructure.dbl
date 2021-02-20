@@ -197,7 +197,10 @@ namespace CodeGen.RepositoryAPI
         endmethod
 
         ;;; <summary>
-        ;;; Load structure by name, fields passed in
+        ;;; Load structure by name, fields passed in.
+        ;;; This constructor loads a real repository structure, but then replaces its fields collection
+        ;;; with a collection of fields that is provided. This is primarily used by CodeGen when doing
+        ;;; field subset processing.
         ;;; </summary>
         ;;; <param name="StructureName">Structure name</param>
         ;;; <param name="Fields">Collection of fields to assign.</param>
@@ -217,6 +220,50 @@ namespace CodeGen.RepositoryAPI
             mFields = Fields
             Repository.CheckIsOpen()
             LoadStructure(str)
+        endmethod
+
+        ;;; <summary>
+        ;;; Create a "fake" structure with a name and passed in fields collection.
+        ;;; This is used orimarily for CodeGen EXPLICIT GROUP processing
+        ;;; </summary>
+        ;;; <param name="Fields">Collection of fields to assign.</param>
+        ;;; <param name="StructureName">Structure name</param>
+        public method RpsStructure
+            required in aFields, @RpsFieldCollection
+            required in aStructureName, string
+            endparams
+            record
+                str ,string
+            endrecord
+        proc
+            mStructureName = aStructureName.Trim().ToUpper()
+            mDescription = String.Empty
+            mLongDescription = String.Empty
+            mUserText = String.Empty
+            mFields = aFields
+            mKeys = new RpsKeyCollection()
+            mFiles = new RpsFileCollection()
+            mTags = new RpsTagCollection()
+            mFormats = new RpsFormatCollection()
+            mRelations = new RpsRelationCollection()
+
+            FileType = "USER DEFINED"
+            Length = 0
+            data tmpField, @RpsField
+            foreach tmpField in aFields
+            begin
+                Length += tmpField.Size
+            end
+            ChildCount = aFields.Count
+            TagType = RpsTagType.None
+            FirstFile = String.Empty
+
+            mStructureAlias = String.Empty
+            mMappedStructure = String.Empty
+            mMappedFileSpec = String.Empty
+            mDisplayField = String.Empty
+            mIsFake = true
+
         endmethod
 
         ;; Destructor
