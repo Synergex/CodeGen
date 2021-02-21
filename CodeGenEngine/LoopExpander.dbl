@@ -157,6 +157,42 @@ namespace CodeGen.Engine
 
         endmethod
 
+        ;;This method is different to the others here. It is caled during the processing of the <FIELD_GROUP_EXPAND> field loop token
+        public static method ProcessGroup, string
+            required in tkn, @Token
+            required in template, @FileNode
+            required in loops, @IEnumerable<LoopNode>
+            required in str, @RpsStructure
+            required in field, @RpsField
+        proc
+            data context = template.Context
+            data task = context.CurrentTask
+            data loop = ^as(loops.Last(), FieldLoopNode)
+            data groupStructure = String.IsNullOrWhiteSpace(field.GroupStructure) ? new RpsStructure(field.GroupFields,field.Name) : new RpsStructure(field.GroupStructure)
+            data saveMaxIndex = loop.MaxIndex
+            data saveCurrentIndex = loop.CurrentIndex
+
+            ;;Configure the environment for the new group
+            context.SetCurrentStructure(groupStructure)
+            loop.AddNestedField(groupStructure.Fields.First())
+            loop.MaxIndex = groupStructure.Fields.Count - 1
+            loop.CurrentIndex = 0
+
+            data expanderOutput = new StringWriter()
+            data expander = new TreeExpander(template, loops, expanderOutput)
+
+            LoopExpander.ProcessLoop(loop, template, loops, expander)
+
+            ;;Restore the environment to its previous state
+            context.ClearCurrentStructure()
+            loop.RemoveNestedField()
+            loop.MaxIndex = saveMaxIndex
+            loop.CurrentIndex = saveCurrentIndex
+
+            mreturn expanderOutput.ToString()
+
+        endmethod
+
         private static method processKeyLoop, void
             required in node,       @LoopNode 
             required in template,   @FileNode 

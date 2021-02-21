@@ -61,6 +61,7 @@ namespace CodeGen.Engine
             endparams
         proc
             parameterLoopTokenExpanders = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>()
+            parameterLoopTokenExpanders.Add("PARAMETER_ATTRIBUTE", expandParameterAttribute)
             parameterLoopTokenExpanders.Add("PARAMETER_NAME", expandParameterName)
             parameterLoopTokenExpanders.Add("PARAMETER_NUMBER", expandParameterNumber)
             parameterLoopTokenExpanders.Add("PARAMETER_COMMENT", expandParameterComment)
@@ -94,6 +95,117 @@ namespace CodeGen.Engine
             lambda isParameterLoop(node) node .is. ParameterLoopNode
             data loop, @ParameterLoopNode, ^as(loops.First(isParameterLoop), ParameterLoopNode)
             mreturn specific(template.Context.Taskset.MethodCatalog,loop.CurrentInterface, loop.CurrentMethod, loop.CurrentParameter)
+        endmethod
+
+        private static method expandParameterAttribute, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(catalog,iface,meth,param)
+            begin
+                data typeValue = ""
+                data coercedValue = ""
+                data nullableValue = ""
+                data formatValue = ""
+                data collectionTypeValue = ""
+                data structureValue = ""
+                data dataTableValue = ""
+
+                using param.Type select
+                (ParameterType.Handle),
+                    typeValue = ",type=SynType.handle"
+                (ParameterType.BinaryHandle),
+                    typeValue = ",type=SynType.binaryhandle"
+                endusing
+
+                using meth.ReturnValue.CoerceType select
+                (CoerceType.Boolean),
+                    coercedValue = ",cType=xfType.Boolean"
+                (CoerceType.Byte),
+                    coercedValue = ",cType=xfType.byte"
+                (CoerceType.DateTime),
+                    coercedValue = ",cType=xfType.DateTime"
+                (CoerceType.DateTimeNullable),
+                begin
+                    coercedValue = ",cType=xfType.DateTime"
+                    nullableValue = ",nullable=true"
+                end
+                (CoerceType.Decimal),
+                    coercedValue = ",cType=xfType.decimal"
+                (CoerceType.DecimalNullable),
+                begin
+                    coercedValue = "cType=xfType.decimal"
+                    nullableValue = ",nullable=true"
+                end
+                (CoerceType.Double),
+                    coercedValue = ",cType=xfType.double"
+                (CoerceType.Float),
+                    coercedValue = ",cType=xfType.float"
+                (CoerceType.Int),
+                    coercedValue = ",cType=xfType.int"
+                (CoerceType.Long),
+                    coercedValue = ",cType=xfType.long"
+                (CoerceType.Sbyte),
+                    coercedValue = ",cType=xfType.sbyte"
+                (CoerceType.Short),
+                    coercedValue = ",cType=xfType.short"
+                (CoerceType.Uint),
+                    coercedValue = ",cType=xfType.uint"
+                (CoerceType.Ulong),
+                    coercedValue = ",cType=xfType.ulong"
+                (CoerceType.Ushort),
+                    coercedValue = ",cType=xfType.ushort"
+                endusing
+
+                using meth.ReturnValue.DateFormat select
+                (DateFormat.YYYYMMDD),
+                    formatValue = ",format=xfFormat.YYYYMMDD"
+                (DateFormat.YYMMDD),
+                    formatValue = ",format=xfFormat.YYMMDD"
+                (DateFormat.YYYYJJJ),
+                    formatValue = ",format=xfFormat.YYYYJJJ"
+                (DateFormat.YYJJJ),
+                    formatValue = ",format=xfFormat.YYJJJ"
+                (DateFormat.HHMMSS),
+                    formatValue = ",format=xfFormat.HHMMSS"
+                (DateFormat.HHMM),
+                    formatValue = ",format=xfFormat.HHMM"
+                (DateFormat.YYYYMMDDHHMISS),
+                    formatValue = ",format=xfFormat.YYYYMMDDHHMISS"
+                (DateFormat.YYYYMMDDHHMISSUUUUUU),
+                    formatValue = ",format=xfFormat.YYYYMMDDHHMISSUUUUUU"
+                endusing
+
+
+                ;TODO: CollectionType
+                if (param.CollectionType != ParameterCollectionType.None)
+                begin
+                    using param.Type select
+                    (ParameterType.Alpha),
+                        collectionTypeValue = ",collectionType=xfCollectType.alpha"
+                    (ParameterType.Decimal),
+                        collectionTypeValue = ",collectionType=xfCollectType.decimal"
+                    (ParameterType.ImpliedDecimal),
+                        collectionTypeValue = ",collectionType=xfCollectType.impdec"
+                    (ParameterType.Integer),
+                        collectionTypeValue = ",collectionType=xfCollectType.integer"
+                    (ParameterType.String),
+                        collectionTypeValue = ",collectionType=xfCollectType.string"
+                    (ParameterType.Structure),
+                    begin
+                        collectionTypeValue = ",collectionType=xfCollectType.structure"
+                        structureValue = String.Format(',structure="str{0}"',StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName))
+                    end
+                    endusing
+                end
+
+                dataTableValue = param.DataTable ? ",dataTable=true" : ""
+
+                mreturn String.Format('{0}xfParameter(name="{1}"{2}{3}{4}{5}{6}{7}{8}){9}',"{",param.Name,typeValue,coercedValue,nullableValue,formatValue,collectionTypeValue,structureValue,dataTableValue,"}")
+            end
+            mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
         endmethod
 
         private static method expandParameterName, string

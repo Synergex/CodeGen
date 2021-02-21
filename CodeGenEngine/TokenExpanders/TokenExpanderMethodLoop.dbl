@@ -61,6 +61,7 @@ namespace CodeGen.Engine
             endparams
         proc
             methodLoopTokenExpanders = new Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, string>>()
+            methodLoopTokenExpanders.Add("METHOD_ATTRIBUTE", expandMethodAttribute)
             methodLoopTokenExpanders.Add("METHOD_COMMENT", expandMethodComment)
             methodLoopTokenExpanders.Add("METHOD_ENCRYPT", expandMethodEncrypt)
             methodLoopTokenExpanders.Add("METHOD_ELB", expandMethodElb)
@@ -98,6 +99,93 @@ namespace CodeGen.Engine
             lambda isMethodLoop(node) node .is. MethodLoopNode
             data loop, @MethodLoopNode, ^as(loops.First(isMethodLoop), MethodLoopNode)
             mreturn specific(template.Context.Taskset.MethodCatalog,loop.CurrentInterface, loop.CurrentMethod)
+        endmethod
+
+        private static method expandMethodAttribute, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(catalog,iface,meth)
+            begin
+                data coerced = ""
+                data nullable = ""
+                data format = ""
+                data encrypt = ""
+
+                if (meth.MethodType==MethodType.Function && meth.ReturnValue.CoerceType!=CoerceType.None)
+                begin
+                    using meth.ReturnValue.CoerceType select
+                    (CoerceType.Boolean),
+                        coerced = ",cType=xfType.Boolean"
+                    (CoerceType.Byte),
+                        coerced = ",cType=xfType.byte"
+                    (CoerceType.DateTime),
+                        coerced = ",cType=xfType.DateTime"
+                    (CoerceType.DateTimeNullable),
+                    begin
+                        coerced = ",cType=xfType.DateTime"
+                        nullable = ",nullable=true"
+                    end
+                    (CoerceType.Decimal),
+                        coerced = ",cType=xfType.decimal"
+                    (CoerceType.DecimalNullable),
+                    begin
+                        coerced = "cType=xfType.decimal"
+                        nullable = ",nullable=true"
+                    end
+                    (CoerceType.Double),
+                        coerced = ",cType=xfType.double"
+                    (CoerceType.Float),
+                        coerced = ",cType=xfType.float"
+                    (CoerceType.Int),
+                        coerced = ",cType=xfType.int"
+                    (CoerceType.Long),
+                        coerced = ",cType=xfType.long"
+                    (CoerceType.Sbyte),
+                        coerced = ",cType=xfType.sbyte"
+                    (CoerceType.Short),
+                        coerced = ",cType=xfType.short"
+                    (CoerceType.Uint),
+                        coerced = ",cType=xfType.uint"
+                    (CoerceType.Ulong),
+                        coerced = ",cType=xfType.ulong"
+                    (CoerceType.Ushort),
+                        coerced = ",cType=xfType.ushort"
+                    endusing
+                end
+
+                if (meth.MethodType==MethodType.Function && meth.ReturnValue.DateFormat!=DateFormat.None)
+                begin
+                    using meth.ReturnValue.DateFormat select
+                    (DateFormat.YYYYMMDD),
+                        format = ",format=xfFormat.YYYYMMDD"
+                    (DateFormat.YYMMDD),
+                        format = ",format=xfFormat.YYMMDD"
+                    (DateFormat.YYYYJJJ),
+                        format = ",format=xfFormat.YYYYJJJ"
+                    (DateFormat.YYJJJ),
+                        format = ",format=xfFormat.YYJJJ"
+                    (DateFormat.HHMMSS),
+                        format = ",format=xfFormat.HHMMSS"
+                    (DateFormat.HHMM),
+                        format = ",format=xfFormat.HHMM"
+                    (DateFormat.YYYYMMDDHHMISS),
+                        format = ",format=xfFormat.YYYYMMDDHHMISS"
+                    (DateFormat.YYYYMMDDHHMISSUUUUUU),
+                        format = ",format=xfFormat.YYYYMMDDHHMISSUUUUUU"
+                    endusing
+                end
+
+                if (meth.Encrypt)
+                begin
+                    encrypt = ",encrypt=true"
+                end
+
+                mreturn String.Format('{0}xfMethod(name="{1}",id="{2}",interface="{3}",elb="{4}"{5}{6}{7}{8}){9}',"{",meth.Name,meth.Id,iface.Name,meth.Elb,coerced,nullable,format,encrypt,"}")
+            end
+            mreturn ExpandMethodLoopToken(tkn, template, loops, doExpand)
         endmethod
 
         private static method expandMethodComment, string
