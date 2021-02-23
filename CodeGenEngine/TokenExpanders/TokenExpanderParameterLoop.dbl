@@ -67,6 +67,7 @@ namespace CodeGen.Engine
             parameterLoopTokenExpanders.Add("PARAMETER_COMMENT", expandParameterComment)
             parameterLoopTokenExpanders.Add("PARAMETER_TYPE", expandParameterType)
             parameterLoopTokenExpanders.Add("PARAMETER_DEFINITION", expandParameterDefinition)
+            parameterLoopTokenExpanders.Add("PARAMETER_DEFINITION_NOARRAY", expandParameterDefinitionNoarray)
             parameterLoopTokenExpanders.Add("PARAMETER_SIZE", expandParameterSize)
             parameterLoopTokenExpanders.Add("PARAMETER_PRECISION", expandParameterPrecision)
             parameterLoopTokenExpanders.Add("PARAMETER_ENUM", expandParameterEnum)
@@ -178,9 +179,12 @@ namespace CodeGen.Engine
                     formatValue = ",format=xfFormat.YYYYMMDDHHMISSUUUUUU"
                 endusing
 
-
-                ;TODO: CollectionType
-                if (param.CollectionType != ParameterCollectionType.None)
+                using param.CollectionType select
+                (ParameterCollectionType.None,ParameterCollectionType.Array),
+                begin
+                    nop
+                end
+                (ParameterCollectionType.ArrayList,ParameterCollectionType.MemoryHandle),
                 begin
                     using param.Type select
                     (ParameterType.Alpha),
@@ -196,10 +200,22 @@ namespace CodeGen.Engine
                     (ParameterType.Structure),
                     begin
                         collectionTypeValue = ",collectionType=xfCollectType.structure"
-                        structureValue = String.Format(',structure="str{0}"',StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName))
+
+                        data strPrefix = String.Empty
+                        data strName = param.StructureName
+
+                        ;; PARAMDEFSTR tweak
+                        if (template.Context.CurrentTask.Tweaks.Count > 0 && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                        begin
+                            strPrefix =  "str"
+                            strName = StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                        end
+
+                        structureValue = String.Format(',structure="{0}{1}"',strPrefix,strName)
                     end
                     endusing
                 end
+                endusing
 
                 dataTableValue = param.DataTable ? ",dataTable=true" : ""
 
@@ -256,40 +272,134 @@ namespace CodeGen.Engine
         proc
             lambda doExpand(catalog,iface,meth,param)
             begin
-                using param.Type select
-                (ParameterType.Alpha),
+                using param.CollectionType select
+                (ParameterCollectionType.None,ParameterCollectionType.Array),
                 begin
-                    mreturn String.Format("A{0}",param.Size)
+                    data arraySpec = param.CollectionType == ParameterCollectionType.Array ? "[*]" : String.Empty
+
+                    using param.Type select
+                    (ParameterType.Alpha),
+                    begin
+                        mreturn String.Format("{0}A{1}",arraySpec,param.Size)
+                    end
+                    (ParameterType.Decimal),
+                    begin
+                        mreturn String.Format("{0}D{1}",arraySpec,param.Size)
+                    end
+                    (ParameterType.Enumeration),
+                    begin
+                        mreturn param.EnumName
+                    end
+                    (ParameterType.Handle, ParameterType.BinaryHandle),
+                    begin
+                        mreturn "D_HANDLE"
+                    end
+                    (ParameterType.ImpliedDecimal),
+                    begin
+                        mreturn String.Format("{0}D{1}.{2}",arraySpec,param.Size,param.Precision)
+                    end
+                    (ParameterType.Integer),
+                    begin
+                        mreturn String.Format("{0}I{1}",arraySpec,param.Size)
+                    end
+                    (ParameterType.String),
+                    begin
+                        mreturn "STRING"
+                    end
+                    (ParameterType.Structure),
+                    begin
+                        data strPrefix = String.Empty
+                        data strName = param.StructureName
+
+                        ;; PARAMDEFSTR tweak
+                        if (template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                        begin
+                            strPrefix =  "str"
+                            strName = StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                        end
+                        mreturn String.Format("{0}{1}{2}",arraySpec,strPrefix,strName)
+                    end
+                    endusing
                 end
-                (ParameterType.Decimal),
-                begin
-                    mreturn String.Format("D{0}",param.Size)
-                end
-                (ParameterType.Enumeration),
-                begin
-                    mreturn param.EnumName
-                end
-                (ParameterType.Handle, ParameterType.BinaryHandle),
+                (ParameterCollectionType.MemoryHandle),
                 begin
                     mreturn "D_HANDLE"
                 end
-                (ParameterType.ImpliedDecimal),
+                (ParameterCollectionType.ArrayList),
                 begin
-                    mreturn String.Format("D{0}.{1}",param.Size,param.Precision)
-                end
-                (ParameterType.Integer),
-                begin
-                    mreturn String.Format("I{0}",param.Size)
-                end
-                (ParameterType.String),
-                begin
-                    mreturn "STRING"
-                end
-                (ParameterType.Structure),
-                begin
-                    mreturn String.Format(param.StructureName)
+                    mreturn "@ArrayList"
                 end
                 endusing
+
+            end
+            mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandParameterDefinitionNoarray, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(catalog,iface,meth,param)
+            begin
+                using param.CollectionType select
+                (ParameterCollectionType.None,ParameterCollectionType.Array),
+                begin
+                    using param.Type select
+                    (ParameterType.Alpha),
+                    begin
+                        mreturn String.Format("A{0}",param.Size)
+                    end
+                    (ParameterType.Decimal),
+                    begin
+                        mreturn String.Format("D{0}",param.Size)
+                    end
+                    (ParameterType.Enumeration),
+                    begin
+                        mreturn param.EnumName
+                    end
+                    (ParameterType.Handle, ParameterType.BinaryHandle),
+                    begin
+                        mreturn "D_HANDLE"
+                    end
+                    (ParameterType.ImpliedDecimal),
+                    begin
+                        mreturn String.Format("D{0}.{1}",param.Size,param.Precision)
+                    end
+                    (ParameterType.Integer),
+                    begin
+                        mreturn String.Format("I{0}",param.Size)
+                    end
+                    (ParameterType.String),
+                    begin
+                        mreturn "STRING"
+                    end
+                    (ParameterType.Structure),
+                    begin
+                        data strPrefix = String.Empty
+                        data strName = param.StructureName
+
+                        ;; PARAMDEFSTR tweak
+                        if (template.Context.CurrentTask.Tweaks.Count > 0 && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                        begin
+                            strPrefix =  "str"
+                            strName = StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                        end
+                        mreturn String.Format("{0}{1}",strPrefix,strName)
+                    end
+                    endusing
+                end
+                (ParameterCollectionType.MemoryHandle),
+                begin
+                    mreturn "D_HANDLE"
+                end
+                (ParameterCollectionType.ArrayList),
+                begin
+                    mreturn "@ArrayList"
+                end
+                endusing
+
             end
             mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
         endmethod
@@ -348,11 +458,44 @@ namespace CodeGen.Engine
             begin
                 using tkn.Value select
                 ("PARAMETER_STRUCTURE_NOPLURAL"),
-                    mreturn param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName
+                begin
+                    data strPrefix = String.Empty
+                    data strName = param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName
+
+                    ;; PARAMDEFSTR tweak
+                    if (template.Context.CurrentTask.Tweaks.Count > 0 && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                    begin
+                        strPrefix =  "STR_"
+                    end
+
+                    mreturn String.Format("{0}{1}",strPrefix,strName)
+                end
                 ("PARAMETER_STRUCTURE_PLURAL"),
-                    mreturn param.StructureName.EndsWith("S") ? param.StructureName : String.Format("{0}S",param.StructureName)
-                (),
-                    mreturn param.StructureName
+                begin
+                    data strPrefix = String.Empty
+                    data strName = param.StructureName.EndsWith("S") ? param.StructureName : String.Format("{0}S",param.StructureName)
+
+                    ;; PARAMDEFSTR tweak
+                    if (template.Context.CurrentTask.Tweaks.Count > 0 && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                    begin
+                        strPrefix =  "STR_"
+                    end
+
+                    mreturn String.Format("{0}{1}",strPrefix,strName)
+                end
+                (), ;"PARAMETER_STRUCTURE"
+                begin
+                    data strPrefix = String.Empty
+                    data strName = param.StructureName
+
+                    ;; PARAMDEFSTR tweak
+                    if (template.Context.CurrentTask.Tweaks.Count > 0 && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                    begin
+                        strPrefix =  "STR_"
+                    end
+
+                    mreturn String.Format("{0}{1}",strPrefix,strName)
+                end
                 endusing
             end
             mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
