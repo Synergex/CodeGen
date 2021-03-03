@@ -86,38 +86,62 @@ namespace HarmonyCoreExtensions
         proc
             lambda doExpand(catalog,iface,meth,param)
             begin
-                using param.Type select
-                (ParameterType.Alpha),
+                using param.CollectionType select
+                (ParameterCollectionType.None,ParameterCollectionType.Array),
                 begin
-                    mreturn String.Format("A{0}",param.Size)
+                    data arraySpec = param.CollectionType == ParameterCollectionType.Array ? "[*]" : String.Empty
+
+                    using param.Type select
+                    (ParameterType.Alpha),
+                    begin
+                        mreturn String.Format("{0}a{1}",arraySpec,param.Size)
+                    end
+                    (ParameterType.Decimal),
+                    begin
+                        mreturn String.Format("{0}d{1}",arraySpec,param.Size)
+                    end
+                    (ParameterType.Enumeration),
+                    begin
+                        mreturn param.EnumName
+                    end
+                    (ParameterType.Handle, ParameterType.BinaryHandle),
+                    begin
+                        mreturn "D_HANDLE"
+                    end
+                    (ParameterType.ImpliedDecimal),
+                    begin
+                        mreturn String.Format("d{0}.{1}",param.Size==param.Precision?param.Size+1:param.Size,param.Precision)
+                    end
+                    (ParameterType.Integer),
+                    begin
+                        mreturn String.Format("{0}i{1}",arraySpec,param.Size)
+                    end
+                    (ParameterType.String),
+                    begin
+                        mreturn "string"
+                    end
+                    (ParameterType.Structure),
+                    begin
+                        data strPrefix = String.Empty
+                        data strName = param.StructureName
+
+                        ;; PARAMDEFSTR tweak
+                        if (template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                        begin
+                            strPrefix =  "str"
+                            strName = StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                        end
+                        mreturn String.Format("{0}{1}{2}",arraySpec,strPrefix,strName)
+                    end
+                    endusing
                 end
-                (ParameterType.Decimal),
-                begin
-                    mreturn String.Format("D{0}",param.Size)
-                end
-                (ParameterType.Enumeration),
-                begin
-                    mreturn param.EnumName
-                end
-                (ParameterType.Handle, ParameterType.BinaryHandle),
+                (ParameterCollectionType.MemoryHandle),
                 begin
                     mreturn "D_HANDLE"
                 end
-                (ParameterType.ImpliedDecimal),
+                (ParameterCollectionType.ArrayList),
                 begin
-                    mreturn String.Format("D{0}.{1}",param.Size==param.Precision?param.Size+1:param.Size,param.Precision)
-                end
-                (ParameterType.Integer),
-                begin
-                    mreturn String.Format("I{0}",param.Size)
-                end
-                (ParameterType.String),
-                begin
-                    mreturn "STRING"
-                end
-                (ParameterType.Structure),
-                begin
-                    mreturn String.Format(param.StructureName)
+                    mreturn "@ArrayList"
                 end
                 endusing
             end
