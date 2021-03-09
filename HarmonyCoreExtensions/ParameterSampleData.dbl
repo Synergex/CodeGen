@@ -1,0 +1,148 @@
+;;*****************************************************************************
+;;
+;; Title:       ParameterSampleData.dbl
+;;
+;; Type:        Class
+;;
+;; Description: A custom parameter loop expansion token for use with Harmony Core
+;;
+;; Date:        8th March 2021
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2021, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.MethodCatalogAPI
+import CodeGen.RepositoryAPI
+import System.IO
+import Newtonsoft.Json
+import System.Linq
+import Newtonsoft.Json.Linq
+
+namespace HarmonyCoreExtensions
+
+    public class ParameterBridgeType implements IExpansionToken
+
+        public property TokenName, String
+            method get
+            proc
+                mreturn "HARMONYCORE_BRIDGE_PARAMETER_SAMPLE_DATA"
+            endmethod
+        endproperty
+
+        public property Description, String
+            method get
+            proc
+                mreturn "Generates a sample data for a method parameter."
+            endmethod
+        endproperty
+
+        public property Validity, TokenValidity
+            method get
+            proc
+                mreturn TokenValidity.ParameterLoop
+            endmethod
+        endproperty
+
+        public property TokenCase, TokenCaseMode
+            method get
+            proc
+                mreturn TokenCaseMode.AllCasingOptions
+            endmethod
+        endproperty
+
+        public method Expand, String
+            tkn, @Token
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode>
+        proc
+            lambda doExpand(catalog,iface,meth,param)
+            begin
+                using param.Type select
+                (ParameterType.Alpha),
+                begin
+                    mreturn '"A"'
+                end
+                (ParameterType.BinaryHandle),
+                begin
+                    mreturn '""'
+                end
+                (ParameterType.Decimal),
+                begin
+                    mreturn '1'
+                end
+                (ParameterType.ImpliedDecimal),
+                begin
+                    mreturn '1.1'
+                end
+                (ParameterType.Enumeration),
+                begin
+                    mreturn '""'
+                end
+                (ParameterType.Handle),
+                begin
+                    mreturn '""'
+                end
+                (ParameterType.Integer),
+                begin
+                    mreturn '1'
+                end
+                (ParameterType.String),
+                begin
+                    mreturn '"A"'
+                end
+                (ParameterType.Structure),
+                begin
+                    ;;Locate the repository structure and use the alias
+                    data str, @RpsStructure, template.Context.Repository.Structures.FirstOrDefault(lambda(s) {s.Name.Equals(param.StructureName)} )
+
+                    if (str!=^null) then
+                    begin
+                        data typeName, string, str.Alias.EndsWith("S") ? str.Alias.Substring(0,str.Alias.Length-1) : str.Alias
+                        mreturn String.Format("new {0}()",StringTools.PascalCase(typeName))
+                    end
+                    else
+                    begin
+                        ;;No match, do the best we can
+                        mreturn String.Format("new {0}()",param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                    end
+                end
+                endusing
+            end
+            mreturn TokenExpander.ExpandParameterLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+    endclass
+
+endnamespace
