@@ -89,10 +89,6 @@ namespace HarmonyCoreExtensions
         proc
             lambda doExpand(catalog,iface,meth,param)
             begin
-                data arraySpec = String.Empty
-                if (param.CollectionType == ParameterCollectionType.Array)
-                    arraySpec = "[1]"
-
                 using param.Type select
                 (ParameterType.Alpha),
                 begin
@@ -131,15 +127,31 @@ namespace HarmonyCoreExtensions
                     ;;Locate the repository structure and use the alias
                     data str, @RpsStructure, template.Context.Repository.Structures.FirstOrDefault(lambda(s) {s.Name.Equals(param.StructureName)} )
 
-                    if (str!=^null) then
+                    if (param.CollectionType == ParameterCollectionType.Array) then
                     begin
-                        data typeName, string, str.Alias.EndsWith("S") ? str.Alias.Substring(0,str.Alias.Length-1) : str.Alias
-                        mreturn String.Format("new {0}{1}()",StringTools.PascalCase(typeName),arraySpec)
+                        if (str!=^null) then
+                        begin
+                            data typeName, string, str.Alias.EndsWith("S") ? str.Alias.Substring(0,str.Alias.Length-1) : str.Alias
+                            mreturn String.Format("new {0}[1]",StringTools.PascalCase(typeName))
+                        end
+                        else
+                        begin
+                            ;;No match, do the best we can
+                            mreturn String.Format("new {0}[1]",param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                        end
                     end
                     else
                     begin
-                        ;;No match, do the best we can
-                        mreturn String.Format("new {0}{1}()",param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName,arraySpec)
+                        if (str!=^null) then
+                        begin
+                            data typeName, string, str.Alias.EndsWith("S") ? str.Alias.Substring(0,str.Alias.Length-1) : str.Alias
+                            mreturn String.Format("new {0}()",StringTools.PascalCase(typeName))
+                        end
+                        else
+                        begin
+                            ;;No match, do the best we can
+                            mreturn String.Format("new {0}()",param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                        end
                     end
                 end
                 endusing
