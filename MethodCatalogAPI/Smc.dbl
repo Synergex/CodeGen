@@ -41,6 +41,8 @@
 ;;*****************************************************************************
 
 import System.Collections.Generic
+import System.IO
+import System.Xml
 import CodeGen.RepositoryAPI
 
 namespace CodeGen.MethodCatalogAPI
@@ -59,17 +61,8 @@ namespace CodeGen.MethodCatalogAPI
             required in inputFile, String
         proc
             ;;Make sure the file is present
-            try 
-            begin
-                data ch, i4, 0
-                open(ch,i:s,inputFile)
-                close ch
-            end
-            catch (ex)
-            begin
-                throw new ApplicationException("Failed to open input file. "+ex.Message+".")
-            end
-            endtry
+            if (!File.Exists(inputFile))
+                throw new ApplicationException("Failed to method catalog XML file!")
 
             ;;And parse it
             parseMethodCatalogXml(inputFile)
@@ -78,131 +71,88 @@ namespace CodeGen.MethodCatalogAPI
 
         private method parseMethodCatalogXml, void
             required in inputFile, String
-
-            .include "DBLDIR:synxml.def"
-
-            record localData
-                parser,             XML_PARSER_TYPE
-                doc,                XML_DOC_TYPE
-                root,               XML_ELEM_TYPE
-                structureElements,  XML_ELEMLIST_TYPE
-                structureCount,     i4
-                interfaceElements,  XML_ELEMLIST_TYPE
-                interfaceCount,     i4
-                ix,i4
-            endrecord
         proc
-            init localData
+            data doc = new XmlDocument()
 
             ;;Parse the XML file
-            parser = %xml_parser_create
-            doc = %xml_parser_parsefile(parser,inputFile)
-            parser = xml_parser_delete(parser)
-
-            ;;Did the parse fail?
-            if (!doc)
-                throw new ApplicationException("Failed to parse input file. The XML may be invalid.")
-
             try
             begin
-                ;;Get the root element and make sure it's an SMC export file.
-                data rootElementName, a20
-                root = %xml_doc_getroot(doc)
-                if ((%xml_elem_getname(root,rootElementName)!=XML_SUCCESS)||(rootElementName!="component"))
-                    throw new ApplicationException("Failed to parse input file. The file is not a method catalog export file.")
-
-                ;;---------------------------------------------------------------------------------
-                ;;Does the XML file contain any structure definitions?
-
-                structureElements = %xml_elem_getelementsbyname(root,"structure")
-
-                ;;Do we have structures to work with?
-                structureCount = %xml_elemlist_count(structureElements)
-                if (structureCount)
-                begin
-                    for ix from 1 thru structureCount
-                    begin
-                        ;;Get the structure name
-                        data structureName, a128
-                        xcall xml_elem_getattribute(%xml_elemlist_item(structureElements,ix),"name",structureName)
-
-                        ;;Load the repository structure and add it to the collection
-                        try
-                        begin
-                            Structures.Add(new RpsStructure(structureName))
-                        end
-                        catch (e, @Exception)
-                        begin
-                            data strName, string, %atrim(structureName)
-                            data errMsg = String.Format("Failed to load SMC structure {0} from Repository. {1}",strName.ToUpper(),e.Message)
-                            throw new ApplicationException(errMsg)
-                        end
-                        endtry
-                    end
-                end
-
-                ;;---------------------------------------------------------------------------------
-                ;;Get the interface definitions
-
-                interfaceElements = %xml_elem_getelementsbyname(root,"interface")
-
-                ;;Do we have interfaces to work with?
-                interfaceCount = %xml_elemlist_count(interfaceElements)
-                if (!interfaceCount)
-                    throw new ApplicationException("No interfaces defined in input file.")
-
-                for ix from 1 thru interfaceCount
-                    parseInterface(%xml_elemlist_item(interfaceElements,ix))
-
-                if (this.Interfaces.Count==0)
-                    throw new ApplicationException("No application interfaces defined in input file.")
-
-
+                doc.Load(inputFile)
             end
-            finally
+            catch (e, @Exception)
             begin
-                ;;Clean up the XML document
-                doc = %xml_doc_delete(doc)
+                throw new ApplicationException("Failed to parse method catalog XML file!")
             end
             endtry
+
+            if (doc.DocumentElement == ^null || doc.DocumentElement.Name != "component")
+                throw new ApplicationException("Input file is not a method catalog XML file!")
+
+            ;;---------------------------------------------------------------------------------
+            ;;Does the XML file contain any structure definitions?
+
+            data structureNodes = doc.DocumentElement.GetElementsByTagName("structure")
+
+            ;;Do we have structures to work with?
+            data structureNode, @XmlNode
+            foreach structureNode in structureNodes
+            begin
+                ;;Get the structure name
+                data structureName = structureNode.Attributes["name"].Value.ToUpper()
+
+                ;;Load the repository structure and add it to the collection
+                try
+                begin
+                    Structures.Add(new RpsStructure(structureName))
+                end
+                catch (e, @Exception)
+                begin
+                    throw new ApplicationException(String.Format("Failed to load SMC structure {0} from Repository. {1}",structureName,e.Message))
+                end
+                endtry
+            end
+
+            ;;---------------------------------------------------------------------------------
+            ;;Get the interface definitions
+
+            data interfaceNodes = doc.DocumentElement.GetElementsByTagName("interface")
+            
+
+            ;;Do we have interfaces to work with?
+            if (interfaceNodes.Count == 0)
+                throw new ApplicationException("No interfaces defined in input file.")
+
+            data interfaceNode, @XmlNode
+            foreach interfaceNode in interfaceNodes
+                parseInterface(interfaceNode)
+
+            if (this.Interfaces.Count==0)
+                throw new ApplicationException("No application interfaces defined in input file.")
 
         endmethod
 
         private method parseInterface, void
-            required in interfaceElement, XML_ELEM_TYPE
-
-            .include "DBLDIR:synxml.def"
-
-            record 
-                interfaceName,  a128
-                thisInterface,  @SmcInterface
-                allMehtods,     XML_ELEMLIST_TYPE
-                thisMethod,     XML_ELEM_TYPE
-                methodCount,    i4
-                ix,i4
-            endrecord
+            required in interfaceNode, @XmlNode
         proc
             ;;Get the interface name
-            xcall xml_elem_getattribute(interfaceElement,"name",interfaceName)
+            data interfaceName = interfaceNode.Attributes["name"]
 
-            if (!interfaceName) then
-                mreturn
-            else if (interfaceName=="xfTest")
+            if (interfaceName==^null || String.IsNullOrWhiteSpace(interfaceName.Value) || (interfaceName.Value=="xfTest"))
                 mreturn
 
             ;;Create the new interface object
-            thisInterface = new SmcInterface() { Name=%atrim(interfaceName) }
+            data thisInterface = new SmcInterface() { Name=interfaceName.Value }
 
             ;;Get the method definitions
-            allMehtods = %xml_elem_getelementsbyname(interfaceElement,"method")
+            data methodNodes = interfaceNode.ChildNodes
 
             ;;Do we have methods to work with?
-            methodCount = %xml_elemlist_count(allMehtods)
-            if (!methodCount)
-                throw new ApplicationException("No methods defined in interfac "+thisInterface.Name)
+            if (methodNodes.Count==0)
+                throw new ApplicationException("No methods defined in interface " + interfaceName.Value)
 
-            for ix from 1 thru methodCount
-                parseMethod(%xml_elemlist_item(allMehtods,ix),thisInterface)
+            data methodNode, @XmlNode
+            foreach methodNode in methodNodes
+                parseMethod(methodNode,thisInterface)
 
             ;Add the interface to the collection of interfaces
             Interfaces.Add(thisInterface)
@@ -210,29 +160,17 @@ namespace CodeGen.MethodCatalogAPI
         endmethod
 
         private method parseMethod, void
-            required in methodElement, XML_ELEM_TYPE
+            required in methodNode, @XmlNode
             required in thisInterface, @SmcInterface
-            endparams
-            .include "DBLDIR:synxml.def"
-            record
-                attributeValue, a128
-                thisMethod,     @SmcMethod
-                allParameters,  XML_ELEMLIST_TYPE
-                parameterCount, i4
-                thisParameter,  XML_ELEM_TYPE
-            endrecord
         proc
-
             ;;Get the attributes from the method element
 
-            xcall xml_elem_getattribute(methodElement,"name",attributeValue)
-            thisMethod = new SmcMethod() {Name=%atrim(attributeValue)}
-
-            xcall xml_elem_getattribute(methodElement,"id",attributeValue)
-            thisMethod.Id = %atrim(attributeValue)
-
-            xcall xml_elem_getattribute(methodElement,"routine",attributeValue)
-            thisMethod.Routine = %atrim(attributeValue)
+            data thisMethod = new SmcMethod() {
+            &    Name = methodNode.Attributes["name"].Value,
+            &    Id = methodNode.Attributes["id"].Value,
+            &    Routine = methodNode.Attributes["routine"].Value,
+            &    Elb = methodNode.Attributes["elb"].Value
+            &    }
 
             ;;Make sure we have a "routine name". Pre 8.3 catalogs didn't have this.
             if (String.IsNullOrWhiteSpace(thisMethod.Routine))
@@ -240,39 +178,27 @@ namespace CodeGen.MethodCatalogAPI
                 throw new ApplicationException("ERROR: Method has no 'routine name'. Possible pre V8.3 method catalog file. Please import and export your file using the MDU to convert it to the latest format.")
             end
 
-            xcall xml_elem_getattribute(methodElement,"elb",attributeValue)
-            thisMethod.Elb = %atrim(attributeValue)
+            data encryptAttribute = methodNode.Attributes["encrypt"]
+            if (encryptAttribute != ^null)
+                thisMethod.Encrypt = (encryptAttribute.Value == "true")
 
-            xcall xml_elem_getattribute(methodElement,"encrypt",attributeValue)
-            if (attributeValue)
-            begin
-                using attributeValue select
-                ("true "),
-                    thisMethod.Encrypt = true
-                ("false "),
-                    nop
-                (),
-                    throw new ApplicationException("Invalid encrypt attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name)
-                endusing
-            end
-
-            ;;methodresult
-            parseRetrunValue(methodElement,thisMethod,thisInterface)
+            ;;Return Value
+            parseRetrunValue(methodNode,thisMethod,thisInterface)
 
             ;;comment
-            thisMethod.Comment = getComments(methodElement)
+            thisMethod.Comment = getComments(methodNode)
 
             ;;Process the method <param> elements
-            allParameters = %xml_elem_getelementsbyname(methodElement,"param")
+            data parameterNodes = methodNode.SelectNodes("param")
 
             ;;Do we have parameters to work with?
-            parameterCount = %xml_elemlist_count(allParameters)
-            if (parameterCount)
+            if (parameterNodes.Count > 0)
             begin
-                data ix, int
-                for ix from 1 thru parameterCount
+                data parameterNode, @XmlNode
+                data ix = 0
+                foreach parameterNode in parameterNodes
                 begin
-                    parseParameter(%xml_elemlist_item(allParameters,ix),thisMethod,ix)
+                    parseParameter(parameterNode,thisMethod,ix+=1)
                 end
             end
 
@@ -281,60 +207,49 @@ namespace CodeGen.MethodCatalogAPI
         endmethod
 
         private method parseRetrunValue, void
-            required in methodElement,  XML_ELEM_TYPE
-            required in thisMethod,     @SmcMethod
-            required in thisInterface,  @SmcInterface
+            required in methodNode,    @XmlNode
+            required in thisMethod,    @SmcMethod
+            required in thisInterface, @SmcInterface
             endparams
-            .include "DBLDIR:synxml.def"
             record 
                 returnValue,    @SmcReturnValue
-                childNodes,     XML_ELEMLIST_TYPE
-                resultElement,  XML_ELEM_TYPE
-                attributeValue, a128
             endrecord
         proc
 
-            ;;Is there a methodresult element
-            childNodes = %xml_elem_getelementsbyname(methodElement,"methodresult")
-
-            if (%xml_elemlist_count(childNodes))
+            ;;Is there a methodresult child node?
+            data childNodes = methodNode.SelectNodes("methodresult")
+            if (childNodes.Count > 0)
             begin
                 ;;Yes, we're working with a function
                 returnValue = new SmcReturnValue()
-                resultElement = %xml_elemlist_item(childNodes,1)
+                data returnValueNode = childNodes[0]
 
-                ;;type
-                xcall xml_elem_getattribute(resultElement,"type",attributeValue)
-                if (attributeValue) then 
-                begin
-                    using attributeValue select
-                    ("alpha"),
-                        returnValue.Type = ReturnType.Alpha
-                    ("decimal"),
-                        returnValue.Type = ReturnType.Decimal
-                    ("integer"),
-                        returnValue.Type = ReturnType.Integer
-                    ("value"),
-                        returnValue.Type = ReturnType.HatVal
-                    ("string"),
-                        returnValue.Type = ReturnType.String
-                    ("enum"),
-                        returnValue.Type = ReturnType.Enumeration
-                    (),
-                        throw new ApplicationException("Invalid type attribute value for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
-                    endusing
-
-                end
-                else
-                    throw new ApplicationException("Invalid type attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
+                ;;Return value type
+                data methodReturnType = returnValueNode.Attributes["type"].Value
+                using methodReturnType select
+                ("alpha"),
+                    returnValue.Type = ReturnType.Alpha
+                ("decimal"),
+                    returnValue.Type = ReturnType.Decimal
+                ("integer"),
+                    returnValue.Type = ReturnType.Integer
+                ("value"),
+                    returnValue.Type = ReturnType.HatVal
+                ("string"),
+                    returnValue.Type = ReturnType.String
+                ("enum"),
+                    returnValue.Type = ReturnType.Enumeration
+                (),
+                    throw new ApplicationException("Interface "+thisInterface.Name+" method "+thisMethod.Name+" has an invalud return value type!")
+                endusing
 
                 ;;size
-                xcall xml_elem_getattribute(resultElement,"size",attributeValue)
-                if (attributeValue)
+                data returnValueSize = returnValueNode.Attributes["size"]
+                if (returnValueSize != ^null)
                 begin
                     try 
                     begin
-                        returnValue.Size = %integer(%atrim(attributeValue))
+                        returnValue.Size = %integer(returnValueSize.Value)
                     end
                     catch (ex, @BadDigitException)
                     begin
@@ -343,16 +258,16 @@ namespace CodeGen.MethodCatalogAPI
                     endtry
                 end
 
-                ;;precision
-                xcall xml_elem_getattribute(resultElement,"precision",attributeValue)
-                if (attributeValue)
+                ;precision
+                data returnValuePrecision = returnValueNode.Attributes["precision"]
+                if (returnValuePrecision != ^null)
                 begin
                     if (returnValue.Type == ReturnType.Decimal) then
                     begin
                         try 
                         begin
                             returnValue.Type = ReturnType.ImpliedDecimal
-                            returnValue.Precision = %integer(%atrim(attributeValue))
+                            returnValue.Precision = %integer(returnValuePrecision.Value)
                         end
                         catch (ex, @BadDigitException)
                         begin
@@ -365,14 +280,11 @@ namespace CodeGen.MethodCatalogAPI
                 end
 
                 ;;enumName
-                xcall xml_elem_getattribute(resultElement,"enumName",attributeValue)
-                if (attributeValue) then 
+                data returnValueEnumName = returnValueNode.Attributes["enumName"]
+                if (returnValueEnumName != ^null) then 
                 begin
                     if (returnValue.Type == ReturnType.Enumeration) then 
-                    begin
-                        upcase attributeValue
-                        returnValue.EnumName = %atrim(attributeValue)
-                    end
+                        returnValue.EnumName = returnValueEnumName.Value.ToUpper()
                     else
                         throw new ApplicationException("Invalid enumName attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
                 end
@@ -383,13 +295,13 @@ namespace CodeGen.MethodCatalogAPI
                 end
 
                 ;;coerce
-                xcall xml_elem_getattribute(resultElement,"coerce",attributeValue)
-                if (attributeValue)
+                data returnValueCoerce = returnValueNode.Attributes["coerce"]
+                if (returnValueCoerce != ^null)
                 begin
                     using returnValue.Type select
                     (ReturnType.Decimal),
                     begin
-                        using attributeValue select
+                        using returnValueCoerce.Value select
                         ("boolean"),
                             returnValue.CoerceType = CoerceType.Boolean
                         ("byte"),
@@ -418,7 +330,7 @@ namespace CodeGen.MethodCatalogAPI
                     end
                     (ReturnType.ImpliedDecimal),
                     begin
-                        using attributeValue select
+                        using returnValueCoerce.Value select
                         ("decimal"),
                             returnValue.CoerceType = CoerceType.Decimal
                         ("double"),
@@ -431,7 +343,7 @@ namespace CodeGen.MethodCatalogAPI
                     end
                     (ReturnType.Integer),
                     begin
-                        using attributeValue select
+                        using returnValueCoerce.Value select
                         ("boolean"),
                             returnValue.CoerceType = CoerceType.Boolean
                         ("byte"),
@@ -460,15 +372,15 @@ namespace CodeGen.MethodCatalogAPI
                 end
 
                 ;;nullable
-                xcall xml_elem_getattribute(resultElement,"nullable",attributeValue)
-                if (attributeValue)
+                data returnValueNullable = returnValueNode.Attributes["nullable"]
+                if (returnValueNullable != ^null)
                 begin
                     using returnValue.CoerceType select
                     (CoerceType.DateTime),
-                        if (attributeValue == "true")
+                        if (returnValueNullable.Value == "true")
                             returnValue.CoerceType = CoerceType.DateTimeNullable
                     (CoerceType.Decimal),
-                        if (attributeValue == "true")
+                        if (returnValueNullable.Value == "true")
                             returnValue.CoerceType = CoerceType.DecimalNullable
                     (),
                         throw new ApplicationException("Invalid nullable attribute for interface "+thisInterface.Name+" method "+thisMethod.Name+" return value")
@@ -476,13 +388,13 @@ namespace CodeGen.MethodCatalogAPI
                 end
 
                 ;;format
-                xcall xml_elem_getattribute(resultElement,"format",attributeValue)
-                if (attributeValue) then 
+                data returnValueFormat = returnValueNode.Attributes["format"]
+                if (returnValueFormat != ^null) then 
                 begin
                     if (returnValue.CoerceType == CoerceType.DateTime
                     &    || returnValue.CoerceType == CoerceType.DateTimeNullable) then 
                     begin
-                        using attributeValue select
+                        using returnValueFormat.Value select
                         ("YYYYMMDD"),
                             returnValue.DateFormat = DateFormat.YYYYMMDD
                         ("YYMMDD"),
@@ -514,8 +426,7 @@ namespace CodeGen.MethodCatalogAPI
                 end
 
                 ;;comment
-                returnValue.Comment = getComments(resultElement)
-
+                returnValue.Comment = getComments(returnValueNode)
             end
 
             if (returnValue==^null) then 
@@ -529,64 +440,47 @@ namespace CodeGen.MethodCatalogAPI
         endmethod
 
         private method parseParameter, void
-            required in parameterElement,   XML_ELEM_TYPE
+            required in parameterNode,   @XmlNode
             required in thisMethod,         @SmcMethod
             required in parameterNumber,    int
-            endparams
-            record 
-                attributeValue, a128
-                thisParameter,  @SmcParameter
-            endrecord
         proc
-
             ;;Get the attributes from the parameter element
 
             ;;name (all parameters)
-            xcall xml_elem_getattribute(parameterElement,"name",attributeValue)
-            if (attributeValue) then 
-                thisParameter = new SmcParameter() { Name=%atrim(attributeValue), Number=parameterNumber }
-            else
-                throw new ApplicationException("Missing name attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            data thisParameter = new SmcParameter() { Name = parameterNode.Attributes["name"].Value, Number = parameterNumber }
 
             ;;comment
-            thisParameter.Comment = getComments(parameterElement)
+            thisParameter.Comment = getComments(parameterNode)
 
             ;;type (all parameters)
-            xcall xml_elem_getattribute(parameterElement,"type",attributeValue)
-            if (attributeValue) then 
-            begin
-                using attributeValue select
-                ("alpha"),
-                    thisParameter.Type = ParameterType.Alpha
-                ("binaryarray"),
-                    thisParameter.Type = ParameterType.BinaryHandle
-                ("decimal"),
-                    thisParameter.Type = ParameterType.Decimal
-                ("enum"),
-                    thisParameter.Type = ParameterType.Enumeration
-                ("handle"),
-                    thisParameter.Type = ParameterType.Handle
-                ("integer"),
-                    thisParameter.Type = ParameterType.Integer
-                ("string"),
-                    thisParameter.Type = ParameterType.String
-                ("structure"),
-                    thisParameter.Type = ParameterType.Structure
-                (),
-                    throw new ApplicationException("Invalid type attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
-                endusing
-
-            end
-            else
-                throw new ApplicationException("Missing type attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            using parameterNode.Attributes["type"].Value select
+            ("alpha"),
+                thisParameter.Type = ParameterType.Alpha
+            ("binaryarray"),
+                thisParameter.Type = ParameterType.BinaryHandle
+            ("decimal"),
+                thisParameter.Type = ParameterType.Decimal
+            ("enum"),
+                thisParameter.Type = ParameterType.Enumeration
+            ("handle"),
+                thisParameter.Type = ParameterType.Handle
+            ("integer"),
+                thisParameter.Type = ParameterType.Integer
+            ("string"),
+                thisParameter.Type = ParameterType.String
+            ("structure"),
+                thisParameter.Type = ParameterType.Structure
+            (),
+                throw new ApplicationException("Invalid type attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
+            endusing
 
             ;;size
-            xcall xml_elem_getattribute(parameterElement,"size",attributeValue)
-            if (attributeValue)
+            data parameterAttribute = parameterNode.Attributes["size"]
+            if (parameterAttribute != ^null)
             begin
                 try 
                 begin
-                    thisParameter.Size = %integer(%atrim(attributeValue))
+                    thisParameter.Size = %integer(parameterAttribute.Value)
                 end
                 catch (ex, @BadDigitException)
                 begin
@@ -596,15 +490,15 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;precision
-            xcall xml_elem_getattribute(parameterElement,"precision",attributeValue)
-            if (attributeValue)
+            parameterAttribute = parameterNode.Attributes["precision"]
+            if (parameterAttribute != ^null)
             begin
                 if (thisParameter.Type == ParameterType.Decimal) then
                 begin
                     try 
                     begin
                         thisParameter.Type = ParameterType.ImpliedDecimal
-                        thisParameter.Precision = %integer(%atrim(attributeValue))
+                        thisParameter.Precision = %integer(parameterAttribute.Value)
                     end
                     catch (ex, @BadDigitException)
                     begin
@@ -617,13 +511,12 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;enumName
-            xcall xml_elem_getattribute(parameterElement,"enumName",attributeValue)
-            if (attributeValue) then 
+            parameterAttribute = parameterNode.Attributes["enumName"]
+            if (parameterAttribute != ^null) then 
             begin
                 if (thisParameter.Type == ParameterType.Enumeration) then 
                 begin
-                    upcase attributeValue
-                    thisParameter.EnumName = %atrim(attributeValue)
+                    thisParameter.EnumName = parameterAttribute.Value.ToUpper()
                 end
                 else
                     throw new ApplicationException("Invalid enumName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
@@ -635,13 +528,12 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;structureName (only then type="structure")
-            xcall xml_elem_getattribute(parameterElement,"structureName",attributeValue)
-            if (attributeValue) then 
+            parameterAttribute = parameterNode.Attributes["structureName"]
+            if (parameterAttribute != ^null) then 
             begin
                 if (thisParameter.Type == ParameterType.Structure) then 
                 begin
-                    upcase attributeValue
-                    thisParameter.StructureName = %atrim(attributeValue)
+                    thisParameter.StructureName = parameterAttribute.Value.ToUpper()
                 end
                 else
                     throw new ApplicationException("Invalid structureName attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
@@ -653,13 +545,13 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;coerce
-            xcall xml_elem_getattribute(parameterElement,"coerce",attributeValue)
-            if (attributeValue)
+            parameterAttribute = parameterNode.Attributes["coerce"]
+            if (parameterAttribute != ^null)
             begin
                 using thisParameter.Type select
                 (ParameterType.Decimal),
                 begin
-                    using attributeValue select
+                    using parameterAttribute.Value select
                     ("boolean"),
                         thisParameter.CoerceType = CoerceType.Boolean
                     ("byte"),
@@ -688,7 +580,7 @@ namespace CodeGen.MethodCatalogAPI
                 end
                 (ParameterType.ImpliedDecimal),
                 begin
-                    using attributeValue select
+                    using parameterAttribute.Value select
                     ("decimal"),
                         thisParameter.CoerceType = CoerceType.Decimal
                     ("double"),
@@ -701,7 +593,7 @@ namespace CodeGen.MethodCatalogAPI
                 end
                 (ParameterType.Integer),
                 begin
-                    using attributeValue select
+                    using parameterAttribute.Value select
                     ("boolean"),
                         thisParameter.CoerceType = CoerceType.Boolean
                     ("byte"),
@@ -731,15 +623,15 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;nullable
-            xcall xml_elem_getattribute(parameterElement,"nullable",attributeValue)
-            if (attributeValue)
+            parameterAttribute = parameterNode.Attributes["nullable"]
+            if (parameterAttribute != ^null)
             begin
                 using thisParameter.CoerceType select
                 (CoerceType.DateTime),
-                    if (attributeValue == "true")
+                    if (parameterAttribute.Value == "true")
                         thisParameter.CoerceType = CoerceType.DateTimeNullable
                 (CoerceType.Decimal),
-                    if (attributeValue == "true")
+                    if (parameterAttribute.Value == "true")
                         thisParameter.CoerceType = CoerceType.DecimalNullable
                 (),
                     throw new ApplicationException("Invalid nullable attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
@@ -747,13 +639,13 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;format
-            xcall xml_elem_getattribute(parameterElement,"format",attributeValue)
-            if (attributeValue) then 
+            parameterAttribute = parameterNode.Attributes["format"]
+            if (parameterAttribute != ^null) then 
             begin
                 if (thisParameter.CoerceType == CoerceType.DateTime
                 &    || thisParameter.CoerceType == CoerceType.DateTimeNullable) then 
                 begin
-                    using attributeValue select
+                    using parameterAttribute.Value select
                     ("YYYYMMDD"),
                         thisParameter.DateFormat = DateFormat.YYYYMMDD
                     ("YYMMDD"),
@@ -783,10 +675,10 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;collection
-            xcall xml_elem_getattribute(parameterElement,"collection",attributeValue)
-            if (attributeValue)
+            parameterAttribute = parameterNode.Attributes["collection"]
+            if (parameterAttribute != ^null)
             begin
-                using attributeValue select
+                using parameterAttribute.Value select
                 ("ArrayList"),
                     thisParameter.CollectionType = ParameterCollectionType.MemoryHandle
                 ("System.ArrayList"),
@@ -797,17 +689,17 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;dim
-            xcall xml_elem_getattribute(parameterElement,"dim",attributeValue)
-            if (attributeValue)
+            parameterAttribute = parameterNode.Attributes["dim"]
+            if (parameterAttribute != ^null)
             begin
                 if (thisParameter.Type == ParameterType.String) then 
                     throw new ApplicationException("Invalid dim attribute for method "+thisMethod.Name+" parameter "+thisParameter.Name)
                 else
                 begin
-                    using attributeValue select
-                    ("0 "),
+                    using parameterAttribute.Value select
+                    ("0"),
                         nop
-                    ("1 "),
+                    ("1"),
                         thisParameter.CollectionType = ParameterCollectionType.Array
                     (),
                         throw new ApplicationException("Invalid dim attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
@@ -816,13 +708,13 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;datatable
-            xcall xml_elem_getattribute(parameterElement,"datatable",attributeValue)
-            if (attributeValue)
+            parameterAttribute = parameterNode.Attributes["datatable"]
+            if (parameterAttribute != ^null)
             begin
                 using thisParameter.CollectionType select
                 (ParameterCollectionType.MemoryHandle,ParameterCollectionType.ArrayList),
                 begin
-                    using attributeValue select
+                    using parameterAttribute.Value select
                     ("true "),
                         thisParameter.DataTable = true
                     ("false "),
@@ -837,33 +729,33 @@ namespace CodeGen.MethodCatalogAPI
             end
 
             ;;dir
-            xcall xml_elem_getattribute(parameterElement,"dir",attributeValue)
-            if (attributeValue) then 
+            parameterAttribute = parameterNode.Attributes["dir"]
+            if (parameterAttribute == ^null) then 
+                thisParameter.Direction = ParameterDirection.In
+            else
             begin
-                using attributeValue select
-                ("in "),
-                    thisParameter.Direction = ParameterDirection.In
-                ("out "),
-                    thisParameter.Direction = ParameterDirection.Out
-                ("inout "),
+                using parameterAttribute.Value select
+                ("inout"),
                     thisParameter.Direction = ParameterDirection.InOut
+                ("in"),
+                    thisParameter.Direction = ParameterDirection.In
+                ("out"),
+                    thisParameter.Direction = ParameterDirection.Out
                 (),
                     throw new ApplicationException("Invalid dir attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
                 endusing
             end
-            else
-                thisParameter.Direction = ParameterDirection.In
 
             ;;passby
-            xcall xml_elem_getattribute(parameterElement,"passby",attributeValue)
-            if (attributeValue) then 
+            parameterAttribute = parameterNode.Attributes["passby"]
+            if (parameterAttribute != ^null) then 
             begin
-                using attributeValue select
-                ("descriptor "),
+                using parameterAttribute.Value select
+                ("descriptor"),
                     thisParameter.PassBy = ParameterPassBy.Descriptor
-                ("val "),
+                ("val"),
                     thisParameter.PassBy = ParameterPassBy.Value
-                ("ref "),
+                ("ref"),
                     thisParameter.PassBy = ParameterPassBy.Reference
                 (),
                     throw new ApplicationException("Invalid passby attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
@@ -873,62 +765,39 @@ namespace CodeGen.MethodCatalogAPI
                 thisParameter.PassBy = ParameterPassBy.Descriptor
 
             ;;required
-            xcall xml_elem_getattribute(parameterElement,"required",attributeValue)
-            if (attributeValue) then 
+            parameterAttribute = parameterNode.Attributes["required"]
+            if (parameterAttribute == ^null) then 
+                thisParameter.Required = true
+            else
             begin
-                using attributeValue select
-                ("yes "),
+                using parameterAttribute.Value select
+                ("yes"),
                     thisParameter.Required = true
-                ("no "),
+                ("no"),
                     thisParameter.Required = false
                 (),
                     throw new ApplicationException("Invalid required attribute value for method "+thisMethod.Name+" parameter "+thisParameter.Name)
                 endusing
             end
-            else
-                thisParameter.Required = true
 
             thisMethod.Parameters.Add(thisParameter)
-
-            mreturn
 
         endmethod
 
         private method getComments, string
-            required in method_or_param, XML_ELEM_TYPE
-            endparams
-            .include "DBLDIR:synxml.def"
-            record 
-                childNodes,     XML_ELEMLIST_TYPE
-                commentsNode,   XML_ELEM_TYPE
-                comment,        String
-            endrecord
+            required in method_or_param, @XmlNode
         proc
 
-            comment = ""
+            data comment = String.Empty
 
             ;Is there a "comment" element?
-            childNodes = %xml_elem_getelementsbyname(method_or_param,"comment")
-
-            if (%xml_elemlist_count(childNodes))
+            data commentNode = method_or_param.SelectSingleNode("comment")
+            if (commentNode != ^null)
             begin
                 ;;Yes, there should be 1 - 6 "linex" elements
-                commentsNode = %xml_elemlist_item(childNodes,1)
-                childNodes = %xml_elem_children(commentsNode)
-                if (%xml_elemlist_count(childNodes))
-                begin
-                    data ix, int
-                    for ix from 1 thru %xml_elemlist_count(childNodes)
-                    begin
-                        data lineNode, XML_ELEM_TYPE, %xml_elemlist_item(childNodes,ix)
-                        data lineText, a50
-                        xcall xml_elem_gettext(lineNode,lineText)
-                        if (ix==1) then
-                            comment = %atrim(lineText)
-                        else
-                            comment = comment + " " + %atrim(lineText)
-                    end
-                end
+                data lineNode, @XmlNode
+                foreach lineNode in commentNode.ChildNodes
+                    comment = comment + " " + lineNode.InnerText
             end
 
             mreturn comment
