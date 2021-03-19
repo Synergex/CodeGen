@@ -1282,15 +1282,20 @@ proc
 
                 taskSet.MethodCatalog = new Smc(ClValues[0])
 
-                ;;If we have an interface name, make sure it exists in the catalog
+                ;;Are we processing a single interface?
                 if (!String.IsNullOrWhiteSpace(task.Interface))
                 begin
-                    if (taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(i) {i.Name==task.Interface}) == ^null)
+                    ;;Make sure it exists in the catalog
+                    data selectedInterface = taskSet.MethodCatalog.Interfaces.FirstOrDefault(lambda(intf) {intf.Name.ToUpper()==task.Interface.ToUpper()})
+                    if (selectedInterface == ^null)
                     begin
                         Console.WriteLine("ERROR: Interface {0} was not funnd in the method catalog!")
                         ok = false
                         exitCode = 1
                     end
+
+                    ;;And remove all other interfaces
+                    taskSet.MethodCatalog.Interfaces.RemoveAll(lambda(intf) {intf!=selectedInterface})
                 end
             end
             catch (ex, @Exception)
@@ -1464,6 +1469,122 @@ proc
         end
     end
         
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to constrain method loops to a subset of methods?
+
+    if (ok && CommandLineParser.Parse("minclude",ClValues))
+    begin
+        if (taskSet.MethodCatalog == ^null) then
+        begin
+            Console.WriteLine("ERROR: The -minclude option may not be used without the -smc option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!CommandLineParser.Parse("interface")) then
+        begin
+            Console.WriteLine("ERROR: The -minclude option may only be used with the -interface option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (taskSet.MethodCatalog.Interfaces.Count != 1) then
+        begin
+            Console.WriteLine("ERROR: The -minclude option may only be used when processing a single interface!")
+            ok = false
+            exitCode = 1
+        end
+        else if (CommandLineParser.Parse("mexclude")) then
+        begin
+            Console.WriteLine("ERROR: The -mexclude and -minclude options may not be used together!")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count == 0) then
+        begin
+            Console.WriteLine("ERROR: No method name(s) specified after the -minclude option!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            data currentInterface = taskSet.MethodCatalog.Interfaces.First()
+            data newMethodCollection = new List<SmcMethod>()
+            data candidateMethodName, string
+
+            foreach candidateMethodName in ClValues
+            begin
+                data methodToInclude = currentInterface.Methods.FirstOrDefault(lambda(meth) {meth.Name.ToUpper().Equals(candidateMethodName.ToUpper())})
+                if (methodToInclude != ^null) then
+                begin
+                    newMethodCollection.Add(methodToInclude)
+                end
+                else
+                begin
+                    Console.WriteLine("ERROR: Method {0} was not found in interface {1}!",candidateMethodName,currentInterface.Name)
+                    ok = false
+                    exitCode = 1
+                end
+            end
+            currentInterface.Methods = newMethodCollection
+        end
+    end
+
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to exclude certain methods from method loop processing?
+
+    if (ok && CommandLineParser.Parse("mexclude",ClValues))
+    begin
+        if (taskSet.MethodCatalog == ^null) then
+        begin
+            Console.WriteLine("ERROR: The -mexclude option may not be used without the -smc option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (!CommandLineParser.Parse("interface")) then
+        begin
+            Console.WriteLine("ERROR: The -mexclude option may only be used with the -interface option!")
+            ok = false
+            exitCode = 1
+        end
+        else if (taskSet.MethodCatalog.Interfaces.Count != 1) then
+        begin
+            Console.WriteLine("ERROR: The -mexclude option may only be used when processing a single interface!")
+            ok = false
+            exitCode = 1
+        end
+        else if (CommandLineParser.Parse("minclude")) then
+        begin
+            Console.WriteLine("ERROR: The -mexclude and -minclude options may not be used together!")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count == 0) then
+        begin
+            Console.WriteLine("ERROR: No method name(s) specified after the -mexclude option!")
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            data currentInterface = taskSet.MethodCatalog.Interfaces.First()
+            data candidateMethodName, string
+
+            foreach candidateMethodName in ClValues
+            begin
+                data methodToExclude = currentInterface.Methods.FirstOrDefault(lambda(meth) {meth.Name.ToUpper().Equals(candidateMethodName.ToUpper())})
+                if (methodToExclude != ^null) then
+                begin
+                    currentInterface.Methods.Remove(methodToExclude)
+                end
+                else
+                begin
+                    Console.WriteLine("ERROR: Method {0} was not found in interface {1}!",candidateMethodName,currentInterface.Name)
+                    ok = false
+                    exitCode = 1
+                end
+            end
+        end
+    end
+    
     ;;-------------------------------------------------------------------------
     ;;Do we have any button processing settings?
 
