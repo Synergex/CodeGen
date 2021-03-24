@@ -276,9 +276,13 @@ namespace CodeGen.Engine
             ;;file logic. So here we just return the base type for the parameter
             lambda doExpand(catalog,iface,meth,param)
             begin
+                data collectionSuffix = String.Empty
+                if (param.CollectionType != ParameterCollectionType.None)
+                    collectionSuffix = "[]"
+
                 using param.Type select
                 (ParameterType.Alpha),
-                    mreturn "string"
+                    mreturn String.Format("string{0}",collectionSuffix)
                 (ParameterType.Enumeration),
                     mreturn "number"
                 (ParameterType.Handle),
@@ -286,43 +290,38 @@ namespace CodeGen.Engine
                 (ParameterType.Integer),
                 begin
                     if (param.CoerceType == CoerceType.Boolean) then
-                        mreturn "boolean"
+                        mreturn String.Format("boolean{0}",collectionSuffix)
                     else
-                        mreturn "number"
+                        mreturn String.Format("number{0}",collectionSuffix)
                 end
                 (ParameterType.Decimal),
                 begin
                     if (param.DateFormat != DateFormat.None) then
                     begin
                         if (param.CoerceType == CoerceType.DateTimeNullable) then
-                            mreturn "Nullable<Date>"
+                            mreturn String.Format("Nullable<Date>{0}",collectionSuffix)
                         else
-                            mreturn "Date"
+                            mreturn String.Format("Date{0}",collectionSuffix)
                     end
                     else if (param.CoerceType == CoerceType.Boolean) then
-                        mreturn "boolean"
+                        mreturn String.Format("boolean{0}",collectionSuffix)
                     else
-                        mreturn "number"
+                        mreturn String.Format("number{0}",collectionSuffix)
                 end
                 (ParameterType.Structure),
                 begin
-                    mreturn StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                    data structureType = StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                    mreturn String.Format("{0}{1}",structureType,collectionSuffix)
                 end
                 (ParameterType.BinaryHandle),
                     mreturn "string"
                 (ParameterType.ImpliedDecimal),
-                    mreturn "number"
+                    mreturn String.Format("number{0}",collectionSuffix)
                 (ParameterType.String),
-                    mreturn "string"
+                    mreturn String.Format("string{0}",collectionSuffix)
                 (),
                     mreturn ""
                 endusing
-
-
-
-
-
-                mreturn param.Type.ToString()
             end
             mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
         endmethod
