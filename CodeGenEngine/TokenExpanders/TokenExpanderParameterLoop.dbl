@@ -66,6 +66,7 @@ namespace CodeGen.Engine
             parameterLoopTokenExpanders.Add("PARAMETER_NUMBER", expandParameterNumber)
             parameterLoopTokenExpanders.Add("PARAMETER_COMMENT", expandParameterComment)
             parameterLoopTokenExpanders.Add("PARAMETER_TYPE", expandParameterType)
+            parameterLoopTokenExpanders.Add("PARAMETER_TSTYPE", expandParameterTsType)
             parameterLoopTokenExpanders.Add("PARAMETER_DEFINITION", expandParameterDefinition)
             parameterLoopTokenExpanders.Add("PARAMETER_DEFINITION_NOARRAY", expandParameterDefinitionNoarray)
             parameterLoopTokenExpanders.Add("PARAMETER_SIZE", expandParameterSize)
@@ -261,6 +262,68 @@ namespace CodeGen.Engine
             endparams
         proc
             lambda doExpand(catalog,iface,meth,param) param.Type.ToString()
+            mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandParameterTsType, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            ;;Because of the syntax required for arrays and collections in TypeScript,
+            ;;we can't return those things here, they must be constructed with template
+            ;;file logic. So here we just return the base type for the parameter
+            lambda doExpand(catalog,iface,meth,param)
+            begin
+                using param.Type select
+                (ParameterType.Alpha),
+                    mreturn "string"
+                (ParameterType.Enumeration),
+                    mreturn "number"
+                (ParameterType.Handle),
+                    mreturn "string"
+                (ParameterType.Integer),
+                begin
+                    if (param.CoerceType == CoerceType.Boolean) then
+                        mreturn "boolean"
+                    else
+                        mreturn "number"
+                end
+                (ParameterType.Decimal),
+                begin
+                    if (param.DateFormat != DateFormat.None) then
+                    begin
+                        if (param.CoerceType == CoerceType.DateTimeNullable) then
+                            mreturn "Nullable<Date>"
+                        else
+                            mreturn "Date"
+                    end
+                    else if (param.CoerceType == CoerceType.Boolean) then
+                        mreturn "boolean"
+                    else
+                        mreturn "number"
+                end
+                (ParameterType.Structure),
+                begin
+                    mreturn StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                end
+                (ParameterType.BinaryHandle),
+                    mreturn "string"
+                (ParameterType.ImpliedDecimal),
+                    mreturn "number"
+                (ParameterType.String),
+                    mreturn "string"
+                (),
+                    mreturn ""
+                endusing
+
+
+
+
+
+                mreturn param.Type.ToString()
+            end
             mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
         endmethod
 

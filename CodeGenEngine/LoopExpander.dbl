@@ -1482,6 +1482,7 @@ namespace CodeGen.Engine
                 throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because the current interface contains no method definitions!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName))
 
             loop.MaxIndex = currentInterface.Methods.Count - 1
+            loop.StructuresEncountered = new List<string>()
 
             context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} methods", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
@@ -1562,7 +1563,8 @@ namespace CodeGen.Engine
                 loop.CurrentParameter = outerLoop.CurrentMethod.Parameters[ix]
                 loop.CurrentIndex = ix
                 loop.FirstEnumInstance = false
-                loop.FirstStructureInstance = false
+                loop.FirstStructureInstanceInMethod = false
+                loop.FirstStructureInstanceInInterface = false
 
                 ;;If the parameter being processed is an enum paramerter then make the enum data available
                 if (loop.CurrentParameter.Type == ParameterType.Enumeration) then
@@ -1583,7 +1585,8 @@ namespace CodeGen.Engine
                     endtry
 
                     ;;Record that we have processed this enum
-                    processedEnums.Add(enumName)
+                    if (loop.FirstEnumInstance)
+                        processedEnums.Add(enumName)
                 end
                 else
                     loop.CurrentEnum = ^null
@@ -1593,8 +1596,11 @@ namespace CodeGen.Engine
                 begin
                     data structureName = loop.CurrentParameter.StructureName
 
-                    ;;Is this the first time we have encountered this structure?
-                    loop.FirstStructureInstance = !processedStructures.Contains(structureName)
+                    ;;Is this the first time we have encountered this structure in all interfaces?
+                    loop.FirstStructureInstanceInInterface = !outerLoop.StructuresEncountered.Contains(structureName)
+
+                    ;;Is this the first time we have encountered this structure in this method?
+                    loop.FirstStructureInstanceInMethod = !processedStructures.Contains(structureName)
 
                     try
                     begin
@@ -1608,7 +1614,12 @@ namespace CodeGen.Engine
                     endtry
 
                     ;;Record that we have processed this structure
-                    processedStructures.Add(structureName)
+
+                    if (loop.FirstStructureInstanceInInterface)
+                        outerLoop.StructuresEncountered.Add(structureName)
+
+                    if (loop.FirstStructureInstanceInMethod)
+                        processedStructures.Add(structureName)
                 end
                 else
                     loop.CurrentStructure = ^null
