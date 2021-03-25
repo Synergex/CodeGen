@@ -40,10 +40,13 @@
 ;;
 ;;*****************************************************************************
 
+import CodeGen.Engine
+import CodeGen.MethodCatalogAPI
+import CodeGen.RepositoryAPI
 import Microsoft.Win32
-import System
 import Newtonsoft.Json
 import Newtonsoft.Json.Serialization
+import System
 import System.Collections
 import System.Collections.Generic
 import System.Collections.ObjectModel
@@ -51,8 +54,6 @@ import System.IO
 import System.Linq
 import System.Reflection
 import System.Text
-import CodeGen.Engine
-import CodeGen.RepositoryAPI
 
 .array 0
 
@@ -67,8 +68,8 @@ namespace CodeGen.Engine
         private readonly originalRpstext,   String
 
         public method CodeGenerator
-			required in taskset,            @CodeGenTaskSet
-            default in aContext,             @CodeGenContext, ^null
+            required in taskset,            @CodeGenTaskSet
+            default in aContext,            @CodeGenContext, ^null
         proc
 
             context = aContext ?? new CodeGenContext(taskset)
@@ -419,6 +420,185 @@ namespace CodeGen.Engine
 
         endmethod
 
+        private method loadMethodCatalog, boolean
+        proc
+            ;; NOTE: We only get here if a method catalog XML file is specified in context.CurrentTask.MethodCatalogFile
+
+            ;;--------------------------------------------------------------------------------------
+            ;;Load the method catalog from the XML file
+
+            if (context.MethodCatalog != ^null && !String.IsNullOrWhiteSpace(context.MethodCatalogLastFile) && context.MethodCatalogLastFile == context.CurrentTask.MethodCatalogFile && !context.MethodCatalogCustomized) then
+            begin
+                ;;We can use the same SMC that we used for the last task
+            end
+            else
+            begin
+                ;;We need to load the method catalog from scratch
+                try
+                begin
+                    context.MethodCatalog = new Smc(context.CurrentTask.MethodCatalogFile)
+                end
+                catch (ex, @Exception)
+                begin
+                    mreturn context.CurrentTask.ErrorLog(String.Format("Failed to load method catalog. {0}",ex.Message))
+                end
+                endtry
+            end
+
+            ;;--------------------------------------------------------------------------------------
+            ;; This code was previously included in the -smc command line processing.
+
+            if (!context.CurrentTask.MethodCatalogStructureMode)
+            begin
+                ;;Are we processing a single interface?
+                if (!String.IsNullOrWhiteSpace(context.CurrentTask.MethodCatalogInterface))
+                begin
+                    ;;Make sure it exists in the catalog
+                    data selectedInterface = context.MethodCatalog.Interfaces.FirstOrDefault(lambda(intf) {intf.Name.ToUpper()==context.CurrentTask.MethodCatalogInterface.ToUpper()})
+                    if (selectedInterface == ^null)
+                    begin
+                        mreturn context.CurrentTask.ErrorLog(String.Format("Interface {0} was not found in the method catalog!",context.CurrentTask.MethodCatalogInterface))
+                    end
+ 
+                    ;;And remove all other interfaces
+                    context.MethodCatalog.Interfaces.RemoveAll(lambda(intf) {intf!=selectedInterface})
+                    context.MethodCatalogCustomized = true
+                end
+            end
+
+            ;;--------------------------------------------------------------------------------------
+            ;; This code was previously included in the -smcstrs command line processing.
+            ;; Now the method catalog file is in context.MethodCatalogFile and if in structures mode
+            ;; the context.MethodCatalogStructureMode property will be true.
+
+            if (context.CurrentTask.MethodCatalogStructureMode)
+            begin
+                ;;If we have an interface name, make sure it exists in the catalog
+                if (!String.IsNullOrWhiteSpace(context.CurrentTask.MethodCatalogInterface))
+                begin
+                    if (context.MethodCatalog.Interfaces.FirstOrDefault(lambda(i) {i.Name==context.CurrentTask.MethodCatalogInterface}) == ^null)
+                    begin
+                        mreturn context.CurrentTask.ErrorLog(String.Format("Interface {0} was not found in the method catalog!",context.CurrentTask.MethodCatalogInterface))
+                    end
+                end
+                
+                if (context.MethodCatalog.Structures.Count == 0)
+                begin
+                    mreturn context.CurrentTask.ErrorLog("Method catalog export file contains no structures!")
+                end
+
+                ;;So the method catalog has structutures, but does our interface reference any?
+
+                data str, @RpsStructure
+                foreach str in context.MethodCatalog.Structures
+                begin
+                    if (String.IsNullOrWhiteSpace(context.CurrentTask.MethodCatalogInterface)) then
+                    begin
+                        ;;No interface specified, process all structures in the SMC
+                        context.CurrentTask.Structures.Add(str.Name)
+                    end
+                    else
+                    begin
+                        ;;Interface specified, process only those structures in the SMC that are used by the interface.
+                        data i, @SmcInterface, context.MethodCatalog.Interfaces.First(lambda(if) {if.Name==context.CurrentTask.MethodCatalogInterface})
+
+                        data m, @SmcMethod
+                        foreach m in i.Methods
+                        begin
+                            data p, @SmcParameter
+                            foreach p in m.Parameters
+                            begin
+                                if ( !String.IsNullOrWhiteSpace(p.StructureName) && !context.CurrentTask.Structures.Contains(p.StructureName) )
+                                begin
+                                    context.CurrentTask.Structures.Add(p.StructureName)
+                                end
+                            end
+                        end
+                    end
+                end
+
+                if (context.CurrentTask.Structures.Count == 0)
+                begin
+                    ;;Interface does not reference any structures!
+                    context.CurrentTask.Log("INFO: Method catalog interface references no structures!")
+                    mreturn true
+                end
+            end
+
+            ;;--------------------------------------------------------------------------------------
+            ;; This code was previously part of the -iloop command line option processing
+
+            if (context.CurrentTask.MethodCatalogInterfaces != ^null)
+            begin
+                data newInterfaceCollection = new List<SmcInterface>()
+                data interfaceToInclude, @SmcInterface
+                data candidateInterfaceName, string
+                foreach candidateInterfaceName in context.CurrentTask.MethodCatalogInterfaces
+                begin
+                    interfaceToInclude = context.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) {iface.Name.ToUpper().Equals(candidateInterfaceName.ToUpper())})
+                    if (interfaceToInclude != ^null) then
+                    begin
+                        newInterfaceCollection.Add(interfaceToInclude)
+                    end
+                    else
+                    begin
+                        mreturn context.CurrentTask.ErrorLog(String.Format("Interface {0} was not found in the method catalog!",candidateInterfaceName))
+                    end
+                end
+                context.MethodCatalog.Interfaces = newInterfaceCollection
+                context.MethodCatalogCustomized = true
+            end
+
+            ;;--------------------------------------------------------------------------------------
+            ;;This code was previously part of the -minclude command line option processing
+
+            if (context.CurrentTask.MethodCatalogIncludeMethods != ^null)
+            begin
+                data currentInterface = context.MethodCatalog.Interfaces.First()
+                data newMethodCollection = new List<SmcMethod>()
+                data candidateMethodName, string
+
+                foreach candidateMethodName in context.CurrentTask.MethodCatalogIncludeMethods
+                begin
+                    data methodToInclude = currentInterface.Methods.FirstOrDefault(lambda(meth) {meth.Name.ToUpper().Equals(candidateMethodName.ToUpper())})
+                    if (methodToInclude != ^null) then
+                    begin
+                        newMethodCollection.Add(methodToInclude)
+                    end
+                    else
+                    begin
+                        mreturn context.CurrentTask.ErrorLog(String.Format("Method {0} was not found in interface {1}!",candidateMethodName,currentInterface.Name))
+                    end
+                end
+                currentInterface.Methods = newMethodCollection
+                context.MethodCatalogCustomized = true
+            end
+
+            ;;--------------------------------------------------------------------------------------
+            ;;This code was previously part of the -mexclude command line option processing
+
+            if (context.CurrentTask.MethodCatalogExcludeMethods != ^null)
+            begin
+                data currentInterface = context.MethodCatalog.Interfaces.First()
+                data candidateMethodName, string
+
+                foreach candidateMethodName in context.CurrentTask.MethodCatalogExcludeMethods
+                begin
+                    data methodToExclude = currentInterface.Methods.FirstOrDefault(lambda(meth) {meth.Name.ToUpper().Equals(candidateMethodName.ToUpper())})
+                    if (methodToExclude != ^null) then
+                    begin
+                        currentInterface.Methods.Remove(methodToExclude)
+                        context.MethodCatalogCustomized = true
+                    end
+                    else
+                    begin
+                        mreturn context.CurrentTask.ErrorLog(String.Format("Method {0} was not found in interface {1}!",candidateMethodName,currentInterface.Name))
+                    end
+                end
+            end
+
+        endmethod
+
         ;;; <summary>
         ;;; Generates code for all tasks in the current taskset.
         ;;; </summary>
@@ -430,7 +610,7 @@ namespace CodeGen.Engine
             ;;Make sure we have at least one task
             if (context.Taskset.Tasks.Count == 0)
             begin
-                context.Taskset.ErrorLog("Your CodeGen task set doen't contain any tasks!")
+                context.Taskset.ErrorLog("Your CodeGen task set doesn't contain any tasks!")
                 context.Taskset.Complete = false
                 mreturn false
             end
@@ -567,6 +747,13 @@ namespace CodeGen.Engine
                     errStatus = context.CurrentTask.ErrorLog(ex.Message)
             end
             endtry
+
+            ;;-------------------------------------------------------------------------
+            ;;If we are doing method catalog processing, configure that environment
+
+            ;;If we are in method catalog mode, load up the catalog
+            if (!errStatus && !String.IsNullOrWhiteSpace(context.CurrentTask.MethodCatalogFile))
+                errStatus = loadMethodCatalog()
 
             ;;-------------------------------------------------------------------------
             ;;Do we have a custom data mappings file specified?
