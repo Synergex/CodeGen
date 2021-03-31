@@ -1789,6 +1789,17 @@ namespace CodeGen.Engine
                     if (context.Taskset.LogTokenizerResults)
                         writeTokensToLogFile(tokens)
 
+                    ;;Implement any custom validation that can only be done at this late stage
+                    if (context.CurrentTask.MethodCatalogStructureMode)
+                    begin
+                        ;;Make sure there are no interface loop or method loop tokens present
+                        if (tokens.Any(lambda(tkn) { tkn.TypeOfToken == TokenType.InterfaceLoop || tkn.TypeOfToken == TokenType.MethodLoop || tkn.TypeOfToken == TokenType.ParameterLoop }))
+                        begin
+                            errStatus = context.CurrentTask.ErrorLog(String.Format("Template {0} contains method catalog tokens that may not be used when processing repository structures!",context.CurrentTemplate))
+                            nextloop
+                        end
+                    end
+
                     ;;Parse the collection of tokens into a tree the file name is only provided for error reporting purposes
                     context.CurrentTask.DebugLog(" - Parser phase beginning")
                     data tree, @FileNode
