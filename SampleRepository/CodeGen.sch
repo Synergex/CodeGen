@@ -5,8 +5,8 @@
 ;                 : D:\CodeGen\SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
-;  GENERATED      : 24-JAN-2021, 17:20:31
-;                 : Version 11.1.1f
+;  GENERATED      : 05-APR-2021, 14:42:19
+;                 : Version 11.1.1g
 ;  EXPORT OPTIONS : [ALL] 
  
  
@@ -1192,6 +1192,23 @@ Field TAG_FIELD   Type ALPHA   Size 1
  
 Field OTHER_FIELD   Type ALPHA   Size 1
    Description "Other field"
+ 
+Structure TIMETEST   USER DEFINED
+   Description "Structure with various time fields"
+ 
+Field D4TIME   Type TIME   Size 4   Stored HHMM
+   Description "D4 time"
+ 
+Field D6TIME   Type TIME   Size 6   Stored HHMMSS
+   Description "D6 time"
+ 
+Field D4TIMENULLABLE   Type TIME   Size 4   Stored HHMM
+   Coerced Type NULLABLE_DATETIME
+   Description "D4 time nullable"
+ 
+Field D6TIMENULLABLE   Type TIME   Size 6   Stored HHMMSS
+   Coerced Type NULLABLE_DATETIME
+   Description "D6 time nullable"
  
 Structure UNIT_TEST_1   DBL ISAM
    Description "A simple structure for unit testing"
