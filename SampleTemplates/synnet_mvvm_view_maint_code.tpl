@@ -87,4 +87,3 @@ namespace <MVVM_UI_NAMESPACE>
     endclass
 
 endnamespace
-

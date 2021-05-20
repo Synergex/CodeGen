@@ -74,13 +74,13 @@ namespace <MVVM_DATA_NAMESPACE>
         private string mRecordArea ;
         private bool mSynergyChanged = false;
 
-        <FIELD_LOOP>
+<FIELD_LOOP>
         //<FIELD_DESC>
         private <FIELD_CSTYPE> m<Field_odbcname> = <FIELD_CSDEFAULT>;
         private string mPmt<Field_odbcname> = "<FIELD_PROMPT>";
         private bool mEnable<Field_odbcname> = true;
 
-        </FIELD_LOOP>
+</FIELD_LOOP>
 
         public <structure_name>(string recordArea)
         {
@@ -91,7 +91,7 @@ namespace <MVVM_DATA_NAMESPACE>
 
         //expose private fields with bindable properties
 
-        <FIELD_LOOP>
+<FIELD_LOOP>
         //<FIELD_DESC>
         public <FIELD_CSTYPE> <Field_odbcname>
         {
@@ -115,12 +115,12 @@ namespace <MVVM_DATA_NAMESPACE>
             get { return mEnable<Field_odbcname>; }
             set { mEnable<Field_odbcname> = value; onPropertyChanged("Enable<Field_odbcname>");}
         }
-        <IF NOT COERCE_BOOLEAN>
+  <IF NOT COERCE_BOOLEAN>
         public int Max<Field_odbcname>
             { get { return <FIELD_SIZE> ; } }
-        </IF>
+  </IF>
 
-        </FIELD_LOOP>
+</FIELD_LOOP>
 
         public string SynergyRecordArea
         {
@@ -131,30 +131,21 @@ namespace <MVVM_DATA_NAMESPACE>
                     mSynergyChanged = false;
                     mRecordArea =
                     string.Format("<FIELD_LOOP>{<FIELD#LOGICAL_ZERO>}</FIELD_LOOP>",
-                    <FIELD_LOOP>
-                    <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
                     string.Format("{0,-<FIELD_SIZE>}", m<Field_odbcname>)<,>
-                    </IF>
-                    <IF DECIMAL>
-                    <IF NOT COERCE_BOOLEAN>
-                    <IF PRECISION>
-                    m<Field_odbcname>.ToString("{0:D<FIELD_SIZE>}")<,>
-                    </IF>
-                    <IF NOPRECISION>
-                    string.Format("D<FIELD_SIZE>", m<Field_odbcname>)<,>
-                    </IF>
-                    </IF>
-                    <IF COERCE_BOOLEAN>
+  <ELSE DECIMAL AND COERCE_BOOLEAN>
                     ToSynergy.BooleanValue(m<Field_odbcname>),
-                    </IF>
-                    </IF>
-                    <IF INTEGER>
+  <ELSE DECIMAL AND NOT COERCE_BOOLEAN AND PRECISION>
+                    m<Field_odbcname>.ToString("{0:D<FIELD_SIZE>}")<,>
+  <ELSE DECIMAL AND NOT COERCE_BOOLEAN AND NOT PRECISION>
                     string.Format("D<FIELD_SIZE>", m<Field_odbcname>)<,>
-                    </IF>
-                    <IF DATE>
+  <ELSE INTEGER>
+                    string.Format("D<FIELD_SIZE>", m<Field_odbcname>)<,>
+  <ELSE DATE>
                     m<Field_odbcname>.ToString("yyyyMMdd")<,>
-                    </IF>
-                    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
                     );
                 }
                 return mRecordArea;
@@ -197,33 +188,24 @@ namespace <MVVM_DATA_NAMESPACE>
         private void extractSynergyFields()
         {
             //move passed record into member fields
-            <FIELD_LOOP>
-            <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
             <Field_odbcname> = mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim();
-            </IF>
-            <IF DECIMAL>
-            <IF NOT COERCE_BOOLEAN>
-            <IF PRECISION>
-            if(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim().Length!=0)
-                <Field_odbcname> = decimal.Parse(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
-            </IF>
-            <IF NOPRECISION>
-            if(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim().Length!=0)
-                <Field_odbcname> = int.Parse(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
-            </IF>
-            </IF>
-            <IF COERCE_BOOLEAN>
+  <ELSE DECIMAL AND COERCE_BOOLEAN>
             if(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim().Length!=0)
                 if (int.Parse(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>)) != 0)
                     <Field_odbcname> = true; else m<Field_odbcname> = false;
             else m<Field_odbcname> = false;
-            </IF>
-            </IF>
-            <IF INTEGER>
+  <ELSE DECIMAL AND NOT COERCE_BOOLEAN AND PRECISION>
+            if(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim().Length!=0)
+                <Field_odbcname> = decimal.Parse(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
+  <ELSE DECIMAL AND NOT COERCE_BOOLEAN AND NOT PRECISION>
             if(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim().Length!=0)
                 <Field_odbcname> = int.Parse(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
-            </IF>
-            <IF DATE>
+  <ELSE INTEGER>
+            if(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim().Length!=0)
+                <Field_odbcname> = int.Parse(mRecordArea.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
+  <ELSE DATE>
             try
             {
                 string tmpYear = string.Concat(mRecordArea.Substring(<FIELD_POSITION_ZERO>,4));
@@ -236,8 +218,8 @@ namespace <MVVM_DATA_NAMESPACE>
             {
                 <Field_odbcname> = new DateTime(1900, 1, 1);
             }
-            </IF>
-            </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         }
     }
 }

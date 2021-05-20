@@ -82,26 +82,26 @@ Public Partial Class Frm<WindowName>
 #Region "Field validation procedures"
 
     Private Function ValidateFields() as Boolean
-        <FIELD_LOOP>
-        <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
         If Not Validate_txt<Field_sqlname>() Then Return False
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         Return True
     End Function
 
-    <FIELD_LOOP>
-    <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
     Private Function Validate_Txt<Field_sqlname>() As Boolean
-        <IF REQUIRED>
+    <IF REQUIRED>
         '<FIELD_PROMPT> (Txt<Field_sqlname>) is a required field and must contain a value
         If (Txt<Field_sqlname>.Text.Length = 0) Then
             MessageBox.Show(me, "<FIELD_PROMPT> is a required field.", "Validation failed")
             Txt<Field_sqlname>.Focus()
             Return False
         End If
-        </IF>
-        <IF NUMERIC>
+    </IF>
+    <IF NUMERIC>
         'If <FIELD_PROMPT> (Txt<Field_sqlname>) contains a value then it must be numeric
         If ((Txt<Field_sqlname>.Text.Length <> 0) And (Not IsNumeric(Txt<Field_sqlname>.Text)))
             MessageBox.Show(me, "Employee must be numeric.", "Validation failed")
@@ -109,7 +109,7 @@ Public Partial Class Frm<WindowName>
             Txt<Field_sqlname>.Focus()
             Return False
         End If
-        </IF>
+    </IF>
         Return True
     End Function
 
@@ -119,22 +119,22 @@ Public Partial Class Frm<WindowName>
         End If
     End Sub
 
-    </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
 #End Region
 
 #Region "Field drill procedures"
-    <FIELD_LOOP>
-    <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
     <IF DRILL>
 
     Private Sub Btn<Field_sqlname>_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Btn<Field_sqlname>.Click
         MsgBox("Drill for field <Field_sqlname>")
     End Sub
     </IF>
-    </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
 #End Region
 
@@ -144,4 +144,3 @@ Public Partial Class Frm<WindowName>
     End Function
 
 End Class
-

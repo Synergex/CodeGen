@@ -114,21 +114,21 @@ namespace <NAMESPACE>
 
         private bool validateFields()
         {
-            <FIELD_LOOP>
-            <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
             if (!validate_txt<Field_sqlname>()) { return false; }
-            </IF>
-            </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
             return true;
         }
 
-        <FIELD_LOOP>
-        <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
         private bool validate_txt<Field_sqlname>()
         {
             //Field validation code for txt<Field_sqlname>
 
-            <IF REQUIRED>
+    <IF REQUIRED>
             //<FIELD_PROMPT> (txt<Field_sqlname>) is a required field and must contain a value
             if (txt<Field_sqlname>.Text.Length == 0)
             {
@@ -137,8 +137,8 @@ namespace <NAMESPACE>
                 return false;
             }
 
-            </IF>
-            <IF NUMERIC>
+    </IF>
+    <IF NUMERIC>
             //If <FIELD_PROMPT> (txt<Field_sqlname>) contains a value then it must be numeric
             if (txt<Field_sqlname>.Text.Length != 0)
             {
@@ -155,12 +155,12 @@ namespace <NAMESPACE>
                 }
             }
 
-            </IF>
+    </IF>
             return true;
         }
-        </IF>
+  </IF>
 
-        </FIELD_LOOP>
+</FIELD_LOOP>
     }
 }
 

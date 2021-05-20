@@ -244,9 +244,9 @@ subroutine <StructureName>Map
 proc
 
     ;;Store the record
-    <FIELD_LOOP>
+<FIELD_LOOP>
     <field_path> = <mapped_path_conv>
-    </FIELD_LOOP>
+</FIELD_LOOP>
 
     xreturn
 
@@ -276,9 +276,9 @@ subroutine <StructureName>Unmap
 proc
 
     ;;Store the record
-    <FIELD_LOOP>
+<FIELD_LOOP>
     <mapped_path> = <field_path_conv>
-    </FIELD_LOOP>
+</FIELD_LOOP>
 
     xreturn
 
@@ -286,4 +286,3 @@ endsubroutine
 
 .include "<STRUCTURE_NOALIAS>" repository, structure="str<STRUCTURE_NAME>", end
 .include "<MAPPED_STRUCTURE>" repository, structure="str<MAPPED_STRUCTURE>", end
-

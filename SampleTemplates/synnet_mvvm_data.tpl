@@ -94,9 +94,9 @@ namespace <MVVM_DATA_NAMESPACE>
             ;;Save the record
             m<StructureName> = a<StructureName>
             ;;Notify changes to all of the fields (not sure if this is necessary?)
-            <FIELD_LOOP>
+<FIELD_LOOP>
             notifyPropertyChanged("<FieldSqlName>")
-            </FIELD_LOOP>
+</FIELD_LOOP>
         endmethod
 
         .endregion
@@ -106,26 +106,22 @@ namespace <MVVM_DATA_NAMESPACE>
         ;;Expose the fields in the Synergy record as properties, using .NET types
         ;//TODO: Needs more work for additional field types (impled decimal, date, time, etc.)
 
-        <FIELD_LOOP>
+<FIELD_LOOP>
         ;;<FIELD_DESC> (<FIELD_NAME>, <FIELD_SPEC>)
         public property <FieldSqlName>, <FIELD_CSTYPE>
             method get
             proc
-                <IF ALPHA>
+  <IF ALPHA>
                 mreturn %atrim(m<StructureName>.<field_name>)
-                </IF ALPHA>
-                <IF DECIMAL>
+  <ELSE DECIMAL>
                 mreturn m<StructureName>.<field_name>
-                </IF DECIMAL>
-                <IF DATE>
+  <ELSE DATE>
                 mreturn DataUtils.DateFromDecimal(m<StructureName>.<field_name>)
-                </IF DATE>
-                <IF TIME>
+  <ELSE TIME>
                 mreturn DataUtils.TimeFromDecimal(m<StructureName>.<field_name>)
-                </IF TIME>
-                <IF INTEGER>
+  <ELSE INTEGER>
                 mreturn m<StructureName>.<field_name>
-                </IF INTEGER>
+  </IF>
             endmethod
             method set
             proc
@@ -134,7 +130,7 @@ namespace <MVVM_DATA_NAMESPACE>
             endmethod
         endproperty
 
-        </FIELD_LOOP>
+</FIELD_LOOP>
         ;;Expose the full record (so it can be saved to a file, etc.)
 
         public property Record, @String
@@ -153,7 +149,7 @@ namespace <MVVM_DATA_NAMESPACE>
 
         ;TODO: Probably need more meta-data to be exposed.
 
-        <FIELD_LOOP>
+<FIELD_LOOP>
         ;;<FIELD_DESC>
 
         public property <FieldSqlName>Length, int
@@ -177,7 +173,7 @@ namespace <MVVM_DATA_NAMESPACE>
             endmethod
         endproperty
 
-        </FIELD_LOOP>
+</FIELD_LOOP>
         .endregion
 
         .region "Implement INotifyPropertyChanged"
@@ -218,42 +214,38 @@ namespace <MVVM_DATA_NAMESPACE>
 
                 ;//TODO: needs more work to enforce other repository validation rules
                 using aProperty select
-                <FIELD_LOOP>
+<FIELD_LOOP>
                 ("<FieldSqlName>"),
                 begin
-                    <IF REQUIRED>
-                    <IF ALPHA>
+  <IF REQUIRED>
+    <IF ALPHA>
                     ;;Required alpha field, check we have valid data
                     if (String.IsNullOrEmpty(<FieldSqlName>))
                         result = "<FIELD_PROMPT> is required!"
-                    </IF ALPHA>
-                    <IF DECIMAL>
+    <ELSE DECIMAL>
                     ;;Required decimal or implied decimal field, check we have valid data
                     if ((<FieldSqlName><<FIELD_MINVALUE>)||(<FieldSqlName>><FIELD_MAXVALUE>))
                         result = "<FIELD_PROMPT> is not valid!"
-                    </IF DECIMAL>
-                    <IF DATE>
+    <ELSE DATE>
                     ;;Required date field, check we have valid data
                     ;TODO: Add validation for data fields (field <FIELD_NAME>
                     nop
-                    </IF DATE>
-                    <IF TIME>
+    <ELSE TIME>
                     ;;Required time field, check we have valid data
                     ;TODO: Add validation for data fields (field <FIELD_NAME>
                     nop
-                    </IF TIME>
-                    <IF INTEGER>
+    <ELSE INTEGER>
                     ;;Required integer field, check we have valid data
                     ;TODO: Add validation for integer fields (field <FIELD_NAME>
                     nop
-                    </IF INTEGER>
-                    <ELSE>
+    </IF>
+  <ELSE>
                     ;;Optional field
                     nop
-                    </IF REQUIRED>
+  </IF REQUIRED>
                 end
 
-                </FIELD_LOOP>
+</FIELD_LOOP>
                 endusing
 
                 mreturn result
@@ -266,4 +258,3 @@ namespace <MVVM_DATA_NAMESPACE>
     endclass
 
 endnamespace
-

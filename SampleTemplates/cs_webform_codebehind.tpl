@@ -71,14 +71,14 @@ public partial class frm<WindowName> : System.Web.UI.Page
 
     protected void Page_Load(object sender, EventArgs e)
     {
-        <FIELD_LOOP>
-        <IF COMBOBOX>
+<FIELD_LOOP>
+  <IF COMBOBOX>
         if (!IsPostBack)
         {
             cbo<Field_Sqlname>_load(<FIELD_SELECTIONS>);
         }
-        </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
     }
 
@@ -95,23 +95,23 @@ public partial class frm<WindowName> : System.Web.UI.Page
 /*
     private void LoadForm(ref <Structure_Name> obj<Structure_Name>)
     {
-        <FIELD_LOOP>
+<FIELD_LOOP>
         txt<Field_Sqlname>.Text = obj<Structure_Name>.<Field_Sqlname>
-        </FIELD_LOOP>
+</FIELD_LOOP>
     }
 */
 
 /*
     private void UnloadForm(ref <Structure_Name> obj<Structure_Name>)
     {
-        <FIELD_LOOP>
+<FIELD_LOOP>
         obj<Structure_Name>.<Field_Sqlname> = txt<Field_Sqlname>.Text
-        </FIELD_LOOP>
+</FIELD_LOOP>
     }
 */
 
-    <FIELD_LOOP>
-    <IF COMBOBOX>
+<FIELD_LOOP>
+  <IF COMBOBOX>
     private void cbo<Field_Sqlname>_load(params string[] values)
     {
         for (int i = 0; i < values.Length; i++)
@@ -120,7 +120,6 @@ public partial class frm<WindowName> : System.Web.UI.Page
         }
     }
 
-    </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 }
-

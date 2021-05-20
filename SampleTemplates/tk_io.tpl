@@ -188,20 +188,12 @@ proc
         (IO_CREATE),
         begin
             ;Make sure zero decimals contain zeros not spaces
-            <FIELD_LOOP>
-            <IF DECIMAL>
+<FIELD_LOOP>
+  <IF DECIMAL OR DATE OR TIME>
             if (!<field_path>)
                 clear <field_path>
-            </IF>
-            <IF DATE>
-            if (!<field_path>)
-                clear <field_path>
-            </IF>
-            <IF TIME>
-            if (!<field_path>)
-                clear <field_path>
-            </IF>
-            </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
             store(a_channel,<structure_name>)
             &   [$ERR_NODUPS=duplicate_key]
         end
@@ -400,5 +392,3 @@ get_error_text,
     return
 
 endfunction
-
-

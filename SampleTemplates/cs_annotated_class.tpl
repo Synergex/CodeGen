@@ -94,8 +94,7 @@ namespace <NAMESPACE>
         [Display(Name="<Field_sqlname>",ShortName="<FIELD_PROMPT>",Prompt="<FIELD_PROMPT>",Description="<FIELD_DESC>")]
         <IF ALPHA>
         [StringLength(<FIELD_SIZE>,ErrorMessage="<FIELD_DESC> cannot exceed <FIELD_SIZE> characters.")]
-        </IF>
-        <IF DECIMAL>
+        <ELSE DECIMAL>
         [Range(1,<FIELD_MAXVALUE>, ErrorMessage = "Value for {0} must be between {1} and {2}.")]
         </IF>
         <IF REQUIRED>

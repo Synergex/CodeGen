@@ -69,11 +69,11 @@
 -(void)dealloc
 {
     //Release any local objects that we have
-    <FIELD_LOOP>
-    <IF OCOBJECT>
+<FIELD_LOOP>
+  <IF OCOBJECT>
     [<fieldSqlName> release];
-    </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
     //Call our superclass dealloc method
     [super dealloc];

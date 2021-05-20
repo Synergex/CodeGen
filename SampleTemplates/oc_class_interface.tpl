@@ -59,9 +59,9 @@
 @interface <StructureName> : NSObject
 {
     //Instance variables
-    <FIELD_LOOP>
+<FIELD_LOOP>
     <FIELD_OCTYPE> <IF OCOBJECT>*</IF><fieldSqlName>;
-    </FIELD_LOOP>
+</FIELD_LOOP>
 }
 
 //Property declarations
@@ -73,4 +73,3 @@
 -(void) dealloc;
 
 @end
-

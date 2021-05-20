@@ -192,20 +192,18 @@ proc
     (IO_CREATE),
     begin
         ;;Make sure zero decimals contain zeros not spaces
-        <FIELD_LOOP>
-        <IF DECIMAL>
+<FIELD_LOOP>
+  <IF DECIMAL>
         if (!<field_path>)
             clear <field_path>
-        </IF DECIMAL>
-        <IF DATE>
+  <ELSE DATE>
         if (!<field_path>)
             clear <field_path>
-        </IF DATE>
-        <IF TIME>
+  <ELSE TIME>
         if (!<field_path>)
             clear <field_path>
-        </IF TIME>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         store(a_channel,<structure_name>)
         &   [$ERR_NODUPS=duplicateKey]
         xcall replicate(D_ACTION_STORE,'<STRUCTURE_NAME>',<structure_name>.sql_timestamp)
@@ -359,5 +357,3 @@ openError,
     freturn IO_FATAL
 
 endfunction
-
-

@@ -70,13 +70,13 @@
 {xfMethod(interface="<XF_INTERFACE>",elb="<XF_ELB>")}
 function Delete<StructureName>  ,^val
 
-    <PRIMARY_KEY>
-    <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
     {xfParameter(name="<SegmentName>")}
     required in a<SegmentName>, <segment_spec>
 
-    </SEGMENT_LOOP>
-    </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
     endparams
 
     stack record local_data
@@ -94,11 +94,11 @@ proc
 
     if (retVal=CanDelete<StructureName>(<PRIMARY_KEY><SEGMENT_LOOP>a<SegmentName><,></SEGMENT_LOOP></PRIMARY_KEY>))
     begin
-        <PRIMARY_KEY>
-        <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
         <structure_name>.<segment_name> = a<SegmentName>
-        </SEGMENT_LOOP>
-        </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
 
         try
         begin
@@ -121,4 +121,3 @@ proc
     freturn retVal
 
 endfunction
-

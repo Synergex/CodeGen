@@ -87,4 +87,3 @@ endmain
 
 .include "<structure_name>_xml_elem.dbl"
 .include "<structure_name>_xml_export.dbl"
-

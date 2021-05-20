@@ -47,19 +47,19 @@
 <asp:Content ID="Content1" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
     <h2><STRUCTURE_DESC> Maintenance</h2>
     <table border="0">
-    <FIELD_LOOP>
+<FIELD_LOOP>
     <tr>
         <td>
             <IF PROMPT><asp:Label id="lbl<Field_sqlname>" runat="server" CssClass="app_prompt" Text="<FIELD_PROMPT>" /></IF>&nbsp;
         </td>
         <td>
             <asp:TextBox id="txt<Field_sqlname>" runat="server" CssClass="app_field" MaxLength="<FIELD_SIZE>"<IF DISABLED> Enabled="False"</IF><IF READONLY> ReadOnly="True"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>><IF DEFAULT><FIELD_DEFAULT></IF></asp:TextBox>
-            <IF REQUIRED>
+  <IF REQUIRED>
             <asp:RequiredFieldValidator id="val<Field_sqlname>" runat="server" CssClass="app_validator" ControlToValidate="txt<Field_sqlname>" ErrorMessage="*" />
-            </IF>
+  </IF>
         </td>
     </tr>
-    </FIELD_LOOP>
+</FIELD_LOOP>
     <tr>
         <td>&nbsp;</td>
         <td>

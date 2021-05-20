@@ -69,13 +69,13 @@
 {xfMethod(interface="<XF_INTERFACE>",elb="<XF_ELB>")}
 function Get<StructureName>, ^val
 
-    <PRIMARY_KEY>
-    <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
     {xfParameter(name="<SegmentName>")}
     required in  a<SegmentName>, <segment_spec>
 
-    </SEGMENT_LOOP>
-    </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
     {xfParameter(name="<StructureName>")}
     required out a<StructureName>, str<StructureName>
 
@@ -91,11 +91,11 @@ proc
     init local_data, a<StructureName>
     retVal = true
 
-    <PRIMARY_KEY>
-    <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
     a<StructureName>.<segment_name> = a<SegmentName>
-    </SEGMENT_LOOP>
-    </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
 
     try
     begin
@@ -117,4 +117,3 @@ proc
     freturn retVal
 
 endfunction
-

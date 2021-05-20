@@ -82,67 +82,61 @@ namespace <NAMESPACE>
         ;;---------------------------------------------------------------------
         ;; Form design code
         ;;
-        <FIELD_LOOP>
-        <IF TEXTBOX>
-        <IF PROMPT>
+<FIELD_LOOP>
+  <IF TEXTBOX>
+    <IF PROMPT>
         private lbl<Field_sqlname>, @System.Windows.Forms.Label
-        </IF>
+    </IF>
         private txt<Field_sqlname>, @System.Windows.Forms.TextBox
-        <IF DRILL>
+    <IF DRILL>
         private btn<Field_sqlname>, @System.Windows.Forms.Button
-        </IF>
-        </IF>
-        <IF CHECKBOX>
+    </IF>
+  <ELSE CHECKBOX>
         private chk<Field_sqlname>, @System.Windows.Forms.CheckBox
-        </IF>
-        <IF COMBOBOX>
-        <IF PROMPT>
+  <ELSE COMBOBOX>
+    <IF PROMPT>
         private lbl<Field_sqlname>, @System.Windows.Forms.Label
-        </IF>
+    </IF>
         private cbo<Field_sqlname>, @System.Windows.Forms.ComboBox
-        </IF>
-        <IF RADIOBUTTONS>
+  <ELSE RADIOBUTTONS>
         ;;RADIOBUTTONS ARE NOT SUPPORTED YET!
-        </IF>
-        </FIELD_LOOP>
-        <BUTTON_LOOP>
+  </IF>
+</FIELD_LOOP>
+<BUTTON_LOOP>
         private btn<BUTTON_NAME>, @System.Windows.Forms.Button
-        </BUTTON_LOOP>
+</BUTTON_LOOP>
         ;;
         private method InitializeComponent, void
             endparams
         proc
-            <FIELD_LOOP>
-            <IF TEXTBOX>
-            <IF PROMPT>
+<FIELD_LOOP>
+  <IF TEXTBOX>
+    <IF PROMPT>
             this.lbl<Field_sqlname> = new System.Windows.Forms.Label()
-            </IF>
+    </IF>
             this.txt<Field_sqlname> = new System.Windows.Forms.TextBox()
-            <IF DRILL>
+    <IF DRILL>
             this.btn<Field_sqlname> = new System.Windows.Forms.Button()
-            </IF>
-            </IF>
-            <IF CHECKBOX>
+    </IF>
+  <ELSE CHECKBOX>
             this.chk<Field_sqlname> = new System.Windows.Forms.CheckBox()
-            </IF>
-            <IF COMBOBOX>
-            <IF PROMPT>
+  <ELSE COMBOBOX>
+    <IF PROMPT>
             this.lbl<Field_sqlname> = new System.Windows.Forms.Label()
-            </IF>
+    </IF>
             this.cbo<Field_sqlname> = new System.Windows.Forms.ComboBox()
-            </IF>
-            <IF RADIOBUTTONS>
+  <ELSE RADIOBUTTONS>
             ;;RADIOBUTTONS ARE NOT SUPPORTED YET!
-            </IF>
-            </FIELD_LOOP>
-            <BUTTON_LOOP>
+  </IF>
+</FIELD_LOOP>
+<BUTTON_LOOP>
             this.btn<BUTTON_NAME> = new System.Windows.Forms.Button()
-            </BUTTON_LOOP>
+</BUTTON_LOOP>
             this.SuspendLayout()
-            <FIELD_LOOP>
+<FIELD_LOOP>
 
-            <IF TEXTBOX>
-            <IF PROMPT>
+  <IF TEXTBOX>
+    <IF PROMPT>
             ;;
             ;;lbl<Field_sqlname>
             ;;
@@ -151,7 +145,7 @@ namespace <NAMESPACE>
             this.lbl<Field_sqlname>.Name = "lbl<Field_sqlname>"
             this.lbl<Field_sqlname>.TabIndex = 0
             this.lbl<Field_sqlname>.Text = "<FIELD_PROMPT>"
-            </IF>
+    </IF>
             ;;
             ;;txt<Field_sqlname>
             ;;
@@ -160,27 +154,27 @@ namespace <NAMESPACE>
             this.txt<Field_sqlname>.Size = new System.Drawing.Size(<FIELD_PIXEL_WIDTH>,20)
             this.txt<Field_sqlname>.TabIndex = <FIELD#LOGICAL>
             this.txt<Field_sqlname>.MaxLength = <FIELD_SIZE>
-            <IF DISABLED>
+    <IF DISABLED>
             this.txt<Field_sqlname>.Enabled = false
-            </IF>
-            <IF READONLY>
+    </IF>
+    <IF READONLY>
             this.txt<Field_sqlname>.ReadOnly = true
-            </IF>
-            <IF UPPERCASE>
+    </IF>
+    <IF UPPERCASE>
             this.txt<Field_sqlname>.CharacterCasing = CharacterCasing.Upper
-            </IF>
-            <IF REVERSE>
+    </IF>
+    <IF REVERSE>
             this.txt<Field_sqlname>.BackColor = Color.Black
             this.txt<Field_sqlname>.ForeColor = Color.White
-            </IF>
-            <IF DEFAULT>
+    </IF>
+    <IF DEFAULT>
             this.txt<Field_sqlname>.Text = "<FIELD_DEFAULT>"
-            </IF>
-            <IF NOECHO>
+    </IF>
+    <IF NOECHO>
             this.txt<Field_sqlname>.PasswordChar = "*"
-            </IF>
+    </IF>
             addhandler(this.txt<Field_sqlname>.Leave,this.txt<Field_sqlname>_Leave)
-            <IF DRILL>
+    <IF DRILL>
             ;;
             ;;Btn<Field_sqlname>
             ;;
@@ -189,10 +183,9 @@ namespace <NAMESPACE>
             this.btn<Field_sqlname>.Size = new System.Drawing.Size(24,20)
             this.btn<Field_sqlname>.Text = "..."
             addhandler(this.btn<Field_sqlname>.Click,this.btn<Field_sqlname>_Click)
-            </IF>
-            </IF>
+    </IF>
 
-            <IF CHECKBOX>
+  <ELSE CHECKBOX>
             ;;
             ;;chk<Field_sqlname>
             ;;
@@ -203,17 +196,16 @@ namespace <NAMESPACE>
             this.chk<Field_sqlname>.TabIndex = <FIELD#LOGICAL>
             this.chk<Field_sqlname>.UseVisualStyleBackColor = True
             this.chk<Field_sqlname>.Text = "<FIELD_PROMPT>"
-            <IF DISABLED>
+    <IF DISABLED>
             this.chk<Field_sqlname>.Enabled = False
-            </IF>
-            <IF DEFAULT>
+    </IF>
+    <IF DEFAULT>
             ;;this.chk<Field_sqlname>.Checked = True
             ;;this.chk<Field_sqlname>.CheckState = System.Windows.Forms.CheckState.Checked
-            </IF>
-            </IF>
+    </IF>
 
-            <IF COMBOBOX>
-            <IF PROMPT>
+  <ELSE COMBOBOX>
+    <IF PROMPT>
             ;;
             ;;lbl<Field_sqlname>
             ;;
@@ -222,7 +214,7 @@ namespace <NAMESPACE>
             this.lbl<Field_sqlname>.AutoSize = true
             this.lbl<Field_sqlname>.TabIndex = 0
             this.lbl<Field_sqlname>.Text = "<FIELD_PROMPT>"
-            </IF>
+    </IF>
             ;;
             ;;cbo<Field_sqlname>
             ;;
@@ -232,24 +224,23 @@ namespace <NAMESPACE>
             this.cbo<Field_sqlname>.TabIndex = <FIELD#LOGICAL>
             this.cbo<Field_sqlname>.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
             this.cbo<Field_sqlname>.FormattingEnabled = True
-            <IF DISABLED>
+    <IF DISABLED>
             this.cbo<Field_sqlname>.Enabled = False
-            </IF>
+    </IF>
 ;//This really needs to be here, but at this point it is not supported by the Synergy form .NET compiler
             .ifndef DBLNET
             this.cbo<Field_sqlname>.Items.AddRange(cbo<Field_sqlname>_Items(<FIELD_SELECTIONS>))
             .endc
-            </IF>
 
-            <IF RADIOBUTTONS>
+  <ELSE RADIOBUTTONS>
             ;;
             ;;rb<Field_sqlname>
             ;;
             ;;RADIOBUTTONS ARE NOT SUPPORTED YET!
-            </IF>
+  </IF>
 
-            </FIELD_LOOP>
-            <BUTTON_LOOP>
+</FIELD_LOOP>
+<BUTTON_LOOP>
             ;;
             ;; btn<BUTTON_NAME>
             ;;
@@ -260,7 +251,7 @@ namespace <NAMESPACE>
             this.btn<BUTTON_NAME>.TabIndex = (100+<BUTTON_NUMBER>)
             this.btn<BUTTON_NAME>.UseVisualStyleBackColor = true
             addhandler(this.btn<BUTTON_NAME>.Click,this.btn<BUTTON_NAME>_Click)
-            </BUTTON_LOOP>
+</BUTTON_LOOP>
             ;;
             ;; frm<StructureName>
             ;;
@@ -272,17 +263,16 @@ namespace <NAMESPACE>
             this.ShowInTaskbar = false
             this.MaximizeBox = false
             this.MinimizeBox = false
-            <BUTTON_LOOP>
-            <IF OKBUTTON>
+<BUTTON_LOOP>
+  <IF OKBUTTON>
             this.AcceptButton = (System.Windows.Forms.IButtonControl)this.btn<BUTTON_NAME>
-            </IF>
-            <IF CANCELBUTTON>
+  <ELSE CANCELBUTTON>
             this.CancelButton = (System.Windows.Forms.IButtonControl)this.btn<BUTTON_NAME>
-            </IF>
-            </BUTTON_LOOP>
+  </IF>
+</BUTTON_LOOP>
 
-            <FIELD_LOOP>
-            <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
             <IF PROMPT>
             this.Controls.Add((System.Windows.Forms.Control)this.lbl<Field_sqlname>)
             </IF>
@@ -290,23 +280,20 @@ namespace <NAMESPACE>
             <IF DRILL>
             this.Controls.Add((System.Windows.Forms.Control)this.btn<Field_sqlname>)
             </IF>
-            </IF>
-            <IF CHECKBOX>
+  <ELSE CHECKBOX>
             this.Controls.Add((System.Windows.Forms.Control)this.chk<Field_sqlname>)
-            </IF>
-            <IF COMBOBOX>
+  <ELSE COMBOBOX>
             <IF PROMPT>
             this.Controls.Add((System.Windows.Forms.Control)this.lbl<Field_sqlname>)
             </IF>
             this.Controls.Add((System.Windows.Forms.Control)this.cbo<Field_sqlname>)
-            </IF>
-            <IF RADIOBUTTONS>
+  <ELSE RADIOBUTTONS>
             ;;RADIOBUTTONS ARE NOT SUPPORTED YET!
-            </IF>
-            </FIELD_LOOP>
-            <BUTTON_LOOP>
+  </IF>
+</FIELD_LOOP>
+<BUTTON_LOOP>
             this.Controls.Add((System.Windows.Forms.Control)this.btn<BUTTON_NAME>)
-            </BUTTON_LOOP>
+</BUTTON_LOOP>
             ;;
             addhandler(this.Load,this.frm<StructureName>_Load)
             ;;
@@ -321,16 +308,16 @@ namespace <NAMESPACE>
         private method validateFields, boolean
             endparams
         proc
-            <FIELD_LOOP>
-            <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
             if (!validate_txt<Field_sqlname>())
                 mreturn false
-            </IF>
-            </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
             mreturn true
         endmethod
-        <FIELD_LOOP>
-        <IF COMBOBOX>
+<FIELD_LOOP>
+  <IF COMBOBOX>
 ;//
 ;//This really needs to be here, but at this point it is not supported by the Synergy form .NET compiler
         .ifndef DBLNET
@@ -347,19 +334,19 @@ namespace <NAMESPACE>
                 RetData[idx] = new string(^arga(idx))
             mreturn RetData
         endmethod
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         .endc
         ;;
-        <FIELD_LOOP>
-        <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
         ;;------------------------------
         ;;Field validation for <FIELD_PROMPT> (txt<Field_sqlname>)
         ;;
         private method validate_txt<Field_sqlname>, boolean
             endparams
         proc
-            <IF REQUIRED>
+    <IF REQUIRED>
             ;;Required field
             if (txt<Field_sqlname>.Text.Length == 0)
             begin
@@ -367,8 +354,8 @@ namespace <NAMESPACE>
                 txt<Field_sqlname>.Focus()
                 mreturn false
             end
-            </IF>
-            <IF NUMERIC>
+    </IF>
+    <IF NUMERIC>
             ;;Value must be numeric
             if (txt<Field_sqlname>.Text.Length != 0)
             begin
@@ -385,12 +372,12 @@ namespace <NAMESPACE>
                 end
                 endtry
             end
-            </IF>
+    </IF>
             mreturn true
         endmethod
-        </IF>
+  </IF>
         ;;
-        </FIELD_LOOP>
+</FIELD_LOOP>
         ;;----------------------------------------------------------------------
         ;; Event handlers
         ;;
@@ -409,7 +396,7 @@ namespace <NAMESPACE>
         proc
             ;;TODO: Add form initialization code
         endmethod
-        <BUTTON_LOOP>
+<BUTTON_LOOP>
         ;;
         ;;------------------------------
         ;;The btn<BUTTON_NAME> button was clicked
@@ -425,25 +412,23 @@ namespace <NAMESPACE>
             endparams
         proc
 
-            <IF OKBUTTON>
+  <IF OKBUTTON>
             if (validateFields())
             begin
                ;;TODO: Add code to save the data.
                ;;Close the form
                this.Close()
             end
-            </IF>
-            <IF CANCELBUTTON>
+  <ELSE CANCELBUTTON>
             this.Close()
-            </IF>
-            <IF GENERICBUTTON>
+  <ELSE GENERICBUTTON>
             MessageBox.Show("You clicked the <BUTTON_CAPTION> button")
-            </IF>
+  </IF>
 
         endmethod
-        </BUTTON_LOOP>
-        <FIELD_LOOP>
-        <IF TEXTBOX>
+</BUTTON_LOOP>
+<FIELD_LOOP>
+  <IF TEXTBOX>
         ;;
         ;;------------------------------
         ;;Focus is leaving the <FIELD_PROMPT> field
@@ -464,11 +449,11 @@ namespace <NAMESPACE>
             ;;if (fieldLevelValidation && (!btnCancel.Focused))
             ;;    validate_txt<Field_sqlname>()
         endmethod
-        </IF>
-        </FIELD_LOOP>
-        <FIELD_LOOP>
-        <IF TEXTBOX>
-        <IF DRILL>
+  </IF>
+</FIELD_LOOP>
+<FIELD_LOOP>
+  <IF TEXTBOX>
+    <IF DRILL>
         ;;
         ;;------------------------------
         ;;User clicked thr drill button for the <FIELD_PROMPT> field
@@ -485,11 +470,10 @@ namespace <NAMESPACE>
         proc
             MessageBox.Show("You clicked on button btn<Field_sqlname>")
         endmethod
-        </IF>
-        </IF>
-        </FIELD_LOOP>
+    </IF>
+  </IF>
+</FIELD_LOOP>
 
     endclass
 
 endnamespace
-

@@ -85,29 +85,29 @@ Public Partial Class Frm<WindowName>
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
 
-        <FIELD_LOOP>
-        <IF TEXTBOX>
-        <IF PROMPT>
+<FIELD_LOOP>
+  <IF TEXTBOX>
+    <IF PROMPT>
         Me.Lbl<Field_sqlname> = New System.Windows.Forms.Label
-        </IF>
+    </IF>
         Me.Txt<Field_sqlname> = New System.Windows.Forms.TextBox
-        <IF DRILL>
+    <IF DRILL>
         Me.Btn<Field_sqlname> = New System.Windows.Forms.Button
-        </IF>
-        </IF>
-        <IF CHECKBOX>
+    </IF>
+  </IF>
+  <IF CHECKBOX>
         Me.Chk<Field_sqlname> = New System.Windows.Forms.CheckBox
-        </IF>
-        <IF COMBOBOX>
-        <IF PROMPT>
+  </IF>
+  <IF COMBOBOX>
+    <IF PROMPT>
         Me.Lbl<Field_sqlname> = New System.Windows.Forms.Label
-        </IF>
+    </IF>
         Me.Cbo<Field_sqlname> = New System.Windows.Forms.ComboBox
-        </IF>
-        <IF RADIOBUTTONS>
+  </IF>
+  <IF RADIOBUTTONS>
         'RADIOBUTTONS ARE NOT SUPPORTED YET!
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
         Me.ButtonPanel = New System.Windows.Forms.FlowLayoutPanel
         Me.BtnOK = New System.Windows.Forms.Button
@@ -119,13 +119,13 @@ Public Partial Class Frm<WindowName>
 ;//============================================================================
 ;//Configure controls controls
 ;//
-        <FIELD_LOOP>
+<FIELD_LOOP>
 ;//
 ;//============================================================================
 ;//TextBox code
 ;//
-        <IF TEXTBOX>
-        <IF PROMPT>
+  <IF TEXTBOX>
+    <IF PROMPT>
 
         'Lbl<Field_sqlname>
         Me.Lbl<Field_sqlname>.Name = "Lbl<Field_sqlname>"
@@ -133,7 +133,7 @@ Public Partial Class Frm<WindowName>
         Me.Lbl<Field_sqlname>.AutoSize = True
         Me.Lbl<Field_sqlname>.TabIndex = 0
         Me.Lbl<Field_sqlname>.Text = "<FIELD_PROMPT>"
-        </IF>
+    </IF>
 
         'Txt<Field_sqlname>
         Me.Txt<Field_sqlname>.Name = "Txt<Field_sqlname>"
@@ -141,39 +141,38 @@ Public Partial Class Frm<WindowName>
         Me.Txt<Field_sqlname>.Size = New System.Drawing.Size(<FIELD_PIXEL_WIDTH>,20)
         Me.Txt<Field_sqlname>.TabIndex = <FIELD#LOGICAL>
         Me.Txt<Field_sqlname>.MaxLength = <FIELD_SIZE>
-        <IF DISABLED>
+    <IF DISABLED>
         Me.Txt<Field_sqlname>.Enabled = False
-        </IF>
-        <IF READONLY>
+    </IF>
+    <IF READONLY>
         Me.Txt<Field_sqlname>.ReadOnly = True
-        </IF>
-        <IF UPPERCASE>
+    </IF>
+    <IF UPPERCASE>
         Me.Txt<Field_sqlname>.CharacterCasing = CharacterCasing.Upper
-        </IF>
-        <IF REVERSE>
+    </IF>
+    <IF REVERSE>
         Me.<Field_sqlname>.BackColor = Color.Black
         Me.<Field_sqlname>.ForeColor = Color.White
-        </IF>
-        <IF DEFAULT>
+    </IF>
+    <IF DEFAULT>
         Me.<Field_sqlname>.Text = "<FIELD_DEFAULT>"
-        </IF>
-        <IF NOECHO>
+    </IF>
+    <IF NOECHO>
         Me.<Field_sqlname>.PasswordChar = "*"
-        </IF>
-        <IF DRILL>
+    </IF>
+    <IF DRILL>
 
         'Btn<Field_sqlname>
         Me.Btn<Field_sqlname>.Name = "Btn<Field_sqlname>"
         Me.Btn<Field_sqlname>.Location =  New System.Drawing.Point(<FIELD_DRILL_PIXEL_COL>,<FIELD_PIXEL_ROW>)
         Me.Btn<Field_sqlname>.Size = New System.Drawing.Size(24,20)
         Me.Btn<Field_sqlname>.Text = "..."
-        </IF>
-        </IF>
+    </IF>
 ;//
 ;//============================================================================
 ;//CheckBox code
 ;//
-        <IF CHECKBOX>
+  <ELSE CHECKBOX>
         '
         'chk<Field_sqlname>
         '
@@ -184,20 +183,19 @@ Public Partial Class Frm<WindowName>
         Me.Chk<Field_sqlname>.TabIndex = <FIELD#LOGICAL>
         Me.Chk<Field_sqlname>.UseVisualStyleBackColor = True
         Me.Chk<Field_sqlname>.Text = "<FIELD_PROMPT>"
-        <IF DISABLED>
+    <IF DISABLED>
         Me.Chk<Field_sqlname>.Enabled = False
-        </IF>
-        <IF DEFAULT>
+    </IF>
+    <IF DEFAULT>
         ;//Me.Chk<Field_sqlname>.Checked = True
         ;//Me.Chk<Field_sqlname>.CheckState = System.Windows.Forms.CheckState.Checked
-        </IF>
-        </IF>
+    </IF>
 ;//
 ;//============================================================================
 ;//ComboBox code
 ;//
-        <IF COMBOBOX>
-        <IF PROMPT>
+  <ELSE COMBOBOX>
+    <IF PROMPT>
         '
         'lbl<Field_sqlname>
         '
@@ -206,7 +204,7 @@ Public Partial Class Frm<WindowName>
         Me.Lbl<Field_sqlname>.AutoSize = True
         Me.Lbl<Field_sqlname>.TabIndex = 0
         Me.Lbl<Field_sqlname>.Text = "<FIELD_PROMPT>"
-        </IF>
+    </IF>
         '
         'cbo<Field_sqlname>
         '
@@ -216,26 +214,25 @@ Public Partial Class Frm<WindowName>
         Me.Cbo<Field_sqlname>.TabIndex = <FIELD#LOGICAL>
         Me.Cbo<Field_sqlname>.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
         Me.Cbo<Field_sqlname>.FormattingEnabled = True
-        <IF DISABLED>
+    <IF DISABLED>
         Me.Cbo<Field_sqlname>.Enabled = False
-        </IF>
+    </IF>
         Me.Cbo<Field_sqlname>.Items.AddRange(getComboItems(<FIELD_SELECTIONS1>))
-        </IF>
 ;//
 ;//============================================================================
 ;//RadioButtons code
 ;//
-        <IF RADIOBUTTONS>
+  <ELSE RADIOBUTTONS>
         '
         'rb<Field_sqlname>
         '
         'RADIOBUTTONS ARE NOT SUPPORTED YET!
-        </IF>
+  </IF>
 ;//
 ;//============================================================================
 ;//Configure controls and form
 ;//
-        </FIELD_LOOP>
+</FIELD_LOOP>
 
         'ButtonPanel
         Me.ButtonPanel.Controls.Add(Me.BtnCancel)
@@ -270,29 +267,26 @@ Public Partial Class Frm<WindowName>
         Me.MinimizeBox = False
 
         Me.Controls.Add(Me.ButtonPanel)
-        <FIELD_LOOP>
-        <IF TEXTBOX>
-        <IF PROMPT>
+<FIELD_LOOP>
+  <IF TEXTBOX>
+    <IF PROMPT>
         Me.Controls.Add(Me.Lbl<Field_sqlname>)
-        </IF>
+    </IF>
         Me.Controls.Add(Me.Txt<Field_sqlname>)
-        <IF DRILL>
+    <IF DRILL>
         Me.Controls.Add(Me.Btn<Field_sqlname>)
-        </IF>
-        </IF>
-        <IF CHECKBOX>
+    </IF>
+  <ELSE CHECKBOX>
         Me.Controls.Add(Me.Chk<Field_sqlname>)
-        </IF>
-        <IF COMBOBOX>
-        <IF PROMPT>
+  <ELSE COMBOBOX>
+    <IF PROMPT>
         Me.Controls.Add(Me.Lbl<Field_sqlname>)
-        </IF>
+    </IF>
         Me.Controls.Add(Me.Cbo<Field_sqlname>)
-        </IF>
-        <IF RADIOBUTTONS>
+  <ELSE RADIOBUTTONS>
         ;RADIOBUTTONS ARE NOT SUPPORTED YET!
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
         Me.AcceptButton = Me.BtnOK
         Me.CancelButton = Me.BtnCancel
@@ -307,8 +301,8 @@ Public Partial Class Frm<WindowName>
 ;//============================================================================
 ;//Declare object variables for controls
 ;//
-    <FIELD_LOOP>
-    <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
     <IF PROMPT>
     Friend WithEvents Lbl<Field_sqlname> As System.Windows.Forms.Label
     </IF>
@@ -316,20 +310,17 @@ Public Partial Class Frm<WindowName>
     <IF DRILL>
     Friend WithEvents Btn<Field_sqlname> As System.Windows.Forms.Button
     </IF>
-    </IF>
-    <IF CHECKBOX>
+  <ELSE CHECKBOX>
     Friend WithEvents Chk<Field_sqlname> As System.Windows.Forms.CheckBox
-    </IF>
-    <IF COMBOBOX>
+  <ELSE COMBOBOX>
     <IF PROMPT>
     Friend WithEvents Lbl<Field_sqlname> As System.Windows.Forms.Label
     </IF>
     Friend WithEvents Cbo<Field_sqlname> As System.Windows.Forms.ComboBox
-    </IF>
-    <IF RADIOBUTTONS>
+  <ELSE RADIOBUTTONS>
     'RADIOBUTTONS ARE NOT SUPPORTED YET!
-    </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
     Friend WithEvents ButtonPanel as System.Windows.Forms.FlowLayoutPanel
     Friend WithEvents BtnOK As System.Windows.Forms.Button
     Friend WithEvents BtnCancel As System.Windows.Forms.Button

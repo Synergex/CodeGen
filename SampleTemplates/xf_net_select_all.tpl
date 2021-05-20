@@ -72,13 +72,13 @@ import System.Collections
 {xfMethod(interface="<XF_INTERFACE>",elb="<XF_ELB>")}
 function GetAll<StructureName>s, boolean
 
-    <PRIMARY_KEY>
-    <SEGMENT_LOOP_FILTER>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP_FILTER>
     {xfParameter(name="<SegmentName>")}
     required in  a<SegmentName>, <segment_spec>
 
-    </SEGMENT_LOOP_FILTER>
-    </PRIMARY_KEY>
+  </SEGMENT_LOOP_FILTER>
+</PRIMARY_KEY>
     {xfParameter(name="<StructureName>s",collectionType=xfCollectType.structure,structure="str<StructureName>",dataTable=true)}
     required out a<StructureName>s, @ArrayList
 
@@ -108,9 +108,9 @@ proc
         oFrom = new From(ch<StructureName>,tmpbuf)
 
         ;;If there are multiple segments in the primary key create a where clause
-        <PRIMARY_KEY>
+<PRIMARY_KEY>
         <IF MULTIPLE_SEGMENTS>oWhere = (Where)( <SEGMENT_LOOP_FILTER>tmpbuf.<segment_name>==a<SegmentName><&&></SEGMENT_LOOP_FILTER>)</IF>
-        </PRIMARY_KEY>
+</PRIMARY_KEY>
 
         ;;Get the matching data
         if (oWhere!=^null) then
@@ -136,4 +136,3 @@ proc
     freturn retVal
 
 endfunction
-

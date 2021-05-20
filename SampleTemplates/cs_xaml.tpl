@@ -66,56 +66,50 @@
     WindowStyle="SingleBorderWindow" ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
     Loaded="frm<WindowName>_Loaded">
     <Grid>
-        <FIELD_LOOP>
+<FIELD_LOOP>
 ;//----------------------------------------------------------------------------
 ;//TextBox fields
-        <IF TEXTBOX>
-        <IF PROMPT>
+  <IF TEXTBOX>
+    <IF PROMPT>
         <Label Name="lbl<Field_sqlname>" Height="23"  Width="120" Margin="<PROMPT_PIXEL_COL>,<PROMPT_PIXEL_ROW>,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"><FIELD_PROMPT></Label>
-        </IF>
-        <IF ALPHA>
+    </IF>
+    <IF ALPHA>
         <TextBox Name="txt<Field_sqlname>" Height="23" Width="<FIELD_PIXEL_WIDTH>" Margin="<FIELD_PIXEL_COL>,<FIELD_PIXEL_ROW>,0,0" TabIndex="<FIELD#LOGICAL>" HorizontalAlignment="Left" VerticalAlignment="Top" MaxLength="<FIELD_SIZE>"<IF DISABLED> IsEnabled="False"</IF><IF READONLY> IsReadOnly="True"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF><IF UPPERCASE> CharacterCasing="Upper" </IF>><IF DEFAULT><FIELD_DEFAULT></IF></TextBox>
-        </IF>
-        <IF DECIMAL>
+    <ELSE DECIMAL>
         <TextBox Name="txt<Field_sqlname>" Height="23" Width="<FIELD_PIXEL_WIDTH>" Margin="<FIELD_PIXEL_COL>,<FIELD_PIXEL_ROW>,0,0" TabIndex="<FIELD#LOGICAL>" HorizontalAlignment="Left" VerticalAlignment="Top" MaxLength="<FIELD_SIZE>"<IF DISABLED> IsEnabled="False"</IF><IF READONLY> IsReadOnly="True"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF><IF UPPERCASE> CharacterCasing="Upper" </IF>><IF DEFAULT><FIELD_DEFAULT></IF></TextBox>
-        </IF>
-        <IF DATE>
+    <ELSE DATE>
         <Label Name="fld<Field_sqlname>" Height="23"  Width="120" Margin="<FIELD_PIXEL_COL>,<FIELD_PIXEL_ROW>,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">Date field!</Label>
-        </IF>
-        <IF TIME>
+    <ELSE TIME>
         <Label Name="fld<Field_sqlname>" Height="23"  Width="120" Margin="<FIELD_PIXEL_COL>,<FIELD_PIXEL_ROW>,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">Time field!</Label>
-        </IF>
-        </IF>
+    </IF>
 ;//----------------------------------------------------------------------------
 ;//CheckBox fields
-        <IF CHECKBOX>
+  <ELSE CHECKBOX>
         <CheckBox Name="chk<Field_sqlname>" Height="16" Margin="<FIELD_PIXEL_COL>,<FIELD_PIXEL_ROW>,0,0" TabIndex="<FIELD#LOGICAL>" VerticalAlignment="Top"<IF DISABLED> IsEnabled="False"</IF><IF READONLY> IsReadOnly="True"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>><FIELD_PROMPT></CheckBox>
-        </IF>
 ;//----------------------------------------------------------------------------
 ;//ComboBox Fields
-        <IF COMBOBOX>
-        <IF PROMPT>
+  <ELSE COMBOBOX>
+    <IF PROMPT>
         <Label Name="lbl<Field_sqlname>" Height="23"  Width="120" Margin="<PROMPT_PIXEL_COL>,<PROMPT_PIXEL_ROW>,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"><FIELD_PROMPT></Label>
-        </IF>
+    </IF>
         <ComboBox Name="cbo<Field_sqlname>" Height="23" Width="<FIELD_PIXEL_WIDTH>" Margin="<FIELD_PIXEL_COL>,<FIELD_PIXEL_ROW>,0,0" TabIndex="<FIELD#LOGICAL>" SelectedIndex="0" HorizontalAlignment="Left" VerticalAlignment="Top"<IF DISABLED> IsEnabled="False"</IF><IF READONLY> IsReadOnly="True"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>>
-        <SELECTION_LOOP>
+    <SELECTION_LOOP>
             <ComboBoxItem Tag="<SELECTION_VALUE>"><SELECTION_TEXT></ComboBoxItem>
-        </SELECTION_LOOP>
+    </SELECTION_LOOP>
         </ComboBox>
-        </IF>
 ;//----------------------------------------------------------------------------
 ;//RadioButton Fields
-        <IF RADIOBUTTONS>
-        <IF PROMPT>
+  <ELSE RADIOBUTTONS>
+    <IF PROMPT>
         <Label Name="lbl<Field_sqlname>" Height="23"  Width="120" Margin="<PROMPT_PIXEL_COL>,<PROMPT_PIXEL_ROW>,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"><FIELD_PROMPT></Label>
-        </IF>
+    </IF>
         <StackPanel Margin="<FIELD_PIXEL_COL>,<FIELD_PIXEL_ROW>,0,0" Width="<FIELD_PIXEL_WIDTH>" HorizontalAlignment="Left" VerticalAlignment="Top"<IF DISABLED> IsEnabled="False"</IF>>
-            <SELECTION_LOOP>
+    <SELECTION_LOOP>
             <RadioButton Name="rb<Field_sqlname><SELECTION_NUMBER>" Tag="<SELECTION_VALUE>" Height="16" HorizontalAlignment="Left" VerticalAlignment="Bottom"<IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF><IF FIRST> IsChecked="true"</IF>><SELECTION_TEXT></RadioButton>
-            </SELECTION_LOOP>
+    </SELECTION_LOOP>
         </StackPanel>
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         <Button Name="btnOK" Height="23" Width="75" Margin="0,0,100,10"  HorizontalAlignment="Right" VerticalAlignment="Bottom" Click="btnOK_Click">OK</Button>
         <Button Name="btnCancel" Height="23" Width="75" Margin="0,0,10,10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Click="btnCancel_Click">Cancel</Button>
     </Grid>

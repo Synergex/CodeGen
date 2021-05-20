@@ -68,15 +68,15 @@ namespace <NAMESPACE>
 
     public class DatabaseConnection
 
-		private mChannel, int
+        private mChannel, int
         private mConnectString, string
         private mConnected, boolean, false
 
-		private mMaxCursors, int
-		private mMaxColumns, int
-		private mBufferSize, int
-		private mDbCursors, int
-		
+        private mMaxCursors, int
+        private mMaxColumns, int
+        private mBufferSize, int
+        private mDbCursors, int
+        
         public method DatabaseConnection
             required in aChannel, int
             required in aConnectString, string
@@ -84,25 +84,25 @@ namespace <NAMESPACE>
             .include "CONNECTDIR:ssql.def"
         proc
 
-			;;Save away the channel and connect string
+            ;;Save away the channel and connect string
             mChannel = aChannel
             mConnectString = aConnectString
 
-			;;Set default values for other properties
-			mMaxCursors = 128
-			mMaxColumns = 254
+            ;;Set default values for other properties
+            mMaxCursors = 128
+            mMaxColumns = 254
             mBufferSize = 32768
-			mDbCursors = mMaxCursors
+            mDbCursors = mMaxCursors
 
-			;Initialize SQL Connection
-			begin
-				data sts, int
-				.ifdef OS_VMS
-				xcall init_ssql
-				.else
-				sts=%option(48,1)
-				.endc
-			end
+            ;Initialize SQL Connection
+            begin
+                data sts, int
+                .ifdef OS_VMS
+                xcall init_ssql
+                .else
+                sts=%option(48,1)
+                .endc
+            end
 
         endmethod
 
@@ -112,10 +112,10 @@ namespace <NAMESPACE>
             if (mConnected)
                 this.Disconnect()
         endmethod
-		
-		public method Connect, void
-			endparams
-		proc
+        
+        public method Connect, void
+            endparams
+        proc
 
             ;Initialize the database channel
             if (ssc_init(mChannel,maxCursors,maxColumns,bufferSize,dbCursors)==SSQL_FAILURE)
@@ -132,85 +132,85 @@ namespace <NAMESPACE>
 
             mConnected = true
 
-		endmethod
-		
+        endmethod
+        
         public method Disconnect, void
             endparams
         proc
             if (mConnected)
-			begin
+            begin
                 ssc_release(mChannel)
-				mConnected = false
-			end
+                mConnected = false
+            end
         endmethod
-		
-		;;Public properties
-		
-		public property Channel, int
-			method get
-			proc
-				mreturn mChannel
-			endmethod
-		endproperty
+        
+        ;;Public properties
+        
+        public property Channel, int
+            method get
+            proc
+                mreturn mChannel
+            endmethod
+        endproperty
 
-		public property ConnectString, string
-			method get
-			proc
-				mreturn mConnectString
-			endmethod
-		endproperty
+        public property ConnectString, string
+            method get
+            proc
+                mreturn mConnectString
+            endmethod
+        endproperty
 
-		public property Connected, boolean
-			method get
-			proc
-				mreturn mConnected
-			endmethod
-		endproperty
+        public property Connected, boolean
+            method get
+            proc
+                mreturn mConnected
+            endmethod
+        endproperty
 
-		public property MaxCursors, int
-			method get
-			proc
-				mreturn mMaxCursors
-			endmethod
-			method set
-			proc
-				mMaxCursors = value
-			endmethod
-		endproperty
+        public property MaxCursors, int
+            method get
+            proc
+                mreturn mMaxCursors
+            endmethod
+            method set
+            proc
+                mMaxCursors = value
+            endmethod
+        endproperty
 
-		public property MaxColumns, int
-			method get
-			proc
-				mreturn mMaxColumns
-			endmethod
-			method set
-			proc
-				mMaxColumns = value
-			endmethod
-		endproperty
+        public property MaxColumns, int
+            method get
+            proc
+                mreturn mMaxColumns
+            endmethod
+            method set
+            proc
+                mMaxColumns = value
+            endmethod
+        endproperty
 
-		public property BufferSize, int
-			method get
-			proc
-				mreturn mBufferSize
-			endmethod
-			method set
-			proc
-				mBufferSize = value
-			endmethod
-		endproperty
+        public property BufferSize, int
+            method get
+            proc
+                mreturn mBufferSize
+            endmethod
+            method set
+            proc
+                mBufferSize = value
+            endmethod
+        endproperty
 
-		public property DbCursors, int
-			method get
-			proc
-				mreturn mDbCursors
-			endmethod
-			method set
-			proc
-				mDbCursors = value
-			endmethod
-		endproperty
-		
+        public property DbCursors, int
+            method get
+            proc
+                mreturn mDbCursors
+            endmethod
+            method set
+            proc
+                mDbCursors = value
+            endmethod
+        endproperty
+        
     endclass
 
 endnamespace

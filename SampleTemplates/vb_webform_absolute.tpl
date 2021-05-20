@@ -50,32 +50,29 @@
 </head>
 <body>
     <form id="form1" runat="server">
-        <FIELD_LOOP>
-        <IF TEXTBOX>
-        <IF PROMPT>
+<FIELD_LOOP>
+  <IF TEXTBOX>
+    <IF PROMPT>
         <asp:Label id="lbl<Field_sqlname>" runat="server" CssClass="app_prompt" style="position: absolute; top: <PROMPT_PIXEL_ROW>px; left: <PROMPT_PIXEL_COL>px;" Text="<FIELD_PROMPT>" />
-        </IF>
+    </IF>
         <asp:TextBox id="txt<Field_sqlname>" runat="server" CssClass="app_field" style="position: absolute; top: <FIELD_PIXEL_ROW>px; left: <FIELD_PIXEL_COL>px" Width="<FIELD_PIXEL_WIDTH>px" MaxLength="<FIELD_SIZE>"<IF DISABLED> Enabled="False"</IF><IF READONLY> ReadOnly="True"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>><IF DEFAULT><FIELD_DEFAULT></IF></asp:TextBox>
-        <IF REQUIRED>
+    <IF REQUIRED>
         <asp:RequiredFieldValidator id="val<Field_sqlname>" runat="server" CssClass="app_validator" style="position: absolute; top: <FIELD_PIXEL_ROW>px; left: <FIELD_DRILL_PIXEL_COL>px" ControlToValidate="txt<Field_sqlname>" ErrorMessage="*" />
-        </IF>
-        </IF>
-        <IF CHECKBOX>
+    </IF>
+  <ELSE CHECKBOX>
         <asp:CheckBox id="chk<Field_sqlname>" runat="server" CssClass="app_field" style="position: absolute; top: <FIELD_PIXEL_ROW>px; left: <FIELD_PIXEL_COL>px" Text="<FIELD_PROMPT>"<IF DISABLED> Enabled="False"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>></asp:CheckBox>
-        </IF>
-        <IF COMBOBOX>
-        <IF PROMPT>
+  <ELSE COMBOBOX>
+    <IF PROMPT>
         <asp:Label id="lbl<Field_sqlname>" runat="server" CssClass="app_prompt" style="position: absolute; top: <PROMPT_PIXEL_ROW>px; left: <PROMPT_PIXEL_COL>px;" Text="<FIELD_PROMPT>" />
-        </IF>
+    </IF>
         <asp:DropDownList ID="cbo<Field_sqlname>" runat="server" CssClass="app_field" style="position: absolute; top: <FIELD_PIXEL_ROW>px; left: <FIELD_PIXEL_COL>px" Width="<FIELD_PIXEL_WIDTH>px"<IF DISABLED> Enabled="False"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>>
-        <SELECTION_LOOP>
+    <SELECTION_LOOP>
             <asp:ListItem Value="<SELECTION_VALUE>"<IF FIRST> Selected="True"</IF>><SELECTION_TEXT></asp:ListItem>
-        </SELECTION_LOOP>
+    </SELECTION_LOOP>
         </asp:DropDownList>
-        </IF>
-        <IF RADIOBUTTONS>
-        </IF>
-        </FIELD_LOOP>
+  <ELSE RADIOBUTTONS>
+  </IF>
+</FIELD_LOOP>
         <asp:Button ID="btnOk" runat="server" CssClass="app_button" style="top: 500px; left: 600px; position: absolute;" Width="75px" Text="OK" />
         <asp:Button ID="btnCancel" runat="server" CssClass="app_button" style="top: 500px; left: 690px; position: absolute;" Width="75px" CausesValidation="false" Text="Cancel" />
     </form>

@@ -71,13 +71,13 @@ import System.Collections
 {xfMethod(interface="<XF_INTERFACE>",elb="<XF_ELB>")}
 function GetAll<StructureName>s, boolean
 
-    <PRIMARY_KEY>
-    <SEGMENT_LOOP_FILTER>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP_FILTER>
     {xfParameter(name="<SegmentName>")}
     required in  a<SegmentName>, <segment_spec>
 
-    </SEGMENT_LOOP_FILTER>
-    </PRIMARY_KEY>
+  </SEGMENT_LOOP_FILTER>
+</PRIMARY_KEY>
     {xfParameter(name="<StructureName>s",collectionType=xfCollectType.structure,structure="str<StructureName>",dataTable=true)}
     required out a<StructureName>s, @ArrayList
 
@@ -87,12 +87,12 @@ function GetAll<StructureName>s, boolean
         retVal  ,boolean
         ch<StructureName>, int
         <structure_name>, str<StructureName>
-        <PRIMARY_KEY>
-        <IF MULTIPLE_SEGMENTS>
+<PRIMARY_KEY>
+  <IF MULTIPLE_SEGMENTS>
         filterData, a<KEY_LENGTH>
         filterLen, int
-        </IF>
-        </PRIMARY_KEY>
+  </IF>
+</PRIMARY_KEY>
     endrecord
 
 proc
@@ -102,15 +102,15 @@ proc
 
     a<StructureName>s = new ArrayList()
 
-    <PRIMARY_KEY>
-    <IF MULTIPLE_SEGMENTS>
+<PRIMARY_KEY>
+  <IF MULTIPLE_SEGMENTS>
     <SEGMENT_LOOP_FILTER>
     <structure_name>.<segment_name> = a<SegmentName>
     filterLen += ^size(<structure_name>.<segment_name>)
     </SEGMENT_LOOP_FILTER>
     filterData=keyval(ch<StructureName>,<structure_name>,0)
-    </IF>
-    </PRIMARY_KEY>
+  </IF>
+</PRIMARY_KEY>
 
     try
     begin
@@ -118,28 +118,27 @@ proc
         open(ch<StructureName>=syn_freechn(),i:i,"<FILE_NAME>")
 
         ;;Position to the first record to be returned
-        <PRIMARY_KEY>
-        <IF SINGLE_SEGMENT>
+<PRIMARY_KEY>
+  <IF SINGLE_SEGMENT>
         find(ch<StructureName>,,^FIRST)
-        </IF>
-        <IF MULTIPLE_SEGMENTS>
+  <ELSE MULTIPLE_SEGMENTS>
         find(ch<StructureName>,,filterData(1:filterLen))
-        </IF>
-        </PRIMARY_KEY>
+  </IF>
+</PRIMARY_KEY>
 
         ;;Read and return the data
         repeat
         begin
             ;;Get the next record
             reads(ch<StructureName>,<structure_name>)
-            <PRIMARY_KEY>
-            <IF MULTIPLE_SEGMENTS>
+<PRIMARY_KEY>
+  <IF MULTIPLE_SEGMENTS>
 
             ;;Make sure we're still in range with the filter
             if (keyval(ch<StructureName>,<structure_name>,0)!=filterData(1:filterLen))
                 exitloop
-            </IF>
-            </PRIMARY_KEY>
+  </IF>
+</PRIMARY_KEY>
 
             ;;Add the record to the return collection
             a<StructureName>s.Add((@str<StructureName>)<structure_name>)
@@ -161,4 +160,3 @@ proc
     freturn retVal
 
 endfunction
-

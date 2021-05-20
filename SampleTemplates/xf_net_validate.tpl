@@ -85,22 +85,22 @@ proc
     dataIsValid = true
 
     ;;Validate required fields
-    <FIELD_LOOP>
-    <IF REQUIRED>
+<FIELD_LOOP>
+  <IF REQUIRED>
     if ((dataIsValid)&&(!a<StructureName>.<field_name>))
         dataIsValid = false
-    </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
     ;;Enforce upper-case field reqirements
     if (dataIsValid)
     begin
-        <FIELD_LOOP>
-        <IF UPPERCASE>
+<FIELD_LOOP>
+  <IF UPPERCASE>
         if (a<StructureName>.<field_name>)
             upcase a<StructureName>.<field_name>
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
     end
 
     ;Add additional validation code here.  If you find errors that you can fix
@@ -112,4 +112,4 @@ proc
     freturn dataIsValid
 
 endfunction
-
+\

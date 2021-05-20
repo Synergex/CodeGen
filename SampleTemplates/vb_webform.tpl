@@ -52,47 +52,44 @@
     <h2><STRUCTURE_DESC> Maintenance</h2>
     <form id="form1" runat="server">
     <table border="0">
-    <FIELD_LOOP>
+<FIELD_LOOP>
     <tr>
-        <IF TEXTBOX>
+  <IF TEXTBOX>
         <td>
             <IF PROMPT><asp:Label id="lbl<Field_sqlname>" runat="server" CssClass="app_prompt" Text="<FIELD_PROMPT>" /></IF>&nbsp;
         </td>
         <td>
             <asp:TextBox id="txt<Field_sqlname>" runat="server" CssClass="app_field" MaxLength="<FIELD_SIZE>"<IF DISABLED> Enabled="False"</IF><IF READONLY> ReadOnly="True"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>><IF DEFAULT><FIELD_DEFAULT></IF></asp:TextBox>
-            <IF REQUIRED>
+    <IF REQUIRED>
             <asp:RequiredFieldValidator id="val<Field_sqlname>" runat="server" CssClass="app_validator" ControlToValidate="txt<Field_sqlname>" ErrorMessage="*" />
-            </IF>
+    </IF>
         </td>
-        </IF>
-        <IF CHECKBOX>
+  <ELSE CHECKBOX>
         <td>&nbsp;</td>
         <td>
             <asp:CheckBox id="chk<Field_sqlname>" runat="server" CssClass="app_field" Text="<FIELD_PROMPT>"<IF DISABLED> Enabled="False"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>></asp:CheckBox>
         </td>
-        </IF>
-        <IF COMBOBOX>
+  <ELSE COMBOBOX>
         <td>
             <IF PROMPT><asp:Label id="lbl<Field_sqlname>" runat="server" CssClass="app_prompt" Text="<FIELD_PROMPT>" /></IF>&nbsp;
         </td>
         <td>
             <asp:DropDownList ID="cbo<Field_sqlname>" runat="server" CssClass="app_field"<IF DISABLED> Enabled="False"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>>
-            <SELECTION_LOOP>
+    <SELECTION_LOOP>
                 <asp:ListItem Value="<SELECTION_VALUE>"<IF FIRST> Selected="True"</IF>><SELECTION_TEXT></asp:ListItem>
-            </SELECTION_LOOP>
+    </SELECTION_LOOP>
             </asp:DropDownList>
         </td>
-        </IF>
-        <IF RADIOBUTTONS>
+  <ELSE RADIOBUTTONS>
         <td>
             &nbsp;
         </td>
         <td>
             &nbsp;
         </td>
-        </IF>
+  </IF>
     </tr>
-    </FIELD_LOOP>
+</FIELD_LOOP>
     <tr>
         <td>
             &nbsp;

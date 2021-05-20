@@ -54,14 +54,14 @@
     ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
     Loaded="Frm<WindowName>_Loaded">
     <Grid>
-        <FIELD_LOOP>
-        <IF TEXTBOX>
-        <IF PROMPT>
+<FIELD_LOOP>
+  <IF TEXTBOX>
+    <IF PROMPT>
         <Label Height="23"  Width="120" Margin="<PROMPT_PIXEL_COL>,<PROMPT_PIXEL_ROW>,0,0" Name="Lbl<Field_sqlname>" HorizontalAlignment="Left" VerticalAlignment="Top"><FIELD_PROMPT></Label>
-        </IF>
+    </IF>
         <TextBox Height="23" Width="<FIELD_PIXEL_WIDTH>" Margin="<FIELD_PIXEL_COL>,<FIELD_PIXEL_ROW>,0,0" Name="Txt<Field_sqlname>" HorizontalAlignment="Left" VerticalAlignment="Top" MaxLength="<FIELD_SIZE>"<IF DISABLED> IsEnabled="False"</IF><IF READONLY> IsReadOnly="True"</IF><IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF><IF UPPERCASE> CharacterCasing="Upper" </IF><IF REVERSE> Background="Black" Foreground="White"</IF>><IF DEFAULT><FIELD_DEFAULT></IF></TextBox>
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         <Button Name="BtnOK" Height="23" Width="75" Margin="0,0,100,10"  HorizontalAlignment="Right" VerticalAlignment="Bottom" Click="BtnOK_Click">OK</Button>
         <Button Name="BtnCancel" Height="23" Width="75" Margin="0,0,10,10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Click="BtnCancel_Click">Cancel</Button>
     </Grid>

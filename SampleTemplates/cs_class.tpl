@@ -72,15 +72,15 @@ namespace <NAMESPACE>
 
         #region Private fields (storage for properties)
 
-        <FIELD_LOOP>
+<FIELD_LOOP>
         private <FIELD_CSTYPE> p_<Field_Sqlname>;
-        </FIELD_LOOP>
+</FIELD_LOOP>
 
         #endregion
 
         #region Public properties (expose data to consumers)
 
-        <FIELD_LOOP>
+<FIELD_LOOP>
         //<FIELD_DESC>
         public <FIELD_CSTYPE> <Field_Sqlname>
         {
@@ -90,8 +90,11 @@ namespace <NAMESPACE>
             }
             set
             {
-                <IF NUMERIC>
-                <IF NOTDATE>
+  <IF NOT NUMERIC>
+                p_<Field_Sqlname> = value;
+  <ELSE NUMERIC AND DATE>
+                p_<Field_Sqlname> = value;
+  <ELSE NUMERIC AND NOT DATE>
                 if ((value>=<FIELD_MINVALUE>)&&(value<=<FIELD_MAXVALUE>))
                 {
                     p_<Field_Sqlname> = value;
@@ -100,18 +103,11 @@ namespace <NAMESPACE>
                 {
                     throw new Exception("Value must be in the range <FIELD_MINVALUE> to <FIELD_MAXVALUE>.");
                 }
-                </IF>
-                <IF DATE>
-                p_<Field_Sqlname> = value;
-                </IF>
-                </IF>
-                <IF NOTNUMERIC>
-                p_<Field_Sqlname> = value;
-                </IF>
+  </IF>
             }
         }
 
-        </FIELD_LOOP>
+</FIELD_LOOP>
 
         //Expose the full Synergy record
         public string Record
@@ -126,49 +122,37 @@ namespace <NAMESPACE>
 
         private void parseRecord(string SynergyRecord)
         {
-            <FIELD_LOOP>
-            <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
             p_<Field_Sqlname> = SynergyRecord.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>).Trim();
-            </IF>
-            <IF DECIMAL>
-            <IF NOPRECISION>
+  <ELSE DECIMAL AND NOT PRECISION>
             p_<Field_Sqlname> = Int32.Parse(SynergyRecord.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
-            </IF>
-            <IF PRECISION>
+  <ELSE DECIMAL AND PRECISION>
             p_<Field_Sqlname> = decimalFromAlpha(SynergyRecord.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>), <FIELD_PRECISION>);
-            </IF>
-            </IF>
-            <IF DATE>
+  <ELSE DATE>
             p_<Field_Sqlname> = dateFromAlpha(SynergyRecord.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
-            </IF>
-            <IF TIME>
+  <ELSE TIME>
             p_<Field_Sqlname> = timeFromAlpha(SynergyRecord.Substring(<FIELD_POSITION_ZERO>,<FIELD_SIZE>));
-            </IF>
-            </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         }
 
         private string buildRecord()
         {
             string newRecord="";
-            <FIELD_LOOP>
-            <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
             newRecord = newRecord.Insert(newRecord.Length, stringToAlpha(p_<Field_Sqlname>, <FIELD_SIZE>));
-            </IF>
-            <IF DECIMAL>
-            <IF NOPRECISION>
+  <ELSE DECIMAL AND NOT PRECISION>
             newRecord = newRecord.Insert(newRecord.Length, numericToAlpha(p_<Field_Sqlname>, <FIELD_SIZE>));
-            </IF>
-            <IF PRECISION>
+  <ELSE DECIMAL AND PRECISION>
             newRecord = newRecord.Insert(newRecord.Length, numericToAlpha(p_<Field_Sqlname>, <FIELD_SIZE>, <FIELD_PRECISION>));
-            </IF>
-            </IF>
-            <IF DATE>
+  <ELSE DATE>
             newRecord = newRecord.Insert(newRecord.Length, dateToAlpha(p_<Field_Sqlname>, <FIELD_SIZE>));
-            </IF>
-            <IF TIME>
+  <ELSE TIME>
             newRecord = newRecord.Insert(newRecord.Length, timeToAlpha(p_<Field_Sqlname>, <FIELD_SIZE>));
-            </IF>
-            </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
             return newRecord;
         }
@@ -507,4 +491,3 @@ namespace <NAMESPACE>
         #endregion
     }
 }
-

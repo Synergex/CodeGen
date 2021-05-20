@@ -139,7 +139,7 @@ namespace <NAMESPACE>
                 end
             end
 
-            <ALTERNATE_KEY_LOOP>
+<ALTERNATE_KEY_LOOP>
             ;;Create index <KEY_NUMBER> (<KEY_DESCRIPTION>)
             if (ok)
             begin
@@ -150,7 +150,7 @@ namespace <NAMESPACE>
                 end
             end
 
-            </ALTERNATE_KEY_LOOP>
+</ALTERNATE_KEY_LOOP>
             ;;Grant access permissions
             if (ok&&(ok=openNonSelectCursor("GRANT ALL ON <StructureName> TO PUBLIC",cursor)))
             begin
@@ -171,8 +171,8 @@ namespace <NAMESPACE>
         ;;; </summary>
         ;;; <returns>True for success, false for failure</returns>
         public method Drop, boolean
-			endparams
-			.include "CONNECTDIR:ssql.def"
+            endparams
+            .include "CONNECTDIR:ssql.def"
             stack record local_data
                 ok          ,boolean    ;;Return status
                 cursor      ,int        ;;Database cursor
@@ -269,8 +269,8 @@ namespace <NAMESPACE>
         ;;; </summary>
         ;;; <returns>True if the table exists, false if not (or an error occurred)</returns>
         public method Exists, boolean
-			endparams
-			.include "CONNECTDIR:ssql.def"
+            endparams
+            .include "CONNECTDIR:ssql.def"
             .include "<STRUCTURE_NOALIAS>" repository, stack record="<structure_name>"
             stack record local_data
                 ok          ,boolean    ;;Return value
@@ -364,180 +364,180 @@ namespace <NAMESPACE>
 
         endmethod
 
-		;;; <summary>
-		;;; Inserts multiple new rows into the <StructureName> table in the database.
-		;;; </summary>
-		;;; <param name="argRecords">Collection of any number of boxed <StructureName> records to insert.</param>
-		;;; <returns>True for success, false for failure.</returns>
-		public method InsertRows        ,boolean
-			required in  argRecords     ,@ArrayList
-			endparams
-		proc
-			mreturn doInsertRows(argRecords,^null,0)
-		endmethod
+        ;;; <summary>
+        ;;; Inserts multiple new rows into the <StructureName> table in the database.
+        ;;; </summary>
+        ;;; <param name="argRecords">Collection of any number of boxed <StructureName> records to insert.</param>
+        ;;; <returns>True for success, false for failure.</returns>
+        public method InsertRows        ,boolean
+            required in  argRecords     ,@ArrayList
+            endparams
+        proc
+            mreturn doInsertRows(argRecords,^null,0)
+        endmethod
 
-		;;; <summary>
-		;;; Inserts multiple new rows into the <StructureName> table in the database
-		;;; and returns a collection containing the data for any rows that failed to
-		;;; insert.
-		;;; </summary>
-		;;; <param name="argRecords">Collection of any number of boxed <StructureName> records to insert.</param>
-		;;; <param name="argExceptions">Collection of records that failed to insert.</param>
-		;;; <returns>True for success, false for failure.</returns>
-		public method InsertRows        ,boolean
-			required in  argRecords     ,@ArrayList
-			required out argExceptions  ,@ArrayList
-			endparams
-		proc
-			if (argExceptions==^null)
-				argExceptions = new ArrayList()
-			mreturn doInsertRows(argRecords,argExceptions,0)
-		endmethod
+        ;;; <summary>
+        ;;; Inserts multiple new rows into the <StructureName> table in the database
+        ;;; and returns a collection containing the data for any rows that failed to
+        ;;; insert.
+        ;;; </summary>
+        ;;; <param name="argRecords">Collection of any number of boxed <StructureName> records to insert.</param>
+        ;;; <param name="argExceptions">Collection of records that failed to insert.</param>
+        ;;; <returns>True for success, false for failure.</returns>
+        public method InsertRows        ,boolean
+            required in  argRecords     ,@ArrayList
+            required out argExceptions  ,@ArrayList
+            endparams
+        proc
+            if (argExceptions==^null)
+                argExceptions = new ArrayList()
+            mreturn doInsertRows(argRecords,argExceptions,0)
+        endmethod
 
-		;;; <summary>
-		;;; Inserts multiple new rows into the <StructureName> table in the database
-		;;; and logs any errors to a supplied log channel.
-		;;; </summary>
-		;;; <param name="argRecords">Collection of any number of boxed <StructureName> records to insert.</param>
-		;;; <param name="argLogCh">Channel to log error messages to.</param>
-		;;; <returns>True for success, false for failure.</returns>
-		public method InsertRows        ,boolean
-			required in argRecords      ,@ArrayList
-			required in argLogCh        ,i
-			endparams
-		proc
-			mreturn doInsertRows(argRecords,^null,argLogCh)
-		endmethod
+        ;;; <summary>
+        ;;; Inserts multiple new rows into the <StructureName> table in the database
+        ;;; and logs any errors to a supplied log channel.
+        ;;; </summary>
+        ;;; <param name="argRecords">Collection of any number of boxed <StructureName> records to insert.</param>
+        ;;; <param name="argLogCh">Channel to log error messages to.</param>
+        ;;; <returns>True for success, false for failure.</returns>
+        public method InsertRows        ,boolean
+            required in argRecords      ,@ArrayList
+            required in argLogCh        ,i
+            endparams
+        proc
+            mreturn doInsertRows(argRecords,^null,argLogCh)
+        endmethod
 
-		;;; <summary>
-		;;; Inserts multiple new rows into the <StructureName> table in the database,
-		;;; returns a collection containing the data for any rows that failed to
-		;;; insert, and also logs errors to s supplied log channel.
-		;;; </summary>
-		;;; <param name="argRecords">Collection of any number of boxed <StructureName> records to insert.</param>
-		;;; <param name="argExceptions">Collection of records that failed to inserted.</param>
-		;;; <param name="argLogCh">Channel to log error messages to.</param>
-		;;; <returns>True for success, false for failure.</returns>
-		public method InsertRows        ,boolean
-			required in  argRecords     ,@ArrayList
-			required out argExceptions  ,@ArrayList
-			required in  argLogCh       ,i
-			endparams
-		proc
-			if (argExceptions==^null)
-				argExceptions = new ArrayList()
-			mreturn doInsertRows(argRecords,argExceptions,argLogCh)
-		endmethod
+        ;;; <summary>
+        ;;; Inserts multiple new rows into the <StructureName> table in the database,
+        ;;; returns a collection containing the data for any rows that failed to
+        ;;; insert, and also logs errors to s supplied log channel.
+        ;;; </summary>
+        ;;; <param name="argRecords">Collection of any number of boxed <StructureName> records to insert.</param>
+        ;;; <param name="argExceptions">Collection of records that failed to inserted.</param>
+        ;;; <param name="argLogCh">Channel to log error messages to.</param>
+        ;;; <returns>True for success, false for failure.</returns>
+        public method InsertRows        ,boolean
+            required in  argRecords     ,@ArrayList
+            required out argExceptions  ,@ArrayList
+            required in  argLogCh       ,i
+            endparams
+        proc
+            if (argExceptions==^null)
+                argExceptions = new ArrayList()
+            mreturn doInsertRows(argRecords,argExceptions,argLogCh)
+        endmethod
 
-		private method doInsertRows, boolean
-			required in argRecords      ,@ArrayList
-			required in argExceptions   ,@ArrayList
-			required in argLogCh        ,i
-			endparams
-			stack record local_data
-				ok          ,boolean    ;;Return status
-				cursor      ,int        ;;Database cursor
-				transaction ,boolean    ;;Transaction in progress
-				continue    ,int        ;;Continue after an error
-				rec<StructureName>, str<StructureName>All
-				obj<StructureName>, @str<StructureName>All
-			endrecord
-		proc
+        private method doInsertRows, boolean
+            required in argRecords      ,@ArrayList
+            required in argExceptions   ,@ArrayList
+            required in argLogCh        ,i
+            endparams
+            stack record local_data
+                ok          ,boolean    ;;Return status
+                cursor      ,int        ;;Database cursor
+                transaction ,boolean    ;;Transaction in progress
+                continue    ,int        ;;Continue after an error
+                rec<StructureName>, str<StructureName>All
+                obj<StructureName>, @str<StructureName>All
+            endrecord
+        proc
 
-			init local_data
-			ok = true
+            init local_data
+            ok = true
 
-			;;Start a database transaction
-			if (ok = startTransaction())
-				transaction = true
+            ;;Start a database transaction
+            if (ok = startTransaction())
+                transaction = true
 
-			;;Open a cursor for the INSERT statement
-			if (ok)
-				ok = openNonSelectCursor(mInsertStatement,cursor)
+            ;;Open a cursor for the INSERT statement
+            if (ok)
+                ok = openNonSelectCursor(mInsertStatement,cursor)
 
-			;;Prepare a structure definition to define where the data for each column
-			;;comes from within the record
-			if (ok)
-				ok = defineStructure(cursor,1,recordSpec,rec<StructureName>)
+            ;;Prepare a structure definition to define where the data for each column
+            ;;comes from within the record
+            if (ok)
+                ok = defineStructure(cursor,1,recordSpec,rec<StructureName>)
 
-			;;Insert the rows into the database
-			if (ok)
-			begin
-				data cnt, int
-				foreach obj<StructureName> in argRecords
-				begin
-					;;Load data into the bound record
-					rec<StructureName> = (str<StructureName>All)obj<StructureName>
+            ;;Insert the rows into the database
+            if (ok)
+            begin
+                data cnt, int
+                foreach obj<StructureName> in argRecords
+                begin
+                    ;;Load data into the bound record
+                    rec<StructureName> = (str<StructureName>All)obj<StructureName>
 
-					;;If requested, clean the data
-					if (mCleanData)
-						clean<StructureName>Data(rec<StructureName>)
+                    ;;If requested, clean the data
+                    if (mCleanData)
+                        clean<StructureName>Data(rec<StructureName>)
 
-					;;If requested, null terminate empty alpha fields
-					if (mEmptyAlphaNull)
-						nullTerminateEmptyAlphas(rec<StructureName>)
+                    ;;If requested, null terminate empty alpha fields
+                    if (mEmptyAlphaNull)
+                        nullTerminateEmptyAlphas(rec<StructureName>)
 
-					;;Execute the INSERT statement
-					if (!(ok = executeNonSelectCursor(cursor)))
-					begin
-						;;We got an error, lets decide what to do with it
-						clear continue
+                    ;;Execute the INSERT statement
+                    if (!(ok = executeNonSelectCursor(cursor)))
+                    begin
+                        ;;We got an error, lets decide what to do with it
+                        clear continue
 
-						;;Are we logging errors?
-						if (argLogCh)
-						begin
-							writes(argLogCh,mErrorMessage)
-							continue=1
-						end
+                        ;;Are we logging errors?
+                        if (argLogCh)
+                        begin
+                            writes(argLogCh,mErrorMessage)
+                            continue=1
+                        end
 
-						;;Are we processing exceptions?
-						if (argExceptions!=^null)
-						begin
-							argExceptions.Add((@str<StructureName>All)rec<StructureName>)
-							continue=1
-						end
+                        ;;Are we processing exceptions?
+                        if (argExceptions!=^null)
+                        begin
+                            argExceptions.Add((@str<StructureName>All)rec<StructureName>)
+                            continue=1
+                        end
 
-						if (continue)
-						begin
-							ok = true
-							nextloop
-						end
+                        if (continue)
+                        begin
+                            ok = true
+                            nextloop
+                        end
 
-						exitloop
-					end
-				end
-			end
+                        exitloop
+                    end
+                end
+            end
 
-			;;Close the cursor
-			closeCursor(cursor,ok)
+            ;;Close the cursor
+            closeCursor(cursor,ok)
 
-			;;Commit or rollback the transaction
-			if (transaction)
-				ok = commitOrRollback(ok)
+            ;;Commit or rollback the transaction
+            if (transaction)
+                ok = commitOrRollback(ok)
 
-			mreturn ok
+            mreturn ok
 
-		endmethod
+        endmethod
 
         ;;; <summary>
         ;;; Retrieves a row from the <StructureName> table in the database
         ;;; </summary>
-        <PRIMARY_KEY>
-        <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
         ;;; <param name="arg<SegmentName>">Primary key segment <segment_name></param>
-        </SEGMENT_LOOP>
-        </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
         ;;; <param name="arg<StructureName>"><StructureName> record to return data in</param>
         ;;; <returns>True for success, false for failure</returns>
         public method SelectRow, boolean
-            <PRIMARY_KEY>
-            <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
             required in  arg<SegmentName>, a
-            </SEGMENT_LOOP>
-            </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
             required out arg<StructureName>, str<StructureName>All
-			endparams
-			.include "CONNECTDIR:ssql.def"
+            endparams
+            .include "CONNECTDIR:ssql.def"
             stack record local_data
                 ok              ,boolean    ;;OK to continue
                 cursor          ,int        ;;Database cursor
@@ -576,8 +576,8 @@ namespace <NAMESPACE>
         public method SelectRows, boolean
             required in  argWhere, string
             required out argRows,  @ArrayList
-			endparams
-			.include "CONNECTDIR:ssql.def"
+            endparams
+            .include "CONNECTDIR:ssql.def"
             stack record local_data
                 ok, boolean                             ;;OK to continue
                 cursor, int                             ;;Database cursor
@@ -627,20 +627,20 @@ namespace <NAMESPACE>
         ;;; <summary>
         ;;; Deletes a row from the <StructureName> table in the database
         ;;; </summary>
-        <PRIMARY_KEY>
-        <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
         ;;; <param name="arg<SegmentName>">Primary key segment <SegmentName></param>
-        </SEGMENT_LOOP>
-        </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
         ;;; <returns>True for success, false for failure</returns>
         public method DeleteRow, boolean
-            <PRIMARY_KEY>
-            <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
             required in  arg<SegmentName> ,a
-            </SEGMENT_LOOP>
-            </PRIMARY_KEY>
-			endparams
-			.include "CONNECTDIR:ssql.def"
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
+            endparams
+            .include "CONNECTDIR:ssql.def"
             stack record local_data
                 ok          ,boolean    ;;Return status
                 transaction ,boolean    ;;Transaction in progress
@@ -751,15 +751,15 @@ namespace <NAMESPACE>
             if (ok)
             begin
                 sql = "UPDATE <StructureName> SET "
-                <FIELD_LOOP>
+<FIELD_LOOP>
                 & "<FieldSqlName>=:<FIELD#LOGICAL><,>"
-                </FIELD_LOOP>
+</FIELD_LOOP>
                 & " WHERE"
-                <PRIMARY_KEY>
-                <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
                 & " <SegmentName>='" + %atrim(^a(rec<StructureName>.<segment_name>)) + "' <AND>"
-                </SEGMENT_LOOP>
-                </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
 
                 ok = openNonSelectCursor(sql,cursor)
             end
@@ -784,195 +784,195 @@ namespace <NAMESPACE>
 
         endmethod
 
-		;;; <summary>
-		;;; Loads data from the file <FILE_NAME> into the <StructureName> table in the database.
-		;;; </summary>
-		;;; <returns>True on successful load or false if an error occurred.</returns>
-		public method Load, boolean
-			endparams
-			record 
-				rows		,int
-				failrows	,int
-			endrecord
-		proc
-			mreturn Load(false,0,rows=0,failrows)
-		endmethod
+        ;;; <summary>
+        ;;; Loads data from the file <FILE_NAME> into the <StructureName> table in the database.
+        ;;; </summary>
+        ;;; <returns>True on successful load or false if an error occurred.</returns>
+        public method Load, boolean
+            endparams
+            record 
+                rows        ,int
+                failrows    ,int
+            endrecord
+        proc
+            mreturn Load(false,0,rows=0,failrows)
+        endmethod
 
-		;;; <summary>
-		;;; Loads data from the file <FILE_NAME> into the <StructureName> table in the database.
-		;;; </summary>
-		;;; <param name="a_logex">Whether to log exception records to a file.</param>
-		;;; <returns>
-		;;; True on successful load or false if an error occurred.
-		;;; If exceptions are encountered but logged to a file then the return status will be true.
-		;;; </returns>
-		public method Load, boolean
-			required in    a_logex      ,boolean
-			endparams
-			record 
-				rows		,int
-				failrows	,int
-			endrecord
-		proc
-			mreturn Load(a_logex,0,rows=0,failrows)
-		endmethod
+        ;;; <summary>
+        ;;; Loads data from the file <FILE_NAME> into the <StructureName> table in the database.
+        ;;; </summary>
+        ;;; <param name="a_logex">Whether to log exception records to a file.</param>
+        ;;; <returns>
+        ;;; True on successful load or false if an error occurred.
+        ;;; If exceptions are encountered but logged to a file then the return status will be true.
+        ;;; </returns>
+        public method Load, boolean
+            required in    a_logex      ,boolean
+            endparams
+            record 
+                rows        ,int
+                failrows    ,int
+            endrecord
+        proc
+            mreturn Load(a_logex,0,rows=0,failrows)
+        endmethod
 
-		;;; <summary>
-		;;; Loads data from the file <FILE_NAME> into the <StructureName> table in the database.
-		;;; </summary>
-		;;; <param name="a_logchan">Open channel to log error messages to. Pass 0 to prevent logging.</param>
-		;;; <param name="a_rows">Passed maximum number of rows to load, and returned number of rows successfully loaded</param>
-		;;; <param name="a_failrows">Returned number of rows that failed to be inserted</param>
-		;;; <returns>True on successful load or false if an error occurred.</returns>
-		public method Load, boolean
-			required in    a_logchan    ,int
-			required inout a_rows       ,int
-			required out   a_failrows   ,int
-			endparams
-		proc
-			mreturn Load(false,a_logchan,a_rows,a_failrows)
-		endmethod
+        ;;; <summary>
+        ;;; Loads data from the file <FILE_NAME> into the <StructureName> table in the database.
+        ;;; </summary>
+        ;;; <param name="a_logchan">Open channel to log error messages to. Pass 0 to prevent logging.</param>
+        ;;; <param name="a_rows">Passed maximum number of rows to load, and returned number of rows successfully loaded</param>
+        ;;; <param name="a_failrows">Returned number of rows that failed to be inserted</param>
+        ;;; <returns>True on successful load or false if an error occurred.</returns>
+        public method Load, boolean
+            required in    a_logchan    ,int
+            required inout a_rows       ,int
+            required out   a_failrows   ,int
+            endparams
+        proc
+            mreturn Load(false,a_logchan,a_rows,a_failrows)
+        endmethod
 
-		;;; <summary>
-		;;; Loads data from the file <FILE_NAME> into the <StructureName> table in the database.
-		;;; </summary>
-		;;; <param name="a_logex">Whether to log exception records to a file.</param>
-		;;; <param name="a_logchan">Open channel to log error messages to. Pass 0 to prevent logging.</param>
-		;;; <param name="a_rows">Passed maximum number of rows to load, and returned number of rows successfully loaded</param>
-		;;; <param name="a_failrows">Returned number of rows that failed to be inserted</param>
-		;;; <returns>True on successful load or false if an error occurred. If exceptions are encountered but logged to a file then the return status will be true.</returns>
-		public method Load, boolean
-			required in    a_logex      ,boolean
-			required in    a_logchan    ,int
-			required inout a_rows       ,int
-			required out   a_failrows   ,int
-			endparams
-			.define BUFFER_ROWS 1000        ;;How manr rows load at once
-			stack record local_data
-				ok              ,boolean    ;;Return status
-				filechn         ,int        ;;Data file channel
-				ex_ch           ,int        ;;Exception log file channel
-				maxrows         ,int        ;;Max rows to load (for testing)
-				goodrows        ,int        ;;Rows successfully inserted
-				failrows        ,int        ;;Rows that failed to insert
-				rowData         ,@ArrayList ;;Row data to load
-				exceptionRows   ,@ArrayList ;;Rows that failed to load
-				rec<StructureName>      , str<StructureName>All
-				obj<StructureName>      , @str<StructureName>All
-			endrecord
-		proc
+        ;;; <summary>
+        ;;; Loads data from the file <FILE_NAME> into the <StructureName> table in the database.
+        ;;; </summary>
+        ;;; <param name="a_logex">Whether to log exception records to a file.</param>
+        ;;; <param name="a_logchan">Open channel to log error messages to. Pass 0 to prevent logging.</param>
+        ;;; <param name="a_rows">Passed maximum number of rows to load, and returned number of rows successfully loaded</param>
+        ;;; <param name="a_failrows">Returned number of rows that failed to be inserted</param>
+        ;;; <returns>True on successful load or false if an error occurred. If exceptions are encountered but logged to a file then the return status will be true.</returns>
+        public method Load, boolean
+            required in    a_logex      ,boolean
+            required in    a_logchan    ,int
+            required inout a_rows       ,int
+            required out   a_failrows   ,int
+            endparams
+            .define BUFFER_ROWS 1000        ;;How manr rows load at once
+            stack record local_data
+                ok              ,boolean    ;;Return status
+                filechn         ,int        ;;Data file channel
+                ex_ch           ,int        ;;Exception log file channel
+                maxrows         ,int        ;;Max rows to load (for testing)
+                goodrows        ,int        ;;Rows successfully inserted
+                failrows        ,int        ;;Rows that failed to insert
+                rowData         ,@ArrayList ;;Row data to load
+                exceptionRows   ,@ArrayList ;;Rows that failed to load
+                rec<StructureName>      , str<StructureName>All
+                obj<StructureName>      , @str<StructureName>All
+            endrecord
+        proc
 
-			init local_data
-			ok = true
+            init local_data
+            ok = true
 
-			maxrows = a_rows
+            maxrows = a_rows
 
-			;;Open the data file associated with the structure
-			try
-			begin
-				open(filechn=%syn_freechn,i:i,"<FILE_NAME>")
-			end
-			catch (ex)
-			begin
-				ok = false
-				mErrorMessage = "Failed to open file <FILE_NAME>. " + ex.Message
-				clear filechn
-			end
-			endtry
+            ;;Open the data file associated with the structure
+            try
+            begin
+                open(filechn=%syn_freechn,i:i,"<FILE_NAME>")
+            end
+            catch (ex)
+            begin
+                ok = false
+                mErrorMessage = "Failed to open file <FILE_NAME>. " + ex.Message
+                clear filechn
+            end
+            endtry
 
-			if (ok)
-			begin
-				data rowsLoaded, int, 0
+            if (ok)
+            begin
+                data rowsLoaded, int, 0
 
-				rowData = new ArrayList()
+                rowData = new ArrayList()
 
-				;;Read records from the input file
-				repeat
-				begin
-					;;Get the next record from the input file
-					try
-					begin
-						reads(filechn,rec<StructureName>)
-					end
-					catch (ex, @EndOfFileException)
-					begin
-						exitloop
-					end
-					endtry
+                ;;Read records from the input file
+                repeat
+                begin
+                    ;;Get the next record from the input file
+                    try
+                    begin
+                        reads(filechn,rec<StructureName>)
+                    end
+                    catch (ex, @EndOfFileException)
+                    begin
+                        exitloop
+                    end
+                    endtry
 
-					rowData.Add((@str<StructureName>All)rec<StructureName>)
+                    rowData.Add((@str<StructureName>All)rec<StructureName>)
 
-					if ((maxrows)&&((rowsLoaded+=1)>=maxRows))
-						exitloop
+                    if ((maxrows)&&((rowsLoaded+=1)>=maxRows))
+                        exitloop
 
-					;;If the buffer is full, write it to the database
-					if (rowData.Count==BUFFER_ROWS)
-						call insert_data
+                    ;;If the buffer is full, write it to the database
+                    if (rowData.Count==BUFFER_ROWS)
+                        call insert_data
 
-					if (!ok)
-						exitloop
-				end
+                    if (!ok)
+                        exitloop
+                end
 
-				;;So we have any remaining records to insert?
-				if (rowData.Count>0)
-					call insert_data
+                ;;So we have any remaining records to insert?
+                if (rowData.Count>0)
+                    call insert_data
 
-				rowData = ^null
+                rowData = ^null
 
-			end
+            end
 
-			;;Close the file
-			if (filechn)
-				close filechn
+            ;;Close the file
+            if (filechn)
+                close filechn
 
-			;;Close the exceptions log file
-			if (ex_ch)
-				close ex_ch
+            ;;Close the exceptions log file
+            if (ex_ch)
+                close ex_ch
 
-			;;Return number of rows inserted
-			a_rows = goodrows
+            ;;Return number of rows inserted
+            a_rows = goodrows
 
-			;;Return number of failed rows
-			a_failrows = failrows
+            ;;Return number of failed rows
+            a_failrows = failrows
 
-			mreturn ok
+            mreturn ok
 
-		insert_data,
+        insert_data,
 
-			if (this.InsertRows(rowData,exceptionRows,a_logchan))
-			begin
-				if (exceptionRows.Count==0) then
-					goodrows += rowData.Count
-				else
-				begin
-					;;Are we logging exceptions?
-					if (a_logex) then
-					begin
-						;;Open the log file and log the exceptions
-						if (!ex_ch)
-							open(ex_ch=0,o:s,"Exceptions_<StructureName>.log")
-						foreach obj<StructureName> in exceptionRows
-							writes(ex_ch,(str<StructureName>All)obj<StructureName>)
-						if (a_logchan)
-							writes(a_logchan,"Exceptions were logged to Exceptions_<StructureName>.log")
-						;;Update the lobal counters
-						goodrows += (rowData.Count-exceptionRows.Count)
-						failrows += exceptionRows.Count
-					end
-					else
-					begin
-						;;No logging, report and error
-						ok = false
-					end
-				end
-			end
+            if (this.InsertRows(rowData,exceptionRows,a_logchan))
+            begin
+                if (exceptionRows.Count==0) then
+                    goodrows += rowData.Count
+                else
+                begin
+                    ;;Are we logging exceptions?
+                    if (a_logex) then
+                    begin
+                        ;;Open the log file and log the exceptions
+                        if (!ex_ch)
+                            open(ex_ch=0,o:s,"Exceptions_<StructureName>.log")
+                        foreach obj<StructureName> in exceptionRows
+                            writes(ex_ch,(str<StructureName>All)obj<StructureName>)
+                        if (a_logchan)
+                            writes(a_logchan,"Exceptions were logged to Exceptions_<StructureName>.log")
+                        ;;Update the lobal counters
+                        goodrows += (rowData.Count-exceptionRows.Count)
+                        failrows += exceptionRows.Count
+                    end
+                    else
+                    begin
+                        ;;No logging, report and error
+                        ok = false
+                    end
+                end
+            end
 
-			exceptionRows = ^null
-			rowData = new ArrayList()
+            exceptionRows = ^null
+            rowData = new ArrayList()
 
-			return
+            return
 
-		endmethod
+        endmethod
 
         ;;; <summary>
         ;;; Cleans the data in a <StructureName> record before it is inserted
@@ -983,20 +983,18 @@ namespace <NAMESPACE>
             required inout arg<StructureName>, str<StructureName>All
             endparams
         proc
-            <FIELD_LOOP>
-            <IF DECIMAL>
+<FIELD_LOOP>
+  <IF DECIMAL>
             if ((!arg<StructureName>.<field_sqlname>)||(!this.IsNumeric(^a(arg<StructureName>.<field_sqlname>))))
                 clear arg<StructureName>.<field_sqlname>
-            </IF DECIMAL>
-            <IF DATE>
+  <ELSE DATE>
             if ((!arg<StructureName>.<field_sqlname>)||(!this.IsNumeric(^a(arg<StructureName>.<field_sqlname>))))
                 ^a(arg<StructureName>.<field_sqlname>(1:1))=%char(0)
-            </IF DATE>
-            <IF TIME>
+  <ELSE TIME>
             if ((!arg<StructureName>.<field_sqlname>)||(!this.IsNumeric(^a(arg<StructureName>.<field_sqlname>))))
                 ^a(arg<StructureName>.<field_sqlname>(1:1))=%char(0)
-            </IF TIME>
-            </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         endmethod
 
         ;;; <summary>
@@ -1008,12 +1006,12 @@ namespace <NAMESPACE>
             required inout arg<StructureName>, str<StructureName>All
             endparams
         proc
-            <FIELD_LOOP>
-            <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
             if(!arg<StructureName>.<field_sqlname>)
                 arg<StructureName>.<field_sqlname>=%char(0)
-            </IF ALPHA>
-            </FIELD_LOOP>
+  </IF ALPHA>
+</FIELD_LOOP>
         endmethod
 
         ;;; <summary>
@@ -1023,15 +1021,15 @@ namespace <NAMESPACE>
             endparams
         proc
             recordSpec.fieldCount = <STRUCTURE_FIELDS>
-            <FIELD_LOOP>
-            <IF DATEORTIME>
+<FIELD_LOOP>
+  <IF DATEORTIME>
             recordSpec.fields[<FIELD#LOGICAL>].fieldType     = "A" ;;<FieldSqlName>
-            <ELSE>
+  <ELSE>
             recordSpec.fields[<FIELD#LOGICAL>].fieldType     = "<FIELD_TYPE>" ;;<FieldSqlName>
-            </IF DATEORTIME>
+  </IF DATEORTIME>
             recordSpec.fields[<FIELD#LOGICAL>].fieldSize     = <FIELD_SIZE>
             recordSpec.fields[<FIELD#LOGICAL>].fieldDecimals = <IF PRECISION><FIELD_PRECISION></IF PRECISION><IF NOPRECISION>0</IF NOPRECISION>
-            </FIELD_LOOP>
+</FIELD_LOOP>
         endmethod
 
         ;;; <summary>
@@ -1043,47 +1041,43 @@ namespace <NAMESPACE>
 
             if (mCreateTableStatement==^null)
                 mCreateTableStatement = "CREATE TABLE <StructureName> ("
-                <FIELD_LOOP>
+<FIELD_LOOP>
                 & "<FieldSqlName> <FIELD_SQLTYPE><IF REQUIRED> NOT NULL</IF REQUIRED>,"
-                </FIELD_LOOP>
+</FIELD_LOOP>
                 & "CONSTRAINT PK_<StructureName> PRIMARY KEY CLUSTERED (<PRIMARY_KEY><SEGMENT_LOOP><SegmentName> <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>))"
 
             if (mInsertStatement==^null)
                 mInsertStatement = "INSERT INTO <StructureName> ("
-                <FIELD_LOOP>
+<FIELD_LOOP>
                 & "<FieldSqlName><,>"
-                </FIELD_LOOP>
+</FIELD_LOOP>
                 & ") VALUES(<FIELD_LOOP>:<FIELD#LOGICAL><,></FIELD_LOOP>)"
 
             if (mSelectByKeyStatement==^null)
                 mSelectByKeyStatement = "SELECT "
-                <FIELD_LOOP>
-                <IF NOTDATE>
+<FIELD_LOOP>
+  <IF NOT DATE>
                 & "<FieldSqlName><,>"
-                </IF NOTDATE>
-                <IF DATE_YYYYMMDD>
+  <ELSE DATE_YYYYMMDD>
                 & "CONVERT(VARCHAR(8),<FieldSqlName>,112) AS [YYYYMMDD]<,>"
-                </IF DATE_YYYYMMDD>
-                <IF DATE_YYMMDD>
+  <ELSE DATE_YYMMDD>
                 & "CONVERT(VARCHAR(6),<FieldSqlName>,12) AS [YYMMDD]<,>"
-                </IF DATE_YYMMDD>
-                </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
                 & " FROM <StructureName>"
                 & " WHERE <PRIMARY_KEY><SEGMENT_LOOP> <SegmentName>=:<SEGMENT_NUMBER> <AND></SEGMENT_LOOP></PRIMARY_KEY>"
 
             if (mSelectAllStatement==^null)
                 mSelectAllStatement = "SELECT "
-                <FIELD_LOOP>
-                <IF NOTDATE>
+<FIELD_LOOP>
+  <IF NOT DATE>
                 & "<FieldSqlName><,>"
-                </IF NOTDATE>
-                <IF DATE_YYYYMMDD>
+  <ELSE DATE_YYYYMMDD>
                 & "CONVERT(VARCHAR(8),<FieldSqlName>,112) AS [YYYYMMDD]<,>"
-                </IF DATE_YYYYMMDD>
-                <IF DATE_YYMMDD>
+  <ELSE DATE_YYMMDD>
                 & "CONVERT(VARCHAR(6),<FieldSqlName>,12) AS [YYMMDD]<,>"
-                </IF DATE_YYMMDD>
-                </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
                 & " FROM <StructureName>"
 
             if (mDeleteByKeyStatement==^null)
@@ -1097,11 +1091,10 @@ namespace <NAMESPACE>
     ;;Can't use a repository include when using SSQL_STRDEF because the FULL
     ;;record must be used, including the "NONAME_XXX" fields!
     structure str<StructureName>All
-        <FIELD_LOOP>
+<FIELD_LOOP>
         <field_sqlname>, <field_spec>
-        </FIELD_LOOP>
+</FIELD_LOOP>
     endstructure
     .endc
 
 endnamespace
-

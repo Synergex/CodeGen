@@ -68,20 +68,20 @@ namespace <NAMESPACE>
 
         ;;---------------------------------------------------------------------
         ;;Private backing fields
-        <STRUCTURE_LOOP>
+<STRUCTURE_LOOP>
         ;;Fields from structure <STRUCTURE_NAME>
-        <FIELD_LOOP>
+  <FIELD_LOOP>
         private m<StructureName><FieldName>, <field_spec>
-        </FIELD_LOOP>
-        </STRUCTURE_LOOP>
+  </FIELD_LOOP>
+</STRUCTURE_LOOP>
 
         ;;---------------------------------------------------------------------
         ;;Public properties
 
-        <STRUCTURE_LOOP>
+<STRUCTURE_LOOP>
         ;;Properties from structure <STRUCTURE_NAME>
 
-        <FIELD_LOOP>
+  <FIELD_LOOP>
         ;;;<summary>
         ;;;<FIELD_DESC>
         ;;;</summary>
@@ -96,8 +96,8 @@ namespace <NAMESPACE>
             endmethod
         endproperty
 
-        </FIELD_LOOP>
-        </STRUCTURE_LOOP>
+  </FIELD_LOOP>
+</STRUCTURE_LOOP>
     endclass
 
 endnamespace

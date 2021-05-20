@@ -163,28 +163,23 @@ proc
             xcall <StructureName>Map(fileRecord,databaseRecord)
 
             ;;Put the record in the delimited bulk load file
-            <FIELD_LOOP>
-            <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
             row = row + %atrim(<FIELD_NAME>)
-            </IF ALPHA>
-            <IF DECIMAL>
+  <ELSE DECIMAL>
             row = row + %string(<FIELD_NAME>)
-            </IF DECIMAL>
-            <IF DATE>
+  <ELSE DATE>
             if (<FIELD_NAME>)
                 row = row + %string(<FIELD_NAME>,"XXXX-XX-XX")
-            </IF DATE>
-            <IF TIME_HHMM>
+  <ELSE TIME_HHMM>
             row = row + %string(<FIELD_NAME>,"XX:XX")
-            </IF TIME_HHMM>
-            <IF TIME_HHMMSS>
+  <ELSE TIME_HHMMSS>
             row = row + %string(<FIELD_NAME>,"XX:XX:XX")
-            </IF TIME_HHMMSS>
-            <IF INTEGER>
+  <ELSE INTEGER>
             row = row + %string(<FIELD_NAME>)
-            </IF INTEGER>
+  </IF>
             row = row +"|"
-            </FIELD_LOOP>
+</FIELD_LOOP>
             writes(chOut,row)
         end
     end
@@ -287,7 +282,6 @@ eof,
 
 endfunction
 
-
 ;;*****************************************************************************
 ;;
 ;; Routine:     <StructureName>Map
@@ -311,9 +305,9 @@ subroutine <StructureName>Map
 
 proc
 
-    <FIELD_LOOP>
+<FIELD_LOOP>
     <field_path> = <mapped_path_conv>
-    </FIELD_LOOP>
+</FIELD_LOOP>
 
     xreturn
 
@@ -342,9 +336,9 @@ subroutine <StructureName>Unmap
 
 proc
 
-    <FIELD_LOOP>
+<FIELD_LOOP>
     <mapped_path> = <field_path_conv>
-    </FIELD_LOOP>
+</FIELD_LOOP>
 
     xreturn
 

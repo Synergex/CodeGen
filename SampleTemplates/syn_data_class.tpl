@@ -57,18 +57,6 @@ namespace <NAMESPACE>
         ;;Private fields for storage of property data
         .include "<STRUCTURE_NOALIAS>" repository, private record="p<Structure_Name>"
 
-        ;;Constructor
-        public method <Structure_Name>
-        proc
-            mreturn
-        endmethod
-
-        ;;Destructor
-        public method ~<Structure_Name>
-        proc
-            mreturn
-        endmethod
-
         ;;Method to return data as a record
         public method ToString, a
         proc
@@ -77,7 +65,7 @@ namespace <NAMESPACE>
 
         ;;Properties
 
-        <FIELD_LOOP>
+<FIELD_LOOP>
         ;;<FIELD_DESC>
         public property <Field_Sqlname>, <field_type><FIELD_SIZE><FIELD_PRECISION2>
             method get
@@ -91,7 +79,7 @@ namespace <NAMESPACE>
             endmethod
         endproperty
 
-        </FIELD_LOOP>
+</FIELD_LOOP>
     endclass
 
 endnamespace

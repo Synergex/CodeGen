@@ -66,13 +66,12 @@ proc
 
     json = '{"<StructureName>":{'
 
-    <FIELD_LOOP>
+<FIELD_LOOP>
     json = json + '"<FieldName>":<IF ALPHA>"'+%atrim(<StructureName>.<field_name>)+'"</IF><IF NUMERIC>'+%string(<StructureName>.<field_name>)+'</IF><,>'
-    </FIELD_LOOP>
+</FIELD_LOOP>
 
     json = json + '}}'
 
     freturn json
 
 endfunction
-

@@ -70,13 +70,13 @@
 {xfMethod(interface="<XF_INTERFACE>",elb="<XF_ELB>")}
 function CanDelete<StructureName>, boolean
 
-    <PRIMARY_KEY>
-    <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
     {xfParameter(name="<SegmentName>")}
     required in a<SegmentName>  ,<segment_spec>
 
-    </SEGMENT_LOOP>
-    </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
     endparams
 
     stack record local_data
@@ -96,4 +96,3 @@ proc
     freturn retVal
 
 endfunction
-

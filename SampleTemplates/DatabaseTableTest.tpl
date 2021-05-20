@@ -98,9 +98,9 @@ proc
 
     try
     begin
-		db = new DatabaseConnection(1,DB_CONSTR)
-		db.MaxColumns = 1024
-		db.Connect()
+        db = new DatabaseConnection(1,DB_CONSTR)
+        db.MaxColumns = 1024
+        db.Connect()
     end
     catch (ex)
     begin
@@ -108,47 +108,47 @@ proc
     end
     endtry
 
-	if (ok)
-	begin
-		;;Create an instance of the table class
-		table = new ???Table(db)
+    if (ok)
+    begin
+        ;;Create an instance of the table class
+        table = new ???Table(db)
 
-		writes(tt,"Checking if table exists ... ")
-		if (table.Exists())
-		begin
-			writes(tt,"Deleting table ... ")
-			if (!table.Drop())
-			begin
-				writes(tt,table.ErrorMessage)
-				clear ok
-			end
-		end
-		if (ok)
-		begin
-			writes(tt,"Creating table ... ")
-			if (!table.Create())
-			begin
-				writes(tt,table.ErrorMessage)
-				clear ok
-			end
-		end
-	end
+        writes(tt,"Checking if table exists ... ")
+        if (table.Exists())
+        begin
+            writes(tt,"Deleting table ... ")
+            if (!table.Drop())
+            begin
+                writes(tt,table.ErrorMessage)
+                clear ok
+            end
+        end
+        if (ok)
+        begin
+            writes(tt,"Creating table ... ")
+            if (!table.Create())
+            begin
+                writes(tt,table.ErrorMessage)
+                clear ok
+            end
+        end
+    end
 
-	if (ok)
-	begin
-		writes(tt,"Loading table ... ")
-		;;Set rowcount to 0 to load the full file!
-		rowcount = 100
-		;table.CleanData = true
-		;table.EmptyAlphaNull = true
-		if (table.Load(true,tt,rowcount,failrows)) then
-			writes(tt,string(rowcount) + " rows loaded, "+string(failrows)+" failed")
-		else
-		begin
-			writes(tt,table.ErrorMessage)
-			clear ok
-		end
-	end
+    if (ok)
+    begin
+        writes(tt,"Loading table ... ")
+        ;;Set rowcount to 0 to load the full file!
+        rowcount = 100
+        ;table.CleanData = true
+        ;table.EmptyAlphaNull = true
+        if (table.Load(true,tt,rowcount,failrows)) then
+            writes(tt,string(rowcount) + " rows loaded, "+string(failrows)+" failed")
+        else
+        begin
+            writes(tt,table.ErrorMessage)
+            clear ok
+        end
+    end
 
     ;---------------------------------------------------------------------------
     ; Disconnect from the database

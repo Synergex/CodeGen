@@ -127,33 +127,29 @@ proc
         endtry
 
         ;;Make sure there are no commas in alpha fields
-        <FIELD_LOOP>
-        <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
         replaced += %ReplaceCharacter(<StructureName>.<field_name>,delimiter,replaceWith)
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
         csvBuf = ""
-        <FIELD_LOOP>
-        <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
         & + %atrim(<StructureName>.<field_name>)
-        </IF>
-        <IF DECIMAL>
+  <ELSE DECIMAL>
         & + %string(<StructureName>.<field_name>)
-        </IF>
-        <IF DATE>
+  <ELSE DATE>
         & + %DecimalToMDYString(<StructureName>.<field_name>)
-        </IF>
-        <IF TIME>
+  <ELSE TIME>
         & + %DecimalToTimeString(<StructureName>.<field_name>)
-        </IF>
-        <IF INTEGER>
+  <ELSE INTEGER>
         & + %string(<StructureName>.<field_name>)
-        </IF>
-        <IF MORE>
+  </IF>
+  <IF MORE>
         & + delimiter
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
         ;;Add the record to the output file
         writes(chOut,csvBuf)
@@ -175,4 +171,3 @@ proc
     freturn ok
 
 endfunction
-

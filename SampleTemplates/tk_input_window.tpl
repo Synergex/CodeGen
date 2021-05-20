@@ -82,4 +82,3 @@
 .title "<STRUCTURE_DESC> Criteria", top, center
 .repository_structure <STRUCTURE_NAME>
 .end
-

@@ -79,17 +79,16 @@ proc
     root_elem = xml_elem_create()
     xml_elem_setname(root_elem,"<STRUCTURE_NAME>")
 
-    <FIELD_LOOP>
+<FIELD_LOOP>
     child_elem = xml_elem_create()
     xml_elem_setname(child_elem,"<FIELD_SQLNAME>")
     xml_elem_settext(child_elem,<FIELD_PATH>)
     xml_elem_addchild(root_elem,child_elem)
 
-    </FIELD_LOOP>
+</FIELD_LOOP>
 
     xml_option("ENCODE",SYNESCAPE_OFF)
 
     freturn root_elem
 
 endfunction
-

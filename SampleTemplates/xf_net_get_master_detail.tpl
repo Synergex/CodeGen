@@ -85,9 +85,9 @@ import System.Collections
 ;;; Retrieves an <StructureName>
 ;;;</summary>
 <PRIMARY_KEY>
-<SEGMENT_LOOP>
+  <SEGMENT_LOOP>
 ;;;<param name="<SegmentName>">Primary key of <StructureName></param>
-</SEGMENT_LOOP>
+  </SEGMENT_LOOP>
 </PRIMARY_KEY>
 ;;;<param name="<StructureName>">Returned <StructureName> record</param>
 <STRUCTURE#2>
@@ -97,47 +97,47 @@ import System.Collections
 {xfMethod(interface="<XF_INTERFACE>",elb="<XF_ELB>")}
 function Get<StructureName>, Boolean
 
-    <PRIMARY_KEY>
-    <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
     {xfParameter(name="<SegmentName>")}
     required in  a<SegmentName>, <segment_spec>
-    </SEGMENT_LOOP>
-    </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
     
     {xfParameter(name="<StructureName>")}
     required out a<StructureName>, str<StructureName>
     
-    <STRUCTURE#2>
+<STRUCTURE#2>
     {xfParameter(name="<StructureName>s",collectionType=xfCollectType.structure,structure="str<StructureName>")}
     required out a<StructureName>s, @ArrayList
-    <STRUCTURE#1>
+<STRUCTURE#1>
     
     endparams
 
     stack record localData
         ok, Boolean
         ch<StructureName>, int
-        <STRUCTURE#2>
+<STRUCTURE#2>
         ch<StructureName>, int
         <structure_name>, str<StructureName>
-        <STRUCTURE#1>
+<STRUCTURE#1>
         mainKey, a^size(str<StructureName>)
     endrecord
 
 proc
     ok = true
     init a<StructureName>
-    <STRUCTURE#2>
+<STRUCTURE#2>
     a<StructureName>s = new ArrayList()
-    <STRUCTURE#1>
+<STRUCTURE#1>
 
     ;;Open the data files
     try
     begin
         open(ch<StructureName>=0,i:i,"<FILE_NAME>")
-        <STRUCTURE#2>
+<STRUCTURE#2>
         open(ch<StructureName>=0,i:i,"<FILE_NAME>")
-        <STRUCTURE#1>
+<STRUCTURE#1>
     end
     catch (ex)
     begin
@@ -148,11 +148,11 @@ proc
     ;;Load the <StructureName> record
     if (ok)
     begin
-        <PRIMARY_KEY>
-        <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
         a<StructureName>.<segment_name> = a<SegmentName>
-        </SEGMENT_LOOP>
-        </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
         try
         begin
             mainKey = %keyval(ch<StructureName>,a<StructureName>,0)
@@ -165,7 +165,7 @@ proc
         endtry
     end
 
-    <STRUCTURE#2>
+<STRUCTURE#2>
     ;;Position to <StructureName> record
     if (ok)
     begin
@@ -207,23 +207,23 @@ proc
             endtry
         end
     end
-    <STRUCTURE#1>
+<STRUCTURE#1>
 
     ;;Close the data file channels
     if (ch<StructureName>&&chopen(ch<StructureName>))
         close ch<StructureName>
-    <STRUCTURE#2>
+<STRUCTURE#2>
     if (ch<StructureName>&&chopen(ch<StructureName>))
         close ch<StructureName>
-    <STRUCTURE#1>
+<STRUCTURE#1>
 
     ;;If we had an error make sure we don't return any data
     if (!ok)
     begin
         init a<StructureName>
-        <STRUCTURE#2>
+<STRUCTURE#2>
         clear a<StructureName>s
-        <STRUCTURE#1>
+<STRUCTURE#1>
     end
 
     freturn ok

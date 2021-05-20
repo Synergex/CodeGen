@@ -88,30 +88,30 @@
                 <VisualState x:Name="EditKeyState">
                     <Storyboard>
 <FIELD_LOOP>
-<IF NOTPKSEGMENT>
-<IF RADIOBUTTONS>
-<SELECTION_LOOP>
+  <IF NOT PKSEGMENT>
+    <IF RADIOBUTTONS>
+      <SELECTION_LOOP>
                         <BooleanAnimationUsingKeyFrames Storyboard.TargetProperty="(UIElement.IsEnabled)" Storyboard.TargetName="fld<FieldSqlName><SELECTION_NUMBER>">
                             <DiscreteBooleanKeyFrame KeyTime="0" Value="False"/>
                         </BooleanAnimationUsingKeyFrames>
-</SELECTION_LOOP>
-<ELSE>
+      </SELECTION_LOOP>
+    <ELSE>
                         <BooleanAnimationUsingKeyFrames Storyboard.TargetProperty="(UIElement.IsEnabled)" Storyboard.TargetName="fld<FieldSqlName>">
                             <DiscreteBooleanKeyFrame KeyTime="0" Value="False"/>
                         </BooleanAnimationUsingKeyFrames>
-</IF RADIOBUTTONS>
-</IF NOTPKSEGMENT>
+    </IF>
+  </IF>
 </FIELD_LOOP>
                     </Storyboard>
                 </VisualState>
                 <VisualState x:Name="EditDataState">
                     <Storyboard>
 <FIELD_LOOP>
-<IF PKSEGMENT>
+  <IF PKSEGMENT>
                         <BooleanAnimationUsingKeyFrames Storyboard.TargetProperty="(UIElement.IsEnabled)" Storyboard.TargetName="fld<FieldSqlName>">
                             <DiscreteBooleanKeyFrame KeyTime="0" Value="False"/>
                         </BooleanAnimationUsingKeyFrames>
-</IF PKSEGMENT>
+  </IF PKSEGMENT>
 </FIELD_LOOP>
                     </Storyboard>
                 </VisualState>
@@ -133,44 +133,41 @@
             </Grid.ColumnDefinitions>
 
 <FIELD_LOOP>
-<IF PROMPT>
+  <IF PROMPT>
             <Label Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="0"
                      Content="{Binding Path=<StructureName>.<FieldSqlName>Prompt}" />
 
-</IF PROMPT>
-<IF TEXTBOX>
+  </IF>
+  <IF TEXTBOX>
             <TextBox x:Name="fld<FieldSqlName>" Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1"
                      Text="{Binding Path=<StructureName>.<FieldSqlName>,ValidatesOnDataErrors=True,UpdateSourceTrigger=PropertyChanged}"
                      MaxLength="{Binding Path=<StructureName>.<FieldSqlName>Length}"
                      ToolTip="{Binding Path=<StructureName>.<FieldSqlName>ToolTip}"
                      Width="<FIELD_PIXEL_WIDTH>"/>
-</IF TEXTBOX>
-<IF COMBOBOX>
+  <ELSE COMBOBOX>
             <ComboBox x:Name="fld<FieldSqlName>" Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1"
                     ToolTip="{Binding Path=<StructureName>.<FieldSqlName>ToolTip}"
                     SelectedIndex="0">
-                <SELECTION_LOOP>
+    <SELECTION_LOOP>
                 <ComboBoxItem Tag="<SELECTION_VALUE>"><SELECTION_TEXT></ComboBoxItem>
-                </SELECTION_LOOP>
+    </SELECTION_LOOP>
             </ComboBox>
-</IF COMBOBOX>
-<IF CHECKBOX>
+  <ELSE CHECKBOX>
             <CheckBox x:Name="fld<FieldSqlName>" Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1"
                 IsChecked="{Binding Path=<StructureName>.<FieldSqlName>}"
                 ToolTip="{Binding Path=<StructureName>.<FieldSqlName>ToolTip}">
                 <FIELD_PROMPT>
             </CheckBox>
-</IF CHECKBOX>
-<IF RADIOBUTTONS>
+  <ELSE RADIOBUTTONS>
             <StackPanel Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1">
-                <SELECTION_LOOP>
+    <SELECTION_LOOP>
                 <RadioButton x:Name="fld<FieldSqlName><SELECTION_NUMBER>" Tag="<SELECTION_VALUE>"<IF FIRST> IsChecked="True"</IF>
                     ToolTip="{Binding Path=<StructureName>.<FieldSqlName>ToolTip}" >
                     <SELECTION_TEXT>
                 </RadioButton>
-                </SELECTION_LOOP>
+    </SELECTION_LOOP>
             </StackPanel>
-</IF RADIOBUTTONS>
+  </IF>
 
 </FIELD_LOOP>
 
@@ -185,4 +182,3 @@
     </Grid>
 
 </UserControl>
-

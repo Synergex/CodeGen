@@ -60,14 +60,14 @@ Partial Class Frm<WindowName>
 
     Protected Sub Page_Load(ByVal sender As Object, ByVal e As System.EventArgs) Handles Me.Load
 
-        <FIELD_LOOP>
-        <IF COMBOBOX>
+<FIELD_LOOP>
+  <IF COMBOBOX>
         If Not IsPostBack Then
             cbo<Field_Sqlname>_load()
         End If
 
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
     End Sub
 
     Protected Sub btnOk_Click(ByVal sender As Object, ByVal e As System.EventArgs) Handles btnOk.Click
@@ -90,8 +90,8 @@ Partial Class Frm<WindowName>
     '   </FIELD_LOOP>
     'End Sub
 
-    <FIELD_LOOP>
-    <IF COMBOBOX>
+<FIELD_LOOP>
+  <IF COMBOBOX>
 
     Protected Sub cbo<Field_Sqlname>_load()
         Dim Items() As String = Split(<FIELD_SELECTIONS1>, "|")
@@ -99,8 +99,7 @@ Partial Class Frm<WindowName>
             cbo<Field_Sqlname>.Items.Add(Item)
         Next
     End Sub
-    </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
 End Class
-

@@ -63,17 +63,16 @@ KEY <KEY_NUMBER>
     ORDER       <SEGMENT_LOOP><segment_sequence><:></SEGMENT_LOOP>
     NAME        "<KEY_NAME>"
     DUPLICATES  <IF DUPLICATES>yes</IF><IF NODUPLICATES>no</IF>
-    <IF DUPLICATES>
+  <IF DUPLICATES>
     DUPLICATE_ORDER <IF DUPLICATESATFRONT>lifo</IF><IF DUPLICATESATEND>fifo</IF>
-    </IF>
+  </IF>
     MODIFIABLE  <IF CHANGES>yes</IF><IF NOCHANGES>no</IF>
-    <IF NULLKEY>
+  <IF NULLKEY>
     NULL        <key_nulltype>
     <IF NULLVALUE>
     VALUE_NULL  <KEY_NULLVALUE>
     </IF>
-    </IF>
+  </IF>
     DENSITY     <KEY_DENSITY>
 
 </KEY_LOOP>
-

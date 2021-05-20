@@ -69,9 +69,9 @@
     <Grid Margin="10,10,10,10">
 
         <Grid.RowDefinitions>
-            <FIELD_LOOP>
+<FIELD_LOOP>
             <RowDefinition Height="30"/>
-            </FIELD_LOOP>
+</FIELD_LOOP>
             <RowDefinition Height="30"/>
         </Grid.RowDefinitions>
 
@@ -80,39 +80,36 @@
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
 
-        <FIELD_LOOP>
+<FIELD_LOOP>
         <!-- <FIELD_DESC> -->
-        <IF TEXTBOX>
+  <IF TEXTBOX>
         <TextBlock Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="0" VerticalAlignment="Center"><FIELD_PROMPT></TextBlock>
         <TextBox Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1" Height="22" VerticalAlignment="Center"<IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>
             Text="{Binding Path=<StructureName>Details.<Field_odbcname>}"
             MaxLength="{Binding Path=<StructureName>Details.Max<Field_odbcname>}"/>
-        </IF>
-        <IF CHECKBOX>
+  <ELSE CHECKBOX>
         <CheckBox Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding Path=<StructureName>Details.<Field_odbcname>}"<IF INFOLINE>  ToolTip="<FIELD_INFOLINE>"</IF>><FIELD_PROMPT></CheckBox>
-        </IF>
-        <IF COMBOBOX>
-        <IF PROMPT>
+  <ELSE COMBOBOX>
+    <IF PROMPT>
         <TextBlock Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="0" VerticalAlignment="Center"><FIELD_PROMPT></TextBlock>
-        </IF>
+    </IF>
         <ComboBox Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1" SelectedIndex="0" VerticalAlignment="Center"<IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF>>
-        <SELECTION_LOOP>
+    <SELECTION_LOOP>
             <ComboBoxItem Tag="<SELECTION_VALUE>"><SELECTION_TEXT></ComboBoxItem>
-        </SELECTION_LOOP>
+    </SELECTION_LOOP>
         </ComboBox>
-        </IF>
-        <IF RADIOBUTTONS>
-        <IF PROMPT>
+  <ELSE RADIOBUTTONS>
+    <IF PROMPT>
         <TextBlock Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="0" VerticalAlignment="Center"><FIELD_PROMPT></TextBlock>
-        </IF>
+    </IF>
         <StackPanel Grid.Row="<FIELD#LOGICAL_ZERO>" Grid.Column="1" VerticalAlignment="Center">
-        <SELECTION_LOOP>
+    <SELECTION_LOOP>
             <RadioButton Tag="<SELECTION_VALUE>" VerticalAlignment="Center"<IF INFOLINE> ToolTip="<FIELD_INFOLINE>"</IF><IF FIRST> IsChecked="true"</IF>><SELECTION_TEXT></RadioButton>
-        </SELECTION_LOOP>
+    </SELECTION_LOOP>
         </StackPanel>
-        </IF>
+  </IF>
 
-        </FIELD_LOOP>
+</FIELD_LOOP>
 
         <!-- Buttons -->
         <StackPanel Grid.Row="<STRUCTURE_FIELDS>" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">

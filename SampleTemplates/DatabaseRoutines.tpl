@@ -208,9 +208,9 @@ proc
     if (ok)
     begin
         sql = "CREATE TABLE <STRUCTURE_NAME> ("
-        <FIELD_LOOP>
+<FIELD_LOOP>
         & + "<FIELD_SQLNAME> <FIELD_SQLTYPE><IF REQUIRED> NOT NULL</IF REQUIRED>,"
-        </FIELD_LOOP>
+</FIELD_LOOP>
         & + "TIMESTAMP,"
         & + "CONSTRAINT PK_<STRUCTURE_NAME> PRIMARY KEY CLUSTERED"
         & + " (<PRIMARY_KEY><SEGMENT_LOOP><SEGMENT_NAME> <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>))"
@@ -224,7 +224,7 @@ proc
         end
     end
 
-    <ALTERNATE_KEY_LOOP>
+<ALTERNATE_KEY_LOOP>
     ;;-------------------------------------------------------------------------
     ;;Create index <KEY_NUMBER> (<KEY_DESCRIPTION>)
     ;;
@@ -242,7 +242,7 @@ proc
         end
     end
 
-    </ALTERNATE_KEY_LOOP>
+</ALTERNATE_KEY_LOOP>
     ;;-------------------------------------------------------------------------
     ;;Grant access permissions
     ;;
@@ -697,9 +697,9 @@ proc
         if (!(a)sql)
         begin
             sql = "INSERT INTO <STRUCTURE_NAME> ("
-            <FIELD_LOOP>
+<FIELD_LOOP>
             & + "<FIELD_SQLNAME><,>"
-            </FIELD_LOOP>
+</FIELD_LOOP>
             & + ") VALUES(<FIELD_LOOP>:<FIELD#LOGICAL><,></FIELD_LOOP>)"
         end
 
@@ -717,13 +717,13 @@ proc
     if (ok)
     begin
         if (%ssc_bind(a_dbchn,cursor,<STRUCTURE_FIELDS>,
-        <FIELD_LOOP>
-        <IF DATE>
+<FIELD_LOOP>
+  <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        <ELSE>
+  <ELSE>
         &    <structure_name>.<field_name><,>
-        </IF DATE>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin
             ok = false
@@ -741,23 +741,20 @@ proc
         <structure_name> = a_data
 
         ;;Clean up the data
-        <FIELD_LOOP>
-        <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
         <field_path>=%atrim(<field_path>)+%char(0)
-        </IF ALPHA>
-        <IF DECIMAL>
+  <ELSE DECIMAL>
         if ((!<field_path>)||(!%IsNumeric(^a(<field_path>))))
             clear <field_path>
-        </IF DECIMAL>
-        <IF DATE>
+  <ELSE DATE>
         if ((!<field_path>)||(!%IsDate(<field_path>)))
             ^a(<field_path>(1:1))=%char(0)
-        </IF DATE>
-        <IF TIME>
+  <ELSE TIME>
         if ((!<field_path>)||(!%IsNumeric(^a(<field_path>))))
             ^a(<field_path>(1:1))=%char(0)
-        </IF TIME>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
         ;;Execute INSERT statement
         if (%ssc_execute(a_dbchn,cursor,SSQL_STANDARD)==SSQL_FAILURE)
@@ -912,9 +909,9 @@ proc
         if (!(a)sql)
         begin
             sql = "INSERT INTO <STRUCTURE_NAME> ("
-            <FIELD_LOOP>
+<FIELD_LOOP>
             & + "<FIELD_SQLNAME><,>"
-            </FIELD_LOOP>
+</FIELD_LOOP>
             & + ") VALUES(<FIELD_LOOP>:<FIELD#LOGICAL><,></FIELD_LOOP>)"
         end
 
@@ -932,13 +929,13 @@ proc
     if (ok)
     begin
         if (%ssc_bind(a_dbchn,cursor,<STRUCTURE_FIELDS>,
-        <FIELD_LOOP>
-        <IF DATE>
+<FIELD_LOOP>
+  <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        <ELSE>
+  <ELSE>
         &    <structure_name>.<field_name><,>
-        </IF DATE>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin
             ok = false
@@ -958,23 +955,20 @@ proc
             <structure_name> = ^m(inpbuf[cnt],a_data)
 
             ;;Clean up the data
-            <FIELD_LOOP>
-            <IF ALPHA>
+<FIELD_LOOP>
+  <IF ALPHA>
             <field_path>=%atrim(<field_path>)+%char(0)
-            </IF ALPHA>
-            <IF DECIMAL>
+  <ELSE DECIMAL>
             if ((!<field_path>)||(!%IsNumeric(^a(<field_path>))))
                 clear <field_path>
-            </IF DECIMAL>
-            <IF DATE>
+  <ELSE DATE>
             if ((!<field_path>)||(!%IsDate(<field_path>)))
                 ^a(<field_path>(1:1))=%char(0)
-            </IF DATE>
-            <IF TIME>
+  <ELSE TIME>
             if ((!<field_path>)||(!%IsNumeric(^a(<field_path>))))
                 ^a(<field_path>(1:1))=%char(0)
-            </IF TIME>
-            </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
             ;;Execute the statement
             if (%ssc_execute(a_dbchn,cursor,SSQL_STANDARD)==SSQL_FAILURE)
@@ -1098,11 +1092,11 @@ endfunction
 function <StructureName>SelectRow ,^val
 
     required in  a_dbchn    ,int    ;Connected database channel
-    <PRIMARY_KEY>
-    <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
     optional in  a_<segment_name> ,a
-    </SEGMENT_LOOP>
-    </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
     required out a_data     ,a      ;Record
     optional out a_errtxt   ,a      ;Error text
     endparams
@@ -1133,17 +1127,15 @@ proc
     if (!(a)sql)
     begin
         sql = "SELECT "
-        <FIELD_LOOP>
-        <IF NOTDATE>
+<FIELD_LOOP>
+  <IF NOT DATE>
         &    "<FIELD_SQLNAME><,>"
-        </IF NOTDATE>
-        <IF DATE_YYYYMMDD>
+  <ELSE DATE_YYYYMMDD>
         &    "CONVERT(VARCHAR(8),<FIELD_SQLNAME>,112) AS [YYYYMMDD]<,>"
-        </IF DATE_YYYYMMDD>
-        <IF DATE_YYMMDD>
+  <ELSE DATE_YYMMDD>
         &    "CONVERT(VARCHAR(6),<FIELD_SQLNAME>,12) AS [YYMMDD]<,>"
-        </IF DATE_YYMMDD>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         &    " FROM <STRUCTURE_NAME>"
         &    " WHERE <PRIMARY_KEY><SEGMENT_LOOP> <SEGMENT_NAME>=:<SEGMENT_NUMBER> <AND></SEGMENT_LOOP></PRIMARY_KEY>"
     end
@@ -1161,13 +1153,13 @@ proc
     if (ok)
     begin
         if (%ssc_define(a_dbchn,cursor,<STRUCTURE_FIELDS>,
-        <FIELD_LOOP>
-        <IF DATE>
+<FIELD_LOOP>
+  <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        <ELSE>
+  <ELSE>
         &    <structure_name>.<field_name><,>
-        </IF DATE>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin
             ok = false
@@ -1286,17 +1278,15 @@ function <StructureName>SelectRows ,^val
     ;;Open a cursor for the SELECT statement
     ;;
     sql = "SELECT "
-    <FIELD_LOOP>
-    <IF NOTDATE>
+<FIELD_LOOP>
+  <IF NOT DATE>
     &    "<FIELD_SQLNAME><,>"
-    </IF NOTDATE>
-    <IF DATE_YYYYMMDD>
+  <ELSE DATE_YYYYMMDD>
     &    "CONVERT(VARCHAR(8),<FIELD_SQLNAME>,112) AS [YYYYMMDD]<,>"
-    </IF DATE_YYYYMMDD>
-    <IF DATE_YYMMDD>
+  <ELSE DATE_YYMMDD>
     &    "CONVERT(VARCHAR(6),<FIELD_SQLNAME>,12) AS [YYMMDD]<,>"
-    </IF DATE_YYMMDD>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
     &   " FROM <STRUCTURE_NAME> "
 
     if (^passed(a_where) && a_where)
@@ -1315,13 +1305,13 @@ function <StructureName>SelectRows ,^val
     if (ok)
     begin
         if (%ssc_define(a_dbchn,cursor,<STRUCTURE_FIELDS>,
-        <FIELD_LOOP>
-        <IF DATE>
+<FIELD_LOOP>
+  <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        <ELSE>
+  <ELSE>
         &    <structure_name>.<field_name><,>
-        </IF DATE>
-        </FIELD_LOOP>
+  </IF DATE>
+</FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin
             ok = false
@@ -1482,15 +1472,15 @@ proc
     if (ok)
     begin
         sql = "UPDATE <STRUCTURE_NAME> SET "
-        <FIELD_LOOP>
+<FIELD_LOOP>
         & + "<FIELD_SQLNAME>=:<FIELD#LOGICAL><,>"
-        </FIELD_LOOP>
+</FIELD_LOOP>
         & + " WHERE"
-        <PRIMARY_KEY>
-        <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
         & + " <SEGMENT_NAME>='" + %atrim(^a(<structure_name>.<segment_name>)) + "' <AND>"
-        </SEGMENT_LOOP>
-        </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
 
         if (%ssc_open(a_dbchn,cursor,(a)sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
         begin
@@ -1506,13 +1496,13 @@ proc
     if (ok)
     begin
         if (%ssc_bind(a_dbchn,cursor,<STRUCTURE_FIELDS>,
-        <FIELD_LOOP>
-        <IF DATE>
+<FIELD_LOOP>
+  <IF DATE>
         &    ^a(<structure_name>.<field_name>)<,>
-        <ELSE>
+  <ELSE>
         &    <structure_name>.<field_name><,>
-        </IF DATE>
-        </FIELD_LOOP>
+  </IF DATE>
+</FIELD_LOOP>
         &   )==SSQL_FAILURE)
         begin
             ok = false
@@ -1615,11 +1605,11 @@ endfunction
 function <StructureName>DeleteRow ,^val
 
     required in  a_dbchn    ,int    ;;Connected database channel
-    <PRIMARY_KEY>
-    <SEGMENT_LOOP>
+<PRIMARY_KEY>
+  <SEGMENT_LOOP>
     optional in  a_<segment_name> ,a
-    </SEGMENT_LOOP>
-    </PRIMARY_KEY>
+  </SEGMENT_LOOP>
+</PRIMARY_KEY>
     optional in  a_where    ,a      ;;Where clause to determine rows deleted.
     optional out a_errtxt   ,a      ;;Error text
     endparams
@@ -1748,4 +1738,3 @@ proc
     freturn ok
 
 endfunction
-

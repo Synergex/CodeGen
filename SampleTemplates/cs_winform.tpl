@@ -104,19 +104,19 @@ public partial class frm<WindowName> : Form
 
     private bool validateFields()
     {
-        <FIELD_LOOP>
-        <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
         if (!validate_txt<Field_sqlname>()) { return false; }
-        </IF>
-        </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
         return true;
     }
 
-    <FIELD_LOOP>
-    <IF TEXTBOX>
+<FIELD_LOOP>
+  <IF TEXTBOX>
     private bool validate_txt<Field_sqlname>()
     {
-        <IF REQUIRED>
+    <IF REQUIRED>
         //<FIELD_PROMPT> (txt<Field_sqlname>) is a required field and must contain a value
         if (txt<Field_sqlname>.Text.Length == 0)
         {
@@ -124,8 +124,8 @@ public partial class frm<WindowName> : Form
             txt<Field_sqlname>.Focus();
             return false;
         }
-        </IF>
-        <IF NUMERIC>
+    </IF>
+    <IF NUMERIC>
         //If <FIELD_PROMPT> (txt<Field_sqlname>) contains a value then it must be numeric
         if (txt<Field_sqlname>.Text.Length != 0)
         {
@@ -137,7 +137,7 @@ public partial class frm<WindowName> : Form
                 return false;
             }
         }
-        </IF>
+    </IF>
         return true;
     }
 
@@ -149,22 +149,20 @@ public partial class frm<WindowName> : Form
         }
     }
 
-    </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 #endregion
 
 #region Field drill procedures
-    <FIELD_LOOP>
-    <IF TEXTBOX>
-    <IF DRILL>
+<FIELD_LOOP>
+  <IF TEXTBOX AND DRILL>
 
     private void btn<Field_sqlname>_Click(System.Object sender, System.EventArgs e)
     {
         MessageBox.Show(this,"Drill for field <Field_sqlname>","Still to do!");
     }
-    </IF>
-    </IF>
-    </FIELD_LOOP>
+  </IF>
+</FIELD_LOOP>
 
 #endregion
 

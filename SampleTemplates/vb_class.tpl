@@ -58,35 +58,31 @@
 Public Class <Structure_Name>
 
     'Private variables
-    <FIELD_LOOP>
+<FIELD_LOOP>
     Private p_<Field_Sqlname> As <FIELD_VBTYPE>
-    </FIELD_LOOP>
+</FIELD_LOOP>
 
-    <FIELD_LOOP>
+<FIELD_LOOP>
     '<FIELD_DESC>
     Public Property <Field_Sqlname> As <FIELD_VBTYPE>
         Get
             Return p_<Field_Sqlname>
         End Get
         Set
-            <IF NUMERIC>
-            <IF NOTDATE>
+  <IF NUMERIC AND DATE>
+            p_<Field_Sqlname> = Value
+  <ELSE NUMERIC AND NOT DATE>
             If ((Value >= <FIELD_MINVALUE>) And (Value <= <FIELD_MAXVALUE>))
                 p_<Field_Sqlname> = Value
             Else
                 Throw New Exception("Value must be in the range <FIELD_MINVALUE> to <FIELD_MAXVALUE>.")
             End If
-            </IF>
-            <IF DATE>
+  <ELSE>
             p_<Field_Sqlname> = Value
-            </IF>
-            </IF>
-            <IF NOTNUMERIC>
-            p_<Field_Sqlname> = Value
-            </IF>
+  </IF>
         End Set
     End Property
 
-    </FIELD_LOOP>
+</FIELD_LOOP>
 
 End Class

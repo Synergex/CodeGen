@@ -180,4 +180,3 @@ namespace <MVVM_DATA_NAMESPACE>
     endclass
 
 endnamespace
-
