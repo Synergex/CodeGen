@@ -256,69 +256,46 @@ namespace CodeGen.Engine
             data context = template.Context
             data currentStructure = context.GetCurrentStructure()
 
-            if (currentStructure.Keys.Count == 0)
+            ;;Start with all the access keys from the structure
+            data accessKeys, @List<RpsKey>, currentStructure.Keys.Where<RpsKey>(lambda(theKey) { theKey.KeyType == RpsKeyType.Access }).ToList()
+
+            ;;Check we have at least one key
+            if (accessKeys.Count == 0)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no alternate keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
-            data ix, int
-
-            loop.MaxIndex = currentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
-
-            loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru currentStructure.Keys.Count - 1
-            begin
-                ;;Skip any Foreign keys
-                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
-                    nextloop
-                ;;Look for the first unique key
-                if (currentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
-                begin
-                    loop.FirstUniqueKeyNumber = ix
-                    exitloop
-                end
-            end
-
-            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+            ;;Remove any keys with identical segment combinations
 
             data prevKeysSegments = new List<RpsKeySegmentCollection>()
             data otherKeySegments, @RpsKeySegmentCollection 
+            data thisLoopFinalKeys = new List<RpsKey>()
 
-            ;;Iterate through all the keys in the structure
-            for ix from 0 thru currentStructure.Keys.Count - 1
+            ;;Iterate through the candidate keys
+            data ix, int
+            for ix from 0 thru accessKeys.Count - 1
             begin
-                ;; Skip any foreign keys
-                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
-                    nextloop
-
-                ;;If we get here we have an access key. Assume it's a duplicate and we'll look for a difference
+                ;;Assume the key has a unique signature
                 data segmentsMatchAnotherKey = false
 
                 ;;If we havent processed any other keys yet then we can't have a duplicate, so this one gets included
                 if (prevKeysSegments.Count > 0)
                 begin
-                    ;;We have processed other keys, so make sure the segments of this key don't match any we have already processed
-                    data segmentsMatchThisKey, boolean
-                    data thisKeySegments, @RpsKeySegmentCollection, currentStructure.Keys[ix].Segments
+                    ;;We have processed other keys, make sure this keys segments don't match any we have already processed
+                    data thisKeySegments, @RpsKeySegmentCollection, accessKeys[ix].Segments
 
                     data iy, int
                     for iy from 0 thru prevKeysSegments.Count - 1
                     begin
-                        ;;Assume we have a duplicate, look for a difference
-                        segmentsMatchThisKey = true
+                        ;;Look for a difference
                         otherKeySegments = prevKeysSegments[iy]
 
-                        ;;Same number of segments?
-                        if (thisKeySegments.Count != otherKeySegments.Count) then
+                        ;;Different number of segments?
+                        if (thisKeySegments.Count == otherKeySegments.Count)
                         begin
-                            ;;Different segment count, not a duplicate
-                            segmentsMatchThisKey = false
-                        end
-                        else
-                        begin
-                            ;;Same segment count, look at each segment
+                            ;;Same segment count, could be a duplicate. Look at each segment
                             data thisKeySeg, @RpsKeySegment
                             data otherKeySeg, @RpsKeySegment
 
@@ -366,16 +343,36 @@ namespace CodeGen.Engine
                     end
                 end
 
+                prevKeysSegments.Add(accessKeys[ix].Segments)
+
                 if (!segmentsMatchAnotherKey)
                 begin
-                    ;; Then process as normal
-                    loop.CurrentKey = currentStructure.Keys[ix]
-                    loop.CurrentIndex = ix
-
-                    expander.Visit(node.Body)
-
-                    prevKeysSegments.Add(loop.CurrentKey.Segments)
+                    thisLoopFinalKeys.Add(accessKeys[ix])
                 end
+            end
+
+            ;;See if we have a unique key amongst the remaining keys
+            loop.FirstUniqueKeyNumber = -1
+            for ix from 0 thru thisLoopFinalKeys.Count - 1
+            begin
+                ;;Look for the first unique key
+                if (thisLoopFinalKeys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                begin
+                    loop.FirstUniqueKeyNumber = ix
+                    exitloop
+                end
+            end
+
+            ;;And process the remaining keys
+
+            loop.MaxIndex = thisLoopFinalKeys.Count -1
+            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+
+            for ix from 0 thru loop.MaxIndex
+            begin
+                loop.CurrentKey = thisLoopFinalKeys[ix]
+                loop.CurrentIndex = ix
+                expander.Visit(node.Body)
             end
 
         endmethod
@@ -445,69 +442,49 @@ namespace CodeGen.Engine
             data context = template.Context
             data currentStructure = context.GetCurrentStructure()
 
-            if (currentStructure.Keys.Count == 0)
+            ;;Start with all the access keys from the structure
+            data accessKeys, @List<RpsKey>, currentStructure.Keys.Where<RpsKey>(lambda(theKey) { theKey.KeyType == RpsKeyType.Access }).ToList()
+
+            ;;Check we have at least one alternate key
+            if (accessKeys.Count < 2)
             begin
                 if (!context.Taskset.EmptyLoopFail)
                     mreturn
-                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
+                throw new ApplicationException(String.Format("The <{0}> loop at line {1} in template {2} can't be processed because structure {3} has no alternate keys!", node.OpenToken.Value, node.OpenToken.StartLineNumber, context.CurrentTemplateBaseName, currentStructure.Name))
             end
 
-            data ix, int
+            ;;Remove the primary key
+            accessKeys.Remove(accessKeys.First())
 
-            loop.MaxIndex = currentStructure.Keys.Count<RpsKey>(lambda(keyItem) { keyItem.KeyType == RpsKeyType.Access }) -1
-
-            loop.FirstUniqueKeyNumber = -1
-            for ix from 0 thru currentStructure.Keys.Count - 1
-            begin
-                ;;Skip any Foreign keys
-                if (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign)
-                    nextloop
-                ;;Look for the first unique key
-                if (currentStructure.Keys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
-                begin
-                    loop.FirstUniqueKeyNumber = ix
-                    exitloop
-                end
-            end
-
-            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+            ;;Remove any keys with identical segment combinations
 
             data prevKeysSegments = new List<RpsKeySegmentCollection>()
             data otherKeySegments, @RpsKeySegmentCollection 
+            data thisLoopFinalKeys = new List<RpsKey>()
 
-            ;;Iterate through all the keys in the structure
-            for ix from 0 thru currentStructure.Keys.Count - 1
+            ;;Iterate through the candidate keys
+            data ix, int
+            for ix from 0 thru accessKeys.Count - 1
             begin
-                ;; Skip the first key and any foreign keys
-                if ((ix == 0) || (currentStructure.Keys[ix].KeyType == RpsKeyType.Foreign))
-                    nextloop
-
-                ;;If we get here we have an alternate access key. Assume it's a duplicate and we'll look for a difference
+                ;;Assume the key has a unique signature
                 data segmentsMatchAnotherKey = false
 
                 ;;If we havent processed any other keys yet then we can't have a duplicate, so this one gets included
                 if (prevKeysSegments.Count > 0)
                 begin
-                    ;;We have processed other keys, so make sure the segments of this key don't match any we have already processed
-                    data segmentsMatchThisKey, boolean
-                    data thisKeySegments, @RpsKeySegmentCollection, currentStructure.Keys[ix].Segments
+                    ;;We have processed other keys, make sure this keys segments don't match any we have already processed
+                    data thisKeySegments, @RpsKeySegmentCollection, accessKeys[ix].Segments
 
                     data iy, int
                     for iy from 0 thru prevKeysSegments.Count - 1
                     begin
-                        ;;Assume we have a duplicate, look for a difference
-                        segmentsMatchThisKey = true
+                        ;;Look for a difference
                         otherKeySegments = prevKeysSegments[iy]
 
-                        ;;Same number of segments?
-                        if (thisKeySegments.Count != otherKeySegments.Count) then
+                        ;;Different number of segments?
+                        if (thisKeySegments.Count == otherKeySegments.Count)
                         begin
-                            ;;Different segment count, not a duplicate
-                            segmentsMatchThisKey = false
-                        end
-                        else
-                        begin
-                            ;;Same segment count, look at each segment
+                            ;;Same segment count, could be a duplicate. Look at each segment
                             data thisKeySeg, @RpsKeySegment
                             data otherKeySeg, @RpsKeySegment
 
@@ -532,7 +509,7 @@ namespace CodeGen.Engine
                                 begin
                                     if ((otherKeySeg.SegmentType != RpsKeySegmentType.Literal) || (!otherKeySeg.LiteralValue.Equals(thisKeySeg.LiteralValue)))
                                     begin
-                                        allSegmentsMatch = false
+                                    allSegmentsMatch = false
                                     end
                                 end
                                 (RpsKeySegmentType.External),
@@ -555,16 +532,36 @@ namespace CodeGen.Engine
                     end
                 end
 
+                prevKeysSegments.Add(accessKeys[ix].Segments)
+
                 if (!segmentsMatchAnotherKey)
                 begin
-                    ;; Then process as normal
-                    loop.CurrentKey = currentStructure.Keys[ix]
-                    loop.CurrentIndex = ix
-
-                    expander.Visit(node.Body)
-
-                    prevKeysSegments.Add(loop.CurrentKey.Segments)
+                    thisLoopFinalKeys.Add(accessKeys[ix])
                 end
+            end
+
+            ;;See if we have a unique key amongst the remaining keys
+            loop.FirstUniqueKeyNumber = -1
+            for ix from 0 thru thisLoopFinalKeys.Count - 1
+            begin
+                ;;Look for the first unique key
+                if (thisLoopFinalKeys[ix].Duplicates == RpsKeyDuplicates.NoDuplicates)
+                begin
+                    loop.FirstUniqueKeyNumber = ix
+                    exitloop
+                end
+            end
+
+            ;;And process the remaining keys
+
+            loop.MaxIndex = thisLoopFinalKeys.Count -1
+            context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} keys", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
+
+            for ix from 0 thru loop.MaxIndex
+            begin
+                loop.CurrentKey = thisLoopFinalKeys[ix]
+                loop.CurrentIndex = ix
+                expander.Visit(node.Body)
             end
 
         endmethod
