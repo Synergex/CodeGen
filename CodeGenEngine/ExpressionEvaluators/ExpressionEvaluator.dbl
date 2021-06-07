@@ -98,7 +98,7 @@ namespace CodeGen.Engine
             template, @FileNode 
             loops, @IEnumerable<LoopNode> 
             endparams
-		proc
+        proc
             data currentContext = currentContextFn(expression)
 
             lambda doNoEvaluatorMessage()
@@ -114,29 +114,29 @@ namespace CodeGen.Engine
             data badEvaluationRequestMessage, @Func<string>, doBadEvaluationRequestMessage
 
             lambda doFindAndRunEvaluator(evaluators)
-			begin
-				if(expression .is. UnaryExpressionNode) then
-				begin
-					if(expression.Value.Value == "NOT")
-					begin
-						mreturn !EvaluateExpression(currentContextFn, ((@UnaryExpressionNode)expression).Expression, template, loops)
-					end
-				end
-				else if(expression .is. BinaryExpressionNode) then
-				begin
-					data leftExpr = ((@BinaryExpressionNode)expression).Left
+            begin
+                if(expression .is. UnaryExpressionNode) then
+                begin
+                    if(expression.Value.Value == "NOT")
+                    begin
+                        mreturn !EvaluateExpression(currentContextFn, ((@UnaryExpressionNode)expression).Expression, template, loops)
+                    end
+                end
+                else if(expression .is. BinaryExpressionNode) then
+                begin
+                    data leftExpr = ((@BinaryExpressionNode)expression).Left
                     data rightExpr = ((@BinaryExpressionNode)expression).Right
                     if(expression.Value.Value == "AND") then
-						mreturn EvaluateExpression(currentContextFn, leftExpr, template, loops) && 
-						&	EvaluateExpression(currentContextFn, rightExpr, template, loops)
-					else if(expression.Value.Value == "OR") 
-						mreturn EvaluateExpression(currentContextFn, leftExpr, template, loops) || 
-						&	EvaluateExpression(currentContextFn, rightExpr, template, loops)
-				end
-				else if(expression .is. GroupExpressionNode)
-				begin
-					mreturn EvaluateExpression(currentContextFn, ((@GroupExpressionNode)expression).Expression, template, loops)
-				end
+                        mreturn EvaluateExpression(currentContextFn, leftExpr, template, loops) && 
+                        &    EvaluateExpression(currentContextFn, rightExpr, template, loops)
+                    else if(expression.Value.Value == "OR") 
+                        mreturn EvaluateExpression(currentContextFn, leftExpr, template, loops) || 
+                        &    EvaluateExpression(currentContextFn, rightExpr, template, loops)
+                end
+                else if(expression .is. GroupExpressionNode)
+                begin
+                    mreturn EvaluateExpression(currentContextFn, ((@GroupExpressionNode)expression).Expression, template, loops)
+                end
 
                 ;;Normal expressions
                 if (evaluators.ContainsKey(expression.Value.Value)) then
@@ -170,7 +170,7 @@ namespace CodeGen.Engine
                 else if ((expression.Value.Value.StartsWith("COUNTER_1_")
                 &    ||   expression.Value.Value.StartsWith("COUNTER_2_")) 
                 &    && 
-                &      (expression.Value.Value.Contains("_EQ_")
+                &    (expression.Value.Value.Contains("_EQ_")
                 &    || expression.Value.Value.Contains("_NE_")
                 &    || expression.Value.Value.Contains("_LT_")
                 &    || expression.Value.Value.Contains("_GT_")
@@ -180,14 +180,20 @@ namespace CodeGen.Engine
                     mreturn evaluateCounterValue(expression.Value, template, loops)
 
                 ;;PROCESSED_ and REMAINING_
-                else if (expression.Value.Value.StartsWith("PROCESSED_EXCLUSIVE_") 
+                else if ((loops.Count() > 0) && (expression.Value.Value.StartsWith("PROCESSED_EXCLUSIVE_")
                 &    ||     expression.Value.Value.StartsWith("PROCESSED_INCLUSIVE_")
                 &    ||     expression.Value.Value.StartsWith("REMAINING_EXCLUSIVE_") 
-                &    ||     expression.Value.Value.StartsWith("REMAINING_INCLUSIVE_")) then
+                &    ||     expression.Value.Value.StartsWith("REMAINING_INCLUSIVE_"))) then
                     mreturn evaluateLoopProgress(expression.Value, template, loops)
 
+                ;;STRUCTURE_HAS_FIELD_
+                else if (expression.Value.Value.StartsWith("STRUCTURE_HAS_FIELD_")) then
+                begin
+                    mreturn evaluateStructureHasField(expression.Value, template, loops)
+                end
+
                 ;;TOTAL_ITEMS_
-                else if (expression.Value.Value.StartsWith("TOTAL_ITEMS_")) then
+                else if ((loops.Count() > 0) && (expression.Value.Value.StartsWith("TOTAL_ITEMS_"))) then
                     mreturn evaluateLoopTotalItems(expression.Value, template, loops)
                 
                 ;;No match!
@@ -196,7 +202,7 @@ namespace CodeGen.Engine
             end
 
             data findAndRunEvaluator, @Func<Dictionary<string, Func<Token, FileNode, IEnumerable<LoopNode>, boolean>>, boolean>, doFindAndRunEvaluator
-			
+
             using currentContext select
             (TokenType.Generic),
                 mreturn findAndRunEvaluator(genericExpressionEvaluators)
@@ -238,7 +244,7 @@ namespace CodeGen.Engine
                 throw new ApplicationException(badEvaluationRequestMessage())
             endusing
 		
-		endmethod
+        endmethod
 
         private method registerCustomEvaluators, void
             context, @CodeGenContext 
