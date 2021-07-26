@@ -80,11 +80,13 @@ namespace CodeGen.Engine
 
             ;; Make sure the structure has not been excluded with @NOCODEGEN
             if (!ErrStatus)
+            begin
                 if ((Struct.UserText.ToUpper().Contains("@NOCODEGEN"))||(Struct.LongDescription.ToUpper().Contains("@NOCODEGEN")))
                 begin
                     context.CurrentTask.DebugLog(" - Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN")
                     ErrStatus = true
                 end
+            end
 
             ;; ==========================================================================================
             ;; FIELD FILTERS AND VALIDATION
@@ -100,11 +102,22 @@ namespace CodeGen.Engine
                     data Field, @RpsField, Struct.Fields[ix]
 
                     ;; ==================================================================================
-                    ;; No decimal or implied decimal fields longer than 28
-                    if (Field.DataType == RpsFieldDataType.Decimal && Field.Size > 28)
+                    ;; No decimal fields longer than D28
+                    if (Field.DataType == RpsFieldDataType.Decimal && Field.Precision==0 && Field.Size > 28)
                     begin
-                        context.CurrentTask.DebugLog(String.Format(" - Structure {0} field {1} exceeds CodeGen's maximum supported length of 28!", Struct.Name, Field.Name))
-                        ErrStatus = true
+                        ErrStatus = context.CurrentTask.ErrorLog(String.Format("Decimal field {0}.{1} exceeds the maximum size of D28!", Struct.Name, Field.Name))
+                        exitloop
+                    end
+
+                    ;; ==================================================================================
+                    ;; No implied decimal fields longer than D56.28
+                    if (Field.DataType == RpsFieldDataType.Decimal && Field.Precision > 0)
+                    begin
+                        if ((Field.Size-Field.Precision) > 28 || Field.Precision > 28)
+                        begin
+                            ErrStatus = context.CurrentTask.ErrorLog(String.Format("Implied decimal field {0}.{1} exceeds the maximum size of D56.28!", Struct.Name, Field.Name))
+                            exitloop
+                        end
                     end
 
                     ;; ==================================================================================
