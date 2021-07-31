@@ -554,24 +554,71 @@ namespace CodeGen.Engine
 
             if (context.CurrentTask.MethodCatalogIncludeMethods != ^null)
             begin
-                data currentInterface = context.MethodCatalog.Interfaces.First()
-                data newMethodCollection = new List<SmcMethod>()
-                data candidateMethodName, string
-
-                foreach candidateMethodName in context.CurrentTask.MethodCatalogIncludeMethods
+                if (context.CurrentTask.MethodCatalogStructureMode) then
                 begin
-                    data methodToInclude = currentInterface.Methods.FirstOrDefault(lambda(meth) {meth.Name.ToUpper().Equals(candidateMethodName.ToUpper())})
-                    if (methodToInclude != ^null) then
+                    ;;We're in -smcstrs mode, which also means we only have a single interface
+                    ;;Remove Structures NOT referenced by methods in MethodCatalogIncludeMethods
+                    ;;from context.CurrentTask.Structures
+
+                    ;Get a handle on the SMC interface being processed
+                    data currentInterface = context.MethodCatalog.Interfaces.FirstOrDefault(lambda(iface) { iface.Name.ToUpper() == context.CurrentTask.MethodCatalogInterface.ToUpper() } )
+
+                    ;;Build a collection of structures to keep
+                    data structuresToKeep = new List<string>()
+
+                    data methodName, string
+                    foreach methodName in context.CurrentTask.MethodCatalogIncludeMethods
                     begin
-                        newMethodCollection.Add(methodToInclude)
+                        data methodObject = currentInterface.Methods.FirstOrDefault(lambda(meth) {meth.Name.ToUpper().Equals(methodName.ToUpper())})
+                        if (methodObject != ^null) then
+                        begin
+                            ;;Does the method have any structure parameters?
+                            data structureParameters = methodObject.Parameters.Where(lambda(param) { param.Type == ParameterType.Structure } )
+                            if (structureParameters != ^null)
+                            begin
+                                data paramObject, @SmcParameter
+                                foreach paramObject in structureParameters
+                                begin
+                                    ;;If the structure name is not already in the list of structures to leep, then add it
+                                    if (!structuresToKeep.Contains(paramObject.StructureName))
+                                    begin
+                                        structuresToKeep.Add(paramObject.StructureName)
+                                    end
+                                end
+                            end
+                        end
+                        else
+                        begin
+                            mreturn context.CurrentTask.ErrorLog(String.Format("Method {0} was not found in interface {1}!m",methodName,currentInterface.Name))
+                        end
                     end
-                    else
-                    begin
-                        mreturn context.CurrentTask.ErrorLog(String.Format("Method {0} was not found in interface {1}!",candidateMethodName,currentInterface.Name))
-                    end
+
+                    ;;Replace the list of structures to be processed with the structures to keep
+                    context.CurrentTask.Structures = new ObservableCollection<String>(structuresToKeep.ToArray())
+
                 end
-                currentInterface.Methods = newMethodCollection
-                context.MethodCatalogCustomized = true
+                else
+                begin
+                    ;;We're in -smc mode, filter methods to only those included in MethodCatalogIncludeMethods
+                    data currentInterface = context.MethodCatalog.Interfaces.First()
+                    data newMethodCollection = new List<SmcMethod>()
+                    data candidateMethodName, string
+
+                    foreach candidateMethodName in context.CurrentTask.MethodCatalogIncludeMethods
+                    begin
+                        data methodToInclude = currentInterface.Methods.FirstOrDefault(lambda(meth) {meth.Name.ToUpper().Equals(candidateMethodName.ToUpper())})
+                        if (methodToInclude != ^null) then
+                        begin
+                            newMethodCollection.Add(methodToInclude)
+                        end
+                        else
+                        begin
+                            mreturn context.CurrentTask.ErrorLog(String.Format("Method {0} was not found in interface {1}!",candidateMethodName,currentInterface.Name))
+                        end
+                    end
+                    currentInterface.Methods = newMethodCollection
+                    context.MethodCatalogCustomized = true
+                end
             end
 
             ;;--------------------------------------------------------------------------------------
@@ -579,20 +626,35 @@ namespace CodeGen.Engine
 
             if (context.CurrentTask.MethodCatalogExcludeMethods != ^null)
             begin
-                data currentInterface = context.MethodCatalog.Interfaces.First()
-                data candidateMethodName, string
-
-                foreach candidateMethodName in context.CurrentTask.MethodCatalogExcludeMethods
+                if (context.CurrentTask.MethodCatalogStructureMode) then
                 begin
-                    data methodToExclude = currentInterface.Methods.FirstOrDefault(lambda(meth) {meth.Name.ToUpper().Equals(candidateMethodName.ToUpper())})
-                    if (methodToExclude != ^null) then
+                    ;;We're in -smcstrs mode, exclude Structures ONLY referenced by methods in
+                    ;;MethodCatalogExcludeMethods from context.CurrentTask.Structures
+
+
+                    ;TODO: Implement -mexclude with -smcstrs and -interface
+                    mreturn context.CurrentTask.ErrorLog("Using -mexclude with -smcstrs and -interface is not currently implemented!")
+
+
+                end
+                else
+                begin
+                    ;;We're in -smc mode, exclude methods named in MethodCatalogExcludeMethods
+                    data currentInterface = context.MethodCatalog.Interfaces.First()
+                    data candidateMethodName, string
+
+                    foreach candidateMethodName in context.CurrentTask.MethodCatalogExcludeMethods
                     begin
-                        currentInterface.Methods.Remove(methodToExclude)
-                        context.MethodCatalogCustomized = true
-                    end
-                    else
-                    begin
-                        mreturn context.CurrentTask.ErrorLog(String.Format("Method {0} was not found in interface {1}!",candidateMethodName,currentInterface.Name))
+                        data methodToExclude = currentInterface.Methods.FirstOrDefault(lambda(meth) {meth.Name.ToUpper().Equals(candidateMethodName.ToUpper())})
+                        if (methodToExclude != ^null) then
+                        begin
+                            currentInterface.Methods.Remove(methodToExclude)
+                            context.MethodCatalogCustomized = true
+                        end
+                        else
+                        begin
+                            mreturn context.CurrentTask.ErrorLog(String.Format("Method {0} was not found in interface {1}!",candidateMethodName,currentInterface.Name))
+                        end
                     end
                 end
             end
