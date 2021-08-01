@@ -487,41 +487,38 @@ namespace CodeGen.Engine
                     mreturn context.CurrentTask.ErrorLog("Method catalog export file contains no structures!")
                 end
 
-                ;;So the method catalog has structutures, but does our interface reference any?
-
-                data str, @RpsStructure
-                foreach str in context.MethodCatalog.Structures
+                ;; Are we processing the whole catalog?
+                if (String.IsNullOrWhiteSpace(context.CurrentTask.MethodCatalogInterface)) then
                 begin
-                    if (String.IsNullOrWhiteSpace(context.CurrentTask.MethodCatalogInterface)) then
+                    ;; Yes, process all structures in the catalog
+                    data tmpstr, @RpsStructure
+                    foreach tmpstr in context.MethodCatalog.Structures
                     begin
-                        ;;No interface specified, process all structures in the SMC
-                        context.CurrentTask.Structures.Add(str.Name)
-                    end
-                    else
-                    begin
-                        ;;Interface specified, process only those structures in the SMC that are used by the interface.
-                        data i, @SmcInterface, context.MethodCatalog.Interfaces.First(lambda(if) {if.Name==context.CurrentTask.MethodCatalogInterface})
-
-                        data m, @SmcMethod
-                        foreach m in i.Methods
-                        begin
-                            data p, @SmcParameter
-                            foreach p in m.Parameters
-                            begin
-                                if ( !String.IsNullOrWhiteSpace(p.StructureName) && !context.CurrentTask.Structures.Contains(p.StructureName) )
-                                begin
-                                    context.CurrentTask.Structures.Add(p.StructureName)
-                                end
-                            end
-                        end
+                        context.CurrentTask.Structures.Add(tmpstr.Name)
                     end
                 end
-
-                if (context.CurrentTask.Structures.Count == 0)
+                else
                 begin
-                    ;;Interface does not reference any structures!
-                    context.CurrentTask.Log("INFO: Method catalog interface references no structures!")
-                    mreturn true
+                    ;; No, we're processing a single interface.
+                    ;; Process only structures referenced by methods in that interface.
+                    data iface, @SmcInterface, context.MethodCatalog.Interfaces.First(lambda(if) {if.Name==context.CurrentTask.MethodCatalogInterface})
+                    data methodsWithStructParams = iface.Methods.Where(lambda(meth) { meth.Parameters.Any(lambda(parm) { parm.Type == ParameterType.Structure } ) } )
+                    data meth, @SmcMethod
+                    foreach meth in methodsWithStructParams
+                    begin
+                        data structParams = meth.Parameters.Where(lambda(parm) { parm.Type == ParameterType.Structure })
+                        data parm, @SmcParameter
+                        foreach parm in structParams
+                        begin
+                            context.CurrentTask.Structures.AddIfMissing(parm.StructureName)
+                        end
+                    end
+                    ;; Did we find any?
+                    if (context.CurrentTask.Structures.Count == 0)
+                    begin
+                        context.CurrentTask.Log("INFO: Method catalog interface references no structures!")
+                        mreturn true
+                    end
                 end
             end
 
@@ -580,10 +577,7 @@ namespace CodeGen.Engine
                                 foreach paramObject in structureParameters
                                 begin
                                     ;;If the structure name is not already in the list of structures to leep, then add it
-                                    if (!structuresToKeep.Contains(paramObject.StructureName))
-                                    begin
-                                        structuresToKeep.Add(paramObject.StructureName)
-                                    end
+                                    structuresToKeep.AddIfMissing(paramObject.StructureName)
                                 end
                             end
                         end
@@ -626,20 +620,77 @@ namespace CodeGen.Engine
 
             if (context.CurrentTask.MethodCatalogExcludeMethods != ^null)
             begin
+                ;; EXCLUDING METHODS
                 if (context.CurrentTask.MethodCatalogStructureMode) then
                 begin
-                    ;;We're in -smcstrs mode, exclude Structures ONLY referenced by methods in
-                    ;;MethodCatalogExcludeMethods from context.CurrentTask.Structures
+                    ;; SMCSTRS MODE
+                    ;; Exclude structures ONLY referenced by methods in MethodCatalogExcludeMethods from context.CurrentTask.Structures
 
+                    data structuresToMaybeRemove = new List<string>()
 
-                    ;TODO: Implement -mexclude with -smcstrs and -interface
-                    mreturn context.CurrentTask.ErrorLog("Using -mexclude with -smcstrs and -interface is not currently implemented!")
+                    ;;Find the structures referenced by the excluded methods
+                    data iface, @SmcInterface, context.MethodCatalog.Interfaces.First(lambda(if) {if.Name.ToUpper()==context.CurrentTask.MethodCatalogInterface.ToUpper()})
+                    data methName, string
+                    foreach methName in context.CurrentTask.MethodCatalogExcludeMethods
+                    begin
+                        data methodObject = iface.Methods.FirstOrDefault(lambda(mth) { mth.Name.ToUpper() == methName.ToUpper() } )
+                        data structureParameters = methodObject.Parameters.Where(lambda(param) { param.Type == ParameterType.Structure } )
+                        if (structureParameters != ^null)
+                        begin
+                            data structureParameter, @SmcParameter
+                            foreach structureParameter in structureParameters
+                            begin
+                                structuresToMaybeRemove.AddIfMissing(structureParameter.StructureName)
+                            end
+                        end
+                    end
 
+                    ;;Exclude any that are referenced by remaining methods
 
+                    data ix, int
+                    for ix from structuresToMaybeRemove.Count-1 thru 0 by -1
+                    begin
+                        data candidateStructure = structuresToMaybeRemove[ix]
+                        lambda findParameter(p)
+                        begin
+                            mreturn p.Type == ParameterType.Structure && p.StructureName == candidateStructure
+                        end
+                        lambda findMethods(m)
+                        begin
+                            mreturn (!context.CurrentTask.MethodCatalogExcludeMethods.Contains(m.Name)) && m.Parameters.Any(findParameter)
+                        end
+                        data methodsReferencingStructure = iface.Methods.Where(findMethods)
+
+                        ;Debugging code
+                        if (methodsReferencingStructure!=^null)
+                        begin
+                            data tmpmth, @List<SmcMethod>, new List<SmcMethod>(methodsReferencingStructure.ToArray())
+                            nop
+                        end
+
+                        ;End of debugging code
+
+                        if (methodsReferencingStructure==^null || methodsReferencingStructure.Count()==0)
+                        begin
+                            structuresToMaybeRemove.RemoveAt(ix)
+                        end
+                    end
+
+                    ;;Remove whatever remains from the list of structures to process
+                    if (structuresToMaybeRemove.Count > 0)
+                    begin
+                        data structureToRemove, string
+                        foreach structureToRemove in structuresToMaybeRemove
+                        begin
+                            context.CurrentTask.Structures.Remove(structureToRemove)
+                        end
+                    end
                 end
                 else
                 begin
-                    ;;We're in -smc mode, exclude methods named in MethodCatalogExcludeMethods
+                    ;; SMC MODE
+                    ;; Exclude methods named in MethodCatalogExcludeMethods
+
                     data currentInterface = context.MethodCatalog.Interfaces.First()
                     data candidateMethodName, string
 
@@ -2210,8 +2261,7 @@ namespace CodeGen.Engine
                     ;;Add the matching templates to the list to process, if not already there
                     foreach templateName in matchingFiles
                     begin
-                        if (!context.TemplateFiles.Contains(templateName))
-                            context.TemplateFiles.Add(templateName)
+                        context.TemplateFiles.AddIfMissing(templateName)
                     end
                 end
             end
