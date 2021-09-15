@@ -80,6 +80,8 @@ namespace CodeGen.Engine
             keySegmentLoopTokenExpanders.Add("SEGMENT_TYPE", expandSegmentType)
             keySegmentLoopTokenExpanders.Add("SEGMENT_VBTYPE", expandSegmentVbType)
 
+            keySegmentLoopTokenExpanders.Add("SEGMENT_COMMA_NOT_LAST_NORMAL_FIELD", expandSegmentCommaNotLastNormalField)
+
         endmethod
 
         ;;; <summary>
@@ -510,6 +512,57 @@ namespace CodeGen.Engine
                 end
                 else
                     throw new ApplicationException(template.GetTokenErrorMessage(tkn, String.Format("can only be used with FIELD key segments. Structure {0}, key {1}, contains a {2} segment", str.Name, ky.SequenceNumber, segment.SegmentType.ToString())))
+                mreturn value
+            end
+            mreturn ExpandKeySegmentLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandSegmentCommaNotLastNormalField, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, ky, segment, index)
+            begin
+                data value, string, ""
+
+                ;We should return a comma only if there are one or more subsequent segments that are NOT marked as TAG fields.
+                if (index < ky.Segments.Count - 1)
+                begin
+                    data ix = 0
+                    for ix from index + 1 thru ky.Segments.Count - 1
+                    begin
+                        data thisSegment, @RpsKeySegment, ky.Segments[ix]
+                        data segmentFieldName, string, thisSegment.Field
+
+;COMPILER BUG: segmentFieldName not found
+;                        if (!str.Tags.Any(lambda(thisTag) {thisTag.Field == segmentFieldName} ))
+;                        begin
+;                            value=","
+;                            exitloop
+;                        end
+
+;START OF WORKAROUND
+                        data thisTag, @RpsTag
+                        data foundTag = false
+                        foreach thisTag in str.Tags
+                        begin
+                            if (thisTag.Field == segmentFieldName)
+                            begin
+                                foundTag = true
+                                exitloop
+                            end
+                        end
+                        if (!foundTag)
+                        begin
+                            value=","
+                            exitloop
+                        end
+;END OF WORKAROUND
+                    end
+                end
+
                 mreturn value
             end
             mreturn ExpandKeySegmentLoopToken(tkn, template, loops, doExpand)
