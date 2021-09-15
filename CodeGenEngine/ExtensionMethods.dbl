@@ -43,6 +43,7 @@
 import System
 import System.Collections.Generic
 import System.Collections.ObjectModel
+import System.Linq
 import CodeGen.RepositoryAPI
 
 namespace CodeGen.Engine
@@ -107,134 +108,161 @@ namespace CodeGen.Engine
             end
         endmethod
 
-		;;supports string, int and boolean
-		private static method CastObject<T(class)>, T
-			obj, @Object
-		proc
-			data strVal = ^as(obj, @string)
-			data tmpObj, @object
-			if(^typeof(T).IsAssignableFrom(obj.GetType())) then
-				mreturn (T)obj
-			else if(^typeof(T) == ^typeof(string)) then
-			begin
-				mreturn (T)(strVal ?? obj.ToString())
-			end
-			else if(^typeof(T) == ^typeof(Nullable<Boolean>)) then
-			begin
-				if(obj .is. @string)
-				begin
-					data resultBoolean = false
-					if(System.Boolean.TryParse(strVal, resultBoolean)) then
-					begin
-						tmpObj = resultBoolean
-						mreturn (T)tmpObj
-					end
-					else
-						mreturn ^null
-				end
-			end
-			else if(^typeof(T) == ^typeof(Nullable<int>))
-			begin
-				if(obj .is. @string)
-				begin
-					data resultInt = 0
-					if(System.Int32.TryParse(strVal, resultInt)) then
-					begin
-						tmpObj = resultInt
-						mreturn (T)tmpObj
-					end
-					else
-						mreturn ^null
-				end
-			end
+        ;;supports string, int and boolean
+        private static method CastObject<T(class)>, T
+            obj, @Object
+        proc
+            data strVal = ^as(obj, @string)
+            data tmpObj, @object
+            if(^typeof(T).IsAssignableFrom(obj.GetType())) then
+                mreturn (T)obj
+            else if(^typeof(T) == ^typeof(string)) then
+            begin
+                mreturn (T)(strVal ?? obj.ToString())
+            end
+            else if(^typeof(T) == ^typeof(Nullable<Boolean>)) then
+            begin
+                if(obj .is. @string)
+                begin
+                    data resultBoolean = false
+                    if(System.Boolean.TryParse(strVal, resultBoolean)) then
+                    begin
+                        tmpObj = resultBoolean
+                        mreturn (T)tmpObj
+                    end
+                    else
+                        mreturn ^null
+                end
+            end
+            else if(^typeof(T) == ^typeof(Nullable<int>))
+            begin
+                if(obj .is. @string)
+                begin
+                    data resultInt = 0
+                    if(System.Int32.TryParse(strVal, resultInt)) then
+                    begin
+                        tmpObj = resultInt
+                        mreturn (T)tmpObj
+                    end
+                    else
+                        mreturn ^null
+                end
+            end
 
-			mreturn ^null
+            mreturn ^null
 			
-		endmethod
+        endmethod
 
-		public static extension method HasProperty, boolean
-			struct, @RpsStructure
-			fileContext, @FileNode
-			name, @string
-		proc
-			data targetStructure, @Dictionary<string, Object>
-			if(fileContext.Context.ExtendedRepositoryProperties.TryGetValue(struct.Name, targetStructure))
-			begin
-				if(targetStructure.ContainsKey(name))
-					mreturn true
-			end
+        public static extension method HasProperty, boolean
+            struct, @RpsStructure
+            fileContext, @FileNode
+            name, @string
+        proc
+            data targetStructure, @Dictionary<string, Object>
+            if(fileContext.Context.ExtendedRepositoryProperties.TryGetValue(struct.Name, targetStructure))
+            begin
+                if(targetStructure.ContainsKey(name))
+                    mreturn true
+            end
             
-			mreturn struct.UserText.Contains(name) || struct.LongDescription.Contains(name)
+            mreturn struct.UserText.Contains(name) || struct.LongDescription.Contains(name)
 
-		endmethod
+        endmethod
 
-		public static extension method HasProperty, boolean
-			field, @RpsField
-			fileContext, @FileNode
-			name, @string
-		proc
-			data targetStructure, @Dictionary<string, Object>
-			if(fileContext.Context.ExtendedRepositoryProperties.TryGetValue(field.StructureName + "." + field.Name, targetStructure))
-			begin
-				if(targetStructure.ContainsKey(name))
-					mreturn true
-			end
+        public static extension method HasProperty, boolean
+            field, @RpsField
+            fileContext, @FileNode
+            name, @string
+        proc
+            data targetStructure, @Dictionary<string, Object>
+            if(fileContext.Context.ExtendedRepositoryProperties.TryGetValue(field.StructureName + "." + field.Name, targetStructure))
+            begin
+                if(targetStructure.ContainsKey(name))
+                    mreturn true
+            end
             
-			mreturn field.UserText.Contains(name) || field.LongDescription.Contains(name)
+            mreturn field.UserText.Contains(name) || field.LongDescription.Contains(name)
 
-		endmethod
+        endmethod
 
-		private static method GetProperty<T(class)>, T
-			targetName, @string
-			userText, @string
-			longDescription, @string
-			fileContext, @FileNode
-			name, @string
-		proc
-			data result, T
-			data resultObject, @object
-			data targetLookup, @Dictionary<string, Object>
-			if(fileContext.Context.ExtendedRepositoryProperties.TryGetValue(targetName, targetLookup))
-			begin
-				if(targetLookup.TryGetValue(name, resultObject))
-					mreturn CastObject<T>(resultObject)
-			end
+        private static method GetProperty<T(class)>, T
+            targetName, @string
+            userText, @string
+            longDescription, @string
+            fileContext, @FileNode
+            name, @string
+        proc
+            data result, T
+            data resultObject, @object
+            data targetLookup, @Dictionary<string, Object>
+            if(fileContext.Context.ExtendedRepositoryProperties.TryGetValue(targetName, targetLookup))
+            begin
+                if(targetLookup.TryGetValue(name, resultObject))
+                    mreturn CastObject<T>(resultObject)
+            end
             
-			data textIndex = -1
-			data stringToTest = userText
-			textIndex = userText.IndexOf(name + "=")
-			if(textIndex == -1)
-			begin
-				stringToTest = longDescription
-				textIndex = longDescription.IndexOf(name + "=")
-			end
+            data textIndex = -1
+            data stringToTest = userText
+            textIndex = userText.IndexOf(name + "=")
+            if(textIndex == -1)
+            begin
+                stringToTest = longDescription
+                textIndex = longDescription.IndexOf(name + "=")
+            end
 
-			if(textIndex > -1)
-			begin
-				;;include the eq in name length
-				data nameLength = name.Length + 1
-				data semiPos = stringToTest.IndexOf(";",textIndex)
-				mreturn CastObject<T>(stringToTest.Substring(textIndex+nameLength,semiPos-textIndex-nameLength))
-			end
+            if(textIndex > -1)
+            begin
+                ;;include the eq in name length
+                data nameLength = name.Length + 1
+                data semiPos = stringToTest.IndexOf(";",textIndex)
+                mreturn CastObject<T>(stringToTest.Substring(textIndex+nameLength,semiPos-textIndex-nameLength))
+            end
 
-			mreturn ^null
-		endmethod
+            mreturn ^null
+        endmethod
 
-		public static extension method GetProperty<T(class)>, T
-			struct, @RpsStructure
-			fileContext, @FileNode
-			name, @string
-		proc
-			mreturn GetProperty<T>(struct.Name, struct.UserText, struct.LongDescription, fileContext, name) 
-		endmethod
+        public static extension method GetProperty<T(class)>, T
+            struct, @RpsStructure
+            fileContext, @FileNode
+            name, @string
+        proc
+            mreturn GetProperty<T>(struct.Name, struct.UserText, struct.LongDescription, fileContext, name) 
+        endmethod
 
-		public static extension method GetProperty<T(class)>, T
-			field, @RpsField
-			fileContext, @FileNode
-			name, @string
-		proc
-			mreturn GetProperty<T>(field.StructureName + "." + field.Name, field.UserText, field.LongDescription, fileContext, name)
-		endmethod
+        public static extension method GetProperty<T(class)>, T
+            field, @RpsField
+            fileContext, @FileNode
+            name, @string
+        proc
+            mreturn GetProperty<T>(field.StructureName + "." + field.Name, field.UserText, field.LongDescription, fileContext, name)
+        endmethod
+
+        public static extension method RemoveTagSegments, @RpsKeySegmentCollection
+            segments, @RpsKeySegmentCollection
+            tags, @RpsTagCollection
+        proc
+            ;If there are no tags then all segments are keepers
+
+            if (tags.Count==0)
+            begin
+                mreturn segments
+            end
+
+            ;We have tags, so filter out any key segments that are tags
+
+            data keeperSegments = new RpsKeySegmentCollection()
+            data candidateSegment, @RpsKeySegment
+
+            foreach candidateSegment in segments
+            begin
+                data segmentField, string, candidateSegment.Field
+                if (!tags.Any(lambda(thisTag) { thisTag.Field == segmentField }))
+                begin
+                    keeperSegments.Add(candidateSegment)
+                end
+            end
+            mreturn keeperSegments
+        endmethod
 
     endclass
 
