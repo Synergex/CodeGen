@@ -65,6 +65,7 @@ namespace CodeGen.Engine
             parameterLoopTokenExpanders.Add("PARAMETER_NAME", expandParameterName)
             parameterLoopTokenExpanders.Add("PARAMETER_NUMBER", expandParameterNumber)
             parameterLoopTokenExpanders.Add("PARAMETER_COMMENT", expandParameterComment)
+            parameterLoopTokenExpanders.Add("PARAMETER_CSTYPE_XF", expandParameterCsTypeXf)
             parameterLoopTokenExpanders.Add("PARAMETER_TYPE", expandParameterType)
             parameterLoopTokenExpanders.Add("PARAMETER_TSTYPE", expandParameterTsType)
             parameterLoopTokenExpanders.Add("PARAMETER_DEFINITION", expandParameterDefinition)
@@ -255,6 +256,239 @@ namespace CodeGen.Engine
             mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
         endmethod
 
+        private static method expandParameterCsTypeXf, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(catalog,iface,meth,param)
+            begin
+                if (param.CoerceType == CoerceType.None) then
+                begin
+                    ;; Non-coerced parameter
+                    using param.Type select
+                    (ParameterType.Alpha),
+                    begin
+                        using param.CollectionType select
+                        (ParameterCollectionType.ArrayList),
+                        begin
+                            mreturn "ArrayList"
+                        end
+                        (ParameterCollectionType.Array),
+                        begin
+                            mreturn "string[]"
+                        end
+                        (ParameterCollectionType.MemoryHandle),
+                        begin
+                            ;;Not possible
+                            nop
+                        end
+                        (ParameterCollectionType.None),
+                        begin
+                            mreturn "string"
+                        end
+                        endusing
+                    end
+                    (ParameterType.Decimal),
+                    begin
+                        using param.CollectionType select
+                        (ParameterCollectionType.ArrayList),
+                        begin
+                            mreturn "ArrayList"
+                        end
+                        (ParameterCollectionType.Array),
+                        begin
+                            if (param.Size <= 9) then
+                                mreturn "int[]"
+                            else if (param.Size <= 18) then
+                                mreturn "long[]"
+                            else
+                                mreturn "decimal[]"
+                        end
+                        (ParameterCollectionType.MemoryHandle),
+                        begin
+                            ;;Not possible
+                            nop
+                        end
+                        (ParameterCollectionType.None),
+                        begin
+                            if (param.Size <= 9) then
+                                mreturn "int"
+                            else if (param.Size <= 18) then
+                                mreturn "long"
+                            else
+                                mreturn "decimal"
+                        end
+                        endusing
+                    end
+                    (ParameterType.ImpliedDecimal),
+                    begin
+                        using param.CollectionType select
+                        (ParameterCollectionType.ArrayList),
+                        begin
+                            mreturn "ArrayList"
+                        end
+                        (ParameterCollectionType.Array),
+                        begin
+                            mreturn "decimal[]"
+                        end
+                        (ParameterCollectionType.MemoryHandle),
+                        begin
+                            ;;Not possible
+                            nop
+                        end
+                        (ParameterCollectionType.None),
+                        begin
+                            mreturn "decimal"
+                        end
+                        endusing
+                    end
+                    (ParameterType.Integer),
+                    begin
+                        using param.CollectionType select
+                        (ParameterCollectionType.ArrayList),
+                        begin
+                            mreturn "ArrayList"
+                        end
+                        (ParameterCollectionType.Array),
+                        begin
+                            using param.Size select
+                            (1),
+                                mreturn "byte[]"
+                            (2),
+                                mreturn "short[]"
+                            (4),
+                                mreturn "int[]"
+                            (8),
+                                mreturn "long[]"
+                            endusing
+                        end
+                        (ParameterCollectionType.MemoryHandle),
+                        begin
+                            ;;Not possible
+                            nop
+                        end
+                        (ParameterCollectionType.None),
+                        begin
+                            using param.Size select
+                            (1),
+                                mreturn "byte"
+                            (2),
+                                mreturn "short"
+                            (4),
+                                mreturn "int"
+                            (8),
+                                mreturn "long"
+                            endusing
+                        end
+                        endusing
+                    end
+                    (ParameterType.Structure),
+                    begin
+                        using param.CollectionType select
+                        (ParameterCollectionType.ArrayList),
+                        begin
+                            mreturn "ArrayList"
+                        end
+                        (ParameterCollectionType.Array),
+                        begin
+                            mreturn String.Format("{0}[]",StringTools.XfCase(param.StructureName))
+                        end
+                        (ParameterCollectionType.MemoryHandle),
+                        begin
+                            ;"Structure collection"
+                            if (param.DataTable) then
+                            begin
+                                mreturn String.Format("{0}DT",StringTools.XfCase(param.StructureName))
+                            end
+                            else
+                            begin
+                                mreturn "ArrayList"
+                            end
+                        end
+                        (ParameterCollectionType.None),
+                        begin
+                            mreturn StringTools.XfCase(param.StructureName)
+                        end
+                        endusing
+                    end
+                    (ParameterType.Handle),
+                    begin
+                        mreturn "string"
+                    end
+                    (ParameterType.BinaryHandle),
+                    begin
+                        mreturn "byte[]"
+                    end
+                    (ParameterType.String),
+                    begin
+                        using param.CollectionType select
+                        (ParameterCollectionType.ArrayList),
+                        begin
+                            mreturn "ArrayList"
+                        end
+                        (ParameterCollectionType.Array),
+                        begin
+                            ;; Not possible
+                            nop
+                        end
+                        (ParameterCollectionType.MemoryHandle),
+                        begin
+                            ;; Not possible
+                            nop
+                        end
+                        (ParameterCollectionType.None),
+                            mreturn "string"
+                        endusing
+                    end
+                    (ParameterType.Enumeration),
+                    begin
+                        mreturn StringTools.XfCase(param.EnumName)
+                    end
+                    endusing
+                end
+                else
+                begin
+                    ;; Coerced parameter
+                    using param.CoerceType select
+                    (CoerceType.Double),
+                        mreturn "double"
+                    (CoerceType.DateTimeNullable),
+                        mreturn "DateTime?"
+                    (CoerceType.DecimalNullable),
+                        mreturn "decimal?"
+                    (CoerceType.Uint),
+                        mreturn "uint"
+                    (CoerceType.Boolean),
+                        mreturn "bool"
+                    (CoerceType.Ushort),
+                        mreturn "ushort"
+                    (CoerceType.Ulong),
+                        mreturn "ulong"
+                    (CoerceType.Sbyte),
+                        mreturn "sbyte"
+                    (CoerceType.Int),
+                        mreturn "int"
+                    (CoerceType.DateTime),
+                        mreturn "DateTime"
+                    (CoerceType.Decimal),
+                        mreturn "decimal"
+                    (CoerceType.Short),
+                        mreturn "short"
+                    (CoerceType.Long),
+                        mreturn "long"
+                    (CoerceType.Byte),
+                        mreturn "byte"
+                    (CoerceType.Float),
+                        mreturn "float"
+                    endusing
+                end
+                mreturn ""
+            end
+            mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+        endmethod
+        
         private static method expandParameterType, string
             tkn, @Token 
             template, @FileNode 

@@ -73,6 +73,7 @@ namespace CodeGen.Engine
 
             methodLoopTokenExpanders.Add("METHOD_RETURN_COERCE_TYPE", expandMethodReturnCoerceType)
             methodLoopTokenExpanders.Add("METHOD_RETURN_COMMENT", expandMethodReturnComment)
+            methodLoopTokenExpanders.Add("METHOD_RETURN_CSTYPE_XF", expandMethodReturnCsTypeXf)
             methodLoopTokenExpanders.Add("METHOD_RETURN_DATE_FORMAT", expandMethodReturnDateFormat)
             methodLoopTokenExpanders.Add("METHOD_RETURN_ENUM", expandMethodReturnEnum)
             methodLoopTokenExpanders.Add("METHOD_RETURN_PRECISION", expandMethodReturnPrecision)
@@ -289,6 +290,109 @@ namespace CodeGen.Engine
         proc
             lambda doExpand(catalog,iface,meth) meth.ReturnValue.Comment
             mreturn ExpandMethodLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandMethodReturnCsTypeXf, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(catalog,iface,meth)
+            begin
+                if meth.ReturnValue.CoerceType == CoerceType.None
+                then
+                begin
+                    ;; Non-coerced return type
+                    using meth.ReturnValue.Type select
+                    (ReturnType.Alpha),
+                    begin
+                        mreturn "string"
+                    end
+                    (ReturnType.Decimal),
+                    begin
+                        if (meth.ReturnValue.Size <= 9) then
+                            mreturn "int"
+                        else if (meth.ReturnValue.Size <= 18) then
+                            mreturn "long"
+                        else
+                            mreturn "decimal"
+                    end
+                    (ReturnType.ImpliedDecimal),
+                    begin
+                        mreturn "decimal"
+                    end
+                    (ReturnType.Integer),
+                    begin
+                        using meth.ReturnValue.Size select
+                        (1),
+                            mreturn "byte"
+                        (2),
+                            mreturn "short"
+                        (4),
+                            mreturn "int"
+                        (8),
+                            mreturn "long"
+                        endusing
+                    end
+                    (ReturnType.HatVal),
+                    begin
+                        mreturn "int"
+                    end
+                    (ReturnType.Enumeration),
+                    begin
+                        mreturn "int"
+                    end
+                    (ReturnType.String),
+                    begin
+                        mreturn "string"
+                    end
+                    (ReturnType.None),
+                    begin
+                        mreturn "void"
+                    end
+                    endusing
+                end
+                else
+                begin
+                    ;; Coerced return type
+                    using meth.ReturnValue.CoerceType select
+                    (CoerceType.Double),
+                        mreturn "double"
+                    (CoerceType.DateTimeNullable),
+                        mreturn "DateTime?"
+                    (CoerceType.DecimalNullable),
+                        mreturn "decimal?"
+                    (CoerceType.Uint),
+                        mreturn "uint"
+                    (CoerceType.Boolean),
+                        mreturn "bool"
+                    (CoerceType.Ushort),
+                        mreturn "ushort"
+                    (CoerceType.Ulong),
+                        mreturn "ulong"
+                    (CoerceType.Sbyte),
+                        mreturn "sbyte"
+                    (CoerceType.Int),
+                        mreturn "int"
+                    (CoerceType.DateTime),
+                        mreturn "DateTime"
+                    (CoerceType.Decimal),
+                        mreturn "decimal"
+                    (CoerceType.Short),
+                        mreturn "short"
+                    (CoerceType.Long),
+                        mreturn "long"
+                    (CoerceType.Byte),
+                        mreturn "byte"
+                    (CoerceType.Float),
+                        mreturn "float"
+                    endusing
+                end
+            end
+
+            mreturn ExpandMethodLoopToken(tkn, template, loops, doExpand)
+
         endmethod
 
         private static method expandMethodReturnDateFormat, string
