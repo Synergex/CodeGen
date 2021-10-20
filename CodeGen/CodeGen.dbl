@@ -1437,6 +1437,112 @@ proc
             task.MethodCatalogExcludeMethods = new ObservableCollection<String>(ClValues.ToArray())
         end
     end
+
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to exclude certain parameters when processing methods?
+
+    if (ok && CommandLineParser.Parse("pexclude",ClValues))
+    begin
+        if (!CommandLineParser.Parse("smc")) then
+        begin
+            Console.WriteLine("ERROR: -pexclude can only be used with -smc")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count == 0) then
+        begin
+            Console.WriteLine("ERROR: No parameter exclude file found after -pexclude")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count > 1) then
+        begin
+            Console.WriteLine("ERROR: Only one parameter exclude file may be specified after -pexclude")
+            ok = false
+            exitCode = 1
+        end
+        else if (!ClValues[0].ToLower().EndsWith(".json")) then
+        begin
+            Console.WriteLine("ERROR: Parameter exclude file must be a JSON file!",ClValues[0])
+            ok = false
+            exitCode = 1
+        end
+        else if (!File.Exists(ClValues[0])) then
+        begin
+            Console.WriteLine("ERROR: Parameter exclude file {0} was not found!",ClValues[0])
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            try
+            begin
+                data fileContent = File.ReadAllText(ClValues[0])
+                data paramsArray = JsonConvert.DeserializeObject<[#]String>(fileContent)
+                task.MethodCatalogExcludeParameters = new ObservableCollection<String>(paramsArray)
+            end
+            catch (e, @Exception)
+            begin
+                Console.WriteLine("ERROR: Failed to process -pexclude file! Error was {0}",e.Message)
+                ok = false
+                exitCode = 1
+            end
+            endtry
+        end
+    end
+    
+    ;;-------------------------------------------------------------------------
+    ;;Are we being asked to include only certain parameters when processing methods?
+
+    if (ok && CommandLineParser.Parse("pinclude",ClValues))
+    begin
+        if (!CommandLineParser.Parse("smc")) then
+        begin
+            Console.WriteLine("ERROR: -pinclude can only be used with -smc")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count == 0) then
+        begin
+            Console.WriteLine("ERROR: No parameter exclude file found after -pinclude")
+            ok = false
+            exitCode = 1
+        end
+        else if (ClValues.Count > 1) then
+        begin
+            Console.WriteLine("ERROR: Only one parameter exclude file may be specified after -pinclude")
+            ok = false
+            exitCode = 1
+        end
+        else if (!ClValues[0].ToLower().EndsWith(".json")) then
+        begin
+            Console.WriteLine("ERROR: Parameter include file must be a JSON file!",ClValues[0])
+            ok = false
+            exitCode = 1
+        end
+        else if (!File.Exists(ClValues[0])) then
+        begin
+            Console.WriteLine("ERROR: Parameter include file {0} was not found!",ClValues[0])
+            ok = false
+            exitCode = 1
+        end
+        else
+        begin
+            try
+            begin
+                data fileContent = File.ReadAllText(ClValues[0])
+                data paramsArray = JsonConvert.DeserializeObject<[#]String>(fileContent)
+                task.MethodCatalogIncludeParameters = new ObservableCollection<String>(paramsArray)
+            end
+            catch (e, @Exception)
+            begin
+                Console.WriteLine("ERROR: Failed to process -pinclude file! Error was {0}",e.Message)
+                ok = false
+                exitCode = 1
+            end
+            endtry
+        end
+    end
     
     ;;-------------------------------------------------------------------------
     ;;Do we have any button processing settings?

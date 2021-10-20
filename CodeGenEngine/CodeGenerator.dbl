@@ -446,7 +446,7 @@ namespace CodeGen.Engine
             end
 
             ;;--------------------------------------------------------------------------------------
-            ;; This code was previously included in the -smc command line processing.
+            ;; 
 
             if (!context.CurrentTask.MethodCatalogStructureMode)
             begin
@@ -467,7 +467,6 @@ namespace CodeGen.Engine
             end
 
             ;;--------------------------------------------------------------------------------------
-            ;; This code was previously included in the -smcstrs command line processing.
             ;; Now the method catalog file is in context.MethodCatalogFile and if in structures mode
             ;; the context.MethodCatalogStructureMode property will be true.
 
@@ -710,6 +709,64 @@ namespace CodeGen.Engine
                 end
             end
 
+            ;;--------------------------------------------------------------------------------------
+            ;;Are we are bing asked to exclude certain parameters by name
+
+            if (context.CurrentTask.MethodCatalogExcludeParameters != ^null)
+            begin
+                data iface, @SmcInterface
+                foreach iface in context.MethodCatalog.Interfaces
+                begin
+                    data meth, @SmcMethod
+                    foreach meth in iface.Methods
+                    begin
+                        data paramsToKeep = new List<SmcParameter>()
+                        data param, @SmcParameter
+                        foreach param in meth.Parameters
+                        begin
+                            if (!context.CurrentTask.MethodCatalogExcludeParameters.Contains(param.Name,StringComparer.OrdinalIgnoreCase))
+                            begin
+                                paramsToKeep.Add(param)
+                            end
+                        end
+                        if (paramsToKeep.Count != meth.Parameters.Count)
+                        begin
+                            meth.Parameters = paramsToKeep
+                            context.MethodCatalogCustomized = true
+                        end
+                    end
+                end
+            end
+
+            ;;--------------------------------------------------------------------------------------
+            ;;Are we are bing asked to include certain parameters by name, excluding all others
+
+            if (context.CurrentTask.MethodCatalogIncludeParameters != ^null)
+            begin
+                data iface, @SmcInterface
+                foreach iface in context.MethodCatalog.Interfaces
+                begin
+                    data meth, @SmcMethod
+                    foreach meth in iface.Methods
+                    begin
+                        data paramsToKeep = new List<SmcParameter>()
+                        data param, @SmcParameter
+                        foreach param in meth.Parameters
+                        begin
+                            if (context.CurrentTask.MethodCatalogIncludeParameters.Contains(param.Name,StringComparer.OrdinalIgnoreCase))
+                            begin
+                                paramsToKeep.Add(param)
+                            end
+                        end
+                        if (paramsToKeep.Count < meth.Parameters.Count)
+                        begin
+                            meth.Parameters = paramsToKeep
+                            context.MethodCatalogCustomized = true
+                        end
+                    end
+                end
+            end
+        
         endmethod
 
         ;;; <summary>
