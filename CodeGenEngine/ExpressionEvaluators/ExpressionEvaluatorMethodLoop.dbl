@@ -406,6 +406,42 @@ namespace CodeGen.Engine
             mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; Custom method loop expressions
+
+        private static method evaluateMethodCustom, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+
+            lambda doEvaluate(iface, meth, index)
+            begin
+                ;;Does this method have any custom expressions?
+                if (meth.CustomExpressionTokens != ^null)
+                begin
+                    ;; Extract the search text from the token
+                    data searchText, string, tkn.Value.ToUpper().Replace("CUSTOM_METHOD_", "")
+
+                    ;; Make sure we have search text
+                    if (String.IsNullOrWhiteSpace(searchText))
+                        throw new ApplicationException(String.Format("Invalid custom method loop expression token {0} at line {1} in template {2}", tkn.Value, tkn.StartLineNumber, template.Context.CurrentTemplateBaseName))
+
+                    ;; Do we have a match?
+                    mreturn (meth.CustomExpressionTokens.IndexOf(searchText) != -1)
+                end
+                
+                mreturn false
+
+            end
+
+            ;; We get here for any custom method loop expression <IF CUSTOM_METHOD_token> and we are looking for token
+            ;to be present or not in the current methjods CustomTokens array.
+            mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+
+        endmethod
+
     endclass
 
 endnamespace

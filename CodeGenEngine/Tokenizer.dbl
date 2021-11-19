@@ -82,7 +82,7 @@ namespace CodeGen.Engine
         private allowsExpressions, @HashSet<string>, new HashSet<string>()
         private expressionGlue, @HashSet<string>, new HashSet<string>()
 
-        private customValidity, @List<TokenValidity>
+        private customExpressionValidity, @List<TokenValidity>
         private userTokenValidity, @List<TokenValidity>
         private loopUtilityTokenValidity, @List<TokenValidity>
 
@@ -103,9 +103,13 @@ namespace CodeGen.Engine
             ;; For use later (error reporting during Tokenize)
             context = aContext
 
-            customValidity = new List<TokenValidity>()
-            customValidity.Add(TokenValidity.FieldLoop)
-            customValidity.Add(TokenValidity.KeySegmentLoop)
+            ;; Deine where <IF CUSTOM_ expressions may be used
+            customExpressionValidity = new List<TokenValidity>()
+            customExpressionValidity.Add(TokenValidity.FieldLoop)
+            customExpressionValidity.Add(TokenValidity.KeySegmentLoop)
+            customExpressionValidity.Add(TokenValidity.InterfaceLoop)
+            customExpressionValidity.Add(TokenValidity.MethodLoop)
+            customExpressionValidity.Add(TokenValidity.ParameterLoop)
 
             userTokenValidity = new List<TokenValidity>()
             userTokenValidity.Add(TokenValidity.Anywhere)
@@ -759,7 +763,7 @@ namespace CodeGen.Engine
             expressions.Add("CONNECTOR_OR",                     TokenValidity.TagLoop)
             expressions.Add("COUNTER_1",                        TokenValidity.Anywhere)
             expressions.Add("COUNTER_2",                        TokenValidity.Anywhere)
-            expressions.Add("CUSTOM_",                          TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop )
+            expressions.Add("CUSTOM_",                          TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop | TokenValidity.InterfaceLoop | TokenValidity.MethodLoop | TokenValidity.ParameterLoop )
             expressions.Add("CUSTOM_NOT_",                      TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop )
             expressions.Add("CUSTOM_DBL_TYPE",                  TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop )
             expressions.Add("CUSTOM_SQL_TYPE",                  TokenValidity.FieldLoop | TokenValidity.KeySegmentLoop )
@@ -1895,13 +1899,43 @@ namespace CodeGen.Engine
                 &    || tokenValue.StartsWith("REMAINING_INCLUSIVE_MAX_")
                 &    || tokenValue.StartsWith("REPLICATION_REMAINING_INCLUSIVE_MAX_")
                 &    || tokenValue.StartsWith("REPLICATION_REMAINING_INCLUSIVE_MAX_")
-                &    )
+                &    ) then
                 begin
                     ;;Declare the token as valid so that tokenization works.
                     ;;Further validation will take place later during expansion.
                     if (!canonicalNameLookup.ContainsKey(tokenValue))
                     begin
                         addLookupToken( new TokenMeta() {Name = tokenValue, TypeOfToken = TokenType.LoopUtility, IsPaired = false, Validity = TokenValidity.AnyLoop})
+                        mreturn true
+                    end
+                end
+                else if (tokenValue.StartsWith("CUSTOM_INTERFACE_")) then
+                begin
+                    ;;Declare the token as valid so that tokenization works.
+                    ;;Further validation will take place later during expansion.
+                    if (!canonicalNameLookup.ContainsKey(tokenValue))
+                    begin
+                        addLookupToken( new TokenMeta() {Name = tokenValue, TypeOfToken = TokenType.InterfaceLoop, IsPaired = false, Validity = TokenValidity.InterfaceLoop})
+                        mreturn true
+                    end
+                end
+                else if (tokenValue.StartsWith("CUSTOM_METHOD_")) then
+                begin
+                    ;;Declare the token as valid so that tokenization works.
+                    ;;Further validation will take place later during expansion.
+                    if (!canonicalNameLookup.ContainsKey(tokenValue))
+                    begin
+                        addLookupToken( new TokenMeta() {Name = tokenValue, TypeOfToken = TokenType.MethodLoop, IsPaired = false, Validity = TokenValidity.MethodLoop})
+                        mreturn true
+                    end
+                end
+                else if (tokenValue.StartsWith("CUSTOM_PARAMETER_"))
+                begin
+                    ;;Declare the token as valid so that tokenization works.
+                    ;;Further validation will take place later during expansion.
+                    if (!canonicalNameLookup.ContainsKey(tokenValue))
+                    begin
+                        addLookupToken( new TokenMeta() {Name = tokenValue, TypeOfToken = TokenType.ParameterLoop, IsPaired = false, Validity = TokenValidity.ParameterLoop})
                         mreturn true
                     end
                 end
@@ -1972,7 +2006,7 @@ namespace CodeGen.Engine
                         end
                         else if (expstring.ToUpper().StartsWith("CUSTOM_")) then
                         begin
-                            mreturn Tuple.Create(startedTokenIndex, ix, customValidity)
+                            mreturn Tuple.Create(startedTokenIndex, ix, customExpressionValidity)
                         end
                         else if ((expstring.ToUpper().StartsWith("USERTOKEN_"))
                         &    ||   (expstring.ToUpper().StartsWith("NOT_USERTOKEN_"))) then

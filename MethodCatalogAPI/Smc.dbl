@@ -42,8 +42,10 @@
 
 import System.Collections.Generic
 import System.IO
+import System.Linq
 import System.Xml
 import CodeGen.RepositoryAPI
+import Newtonsoft.Json
 
 namespace CodeGen.MethodCatalogAPI
 
@@ -66,6 +68,179 @@ namespace CodeGen.MethodCatalogAPI
 
             ;;And parse it
             parseMethodCatalogXml(inputFile)
+
+        endmethod
+
+        ;;; <summary>
+        ;;; Constructs a new MethodCatalog object by parsing the information contained in a method catalog.
+        ;;; </summary>
+        ;;; <param name="inputFile">Method catalog XML file to parse.</param>
+        ;;; <param name="extensionsFile">Method catalog extensions JSON file.</param>
+        public method Smc
+            required in inputFile, String
+            required in extensionsFile, String
+            this(inputFile)
+        proc
+            
+            if (String.IsNullOrWhiteSpace(extensionsFile))
+                mreturn
+            
+            ;Read the method catalog extensions file
+            ;(We know it exists bacause it was validated during command-line parsing)
+
+            data jsonData, string
+
+            try
+            begin
+                jsonData = File.ReadAllText(extensionsFile)
+            end
+            catch (e, @Exception)
+            begin
+                throw new ApplicationException("Failed to read method catalog extensions file!")
+            end
+            endtry
+
+            ;Parse the extensions file
+
+            data extensions, [#]@SmcInterfaceExtension
+
+            try
+            begin
+                extensions = JsonConvert.DeserializeObject<[#]@SmcInterfaceExtension>(jsonData)
+            end
+            catch (e, @Exception)
+            begin
+                throw new ApplicationException("Failed to parse method catalog extensions file!")
+            end
+            endtry
+
+            ;---------------------------------------------------------------------------------
+            ;Interfaces
+
+            data ie, @SmcInterfaceExtension
+
+            foreach ie in extensions
+            begin
+                ;Find the interface
+                data smci, @SmcInterface, this.Interfaces.FirstOrDefault(lambda(i) {i.Name == ie.InterfaceName} )
+
+                if (smci == ^null)
+                begin
+                    throw new ApplicationException(String.Format("Interface {0} was not found in the method catalog XML file! Check spelling and case?",ie.InterfaceName))
+                end
+
+                ;Any custom expansion tokens?
+                if (ie.CustomExpansionTokens != ^null && ie.CustomExpansionTokens.Length > 0)
+                begin
+                    ;Ensure all token names are uppercase
+                    data et, @ExpansionToken
+                    foreach et in ie.CustomExpansionTokens
+                    begin
+                        et.Name = et.Name.ToUpper()
+                    end
+
+                    ;And add them to the interface
+                    smci.CustomExpansionTokens = new List<ExpansionToken>(ie.CustomExpansionTokens)
+                end
+
+                ;Any custom expression tokens?
+                if (ie.CustomExpressionTokens != ^null && ie.CustomExpressionTokens.Length > 0)
+                begin
+                    ;Ensure all token names are uppercase
+                    ie.CustomExpressionTokens = Array.ConvertAll(ie.CustomExpressionTokens, lambda(t) { t.ToUpper() })
+
+                    ;And add them to the interface
+                    smci.CustomExpressionTokens = new List<String>(ie.CustomExpressionTokens)
+                end
+
+                ;---------------------------------------------------------------------------------
+                ;Methods
+
+                if (ie.Methods != ^null && ie.Methods.Length > 0)
+                begin
+                    ;Methods
+                    data me, @SmcMethodExtension
+
+                    foreach me in ie.Methods
+                    begin
+                        ;Find the method
+                        data smcm, @SmcMethod, smci.Methods.FirstOrDefault(lambda(m) {m.Name == me.MethodName} )
+
+                        if (smcm == ^null)
+                        begin
+                            throw new ApplicationException(String.Format("Method {0} was not found in interface {1} in the method catalog XML file! Check spelling and case?",me.MethodName,ie.InterfaceName))
+                        end
+
+                        ;Any custom expansion tokens?
+                        if (me.CustomExpansionTokens!= ^null && me.CustomExpansionTokens.Length > 0)
+                        begin
+                            ;Ensure all token names are uppercase
+                            data et, @ExpansionToken
+                            foreach et in me.CustomExpansionTokens
+                            begin
+                                et.Name = et.Name.ToUpper()
+                            end
+
+                            ;And add them to the method
+                            smcm.CustomExpansionTokens = new List<ExpansionToken>(me.CustomExpansionTokens)
+                        end
+
+                        ;Any custom expression tokens?
+                        if (me.CustomExpressionTokens != ^null && me.CustomExpressionTokens.Length > 0)
+                        begin
+                            ;Ensure all token names are uppercase
+                            me.CustomExpressionTokens = Array.ConvertAll(me.CustomExpressionTokens, lambda(t) { t.ToUpper() })
+
+                            ;And add them to the method
+                            smcm.CustomExpressionTokens = new List<String>(me.CustomExpressionTokens)
+                        end
+
+                        ;---------------------------------------------------------------------------------
+                        ;Parameters
+
+                        if (me.Parameters != ^null && me.Parameters.Length > 0 && smcm.Parameters.Count > 0)
+                        begin
+                            ;Process any parameters
+                            data pe, @SmcParameterExtension
+
+                            foreach pe in me.Parameters
+                            begin
+                                ;Find the parameter
+                                data smcp, @SmcParameter, smcm.Parameters.FirstOrDefault(lambda(p) {p.Name == pe.ParameterName} )
+
+                                if (smcp == ^null)
+                                begin
+                                    throw new ApplicationException(String.Format("Method {0} in interface {1} does not have parameter {2} in the method catalog XML file! Check spelling and case?",me.MethodName,ie.InterfaceName,pe.ParameterName))
+                                end
+
+                                ;Any custom expansion tokens?
+                                if (pe.CustomExpansionTokens != ^null && pe.CustomExpansionTokens.Length > 0)
+                                begin
+                                    ;Ensure all token names are uppercase
+                                    data et, @ExpansionToken
+                                    foreach et in pe.CustomExpansionTokens
+                                    begin
+                                        et.Name = et.Name.ToUpper()
+                                    end
+
+                                    ;And add them to the parameter
+                                    smcp.CustomExpansionTokens = new List<ExpansionToken>(pe.CustomExpansionTokens)
+                                end
+
+                                ;Any custom expression tokens?
+                                if (pe.CustomExpressionTokens != ^null && pe.CustomExpressionTokens.Length > 0)
+                                begin
+                                    ;Ensure all token names are uppercase
+                                    pe.CustomExpressionTokens = Array.ConvertAll(pe.CustomExpressionTokens, lambda(t) { t.ToUpper() })
+
+                                    ;And add them to the parameter
+                                    smcp.CustomExpressionTokens = new List<String>(pe.CustomExpressionTokens)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
 
         endmethod
 
@@ -128,6 +303,8 @@ namespace CodeGen.MethodCatalogAPI
 
             if (this.Interfaces.Count==0)
                 throw new ApplicationException("No application interfaces defined in input file.")
+
+
 
         endmethod
 

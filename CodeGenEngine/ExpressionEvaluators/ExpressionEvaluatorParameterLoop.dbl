@@ -497,6 +497,41 @@ namespace CodeGen.Engine
             mreturn loop.CurrentParameter.Name.Equals(nameToLookFor,StringComparison.OrdinalIgnoreCase)
         endmethod
 
+        ;; -------------------------------------------------------------------------------------------------------------------------------
+        ;; Custom parameter loop expressions
+
+        private static method evaluateParameterCustom, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+
+            lambda doEvaluate(iface, meth, param, index)
+            begin
+                ;;Does this parameter have any custom expressions?
+                if (param.CustomExpressionTokens != ^null)
+                begin
+                    ;; Extract the search text from the token
+                    data searchText, string, tkn.Value.ToUpper().Replace("CUSTOM_PARAMETER_", "")
+
+                    ;; Make sure we have search text
+                    if (String.IsNullOrWhiteSpace(searchText))
+                        throw new ApplicationException(String.Format("Invalid custom parameter loop expression token {0} at line {1} in template {2}", tkn.Value, tkn.StartLineNumber, template.Context.CurrentTemplateBaseName))
+
+                    ;; Is it there?
+                    mreturn (param.CustomExpressionTokens.IndexOf(searchText) != -1)
+                end
+
+                mreturn false
+            end
+
+            ;; We get here for any custom parameter loop expression <IF CUSTOM_PARAMETER_token> and we are looking for token
+            ;to be present or not in the current parameters CustomTokens array.
+            mreturn EvaluateParameterLoopExpression(tkn, template, loops, doEvaluate)
+
+        endmethod
+
     endclass
 
 endnamespace
