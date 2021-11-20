@@ -1092,6 +1092,97 @@ proc
                 ok = false
                 exitCode = 1
             end
+            (1),
+            begin
+                ;If the single parameter is a file spec then it is a JSON file containing
+                ;the definitions of structures to process, as well as an optional alias and
+                ;file override for each. If not specified, aliases and file overrides
+                ;default to the name of the structure
+
+                if (File.Exists(ClValues[0])) then
+                begin
+                    ;;The one parameter after -s is a valid file spec.
+                    ;;We will open the file and read structure names from it.
+                    data jsonData, string
+
+                    try
+                    begin
+                        jsonData = File.ReadAllText(ClValues[0])
+                    end
+                    catch (e, @Exception)
+                    begin
+                        Console.WriteLine("Failed to read structure list from {0}",ClValues[0])
+                        ok = false
+                        exitCode = 1
+                    end
+                    endtry
+
+                    ;Parse the extensions file
+
+                    data structureDefs, [#]@StructureDefinition
+
+                    if (ok)
+                    begin
+                        try
+                        begin
+                            structureDefs = JsonConvert.DeserializeObject<[#]@StructureDefinition>(jsonData)
+                        end
+                        catch (e, @Exception)
+                        begin
+                            Console.WriteLine("Failed to parse structure list from {0}",ClValues[0])
+                            ok = false
+                            exitCode = 1
+                        end
+                        endtry
+                    end
+
+                    ;Load the structures, aliases and file overrides
+
+                    if (ok)
+                    begin
+                        data structureDef, @StructureDefinition
+                        foreach structureDef in structureDefs
+                        begin
+                            ;Structure
+                            
+                            structureDef.Structure = structureDef.Structure.Trim().ToUpper()
+                            task.Structures.Add(structureDef.Structure)
+
+                            ;Alias
+                            
+                            if (String.IsNullOrWhiteSpace(structureDef.Alias)) then
+                            begin
+                                structureDef.Alias = structureDef.Structure
+                            end
+                            else
+                            begin
+                                structureDef.Alias = structureDef.Alias.Trim().ToUpper()
+                            end
+                            
+                            task.Aliases.Add(structureDef.Alias)
+
+                            ;File override
+                            
+                            if (String.IsNullOrWhiteSpace(structureDef.File)) then
+                            begin
+                                structureDef.File = structureDef.Structure
+                            end
+                            else
+                            begin
+                                structureDef.File = structureDef.File.Trim().ToUpper()
+                            end
+                            
+                            task.FileOverrides.Add(structureDef.File)
+
+                        end
+                    end
+                end
+                else
+                begin
+                    ;Single parameter is not a file spec, it's a single structure name
+                    task.Structures.Add(ClValues[0].ToUpper())
+                end
+            end
             (),
             begin
                 data strName, String
@@ -1655,6 +1746,12 @@ proc
             ok = false
             exitCode = 1
         end
+        else if (task.Aliases.Count > 0) then
+        begin
+            Console.WriteLine("ERROR: Option -a may not be used with a structure definitions input file. Define aliases in that file!")
+            ok = false
+            exitCode = 1
+        end
         else
         begin
             using ClValues.Count select
@@ -1753,6 +1850,12 @@ proc
         if (restrictTaskOptions) then
         begin
             Console.WriteLine("ERROR: Option -fo may not be used with an input file that contains multiple tasks!")
+            ok = false
+            exitCode = 1
+        end
+        else if (task.FileOverrides.Count > 0) then
+        begin
+            Console.WriteLine("ERROR: Option -fo may not be used with a structure definitions input file. Define file overrides in that file!")
             ok = false
             exitCode = 1
         end
