@@ -918,7 +918,52 @@ namespace CodeGen.Engine
                 end
                 (ParameterType.Structure),
                 begin
-                    mreturn '""'
+                    data str = new RpsStructure(param.StructureName)
+                    data sb = new StringBuilder("{")
+                    data fld, @RpsField
+                    data sampleData, string
+
+                    data ix, int
+                    for ix from 0 thru str.Fields.Count -1
+                    begin
+                        fld = str.Fields[ix]
+
+                        using fld.SnType select
+                        ("boolean"),
+                        begin
+                            sampleData = 'false'
+                        end
+                        ("byte", "short", "int", "long", "System.SByte", "System.UInt16", "System.UInt32", "System.UInt64"),
+                        begin
+                            sampleData = '0'
+                        end
+                        ("decimal", "double", "float"),
+                        begin
+                            sampleData = '0.0'
+                        end
+                        ("String", "DateTime", "@Nullable<DateTime>"),
+                        begin
+                            sampleData = '""'
+                        end
+                        (),
+                        begin
+                            sampleData = '""'
+                        end
+                        endusing
+
+                        sb.Append(String.Format('"{0}": {1}',StringTools.PascalCase(fld.SqlName),sampleData))
+
+                        if (ix < str.Fields.Count -1)
+                        begin
+                            sb.Append(", ")
+                        end
+                        
+                    end
+
+                    sb.Append("}")
+
+                    mreturn sb.ToString()
+
                 end
                 endusing
             end
