@@ -83,6 +83,15 @@ namespace CodeGen.RepositoryAPI
             required in a_Order         ,d
             endparams
         proc
+
+            mDataType = a_DataType
+            
+            ;;Segment data types are optional in Repository, but default to
+            ;;alpha in ISAM.  If we don't have a segment data type, default to
+            ;;alpha
+            if (!mDataType)
+                mDataType = 1
+
             using a_SegmentType select
             ("F"),  mSegmentType = RpsKeySegmentType.Field
             ("L"),  mSegmentType = RpsKeySegmentType.Literal
@@ -90,20 +99,24 @@ namespace CodeGen.RepositoryAPI
             ("R"),  mSegmentType = RpsKeySegmentType.RecordNumber
             endusing
 
+            data tmpLiteral, string, %atrim(a_LiteralValue)
+
+            if (mSegmentType == RpsKeySegmentType.Literal && mDataType==1) then
+            begin
+                mLiteralValue = tmpLiteral.Replace("~"," ")
+                mLength       = tmpLiteral.Length
+            end
+            else
+            begin
+                mLiteralValue = tmpLiteral
+                mLength       = a_Length
+            end
+
             mPosition       = a_Position
-            mLength         = a_Length
             mField          = %atrim(a_Field)
             mStructure      = %atrim(a_Structure)
-            mLiteralValue   = %atrim(a_LiteralValue)
-            mDataType       = a_DataType
             mOrder          = (RpsKeySegmentOrder)%integer(a_Order)
             
-            ;;Segment data types are optional in Repository, but default to
-            ;;alpha in ISAM.  If we don't have a segment data type, default to
-            ;;alpha
-            if (!mDataType)
-                mDataType = 1
-        
         endmethod
 
         {JsonConverter(^typeof(StringEnumConverter))}
