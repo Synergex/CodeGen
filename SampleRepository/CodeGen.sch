@@ -5,8 +5,8 @@
 ;                 : D:\CodeGen\SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
-;  GENERATED      : 05-APR-2021, 14:42:19
-;                 : Version 11.1.1g
+;  GENERATED      : 08-FEB-2022, 13:47:01
+;                 : Version 11.1.1i
 ;  EXPORT OPTIONS : [ALL] 
  
  
@@ -711,8 +711,18 @@ Field FIELD1   Type ALPHA   Size 1
 Structure MULTI_DIM_ARRAY   DBL ISAM
    Description "Multi-dimensional array test structure"
  
-Field FIELD   Type ALPHA   Size 10   Dimension 15:12
+Field FIELD   Type ALPHA   Size 10
    Description "Field"
+ 
+Field FIELDA   Type ALPHA   Size 10   Dimension 2:2:2:2
+   Description "Field"
+ 
+Field FIELDB   Type ALPHA   Size 10   Dimension 2:2:2:2
+   Description "Field"
+ 
+Field PHONE   Type DECIMAL   Size 10   Dimension 3
+ 
+Field MATRIX   Type ALPHA   Size 1   Dimension 2:2:2:2
  
 Structure ORDER_HEADER   DBL ISAM
    Description "Order header details (SQL)"
