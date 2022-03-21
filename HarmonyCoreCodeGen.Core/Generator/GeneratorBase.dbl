@@ -162,14 +162,14 @@ namespace HarmonyCoreGenerator.Generator
 		endmethod
 
 
-		public static method GetTargetStructures, @List<StructureEx>
+		public virtual method GetTargetStructures, @List<StructureEx>
 			generatorName, @string
 			targetSolution, @Solution
 		proc
 			mreturn targetSolution.ExtendedStructures.Where(lambda(struct) { struct.EnabledGenerators.Contains(generatorName) }).ToList()
 		endmethod
 	
-		public static method GetTargetInterfaces, @List<InterfaceEx>
+		public virtual method GetTargetInterfaces, @List<InterfaceEx>
 			generatorName, @string
 			targetSolution, @Solution
 		proc
@@ -183,6 +183,8 @@ namespace HarmonyCoreGenerator.Generator
 					mreturn iface.GenerateWebAPIController
 				else if(generatorName == ^nameof(SignalRGenerator)) then
 					mreturn iface.GenerateSignalRHub
+				else if(iface.EnabledGenerators?.Contains(generatorName) ?? false) then
+					mreturn true
 				else
 					mreturn false
 			end
@@ -225,7 +227,7 @@ namespace HarmonyCoreGenerator.Generator
 ;		endmethod
 
 
-		public static method StructureTaskHelper, @CodeGenTask
+		public virtual method StructureTaskHelper, @CodeGenTask
 			targetSolution, @Solution
 			taskDescription, @string
 			taskNamespace, @string
@@ -251,17 +253,28 @@ namespace HarmonyCoreGenerator.Generator
 			if(!Directory.Exists(taskOutput))
 				Directory.CreateDirectory(taskOutput)
 
+			if(targetSolution.FieldOverlays)
+				task.IncludeOverlayFields = true
+
 			task.Namespace = taskNamespace
 			task.AllowTemplateFolder = true
 			task.ReplaceFiles = true
 			task.MultipleStructures = multiStructure
+
+			if(targetSolution.NoCustomPluralization ?? false)
+				task.NoCustomPluralization = true
+
 			task.UserTokens.AddRange<UserToken>(MergeTokens(targetSolution.GetUserDefinedTokens(), userTokens))
 			if (useStructures)
+			begin
+				task.Aliases.AddRange<String>(targetStructures.Select(lambda(struct) { struct?.Aliases?.FirstOrDefault() ?? struct.Name}))
 				task.Structures.AddRange<String>(targetStructures.Select(lambda(struct) { struct.Name }))
+			end
+
 			mreturn task
 		endmethod
 
-		public static method InterfaceTaskHelper, @CodeGenTask
+		public virtual method InterfaceTaskHelper, @CodeGenTask
 			targetSolution, @Solution
 			taskDescription, @string
 			taskNamespace, @string
@@ -272,19 +285,29 @@ namespace HarmonyCoreGenerator.Generator
 			userTokens, [#]@UserToken
 			default templateFolder, @string, ^null
 			default useStructures, boolean, true
+			default multiStructureMode, boolean, false
 		proc
-			data task = StructureTaskHelper(targetSolution, taskDescription, taskNamespace, taskOutput, false, generatorName, targetTemplates, userTokens, templateFolder, useStructures)
+			data task = StructureTaskHelper(targetSolution, taskDescription, taskNamespace, taskOutput, multiStructureMode, generatorName, targetTemplates, userTokens, templateFolder, useStructures)
 			task.MethodCatalogInterface = targetInterface.Name
 
 			mreturn task
 		endmethod
 
-		public static method MergeTokens, @IEnumerable<UserToken>
+		public virtual method MergeTokens, @IEnumerable<UserToken>
 			baseTokens, @IEnumerable<UserToken>
 			overrideTokens, @IEnumerable<UserToken>
 		proc
-			lambda keyFnc(tkn) tkn.Name
-			data result, @Dictionary<string, UserToken>, baseTokens.ToDictionary((@Func<UserToken, string>)keyFnc)
+			data result = new Dictionary<string, UserToken>()
+
+			data baseToken, @UserToken
+			foreach baseToken in baseTokens
+			begin
+				if(!result.ContainsKey(baseToken.Name)) then
+					result.Add(baseToken.Name, baseToken)
+				else
+					result[baseToken.Name] = baseToken
+			end
+
 			data overrideToken, @UserToken
 			if(overrideTokens != ^null)
 			begin
