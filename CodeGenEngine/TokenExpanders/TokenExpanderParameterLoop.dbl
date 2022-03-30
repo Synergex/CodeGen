@@ -750,36 +750,11 @@ namespace CodeGen.Engine
             loops, @IEnumerable<LoopNode> 
             endparams
         proc
-            lambda doExpand(catalog,iface,meth,param)
+            if (template.Context.CurrentTask.NoCustomPluralization) then
             begin
-                using tkn.Value select
-                ("PARAMETER_STRUCTURE_NOPLURAL"),
-                begin
-                    data strPrefix = String.Empty
-                    data strName = param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName
-
-                    ;; PARAMDEFSTR tweak
-                    if (template.Context.CurrentTask.Tweaks != ^null && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
-                    begin
-                        strPrefix =  "STR_"
-                    end
-
-                    mreturn String.Format("{0}{1}",strPrefix,strName)
-                end
-                ("PARAMETER_STRUCTURE_PLURAL"),
-                begin
-                    data strPrefix = String.Empty
-                    data strName = param.StructureName.EndsWith("S") ? param.StructureName : String.Format("{0}S",param.StructureName)
-
-                    ;; PARAMDEFSTR tweak
-                    if (template.Context.CurrentTask.Tweaks != ^null && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
-                    begin
-                        strPrefix =  "STR_"
-                    end
-
-                    mreturn String.Format("{0}{1}",strPrefix,strName)
-                end
-                (), ;"PARAMETER_STRUCTURE"
+                ;This code handles PARAMETER_STRUCTURE_NOPLURAL, PARAMETER_STRUCTURE_PLURAL and PARAMETER_STRUCTURE
+                ;but as -ncp is in use, they all do the same thing
+                lambda doExpand(catalog,iface,meth,param)
                 begin
                     data strPrefix = String.Empty
                     data strName = param.StructureName
@@ -792,9 +767,56 @@ namespace CodeGen.Engine
 
                     mreturn String.Format("{0}{1}",strPrefix,strName)
                 end
-                endusing
+                mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
             end
-            mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+            else
+            begin
+                lambda doExpand(catalog,iface,meth,param)
+                begin
+                    using tkn.Value select
+                    ("PARAMETER_STRUCTURE_NOPLURAL"),
+                    begin
+                        data strPrefix = String.Empty
+                        data strName = param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName
+
+                        ;; PARAMDEFSTR tweak
+                        if (template.Context.CurrentTask.Tweaks != ^null && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                        begin
+                            strPrefix =  "STR_"
+                        end
+
+                        mreturn String.Format("{0}{1}",strPrefix,strName)
+                    end
+                    ("PARAMETER_STRUCTURE_PLURAL"),
+                    begin
+                        data strPrefix = String.Empty
+                        data strName = param.StructureName.EndsWith("S") ? param.StructureName : String.Format("{0}S",param.StructureName)
+
+                        ;; PARAMDEFSTR tweak
+                        if (template.Context.CurrentTask.Tweaks != ^null && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                        begin
+                            strPrefix =  "STR_"
+                        end
+
+                        mreturn String.Format("{0}{1}",strPrefix,strName)
+                    end
+                    (), ;"PARAMETER_STRUCTURE"
+                    begin
+                        data strPrefix = String.Empty
+                        data strName = param.StructureName
+
+                        ;; PARAMDEFSTR tweak
+                        if (template.Context.CurrentTask.Tweaks != ^null && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
+                        begin
+                            strPrefix =  "STR_"
+                        end
+
+                        mreturn String.Format("{0}{1}",strPrefix,strName)
+                    end
+                    endusing
+                end
+                mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+            end
         endmethod
 
         private static method expandParameterCoerceType, string
