@@ -48,13 +48,14 @@ import CodeGen.RepositoryAPI
 import System.Collections
 import Newtonsoft.Json
 import Newtonsoft.Json.Converters
+import System.ComponentModel
 
 namespace CodeGen.RepositoryAPI
 
     ;;; <summary>
     ;;; Represents a repository TEMPLATE definition
     ;;; </summary>
-    public class RpsTemplate
+    public partial class RpsTemplate
 
         public override method ToString, String
             endparams
@@ -89,18 +90,31 @@ namespace CodeGen.RepositoryAPI
         protected mfti_enum             ,fti_enum
         protected mAllowList            ,@ArrayList
         protected mSelectionList        ,@ArrayList
-        protected mCorecedType          ,RpsFieldCoercedType
+        protected mCoercedType          ,RpsFieldCoercedType
 
         ;;; <summary>
         ;;; Load a template
         ;;; </summary>
-        ;;; <param name="TemplateName">Template name</param>
+        ;;; <param name="aTemplateName">Template name</param>
         public method RpsTemplate
-            required in TemplateName, String
-            endparams
+            required in aTemplateName, String
+            this(aTemplateName,0)
+        proc
+
+        endmethod
+
+        ;;; <summary>
+        ;;; Load a template
+        ;;; </summary>
+        ;;; <param name="aTemplateName">Template name</param>
+        ;;; <param name="aTemplateNumber">Template number</param>
+        public method RpsTemplate
+            required in aTemplateName, String
+            required in aTemplateNumber, int
         proc
             Repository.CheckIsOpen()
-            LoadTemplate(TemplateName)
+            LoadTemplate(aTemplateName)
+            this.TemplateNumber = aTemplateNumber
         endmethod
 
         ;; Destructor
@@ -282,6 +296,16 @@ namespace CodeGen.RepositoryAPI
                     throw new RpsTemplateException("Failed to get edit format method for repository template "+TemplateName)
             end
 
+            ;;Load enumerated field name
+            if ((mt_info.ti_type==T_INT)&&(mt_info.ti_class==C_ENUM)&&(mt_info.ti_enmfld))
+            begin
+                data tmpEnumName, a30
+                dd_field(Repository.RpsControl,DDF_TEXT,mt_info.ti_enmfld,tmpEnumName)
+                if (Repository.RpsControl.error)
+                    throw new RpsFieldException("Failed to get emumeration name for repository template "+TemplateName)
+                this.EnumName = %atrim(tmpEnumName)
+            end
+
             ;;Allowed values (@ArrayList)
             mAllowList = new ArrayList()
             if (mt_info.ti_alwlst&&mt_info.ti_alwct)
@@ -339,9 +363,9 @@ namespace CodeGen.RepositoryAPI
                 begin
                     using mt_info.ti_coertype select
                     (CT_DATETIME),
-                        mCorecedType = RpsFieldCoercedType.CtNone
+                        mCoercedType = RpsFieldCoercedType.CtNone
                     (CT_NULLDATETIME),
-                        mCorecedType = RpsFieldCoercedType.CtNullDateTime
+                        mCoercedType = RpsFieldCoercedType.CtNullDateTime
                     endusing
                 end
                 (),
@@ -350,36 +374,36 @@ namespace CodeGen.RepositoryAPI
                     begin
                         using mt_info.ti_coertype select
                         (CT_DECIMAL),
-                            mCorecedType = RpsFieldCoercedType.CtNone
+                            mCoercedType = RpsFieldCoercedType.CtNone
                         (CT_DOUBLE),
-                            mCorecedType = RpsFieldCoercedType.CtDouble
+                            mCoercedType = RpsFieldCoercedType.CtDouble
                         (CT_FLOAT),
-                            mCorecedType = RpsFieldCoercedType.CtFloat
+                            mCoercedType = RpsFieldCoercedType.CtFloat
                         endusing
                     end
                     else
                     begin
                         using mt_info.ti_coertype select
                         (CT_DEFAULT),
-                            mCorecedType = RpsFieldCoercedType.CtNone
+                            mCoercedType = RpsFieldCoercedType.CtNone
                         (CT_BYTE),
-                            mCorecedType = RpsFieldCoercedType.CtByte
+                            mCoercedType = RpsFieldCoercedType.CtByte
                         (CT_SHORT),
-                            mCorecedType = RpsFieldCoercedType.CtShort
+                            mCoercedType = RpsFieldCoercedType.CtShort
                         (CT_INT),
-                            mCorecedType = RpsFieldCoercedType.CtInt
+                            mCoercedType = RpsFieldCoercedType.CtInt
                         (CT_LONG),
-                            mCorecedType = RpsFieldCoercedType.CtLong
+                            mCoercedType = RpsFieldCoercedType.CtLong
                         (CT_SBYTE),
-                            mCorecedType = RpsFieldCoercedType.CtSbyte
+                            mCoercedType = RpsFieldCoercedType.CtSbyte
                         (CT_USHORT),
-                            mCorecedType = RpsFieldCoercedType.CtUshort
+                            mCoercedType = RpsFieldCoercedType.CtUshort
                         (CT_UINT),
-                            mCorecedType = RpsFieldCoercedType.CtUint
+                            mCoercedType = RpsFieldCoercedType.CtUint
                         (CT_ULONG),
-                            mCorecedType = RpsFieldCoercedType.CtUlong
+                            mCoercedType = RpsFieldCoercedType.CtUlong
                         (CT_BOOLEAN),
-                            mCorecedType = RpsFieldCoercedType.CtBoolean
+                            mCoercedType = RpsFieldCoercedType.CtBoolean
                         endusing
                     end
                 end
@@ -389,35 +413,43 @@ namespace CodeGen.RepositoryAPI
             begin
                 using mt_info.ti_coertype select
                 (CT_DEFAULT),
-                    mCorecedType = RpsFieldCoercedType.CtNone
+                    mCoercedType = RpsFieldCoercedType.CtNone
                 (CT_BYTE),
-                    mCorecedType = RpsFieldCoercedType.CtByte
+                    mCoercedType = RpsFieldCoercedType.CtByte
                 (CT_SHORT),
-                    mCorecedType = RpsFieldCoercedType.CtShort
+                    mCoercedType = RpsFieldCoercedType.CtShort
                 (CT_INT),
-                    mCorecedType = RpsFieldCoercedType.CtInt
+                    mCoercedType = RpsFieldCoercedType.CtInt
                 (CT_LONG),
-                    mCorecedType = RpsFieldCoercedType.CtLong
+                    mCoercedType = RpsFieldCoercedType.CtLong
                 (CT_SBYTE),
-                    mCorecedType = RpsFieldCoercedType.CtSbyte
+                    mCoercedType = RpsFieldCoercedType.CtSbyte
                 (CT_USHORT),
-                    mCorecedType = RpsFieldCoercedType.CtUshort
+                    mCoercedType = RpsFieldCoercedType.CtUshort
                 (CT_UINT),
-                    mCorecedType = RpsFieldCoercedType.CtUint
+                    mCoercedType = RpsFieldCoercedType.CtUint
                 (CT_ULONG),
-                    mCorecedType = RpsFieldCoercedType.CtUlong
+                    mCoercedType = RpsFieldCoercedType.CtUlong
                 (CT_BOOLEAN),
-                    mCorecedType = RpsFieldCoercedType.CtBoolean
+                    mCoercedType = RpsFieldCoercedType.CtBoolean
                 endusing
             end
             (),
-                mCorecedType = RpsFieldCoercedType.CtNone
+                mCoercedType = RpsFieldCoercedType.CtNone
             endusing
+
+            ;; Load custom data
+            loadCodeGenData()
 
         endmethod
 
         ;;---------------------------------------------------------------------
         ;;Public properties to expose template attributes
+
+        ;;; <summary>
+        ;;; The one-based number of the template within the collection of templates
+        ;;; </summary>
+        public readwrite property TemplateNumber, int
 
         ;;; <summary>
         ;;; Template name
@@ -592,6 +624,12 @@ namespace CodeGen.RepositoryAPI
                 mreturn mt_info.ti_ndsize
             endmethod
         endproperty
+
+        ;;; <summary>
+        ;;; The name of the repository enumeration referenced by an enum field. 
+        ;;; This refers to a Synergy language enumeration, not a UI Toolkit enumeration.
+        ;;; </summary>
+        public readwrite property EnumName, String, String.Empty
 
         ;;; <summary>
         ;;; Excluded by language
@@ -1398,14 +1436,14 @@ namespace CodeGen.RepositoryAPI
         ;;; <summary>
         ;;; Coerced type
         ;;; </summary>
-        public property CorecedType, RpsFieldCoercedType
+        public property CoercedType, RpsFieldCoercedType
             method get
             proc
-                mreturn mCorecedType
+                mreturn mCoercedType
             endmethod
             method set
             proc
-                mCorecedType = value
+                mCoercedType = value
             endmethod
         endproperty
 
