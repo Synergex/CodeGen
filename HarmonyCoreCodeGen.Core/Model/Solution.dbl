@@ -469,7 +469,8 @@ namespace HarmonyCoreGenerator.Model
 				begin
 					data key = lineMatch.Groups[1].Value.ToLower()
 					data tmpValue, @string, lineMatch.Groups[2].Value
-					data value, @string, Regex.Replace(tmpValue, "%solutiondir%", "", RegexOptions.IgnoreCase)
+                    data value, @string, Regex.Replace(tmpValue, "%solutiondir%", "", RegexOptions.IgnoreCase)
+					data trimmedValue = value.Trim()
 					
 					using key select
 					(String.Empty),
@@ -477,7 +478,27 @@ namespace HarmonyCoreGenerator.Model
 					("no_custom_pluralization"),
 					begin
 						result.NoCustomPluralization = true
-					end
+                    end
+                    ("smc_interfaces"),
+                    begin
+                        data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        AddOrMerge(interfaces, splitInterfaces.Select(lambda(intName) { new InterfaceEx() { Name = intName, GenerateWebAPIController=true, GenerateInterface=true, EnabledGenerators = GetBridgeGenerators(true, false).ToList() } }))
+                    end
+                    ("smc_interfaces_rest"),
+                    begin
+                        data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        AddOrMerge(interfaces, splitInterfaces.Select(lambda(intName) { new InterfaceEx() { Name = intName, GenerateWebAPIController=true, GenerateInterface=true, EnabledGenerators = GetBridgeGenerators(false, false).ToList() } }))
+                    end
+                    ("smc_interfaces_signalr"),
+                    begin
+                        data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        AddOrMerge(interfaces, splitInterfaces.Select(lambda(intName) { new InterfaceEx() { Name = intName, GenerateSignalRHub = true, GenerateInterface=true, EnabledGenerators = GetBridgeGenerators(false, true).ToList() } }))
+                    end
+                    ("smc_interfaces_internal"),
+                    begin
+                        data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        AddOrMerge(interfaces, splitInterfaces.Select(lambda(intName) { new InterfaceEx() { Name = intName, GenerateInterface=true, EnabledGenerators = GetBridgeGenerators(false, false).ToList() } }))
+                    end
 					("servicesproject"),
 					begin
 						result.ServicesProject = value 
@@ -525,12 +546,38 @@ namespace HarmonyCoreGenerator.Model
 						;;wait until later processing to add additional generators
 						data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
 
-						structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetODataGenerators() } }))
+                        ;;if there is only one structure specified and it happens to have a matching file on disk
+                        ;;we have to load it as a json file array of Codegen.StructureDefinition
+						;;pull this data out and translate into StructureEx format
+                        if(splitStructures.Length == 1 && File.Exists(splitStructures[1])) then
+                        begin
+                            data structureDefinitions = JsonConvert.DeserializeObject<[#]StructureDefinition>(File.ReadAllText(splitStructures[1]))
+                            lambda mapToStructure(strDef)
+                            begin
+                                data aliases, @List<string>, ^null
+                                if(!string.IsNullOrWhiteSpace(strDef.Alias))
+                                begin
+									aliases = new List<string>() { strDef.Alias }
+                                end
+
+                                data files, @Dictionary<string, string>, ^null
+                                if(!string.IsNullOrWhiteSpace(strDef.File))
+                                begin
+                                    files = new Dictionary<string, string>() { { strDef.Structure, strDef.File } }
+                                end
+
+                                mreturn new StructureEx() { Name = strDef.Structure, Aliases = aliases, Files = files, EnabledGenerators = GetODataGenerators() }
+							end
+
+                            structures.AddRange(structureDefinitions.Select(mapToStructure))
+                        end
+						else
+							structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetODataGenerators() } }))
 					end
 
 					("data_aliases"),
 					begin
-						if(string.Compare(value, "%data_structures%", true) != 0)
+						if(string.Compare(trimmedValue, "%data_structures%", true) != 0)
 						begin
 							data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
 							data index = 1
@@ -543,15 +590,22 @@ namespace HarmonyCoreGenerator.Model
 
 					("data_files"),
 					begin
-						if(string.Compare(value, "%data_structures%", true) != 0)
+						if(string.Compare(trimmedValue, "%data_structures%", true) != 0)
 						begin
-							data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-							data index = 1
-							for index from 1 thru Math.Min(splitStructures.Length, structures.Count) by 1
-							begin
-								data targetAlias = structures[index - 1].Aliases.FirstOrDefault() ?? structures[index - 1].Name
-								structures[index - 1].Files = new Dictionary<string, string>() { { targetAlias, splitStructures[index]} }
-							end
+                            data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+
+                            ;;this is probably duplicate info if the structure is pointing to a json file
+							;;skip it we did the glue above in data_structures
+                            if(splitStructures.Length > 1 || !File.Exists(splitStructures[1]))
+                            begin
+								data index = 1
+								for index from 1 thru Math.Min(splitStructures.Length, structures.Count) by 1
+								begin
+									data targetAlias = structures[index - 1].Aliases.FirstOrDefault() ?? structures[index - 1].Name
+									structures[index - 1].Files = new Dictionary<string, string>() { { targetAlias, splitStructures[index]} }
+								end
+                            end
+
 						end
 					end
 
@@ -582,7 +636,7 @@ namespace HarmonyCoreGenerator.Model
 						;;wait until later processing to add additional generators
 						data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
 
-						structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetBridgeGenerators() } }))
+						structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetBridgeGenerators(false, false) } }))
 					end
 					("enable_odata_environment"),
 					begin
@@ -1223,11 +1277,43 @@ namespace HarmonyCoreGenerator.Model
 			mreturn result
 		endmethod
 
-		private static method GetBridgeGenerators, @HashSet<string>
-		proc
+        private static method AddOrMerge, void
+            collection, @List<InterfaceEx>
+            source, @IEnumerable<InterfaceEx>
+        proc
+            data sourceIface, @InterfaceEx
+            foreach sourceIface in source
+            begin
+				data foundMergeTarget = false
+                data targetIface, @InterfaceEx
+                foreach targetIface in collection
+                begin
+                    if(string.Compare(targetIface.Name, sourceIface.Name, true) == 0)
+                    begin
+                        targetIface.EnabledGenerators = targetIface.EnabledGenerators.Union(sourceIface.EnabledGenerators).ToList()
+                        targetIface.GenerateInterface = NullableOr(targetIface.GenerateInterface, sourceIface.GenerateInterface)
+                        targetIface.GenerateODataController = NullableOr(targetIface.GenerateODataController, sourceIface.GenerateODataController)
+                        targetIface.GenerateSignalRHub = NullableOr(targetIface.GenerateSignalRHub, sourceIface.GenerateSignalRHub)
+                        targetIface.GenerateWebAPIController = NullableOr(targetIface.GenerateWebAPIController, sourceIface.GenerateWebAPIController)
+                    end
+                end
+                if(!foundMergeTarget)
+					collection.Add(sourceIface)
+            end
+        endmethod
+
+        private static method GetBridgeGenerators, @HashSet<string>
+            includeWebApi, boolean
+			includeSignalR, boolean
+        proc
 			data result = new HashSet<string>()
 			result.Add(^nameof(ModelGenerator))
-			result.Add(^nameof(TraditionalBridgeGenerator))
+            result.Add(^nameof(TraditionalBridgeGenerator))
+            if(includeWebApi)
+                result.Add(^nameof(WebApiGenerator))
+            if(includeSignalR)
+                result.Add(^nameof(SignalRGenerator))
+
 			mreturn result
 		endmethod
 
@@ -1247,7 +1333,34 @@ namespace HarmonyCoreGenerator.Model
 			mreturn result
 		endmethod
 
+        private static method NullableOr, Nullable<Boolean>
+            input1, Nullable<Boolean>
+            input2, Nullable<Boolean>
+        proc
+            if(input1 == ^null)
+                mreturn input2
+
+            if(input2 == ^null)
+                mreturn input1
+
+            data result, boolean, input1.Value || input2.Value
+			mreturn result
+        endmethod
+
+
 	endclass
+
+	;;duplicate from Codegen/Codegen.dbl
+    public class StructureDefinition
+
+        {JsonProperty(Required=Required.Always)}
+        public readwrite property Structure, string
+
+        public readwrite property Alias, string
+
+        public readwrite property File, string
+	
+    endclass
 
 	public class GenerateResult
 		public readwrite property ValidationErrors, @List<string>, new List<string>()
