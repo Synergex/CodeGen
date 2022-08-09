@@ -264,11 +264,19 @@ namespace HarmonyCoreGenerator.Model
 			begin
 				projectDir = Path.Combine(targetSolution.SolutionFolder, Path.GetDirectoryName(targetSolution.RepositoryProject))
 				repositoryFile = Path.GetFileName(targetSolution.RepositoryProject)
-			end
+            end
+
 			
 			data rpsOutputFolder = Path.Combine(projectDir, "bin", "Debug")
 			data rpsMFile = Path.Combine(rpsOutputFolder, "rpsmain.ism") 
 			data rpsTFile = Path.Combine(rpsOutputFolder, "rpstext.ism")
+
+			if(!System.IO.File.Exists(Path.Combine(projectDir, repositoryFile)))
+            begin
+                rpsMFile = Environment.GetEnvironmentVariable("RPSMFIL")
+                rpsTFile = Environment.GetEnvironmentVariable("RPSTFIL")
+                Console.WriteLine("FixRPS(): Couldnt find a valid repository project attempting to fallback to existing RPSMFIL({0}) | RPSTFIL({1}) from environment", rpsMFile ?? "not found", rpsTFile ?? "not found")
+            end
 
 			if(File.Exists(rpsMFile) && File.Exists(rpsTFile))
 			begin
@@ -290,7 +298,7 @@ namespace HarmonyCoreGenerator.Model
 				if(basePathPosition < 10)
 					throw new Exception(string.Format("failed to find dotnet.exe path, base was {0}", dotnetInfoOutput))
 
-				data endOfPathLine = dotnetInfoOutput.IndexOf("Host (useful for support):", basePathPosition)
+				data endOfPathLine = dotnetInfoOutput.IndexOf(Environment.NewLine, basePathPosition)
 
 				if(endOfPathLine < 0)
 					throw new Exception(string.Format("failed to find dotnet.exe path, base was {0}", dotnetInfoOutput))
@@ -542,37 +550,7 @@ namespace HarmonyCoreGenerator.Model
 
 					("data_structures"),
 					begin
-						;;create structureex for each data structure, default to adding model generator
-						;;wait until later processing to add additional generators
-						data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-
-                        ;;if there is only one structure specified and it happens to have a matching file on disk
-                        ;;we have to load it as a json file array of Codegen.StructureDefinition
-						;;pull this data out and translate into StructureEx format
-                        if(splitStructures.Length == 1 && File.Exists(splitStructures[1])) then
-                        begin
-                            data structureDefinitions = JsonConvert.DeserializeObject<[#]StructureDefinition>(File.ReadAllText(splitStructures[1]))
-                            lambda mapToStructure(strDef)
-                            begin
-                                data aliases, @List<string>, ^null
-                                if(!string.IsNullOrWhiteSpace(strDef.Alias))
-                                begin
-									aliases = new List<string>() { strDef.Alias }
-                                end
-
-                                data files, @Dictionary<string, string>, ^null
-                                if(!string.IsNullOrWhiteSpace(strDef.File))
-                                begin
-                                    files = new Dictionary<string, string>() { { strDef.Structure, strDef.File } }
-                                end
-
-                                mreturn new StructureEx() { Name = strDef.Structure, Aliases = aliases, Files = files, EnabledGenerators = GetODataGenerators() }
-							end
-
-                            structures.AddRange(structureDefinitions.Select(mapToStructure))
-                        end
-						else
-							structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetODataGenerators() } }))
+                        structures.AddRange(LoadStructureNames(value, GetODataGenerators))
 					end
 
 					("data_aliases"),
@@ -611,11 +589,7 @@ namespace HarmonyCoreGenerator.Model
 
 					("custom_structures"),
 					begin
-						;;create structureex for each data structure, default to adding model generator
-						;;wait until later processing to add additional generators
-						data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-
-						structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetCustomGenerators() } }))
+                        structures.AddRange(LoadStructureNames(value, GetCustomGenerators))
 					end
 
 ;					("custom_aliases"),
@@ -631,12 +605,8 @@ namespace HarmonyCoreGenerator.Model
 ;						end
 ;					end
 					("bridge_structures"),
-					begin
-						;;create structureex for each data structure, default to adding model generator
-						;;wait until later processing to add additional generators
-						data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-
-						structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetBridgeGenerators(false, false) } }))
+                    begin
+                        structures.AddRange(LoadStructureNames(value, lambda() { GetBridgeGenerators(false, false) }))
 					end
 					("enable_odata_environment"),
 					begin
@@ -826,8 +796,9 @@ namespace HarmonyCoreGenerator.Model
 						data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
 						interfaces.AddRange(splitInterfaces.Select(lambda(ifaceName) { new InterfaceEx() { Name = ifaceName, GenerateInterface = true, GenerateWebAPIController = true, GenerateSignalRHub = result.SmcSignalRHubs } }))
 					end
-					(),
-						nop
+                    (),
+						if(!value.Contains("%~"))
+							Environment.SetEnvironmentVariable(key, Environment.ExpandEnvironmentVariables(value))
 					endusing
 				end
 			end
@@ -1000,6 +971,54 @@ namespace HarmonyCoreGenerator.Model
 
 			mreturn result
 		endmethod
+
+        private static method LoadStructureNames, @List<StructureEx>
+            value, @string
+			getGenerators, @Func<Hashset<string>>
+        proc
+			data structures = new List<StructureEx>()
+            ;;create structureex for each data structure, default to adding model generator
+            ;;wait until later processing to add additional generators
+            data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            &    .SelectMany<string, string>(lambda(splitStr) { Environment.ExpandEnvironmentVariables(splitStr).Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries) }).ToArray()
+
+            ;;if there is only one structure specified and it happens to have a matching file on disk
+            ;;we have to load it as a json file array of Codegen.StructureDefinition
+            ;;pull this data out and translate into StructureEx format
+            data tempExpandedStructureFile = Environment.ExpandEnvironmentVariables(splitStructures.FirstOrDefault() ?? "")
+            if(splitStructures.Length >= 1 && File.Exists(tempExpandedStructureFile)) then
+            begin
+                data structureFile, @string
+                foreach structureFile in splitStructures
+                begin
+                    data expandedStructureFile = Environment.ExpandEnvironmentVariables(structureFile)
+                    data structureDefinitions = JsonConvert.DeserializeObject<[#]StructureDefinition>(File.ReadAllText(expandedStructureFile))
+                    lambda mapToStructure(strDef)
+                    begin
+                        data aliases, @List<string>, ^null
+                        if(!string.IsNullOrWhiteSpace(strDef.Alias))
+                        begin
+                            aliases = new List<string>() { strDef.Alias }
+                        end
+
+                        data files, @Dictionary<string, string>, ^null
+                        if(!string.IsNullOrWhiteSpace(strDef.File))
+                        begin
+                            files = new Dictionary<string, string>() { { strDef.Structure, strDef.File } }
+                        end
+
+                        mreturn new StructureEx() { Name = strDef.Structure, Aliases = aliases, Files = files, EnabledGenerators = getGenerators() }
+                    end
+
+                    structures.AddRange(structureDefinitions.Select(mapToStructure))
+                end
+            end
+            else
+                structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = getGenerators() } }))
+
+			mreturn structures
+		endmethod
+
 
 		public method GenerateSolution, @GenerateResult
 			messageHandler, @Action<CodeGenTask, string>
