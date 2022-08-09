@@ -5,8 +5,8 @@
 ;                 : D:\CodeGen\SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
-;  GENERATED      : 08-FEB-2022, 13:47:01
-;                 : Version 11.1.1i
+;  GENERATED      : 03-JUN-2022, 14:58:42
+;                 : Version 12.1.1
 ;  EXPORT OPTIONS : [ALL] 
  
  
@@ -27,6 +27,13 @@ Format QUANTITY   Type NUMERIC   "ZZZZZX-"   Justify RIGHT
 Enumeration PRIMARY_COLOR
    Description "Primary colors"
    Members RED, GREEN, BLUE
+ 
+Template PHONE   Type DECIMAL   Size 10
+   Description "Phone number"
+   Prompt "Phone #"   Format PHONE_NUMBER   Blankifzero
+ 
+Template FAX   Parent PHONE
+   Prompt "Fax #"
  
 Structure GROUP_TEST_2   DBL ISAM
    Description "Structure to test GROUP functionality"
@@ -1031,6 +1038,15 @@ Key OLNPCD   ACCESS   Order ASCENDING   Dups YES   Insert END   Modifiable YES
    Krf 001
    Description "Product code"
    Segment FIELD   OLNPCD
+ 
+Structure PERIOD_DATE_TEST   DBL ISAM
+   Description "Period date test"
+ 
+Field DATE_YYYYPP   Type DATE   Size 6   Stored YYYYPP
+   Description "Date YYYYPP"
+ 
+Field DATE_YYPP   Type DATE   Size 4   Stored YYPP
+   Description "Date YYPP"
  
 Structure PRODUCT   DBL ISAM
    Description "Inventory master file (SQL)"
