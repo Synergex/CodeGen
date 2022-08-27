@@ -285,32 +285,7 @@ namespace HarmonyCoreGenerator.Model
 				mreturn
 			end
 
-			data basePath = Environment.GetEnvironmentVariable("DOTNET_BASE_PATH")
-			try
-			begin
-				data dotnetInfo = new Process()
-				dotnetInfo.StartInfo = new ProcessStartInfo("dotnet", "--info")
-				dotnetInfo.StartInfo.RedirectStandardOutput = true
-				dotnetInfo.Start()
-				data dotnetInfoOutput = dotnetInfo.StandardOutput.ReadToEnd()
-
-				data basePathPosition = dotnetInfoOutput.IndexOf("Base Path:") + 10
-				if(basePathPosition < 10)
-					throw new Exception(string.Format("failed to find dotnet.exe path, base was {0}", dotnetInfoOutput))
-
-				data endOfPathLine = dotnetInfoOutput.IndexOf(Environment.NewLine, basePathPosition)
-
-				if(endOfPathLine < 0)
-					throw new Exception(string.Format("failed to find dotnet.exe path, base was {0}", dotnetInfoOutput))
-
-				basePath = dotnetInfoOutput.Substring(basePathPosition, endOfPathLine - basePathPosition).Trim()
-			end			
-			catch(ex, @Exception)
-			begin
-				if(string.IsNullOrWhiteSpace(basePath))
-					throw
-			end
-			endtry
+			data basePath = GetDotnetBasePath()
 
 			data projectOptions =  new Microsoft.Build.Definition.ProjectOptions()
 			data evalContext = Microsoft.Build.Evaluation.Context.EvaluationContext.Create(Microsoft.Build.Evaluation.Context.EvaluationContext.SharingPolicy.Isolated)
@@ -368,6 +343,37 @@ namespace HarmonyCoreGenerator.Model
 			begin
 				throw new InvalidOperationException(String.Format("Repository text file '{0}' was not found in the expected location!",rpsTFile))
 			end 
+		endmethod
+
+        public static method GetDotnetBasePath, @string
+        proc
+            data basePath = Environment.GetEnvironmentVariable("DOTNET_BASE_PATH")
+            try
+            begin
+                data dotnetInfo = new Process()
+                dotnetInfo.StartInfo = new ProcessStartInfo("dotnet", "--info")
+                dotnetInfo.StartInfo.RedirectStandardOutput = true
+                dotnetInfo.Start()
+                data dotnetInfoOutput = dotnetInfo.StandardOutput.ReadToEnd()
+
+                data basePathPosition = dotnetInfoOutput.IndexOf("Base Path:") + 10
+                if(basePathPosition < 10)
+                    throw new Exception(string.Format("failed to find dotnet.exe path, base was {0}", dotnetInfoOutput))
+
+                data endOfPathLine = dotnetInfoOutput.IndexOf(Environment.NewLine, basePathPosition)
+
+                if(endOfPathLine < 0)
+                    throw new Exception(string.Format("failed to find dotnet.exe path, base was {0}", dotnetInfoOutput))
+
+                basePath = dotnetInfoOutput.Substring(basePathPosition, endOfPathLine - basePathPosition).Trim()
+            end			
+            catch(ex, @Exception)
+            begin
+                if(string.IsNullOrWhiteSpace(basePath))
+                    throw
+            end
+            endtry
+			mreturn basePath
 		endmethod
 
 		private static method FixProps, void
