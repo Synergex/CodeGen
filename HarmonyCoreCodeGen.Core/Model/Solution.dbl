@@ -285,6 +285,8 @@ namespace HarmonyCoreGenerator.Model
 				mreturn
 			end
 
+			
+            
 			data basePath = GetDotnetBasePath()
 
 			data projectOptions =  new Microsoft.Build.Definition.ProjectOptions()
@@ -294,8 +296,8 @@ namespace HarmonyCoreGenerator.Model
 			projectOptions.GlobalProperties.Add("SolutionDir", targetSolution.SolutionFolder + "\")
 			projectOptions.GlobalProperties.Add("Configuration", "Debug")
 			projectOptions.GlobalProperties.Add("Platform", "AnyCPU")
-			projectOptions.GlobalProperties.Add("NuGetRestoreTargets", Path.Combine(basePath, "Nuget.targets"))
-			data msbuildRepositoryProject = Microsoft.Build.Evaluation.Project.FromFile(Path.Combine(projectDir, repositoryFile), projectOptions)
+            projectOptions.GlobalProperties.Add("NuGetRestoreTargets", Path.Combine(basePath, "Nuget.targets"))
+			data msbuildRepositoryProject = Microsoft.Build.Evaluation.ProjectCollection.GlobalProjectCollection.LoadProject(Path.Combine(projectDir, repositoryFile), projectOptions.GlobalProperties, projectOptions.ToolsVersion)
 			data logger = new ConsoleLogger(LoggerVerbosity.Minimal)
 			msbuildRepositoryProject.Build("Build", new ILogger[#] { logger })
 			logger.Shutdown()
@@ -324,7 +326,7 @@ namespace HarmonyCoreGenerator.Model
 			if(!File.Exists(rpsTFile) && !rpsTFile.EndsWith(".ism", StringComparison.CurrentCultureIgnoreCase))
 				rpsTFile += ".ism"
 
-			msbuildRepositoryProject.ProjectCollection.UnloadProject(msbuildRepositoryProject)
+			;;msbuildRepositoryProject.ProjectCollection.UnloadProject(msbuildRepositoryProject)
 			targetSolution._rps = ^null
 			if (File.Exists(rpsMFile)) then
 			begin
@@ -474,9 +476,19 @@ namespace HarmonyCoreGenerator.Model
 			data batTextLines = ReadAllBatchLines(targetRegenBat)
 			data line, @string
 
+			data useSourceSubfolder = false
+
 			result.SolutionFolder = solutionDir
 			foreach line in batTextLines
-			begin
+            begin
+
+                if(line.ToLower().Contains("-o %traditionalbridgeproject%\source\dispatchers"))
+				begin
+                    useSourceSubfolder = true
+                    if(result.TraditionalBridge != ^null)
+						result.TraditionalBridge.GenerateIntoSourceFolder = true
+                end
+
 				data lineMatch = setMatcher.Match(line)
 				;;if((lineMatch?.Groups?.Count ?? 0) == 2)
 				if(lineMatch != ^null && lineMatch.Groups != ^null && lineMatch.Groups.Count == 3)
