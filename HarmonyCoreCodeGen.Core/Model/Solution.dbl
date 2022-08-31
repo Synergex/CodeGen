@@ -112,6 +112,7 @@ namespace HarmonyCoreGenerator.Model
 		public readwrite property DocumentPropertyEndpoints, boolean?
 		public readwrite property GenerateOData, boolean?
 		public readwrite property DisableFileLogicals, boolean?
+		public readwrite property NoCustomPluralization, boolean?
 
 		public readwrite property Authentication, boolean?
 		public readwrite property CustomAuthentication, boolean?
@@ -127,8 +128,8 @@ namespace HarmonyCoreGenerator.Model
 		public readwrite property SmcPostmanTests, boolean?
 		public readwrite property SmcSignalRHubs, boolean?
 		public readwrite property VersioningOrSwagger, VersioningOrSwaggerMode?
-
-
+		public readwrite property CustomSettings, @Dictionary<string, string>, new Dictionary<string, string>()
+		public readwrite property UserTokens, @Dictionary<string, string>
 
 		private _rps, @Repository
 		{JsonIgnore}
@@ -137,8 +138,18 @@ namespace HarmonyCoreGenerator.Model
 			proc
 				data altFieldName, boolean, AlternateFieldNames ?? false
 				if(_rps == ^null)
-					_rps = new Repository(RPSMFIL, RPSTFIL, altFieldName)
-				
+				begin
+					data localmFil = RPSMFIL
+					data localtFil = RPSTFIL
+
+					if(!File.Exists(localmFil))
+						localmFil = Path.Combine(SolutionFolder, localmFil)
+					if(!File.Exists(localtFil))
+						localtFil = Path.Combine(SolutionFolder, localtFil)
+
+					_rps = new Repository(localmFil, localtFil, altFieldName)
+				end
+
 				mreturn _rps
 			endmethod
 		endproperty
@@ -225,6 +236,16 @@ namespace HarmonyCoreGenerator.Model
 			result.Add(new UserToken("CUSTOM_AUTH_USERNAME", CustomAuthUserName ?? "username"))
 			result.Add(new UserToken("CUSTOM_AUTH_PASSWORD", CustomAuthPassword ?? "password"))
 			
+			if(UserTokens != ^null)
+			begin
+				data kvp, KeyValuePair<string, string>
+				foreach kvp in UserTokens
+				begin
+					result.Add(new UserToken(kvp.Key, kvp.Value))
+				end
+			end
+
+
 			mreturn result
 		endmethod
 
@@ -243,11 +264,19 @@ namespace HarmonyCoreGenerator.Model
 			begin
 				projectDir = Path.Combine(targetSolution.SolutionFolder, Path.GetDirectoryName(targetSolution.RepositoryProject))
 				repositoryFile = Path.GetFileName(targetSolution.RepositoryProject)
-			end
+            end
+
 			
 			data rpsOutputFolder = Path.Combine(projectDir, "bin", "Debug")
 			data rpsMFile = Path.Combine(rpsOutputFolder, "rpsmain.ism") 
 			data rpsTFile = Path.Combine(rpsOutputFolder, "rpstext.ism")
+
+			if(!System.IO.File.Exists(Path.Combine(projectDir, repositoryFile)))
+            begin
+                rpsMFile = Environment.GetEnvironmentVariable("RPSMFIL")
+                rpsTFile = Environment.GetEnvironmentVariable("RPSTFIL")
+                Console.WriteLine("FixRPS(): Couldnt find a valid repository project attempting to fallback to existing RPSMFIL({0}) | RPSTFIL({1}) from environment", rpsMFile ?? "not found", rpsTFile ?? "not found")
+            end
 
 			if(File.Exists(rpsMFile) && File.Exists(rpsTFile))
 			begin
@@ -256,20 +285,9 @@ namespace HarmonyCoreGenerator.Model
 				mreturn
 			end
 
-
-			data dotnetInfo = new Process()
-			dotnetInfo.StartInfo = new ProcessStartInfo("dotnet", "--info")
-			dotnetInfo.StartInfo.RedirectStandardOutput = true
-			dotnetInfo.Start()
-			data dotnetInfoOutput = dotnetInfo.StandardOutput.ReadToEnd()
-
-			data basePathPosition = dotnetInfoOutput.IndexOf("Base Path:") + 10
-			if(basePathPosition < 10)
-				throw new Exception("failed to find dotnet.exe path")
-
-			data endOfPathLine = dotnetInfoOutput.IndexOf(%char(10), basePathPosition)
-			data pathString = dotnetInfoOutput.Substring(basePathPosition, endOfPathLine - basePathPosition).Trim()
-
+			
+            
+			data basePath = GetDotnetBasePath()
 
 			data projectOptions =  new Microsoft.Build.Definition.ProjectOptions()
 			data evalContext = Microsoft.Build.Evaluation.Context.EvaluationContext.Create(Microsoft.Build.Evaluation.Context.EvaluationContext.SharingPolicy.Isolated)
@@ -278,8 +296,8 @@ namespace HarmonyCoreGenerator.Model
 			projectOptions.GlobalProperties.Add("SolutionDir", targetSolution.SolutionFolder + "\")
 			projectOptions.GlobalProperties.Add("Configuration", "Debug")
 			projectOptions.GlobalProperties.Add("Platform", "AnyCPU")
-			projectOptions.GlobalProperties.Add("NuGetRestoreTargets", Path.Combine(pathString, "Nuget.targets"))
-			data msbuildRepositoryProject = Microsoft.Build.Evaluation.Project.FromFile(Path.Combine(projectDir, repositoryFile), projectOptions)
+            projectOptions.GlobalProperties.Add("NuGetRestoreTargets", Path.Combine(basePath, "Nuget.targets"))
+			data msbuildRepositoryProject = Microsoft.Build.Evaluation.ProjectCollection.GlobalProjectCollection.LoadProject(Path.Combine(projectDir, repositoryFile), projectOptions.GlobalProperties, projectOptions.ToolsVersion)
 			data logger = new ConsoleLogger(LoggerVerbosity.Minimal)
 			msbuildRepositoryProject.Build("Build", new ILogger[#] { logger })
 			logger.Shutdown()
@@ -302,8 +320,13 @@ namespace HarmonyCoreGenerator.Model
 					 
 			rpsOutputFolder = Path.GetDirectoryName(rpsMFile)
 			
+			if(!File.Exists(rpsMFile) && !rpsMFile.EndsWith(".ism", StringComparison.CurrentCultureIgnoreCase))
+				rpsMFile += ".ism"
 
-			msbuildRepositoryProject.ProjectCollection.UnloadProject(msbuildRepositoryProject)
+			if(!File.Exists(rpsTFile) && !rpsTFile.EndsWith(".ism", StringComparison.CurrentCultureIgnoreCase))
+				rpsTFile += ".ism"
+
+			;;msbuildRepositoryProject.ProjectCollection.UnloadProject(msbuildRepositoryProject)
 			targetSolution._rps = ^null
 			if (File.Exists(rpsMFile)) then
 			begin
@@ -322,6 +345,37 @@ namespace HarmonyCoreGenerator.Model
 			begin
 				throw new InvalidOperationException(String.Format("Repository text file '{0}' was not found in the expected location!",rpsTFile))
 			end 
+		endmethod
+
+        public static method GetDotnetBasePath, @string
+        proc
+            data basePath = Environment.GetEnvironmentVariable("DOTNET_BASE_PATH")
+            try
+            begin
+                data dotnetInfo = new Process()
+                dotnetInfo.StartInfo = new ProcessStartInfo("dotnet", "--info")
+                dotnetInfo.StartInfo.RedirectStandardOutput = true
+                dotnetInfo.Start()
+                data dotnetInfoOutput = dotnetInfo.StandardOutput.ReadToEnd()
+
+                data basePathPosition = dotnetInfoOutput.IndexOf("Base Path:") + 10
+                if(basePathPosition < 10)
+                    throw new Exception(string.Format("failed to find dotnet.exe path, base was {0}", dotnetInfoOutput))
+
+                data endOfPathLine = dotnetInfoOutput.IndexOf(Environment.NewLine, basePathPosition)
+
+                if(endOfPathLine < 0)
+                    throw new Exception(string.Format("failed to find dotnet.exe path, base was {0}", dotnetInfoOutput))
+
+                basePath = dotnetInfoOutput.Substring(basePathPosition, endOfPathLine - basePathPosition).Trim()
+            end			
+            catch(ex, @Exception)
+            begin
+                if(string.IsNullOrWhiteSpace(basePath))
+                    throw
+            end
+            endtry
+			mreturn basePath
 		endmethod
 
 		private static method FixProps, void
@@ -356,6 +410,59 @@ namespace HarmonyCoreGenerator.Model
 			mreturn jsonObject
 		endmethod
 
+		private static method ReadAllBatchLines ,[#]string
+			required in aFilename   ,string
+			endparams
+
+			record
+				inArray         ,[#]string
+				outArray        ,[#]string
+				ctr             ,int
+				outArrayLen     ,int
+				isContinuation  ,Boolean
+			endrecord
+
+		proc
+
+			inArray = File.ReadAllLines(aFilename)
+
+			outArrayLen = 0
+			for ctr from 1 thru inArray.Length
+			begin
+				if (isContinuation == true) then
+					inArray[outArrayLen] = concatBatchLines(inArray[outArrayLen], inArray[ctr])
+				else
+					inArray[outArrayLen+=1] = inArray[ctr]
+
+				if (inArray[outArrayLen].EndsWith("^")) then
+					isContinuation = true
+				else
+					isContinuation = false
+			end
+
+			outArray = new string[outArrayLen]
+
+			for ctr from 1 thru outArrayLen
+				outArray[ctr] = inArray[ctr]
+
+			mreturn outArray
+
+		endmethod
+
+		private static method concatBatchLines, string
+			required in aLine1  ,string
+			required in aLine2  ,string
+			endparams
+
+		proc
+
+			if (aLine1.EndsWith("^"))
+				mreturn String.Concat(aLine1.Substring(0, aLine1.Length-1), aLine2)
+
+			mreturn String.Concat(aLine1, aLine2)
+
+		endmethod
+
 		public static method LoadSolution, @Solution
 			targetRegenBat, @string
 			userTokens, @string
@@ -366,21 +473,68 @@ namespace HarmonyCoreGenerator.Model
 			data structures = new List<StructureEx>()
 			data interfaces = new List<InterfaceEx>()
 			data setMatcher = new Regex("^set\s(\w+)\s?=\s?([^\v]+)$")
-			data batTextLines = File.ReadAllLines(targetRegenBat)
+			data batTextLines = ReadAllBatchLines(targetRegenBat)
 			data line, @string
+
+			data useSourceSubfolder = false
 
 			result.SolutionFolder = solutionDir
 			foreach line in batTextLines
-			begin
+            begin
+
+                if(line.ToLower().Contains("-o %traditionalbridgeproject%\source\dispatchers"))
+				begin
+                    useSourceSubfolder = true
+                    if(result.TraditionalBridge != ^null)
+						result.TraditionalBridge.GenerateIntoSourceFolder = true
+                end
+
 				data lineMatch = setMatcher.Match(line)
 				;;if((lineMatch?.Groups?.Count ?? 0) == 2)
 				if(lineMatch != ^null && lineMatch.Groups != ^null && lineMatch.Groups.Count == 3)
 				begin
 					data key = lineMatch.Groups[1].Value.ToLower()
-					data value = lineMatch.Groups[2].Value
+					data tmpValue, @string, lineMatch.Groups[2].Value
+                    data value, @string, Regex.Replace(tmpValue, "%solutiondir%", "", RegexOptions.IgnoreCase)
+					data trimmedValue = value.Trim()
+					
+                    try
+					begin
+                        Environment.SetEnvironmentVariable(key, value)
+                    end
+                    catch(ex, @Exception)
+                    begin
+						Console.WriteLine(ex.ToString())
+                    end
+					endtry
+
 					using key select
 					(String.Empty),
 						nop
+					("no_custom_pluralization"),
+					begin
+						result.NoCustomPluralization = true
+                    end
+                    ("smc_interfaces"),
+                    begin
+                        data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        AddOrMerge(interfaces, splitInterfaces.Select(lambda(intName) { new InterfaceEx() { Name = intName, GenerateWebAPIController=true, GenerateInterface=true, EnabledGenerators = GetBridgeGenerators(true, false).ToList() } }))
+                    end
+                    ("smc_interfaces_rest"),
+                    begin
+                        data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        AddOrMerge(interfaces, splitInterfaces.Select(lambda(intName) { new InterfaceEx() { Name = intName, GenerateWebAPIController=true, GenerateInterface=true, EnabledGenerators = GetBridgeGenerators(false, false).ToList() } }))
+                    end
+                    ("smc_interfaces_signalr"),
+                    begin
+                        data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        AddOrMerge(interfaces, splitInterfaces.Select(lambda(intName) { new InterfaceEx() { Name = intName, GenerateSignalRHub = true, GenerateInterface=true, EnabledGenerators = GetBridgeGenerators(false, true).ToList() } }))
+                    end
+                    ("smc_interfaces_internal"),
+                    begin
+                        data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        AddOrMerge(interfaces, splitInterfaces.Select(lambda(intName) { new InterfaceEx() { Name = intName, GenerateInterface=true, EnabledGenerators = GetBridgeGenerators(false, false).ToList() } }))
+                    end
 					("servicesproject"),
 					begin
 						result.ServicesProject = value 
@@ -424,47 +578,46 @@ namespace HarmonyCoreGenerator.Model
 
 					("data_structures"),
 					begin
-						;;create structureex for each data structure, default to adding model generator
-						;;wait until later processing to add additional generators
-						data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-
-						structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetODataGenerators() } }))
+                        structures.AddRange(LoadStructureNames(value, GetODataGenerators))
 					end
 
 					("data_aliases"),
 					begin
-						if(string.Compare(value, "%data_structures%", true) != 0)
+						if(string.Compare(trimmedValue, "%data_structures%", true) != 0)
 						begin
 							data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-							data index = 0
-							for index from 0 thru Math.Min(splitStructures.Length, result.ExtendedStructures.Count) by 1
+							data index = 1
+							for index from 1 thru Math.Min(splitStructures.Length, structures.Count) by 1
 							begin
-								structures[index].Aliases = new List<string>() { splitStructures[index] }
+								structures[index - 1].Aliases = new List<string>() { splitStructures[index] }
 							end
 						end
 					end
 
 					("data_files"),
 					begin
-						if(string.Compare(value, "%data_structures%", true) != 0)
+						if(string.Compare(trimmedValue, "%data_structures%", true) != 0)
 						begin
-							data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-							data index = 0
-							for index from 0 thru Math.Min(splitStructures.Length, result.ExtendedStructures.Count) by 1
-							begin
-								data targetAlias = structures[index].Aliases.FirstOrDefault() ?? structures[index].Name
-								structures[index].Files = new Dictionary<string, string>() { { targetAlias, splitStructures[index]} }
-							end
+                            data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+
+                            ;;this is probably duplicate info if the structure is pointing to a json file
+							;;skip it we did the glue above in data_structures
+                            if(splitStructures.Length > 1 || !File.Exists(splitStructures[1]))
+                            begin
+								data index = 1
+								for index from 1 thru Math.Min(splitStructures.Length, structures.Count) by 1
+								begin
+									data targetAlias = structures[index - 1].Aliases.FirstOrDefault() ?? structures[index - 1].Name
+									structures[index - 1].Files = new Dictionary<string, string>() { { targetAlias, splitStructures[index]} }
+								end
+                            end
+
 						end
 					end
 
 					("custom_structures"),
 					begin
-						;;create structureex for each data structure, default to adding model generator
-						;;wait until later processing to add additional generators
-						data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-
-						structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetCustomGenerators() } }))
+                        structures.AddRange(LoadStructureNames(value, GetCustomGenerators))
 					end
 
 ;					("custom_aliases"),
@@ -472,20 +625,16 @@ namespace HarmonyCoreGenerator.Model
 ;						if(string.Compare(value, "%custom_structures%", true) != 0)
 ;						begin
 ;							data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-;							data index = 0
-;							for index from 0 thru Math.Min(splitStructures.Length, result.ExtendedStructures.Count) by 1
+;							data index = 1
+;							for index from 1 thru Math.Min(splitStructures.Length, result.ExtendedStructures.Count) by 1
 ;							begin
-;								result.ExtendedStructures[index].Alias = splitStructures[index]
+;								structures[index - 1].Alias = splitStructures[index]
 ;							end
 ;						end
 ;					end
 					("bridge_structures"),
-					begin
-						;;create structureex for each data structure, default to adding model generator
-						;;wait until later processing to add additional generators
-						data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-
-						structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = GetBridgeGenerators() } }))
+                    begin
+                        structures.AddRange(LoadStructureNames(value, lambda() { GetBridgeGenerators(false, false) }))
 					end
 					("enable_odata_environment"),
 					begin
@@ -665,7 +814,7 @@ namespace HarmonyCoreGenerator.Model
 						if(result.TraditionalBridge == ^null) 
 							result.TraditionalBridge = new TraditionalBridge()
 
-						result.TraditionalBridge.XFServerSMCPath = value
+						result.TraditionalBridge.XFServerSMCPath = Environment.ExpandEnvironmentVariables(value)
 					end
 					("smc_interface"),
 					begin
@@ -675,8 +824,9 @@ namespace HarmonyCoreGenerator.Model
 						data splitInterfaces = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
 						interfaces.AddRange(splitInterfaces.Select(lambda(ifaceName) { new InterfaceEx() { Name = ifaceName, GenerateInterface = true, GenerateWebAPIController = true, GenerateSignalRHub = result.SmcSignalRHubs } }))
 					end
-					(),
-						nop
+                    (),
+						if(!value.Contains("%~"))
+							Environment.SetEnvironmentVariable(key, Environment.ExpandEnvironmentVariables(value))
 					endusing
 				end
 			end
@@ -833,6 +983,13 @@ namespace HarmonyCoreGenerator.Model
 					nop
 				("bridge_smc_interface"),
 					nop
+				(),
+				begin
+					if(result.UserTokens == ^null)
+						result.UserTokens = new Dictionary<string, string>()
+
+					result.UserTokens.Add(ut.Name, ut.Value)
+				end
 				endusing
 			end
 
@@ -843,9 +1000,58 @@ namespace HarmonyCoreGenerator.Model
 			mreturn result
 		endmethod
 
+        private static method LoadStructureNames, @List<StructureEx>
+            value, @string
+			getGenerators, @Func<Hashset<string>>
+        proc
+			data structures = new List<StructureEx>()
+            ;;create structureex for each data structure, default to adding model generator
+            ;;wait until later processing to add additional generators
+            data splitStructures = value.Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            &    .SelectMany<string, string>(lambda(splitStr) { Environment.ExpandEnvironmentVariables(splitStr).Split(new char[#] { ' ' }, StringSplitOptions.RemoveEmptyEntries) }).ToArray()
+
+            ;;if there is only one structure specified and it happens to have a matching file on disk
+            ;;we have to load it as a json file array of Codegen.StructureDefinition
+            ;;pull this data out and translate into StructureEx format
+            data tempExpandedStructureFile = Environment.ExpandEnvironmentVariables(splitStructures.FirstOrDefault() ?? "")
+            if(splitStructures.Length >= 1 && File.Exists(tempExpandedStructureFile)) then
+            begin
+                data structureFile, @string
+                foreach structureFile in splitStructures
+                begin
+                    data expandedStructureFile = Environment.ExpandEnvironmentVariables(structureFile)
+                    data structureDefinitions = JsonConvert.DeserializeObject<[#]StructureDefinition>(File.ReadAllText(expandedStructureFile))
+                    lambda mapToStructure(strDef)
+                    begin
+                        data aliases, @List<string>, ^null
+                        if(!string.IsNullOrWhiteSpace(strDef.Alias))
+                        begin
+                            aliases = new List<string>() { strDef.Alias }
+                        end
+
+                        data files, @Dictionary<string, string>, ^null
+                        if(!string.IsNullOrWhiteSpace(strDef.File))
+                        begin
+                            files = new Dictionary<string, string>() { { strDef.Structure, strDef.File } }
+                        end
+
+                        mreturn new StructureEx() { Name = strDef.Structure, Aliases = aliases, Files = files, EnabledGenerators = getGenerators() }
+                    end
+
+                    structures.AddRange(structureDefinitions.Select(mapToStructure))
+                end
+            end
+            else
+                structures.AddRange(splitStructures.Select(lambda(strName) { new StructureEx() { Name = strName, EnabledGenerators = getGenerators() } }))
+
+			mreturn structures
+		endmethod
+
+
 		public method GenerateSolution, @GenerateResult
 			messageHandler, @Action<CodeGenTask, string>
 			cancelToken, CancellationToken
+			additionalGenerators, @Dictionary<string, GeneratorBase>
 		proc
 			data result = new GenerateResult()
 
@@ -855,7 +1061,7 @@ namespace HarmonyCoreGenerator.Model
 			data rpsLookup = new Dictionary<string, RpsStructure>(StringComparer.InvariantCultureIgnoreCase)
 			data interfaceLookup = new Dictionary<string, InterfaceEx>(StringComparer.InvariantCultureIgnoreCase)
 			data smcLookup = new Dictionary<string, SmcInterface>(StringComparer.InvariantCultureIgnoreCase)
-			data generators = new Dictionary<string, GeneratorBase>()
+			data generators = additionalGenerators == ^null ? new Dictionary<string, GeneratorBase>() : new Dictionary<string, GeneratorBase>(additionalGenerators)
 			data rpsStruct, @RpsStructure
 			foreach rpsStruct in RPS.Structures
 			begin
@@ -1015,6 +1221,7 @@ namespace HarmonyCoreGenerator.Model
 			taskSet.Tasks.AddRange<CodeGenTask>(result.CodeGenTasks)
 			taskSet.RepositoryMainFile = RPSMFIL
 			taskSet.RepositoryTextFile = RPSTFIL
+			taskSet.LoggingLevel = LoggingLevel.Normal
 			if(this.TraditionalBridge != ^null)
 			begin
 				data cgt, @CodeGenTask
@@ -1117,11 +1324,43 @@ namespace HarmonyCoreGenerator.Model
 			mreturn result
 		endmethod
 
-		private static method GetBridgeGenerators, @HashSet<string>
-		proc
+        private static method AddOrMerge, void
+            collection, @List<InterfaceEx>
+            source, @IEnumerable<InterfaceEx>
+        proc
+            data sourceIface, @InterfaceEx
+            foreach sourceIface in source
+            begin
+				data foundMergeTarget = false
+                data targetIface, @InterfaceEx
+                foreach targetIface in collection
+                begin
+                    if(string.Compare(targetIface.Name, sourceIface.Name, true) == 0)
+                    begin
+                        targetIface.EnabledGenerators = targetIface.EnabledGenerators.Union(sourceIface.EnabledGenerators).ToList()
+                        targetIface.GenerateInterface = NullableOr(targetIface.GenerateInterface, sourceIface.GenerateInterface)
+                        targetIface.GenerateODataController = NullableOr(targetIface.GenerateODataController, sourceIface.GenerateODataController)
+                        targetIface.GenerateSignalRHub = NullableOr(targetIface.GenerateSignalRHub, sourceIface.GenerateSignalRHub)
+                        targetIface.GenerateWebAPIController = NullableOr(targetIface.GenerateWebAPIController, sourceIface.GenerateWebAPIController)
+                    end
+                end
+                if(!foundMergeTarget)
+					collection.Add(sourceIface)
+            end
+        endmethod
+
+        private static method GetBridgeGenerators, @HashSet<string>
+            includeWebApi, boolean
+			includeSignalR, boolean
+        proc
 			data result = new HashSet<string>()
 			result.Add(^nameof(ModelGenerator))
-			result.Add(^nameof(TraditionalBridgeGenerator))
+            result.Add(^nameof(TraditionalBridgeGenerator))
+            if(includeWebApi)
+                result.Add(^nameof(WebApiGenerator))
+            if(includeSignalR)
+                result.Add(^nameof(SignalRGenerator))
+
 			mreturn result
 		endmethod
 
@@ -1141,7 +1380,34 @@ namespace HarmonyCoreGenerator.Model
 			mreturn result
 		endmethod
 
+        private static method NullableOr, Nullable<Boolean>
+            input1, Nullable<Boolean>
+            input2, Nullable<Boolean>
+        proc
+            if(input1 == ^null)
+                mreturn input2
+
+            if(input2 == ^null)
+                mreturn input1
+
+            data result, boolean, input1.Value || input2.Value
+			mreturn result
+        endmethod
+
+
 	endclass
+
+	;;duplicate from Codegen/Codegen.dbl
+    public class StructureDefinition
+
+        {JsonProperty(Required=Required.Always)}
+        public readwrite property Structure, string
+
+        public readwrite property Alias, string
+
+        public readwrite property File, string
+	
+    endclass
 
 	public class GenerateResult
 		public readwrite property ValidationErrors, @List<string>, new List<string>()

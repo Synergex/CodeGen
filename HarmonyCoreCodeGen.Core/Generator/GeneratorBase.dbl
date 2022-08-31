@@ -11,12 +11,13 @@ namespace HarmonyCoreGenerator.Generator
 	public abstract class GeneratorBase
 		public readwrite property Priority, int
 
-		public abstract method ValidateSolution, @List<string>
+		public virtual method ValidateSolution, @List<string>
 			solution, @Solution
-		proc
+        proc
+            mreturn new List<string>()
 		endmethod
 
-		public abstract method ApplyDefaults, void
+		public virtual method ApplyDefaults, void
 			solution, @Solution
 		proc
 		endmethod
@@ -162,14 +163,14 @@ namespace HarmonyCoreGenerator.Generator
 		endmethod
 
 
-		public static method GetTargetStructures, @List<StructureEx>
+		public virtual method GetTargetStructures, @List<StructureEx>
 			generatorName, @string
 			targetSolution, @Solution
 		proc
 			mreturn targetSolution.ExtendedStructures.Where(lambda(struct) { struct.EnabledGenerators.Contains(generatorName) }).ToList()
 		endmethod
 	
-		public static method GetTargetInterfaces, @List<InterfaceEx>
+		public virtual method GetTargetInterfaces, @List<InterfaceEx>
 			generatorName, @string
 			targetSolution, @Solution
 		proc
@@ -183,6 +184,8 @@ namespace HarmonyCoreGenerator.Generator
 					mreturn iface.GenerateWebAPIController
 				else if(generatorName == ^nameof(SignalRGenerator)) then
 					mreturn iface.GenerateSignalRHub
+				else if(iface.EnabledGenerators?.Contains(generatorName) ?? false) then
+					mreturn true
 				else
 					mreturn false
 			end
@@ -225,7 +228,7 @@ namespace HarmonyCoreGenerator.Generator
 ;		endmethod
 
 
-		public static method StructureTaskHelper, @CodeGenTask
+		public virtual method StructureTaskHelper, @CodeGenTask
 			targetSolution, @Solution
 			taskDescription, @string
 			taskNamespace, @string
@@ -240,7 +243,10 @@ namespace HarmonyCoreGenerator.Generator
 			data targetStructures = new List<StructureEx>()
 			if (useStructures)
 				targetStructures = GetTargetStructures(generatorNameForStructures, targetSolution)
-			data task = new CodeGen.Engine.CodeGenTask()
+            data task = new CodeGen.Engine.CodeGenTask()
+
+            task.UseAlternateFieldNames = targetSolution.AlternateFieldNames ?? false
+
 			task.Description = taskDescription
 			task.Templates.AddRange<String>(targetTemplates)
 			if(!string.IsNullOrEmpty(templateFolder))
@@ -251,17 +257,41 @@ namespace HarmonyCoreGenerator.Generator
 			if(!Directory.Exists(taskOutput))
 				Directory.CreateDirectory(taskOutput)
 
+			if(targetSolution.FieldOverlays)
+				task.IncludeOverlayFields = true
+
 			task.Namespace = taskNamespace
 			task.AllowTemplateFolder = true
 			task.ReplaceFiles = true
 			task.MultipleStructures = multiStructure
+
+			if(targetSolution.NoCustomPluralization ?? false)
+				task.NoCustomPluralization = true
+
 			task.UserTokens.AddRange<UserToken>(MergeTokens(targetSolution.GetUserDefinedTokens(), userTokens))
 			if (useStructures)
-				task.Structures.AddRange<String>(targetStructures.Select(lambda(struct) { struct.Name }))
+            begin
+				;;each structure may have multiple aliases, if it does it will need to be processed multiple times
+                data targetStruct, @StructureEx
+                foreach targetStruct in targetStructures
+                begin
+                    data aliases = targetStruct?.Aliases == ^null ? new List<string>() : new List<string>(targetStruct?.Aliases)
+                    if(aliases.Count == 0)
+                        aliases.Add(targetStruct.Name)
+
+                    data alias, @string
+                    foreach alias in aliases
+                    begin
+                        task.Aliases.Add(alias)
+						task.Structures.Add(targetStruct.Name)
+                    end
+                end
+			end
+
 			mreturn task
 		endmethod
 
-		public static method InterfaceTaskHelper, @CodeGenTask
+		public virtual method InterfaceTaskHelper, @CodeGenTask
 			targetSolution, @Solution
 			taskDescription, @string
 			taskNamespace, @string
@@ -272,19 +302,30 @@ namespace HarmonyCoreGenerator.Generator
 			userTokens, [#]@UserToken
 			default templateFolder, @string, ^null
 			default useStructures, boolean, true
+			default multiStructureMode, boolean, false
 		proc
-			data task = StructureTaskHelper(targetSolution, taskDescription, taskNamespace, taskOutput, false, generatorName, targetTemplates, userTokens, templateFolder, useStructures)
+			data task = StructureTaskHelper(targetSolution, taskDescription, taskNamespace, taskOutput, multiStructureMode, generatorName, targetTemplates, userTokens, templateFolder, false)
 			task.MethodCatalogInterface = targetInterface.Name
-
+            if(useStructures)
+				task.MethodCatalogStructureMode = true
 			mreturn task
 		endmethod
 
-		public static method MergeTokens, @IEnumerable<UserToken>
+		public virtual method MergeTokens, @IEnumerable<UserToken>
 			baseTokens, @IEnumerable<UserToken>
 			overrideTokens, @IEnumerable<UserToken>
 		proc
-			lambda keyFnc(tkn) tkn.Name
-			data result, @Dictionary<string, UserToken>, baseTokens.ToDictionary((@Func<UserToken, string>)keyFnc)
+			data result = new Dictionary<string, UserToken>()
+
+			data baseToken, @UserToken
+			foreach baseToken in baseTokens
+			begin
+				if(!result.ContainsKey(baseToken.Name)) then
+					result.Add(baseToken.Name, baseToken)
+				else
+					result[baseToken.Name] = baseToken
+			end
+
 			data overrideToken, @UserToken
 			if(overrideTokens != ^null)
 			begin
