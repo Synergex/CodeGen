@@ -52,13 +52,13 @@ namespace HarmonyCoreExtensions
 
 		public class RelationLookup
 			private readwrite property Relations, @ConcurrentDictionary<string, CustomRelationSpec>, new ConcurrentDictionary<string, CustomRelationSpec>()
-			private readwrite property Context, @CodeGenContext
+			private readwrite property Structures, @RpsStructureCollection
 
 			public method RelationLookup
-				required in context,                @CodeGenContext
+				required in structures,                @RpsStructureCollection
 				required in customizationFileName,  @string
 			proc
-                this.Context = context
+                this.Structures = structures
                 
 				if (File.Exists(customizationFileName))
 				begin
@@ -102,10 +102,10 @@ namespace HarmonyCoreExtensions
 			;;; <param name="context"></param>
 			;;; <param name="customizationFileName"></param>
 			public method RelationLookup
-				required in context,                @CodeGenContext
+				required in structures,           @RpsStructureCollection
 				required in customRelationSpecs,  @List<CustomRelationSpec>
 			proc
-				this.Context = context
+				this.Structures = structures
 				this.Init(customRelationSpecs)
 			endmethod
 
@@ -182,13 +182,13 @@ namespace HarmonyCoreExtensions
 				required in aRequiresMatch, boolean
 				required in aValidationMode, RelationValidationMode
 			proc
-				data fromRealStructure = Context.Structures.FirstOrDefault(lambda(str) { str.Name == fromStructure })
+				data fromRealStructure = Structures.FirstOrDefault(lambda(str) { str.Name == fromStructure })
 				if (fromRealStructure == ^null)
 				begin
 					throw new ApplicationException(String.Format("From structure {0} not found. Check your Harmony Core customization file!",fromStructure))
 				end
 
-				data toRealStructure = Context.Structures.FirstOrDefault(lambda(str) { str.Name == toStructure })
+				data toRealStructure = Structures.FirstOrDefault(lambda(str) { str.Name == toStructure })
 				if (toRealStructure == ^null)
 				begin
 					throw new ApplicationException(String.Format("To structure {0} not found. Check your Harmony Core customization file!",toStructure))
@@ -344,10 +344,23 @@ namespace HarmonyCoreExtensions
 			required in tokey,          @RpsKey
 			required in backLink,        boolean
 		proc
-			data harmonyCustomizationFile = Path.Combine(context.TemplateFolder,"HarmonyCoreCustomization.json")
-			data relationLookup = ^as(context.Properties.GetOrAdd(^typeof(RelationLookup), lambda(lookupKey) { new RelationLookup(context, harmonyCustomizationFile) }), @RelationLookup)
-			mreturn relationLookup.FindRelation(fromStructure.Name, tostr.Name, fromkey.Name, tokey.Name, backLink)
+			mreturn GetRelationSpec(context.TemplateFolder, context.Properties, context.Structures, fromStructure, tostr, fromkey, tokey, backLink)
 		endmethod
+
+        public static method GetRelationSpec, @CustomRelationSpec
+            required in templateFolder, @string
+            required in properties, @ConcurrentDictionary<Object, Object>
+			required in structures, @RpsStructureCollection
+            required in fromStructure,  @RpsStructure
+            required in tostr,          @RpsStructure
+            required in fromkey,        @RpsKey
+            required in tokey,          @RpsKey
+            required in backLink,        boolean
+        proc
+            data harmonyCustomizationFile = Path.Combine(templateFolder,"HarmonyCoreCustomization.json")
+            data relationLookup = ^as(properties.GetOrAdd(^typeof(RelationLookup), lambda(lookupKey) { new RelationLookup(structures, harmonyCustomizationFile) }), @RelationLookup)
+            mreturn relationLookup.FindRelation(fromStructure.Name, tostr.Name, fromkey.Name, tokey.Name, backLink)
+        endmethod
 
 		;;; <summary>
 		;;; 
