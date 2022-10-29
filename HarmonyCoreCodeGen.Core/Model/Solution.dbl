@@ -157,6 +157,16 @@ namespace HarmonyCoreGenerator.Model
 		public readwrite property ExtendedStructures, @List<StructureEx>
 		public readwrite property ExtendedInterfaces, @List<InterfaceEx>
 
+        public class SolutionGenerationEvents
+            public GenerationStarted, @Action<CodeGenTaskSet>
+            public GenerationFinished, @Action<CodeGenTaskSet>
+            public Message, @Action<CodeGenTask, string>
+            public TaskComplete, @Action<CodeGenTask>
+            public TaskStarted, @Action<CodeGenTask>
+            public Error, @Action<CodeGenTask, string>
+        endclass
+
+
 		public method GetExtendedStructureProperties, @Dictionary<string, Dictionary<string, Object>>
 		proc
 			data result = new Dictionary<string, Dictionary<string, Object>>()
@@ -814,7 +824,7 @@ namespace HarmonyCoreGenerator.Model
 						if(result.TraditionalBridge == ^null) 
 							result.TraditionalBridge = new TraditionalBridge()
 
-						result.TraditionalBridge.XFServerSMCPath = Environment.ExpandEnvironmentVariables(value)
+						result.TraditionalBridge.XFServerSMCPath = value
 					end
 					("smc_interface"),
 					begin
@@ -1047,9 +1057,17 @@ namespace HarmonyCoreGenerator.Model
 			mreturn structures
 		endmethod
 
+        public method GenerateSolution, @GenerateResult
+            messageHandler, @Action<CodeGenTask, string>
+            cancelToken, CancellationToken
+            additionalGenerators, @Dictionary<string, GeneratorBase>
+        proc
+			mreturn GenerateSolution(new SolutionGenerationEvents() { Message = messageHandler, Error = messageHandler }, cancelToken, additionalGenerators)
+		endmethod
+
 
 		public method GenerateSolution, @GenerateResult
-			messageHandler, @Action<CodeGenTask, string>
+			handlers, @SolutionGenerationEvents
 			cancelToken, CancellationToken
 			additionalGenerators, @Dictionary<string, GeneratorBase>
 		proc
@@ -1202,13 +1220,21 @@ namespace HarmonyCoreGenerator.Model
 					data message, @LogEntry
 					foreach message in tsk.Messages
 					begin
-						messageHandler(tsk, message.Message)
+						handlers?.Message(tsk, message.Message)
 					end
+
+                    handlers?.TaskComplete(tsk)
 
 					cancelToken.ThrowIfCancellationRequested()
 				end
 
-				taskPart.TaskComplete += TaskCompletedHandler
+                lambda TaskStartedHandler(tsk)
+                begin
+                    handlers?.TaskStarted(tsk)
+				end
+
+                taskPart.TaskComplete += TaskCompletedHandler
+                taskPart.StartingTask += TaskStartedHandler
 			end
 
 
@@ -1216,7 +1242,7 @@ namespace HarmonyCoreGenerator.Model
 			;;create code generator context w/extended structure/field properties
 
 			
-			data taskSet = new CodeGenTaskSet()
+            data taskSet = new CodeGenTaskSet()
 
 			taskSet.Tasks.AddRange<CodeGenTask>(result.CodeGenTasks)
 			taskSet.RepositoryMainFile = RPSMFIL
@@ -1227,7 +1253,7 @@ namespace HarmonyCoreGenerator.Model
 				data cgt, @CodeGenTask
 				foreach cgt in taskSet.Tasks
 				begin
-					cgt.MethodCatalogFile = this.TraditionalBridge.XFServerSMCPath;
+					cgt.MethodCatalogFile = Environment.ExpandEnvironmentVariables(this.TraditionalBridge.XFServerSMCPath)
 				end
 			end
 
@@ -1312,10 +1338,13 @@ namespace HarmonyCoreGenerator.Model
 			data codegenInstance = new CodeGenerator(taskSet, context)
 			;;record difference between files that exist on disk and predicted file list
 			;;pass taskset to codegenerator
-			;;run code generator
-			result.Failed = codegenInstance.GenerateCode()
-			result.Messages = taskSet.Messages.ToList()
+            ;;run code generator
+			handlers?.GenerationStarted(taskSet)
 
+			result.Failed = codegenInstance.GenerateCode()
+            result.Messages = taskSet.Messages.ToList()
+
+            handlers?.GenerationFinished(taskSet)
 			;;return generator result
 			;;   errors
 			;;   created files
