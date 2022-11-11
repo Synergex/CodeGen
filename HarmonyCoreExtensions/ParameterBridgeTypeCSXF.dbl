@@ -1,19 +1,19 @@
 ;;*****************************************************************************
 ;;
-;; Title:       ParameterBridgeType.dbl
+;; Title:       ParameterBridgeTypeCSXF.dbl
 ;;
 ;; Type:        Class
 ;;
 ;; Description: A custom parameter loop expansion token for use with Harmony Core
 ;;
-;; Date:        28th June 2019
+;; Date:        7th September 2022
 ;;
 ;; Author:      Steve Ives, Synergex Professional Services Group
 ;;              http://www.synergex.com
 ;;
 ;;*****************************************************************************
 ;;
-;; Copyright (c) 2019, Synergex International, Inc.
+;; Copyright (c) 2022, Synergex International, Inc.
 ;; All rights reserved.
 ;;
 ;; Redistribution and use in source and binary forms, with or without
@@ -52,12 +52,12 @@ import Newtonsoft.Json.Linq
 
 namespace HarmonyCoreExtensions
 
-    public class ParameterBridgeType implements IExpansionToken
+    public class ParameterBridgeTypeCSXF implements IExpansionToken
 
         public property TokenName, String
             method get
             proc
-                mreturn "HARMONYCORE_BRIDGE_PARAMETER_TYPE"
+                mreturn "HARMONYCORE_BRIDGE_PARAMETER_TYPE_CS_XF"
             endmethod
         endproperty
 
@@ -90,12 +90,13 @@ namespace HarmonyCoreExtensions
             lambda doExpand(catalog,iface,meth,param)
             begin
                 data result, string, String.Empty
-                data isValueType, boolean, false
+                data isValueType, boolean, true
 
                 using param.Type select
                 (ParameterType.Alpha),
                 begin
-                    result = "String"
+                    result = "string"
+                    isValueType = false
                 end
                 (ParameterType.Decimal),
                 begin
@@ -119,17 +120,22 @@ namespace HarmonyCoreExtensions
                     (CoerceType.Ulong),
                         result = "ulong"
                     (CoerceType.Boolean),
-                        result = "boolean"
+                        result = "bool"
                     (CoerceType.DateTime),
                         result = "DateTime"
                     (CoerceType.DateTimeNullable),
-                        result = "Nullable<Datetime>"
+                    begin
+                        result = "DateTime?"
+                        isValueType = false
+                    end
                     (CoerceType.Decimal),
                         result = "decimal"
                     (CoerceType.DecimalNullable),
-                        result = "Nullable<decimal>"
+                    begin
+                        result = "decimal?"
+                        isValueType = false
+                    end
                     endusing
-                    isValueType = !result.StartsWith("@")
                 end
                 (ParameterType.ImpliedDecimal),
                 begin
@@ -143,7 +149,6 @@ namespace HarmonyCoreExtensions
                     (CoerceType.Float),
                         result = "float"
                     endusing
-                    isValueType = true
                 end
                 (ParameterType.Integer),
                 begin
@@ -178,9 +183,8 @@ namespace HarmonyCoreExtensions
                     (CoerceType.Ulong),
                         result = "ulong"
                     (CoerceType.Boolean),
-                        result = "boolean"
+                        result = "bool"
                     endusing
-                    isValueType = true
                 end
                 (ParameterType.Structure),
                 begin
@@ -203,7 +207,8 @@ namespace HarmonyCoreExtensions
                         begin
                             typeName = str.Alias.EndsWith("S") ? str.Alias.Substring(0,str.Alias.Length-1) : str.Alias
                         end
-                        result = String.Concat("@",StringTools.PascalCase(typeName))
+                        result = StringTools.XfCase(typeName)
+                        isValueType = false
                     end
                     else
                     begin
@@ -217,34 +222,30 @@ namespace HarmonyCoreExtensions
                         begin
                             typeName = param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName
                         end
-                        result = String.Concat("@",typeName)
+                        result = StringTools.XfCase(typeName)
+                        isValueType = false
                     end
                 end
                 (ParameterType.Handle),
                 begin
                     result = "string"
+                    isValueType = false
                 end
                 (ParameterType.BinaryHandle),
-                begin
-                    result = "[#]byte"
-                    isValueType = true
-                end
+                    result = "byte[]"
                 (ParameterType.String),
                 begin
                     result = "string"
-                    isValueType = true
+                    isValueType = false
                 end
                 (ParameterType.Enumeration),
-                begin
                     result = param.EnumName
-                    isValueType = true
-                end
                 endusing
 
                 ;;If the parameter is optional and represented by a value type, make it nullable
                 if (!param.Required && isValueType)
                 begin
-                    result = String.Format("Nullable<{0}>",result)
+                    result = String.Format("{0}?",result)
                 end
 
                 mreturn result
