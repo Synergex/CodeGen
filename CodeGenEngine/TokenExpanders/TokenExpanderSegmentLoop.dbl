@@ -66,6 +66,7 @@ namespace CodeGen.Engine
             keySegmentLoopTokenExpanders.Add("SEGMENT_KIND", expandSegmentKind)
             keySegmentLoopTokenExpanders.Add("SEGMENT_LENGTH", expandSegmentLength)
             keySegmentLoopTokenExpanders.Add("SEGMENT_LITVAL", expandSegmentLitval)
+            keySegmentLoopTokenExpanders.Add("SEGMENT_IDXTYPE", expandSegmentIdxType)
             keySegmentLoopTokenExpanders.Add("SEGMENT_MAPPEDNAME", expandSegmentMappedName)
             keySegmentLoopTokenExpanders.Add("SEGMENT_NAME", expandSegmentName)
             keySegmentLoopTokenExpanders.Add("SEGMENT_NUMBER", expandSegmentNumber)
@@ -185,6 +186,16 @@ namespace CodeGen.Engine
             endparams
         proc
             lambda doExpand(str, ky, segment, index) segment.LiteralValue
+            mreturn ExpandKeySegmentLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandSegmentIdxType, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, ky, segment, index) segment.DataTypeName
             mreturn ExpandKeySegmentLoopToken(tkn, template, loops, doExpand)
         endmethod
 
@@ -321,15 +332,7 @@ namespace CodeGen.Engine
                 (RpsKeySegmentOrder.Descending),
                     mreturn "DESCENDING"
                 (RpsKeySegmentOrder.Unspecified),
-                begin
-                    ;;The segment doesn't have an explicit sort order specified, so we'll use the key sort order
-                    using ky.SortOrder select
-                    (RpsKeyOrder.Ascending),
-                        mreturn "ASC"
-                    (RpsKeyOrder.Descending),
-                        mreturn "DESC"
-                    endusing
-                end
+                    mreturn "UNSPECIFIED"
                 endusing
             end
             mreturn ExpandKeySegmentLoopToken(tkn, template, loops, doExpand)
@@ -466,7 +469,9 @@ namespace CodeGen.Engine
             lambda doExpand(str, ky, segment, index)
             begin
                 using (segment.DataType) select
-                (RpsKeySegmentDataType.Alpha,RpsKeySegmentDataType.Unspecified),
+                (RpsKeySegmentDataType.Unspecified),
+                    mreturn "UNSPECIFIED"
+                (RpsKeySegmentDataType.Alpha),
                     mreturn "ALPHA"
                 (RpsKeySegmentDataType.AutoSequence),
                     mreturn "SEQUENCE"
