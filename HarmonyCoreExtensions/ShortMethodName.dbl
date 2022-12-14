@@ -40,6 +40,8 @@
 ;;
 ;;*****************************************************************************
 
+.array 0
+
 import System
 import System.Collections.Generic
 import CodeGen.Engine
@@ -114,7 +116,8 @@ namespace HarmonyCoreExtensions
                 if(methodName.Length > 24)
                 begin
                     ;;need to eat the last 4 chars so we can append a Base64'ed CRC16
-                    methodName = methodName.Remove(20) + Convert.ToBase64String(BitConverter.GetBytes(Crc16Ccitt(Encoding.ASCII.GetBytes(methodName))))
+                    data signature = Convert.ToHexString(BitConverter.GetBytes(Crc16Ccitt(Encoding.ASCII.GetBytes(methodName))))
+                    methodName = methodName.Remove(20) + signature.Remove(signature.Length - 1)
                 end
                 mreturn methodName
             end
@@ -136,13 +139,13 @@ namespace HarmonyCoreExtensions
             ;;the compiler is not determining these literal types correctly when used in a bitshift expression
             data one, ushort, 1
             data eight, ushort, 8
-            for i from 1 thru table.Length
+            for i from 0 thru table.Length - 1
             begin
                 temp = 0
                 a = (ushort)(i << 8)
                 begin
                     data j, int
-                    for j from 0 thru 8 - 1
+                    for j from 0 thru 7
                     begin
                         if (((temp .bxor. a) & 32768) != 0) then
                             temp = (ushort)((temp << one) .bxor. poly)
@@ -154,7 +157,7 @@ namespace HarmonyCoreExtensions
                 table[i] = temp
             end
 
-            for i from 1 thru bytes.Length
+            for i from 0 thru bytes.Length - 1
             begin
                 crc = (ushort)((crc << eight) .bxor. table[((crc >> eight) .bxor. (255 .band. bytes[i]))])
             end
