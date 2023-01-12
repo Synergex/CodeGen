@@ -1,0 +1,168 @@
+;;*****************************************************************************
+;;
+;; Title:       ShortMethodName.dbl
+;;
+;; Type:        Class
+;;
+;; Description: A custom parameter loop expansion token for use with Harmony Core
+;;
+;; Date:        28th June 2019
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2019, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.array 0
+
+import System
+import System.Collections.Generic
+import CodeGen.Engine
+import CodeGen.MethodCatalogAPI
+import CodeGen.RepositoryAPI
+import System.IO
+import Newtonsoft.Json
+import System.Linq
+import Newtonsoft.Json.Linq
+import System.Text
+
+namespace HarmonyCoreExtensions
+
+    public class ShortMethodName implements IExpansionToken
+
+        public property TokenName, String
+            method get
+            proc
+                mreturn "HARMONYCORE_SHORT_METHOD_NAME"
+            endmethod
+        endproperty
+
+        public property Description, String
+            method get
+            proc
+                mreturn "Generates a possibly mangled short name for a method for use with Harmony Core Traditional Bridge."
+            endmethod
+        endproperty
+
+        public property Validity, TokenValidity
+            method get
+            proc
+                mreturn TokenValidity.MethodLoop
+            endmethod
+        endproperty
+
+        public property TokenCase, TokenCaseMode
+            method get
+            proc
+                mreturn TokenCaseMode.UppercaseOnly
+            endmethod
+        endproperty
+
+        public method Expand, String
+            tkn, @Token
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode>
+        proc
+            lambda doExpand(catalog,iface,meth)
+            begin
+                data methodName = string.Empty
+                if ((tkn.Value) == "METHOD_NAME" 
+                &    && tkn.Modifier == TokenModifier.None
+                &    && template.Context.CurrentTask.Tweaks != ^null
+                &    && template.Context.CurrentTask.Tweaks.Contains("SMC_CAMEL_CASE")) then
+                begin
+                    tkn.Modifier = TokenModifier.CamelCase
+                    methodName = meth.Name.ToUpper()
+                end
+                else if ((tkn.Value) == "METHOD_NAME" 
+                &    && tkn.Modifier == TokenModifier.None
+                &    && template.Context.CurrentTask.Tweaks != ^null
+                &    && template.Context.CurrentTask.Tweaks.Contains("SMC_PASCAL_CASE")) then
+                begin
+                    tkn.Modifier = TokenModifier.PascalCase
+                    methodName = meth.Name.ToUpper()
+                end
+                else
+                    methodName = meth.Name
+
+                ;;31 is the actual max but we need to save a few chars for whatever is being appended to this token
+                if(methodName.Length > 24)
+                begin
+                    ;;need to eat the last 4 chars so we can append a Base64'ed CRC16
+                    data signature = Convert.ToHexString(BitConverter.GetBytes(Crc16Ccitt(Encoding.ASCII.GetBytes(methodName))))
+                    methodName = methodName.Remove(20) + signature.Remove(signature.Length - 1)
+                end
+                mreturn methodName
+            end
+            mreturn TokenExpander.ExpandMethodLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+
+        private method Crc16Ccitt, ushort
+            bytes, [#]byte 
+            endparams
+        proc
+            data poly, ushort, 4129
+            data table, [#]ushort, new ushort[256] 
+            data initialValue, ushort, 65535
+            data temp, ushort
+            data a, ushort
+            data crc, ushort, initialValue
+            data i, int
+            ;;the compiler is not determining these literal types correctly when used in a bitshift expression
+            data one, ushort, 1
+            data eight, ushort, 8
+            for i from 0 thru table.Length - 1
+            begin
+                temp = 0
+                a = (ushort)(i << 8)
+                begin
+                    data j, int
+                    for j from 0 thru 7
+                    begin
+                        if (((temp .bxor. a) & 32768) != 0) then
+                            temp = (ushort)((temp << one) .bxor. poly)
+                        else
+                            temp = temp << one
+                        a = a << one
+                    end
+                end
+                table[i] = temp
+            end
+
+            for i from 0 thru bytes.Length - 1
+            begin
+                crc = (ushort)((crc << eight) .bxor. table[((crc >> eight) .bxor. (255 .band. bytes[i]))])
+            end
+            mreturn crc
+        endmethod
+    endclass
+
+endnamespace

@@ -126,7 +126,9 @@ namespace HarmonyCoreGenerator.Model
 		public readwrite property AlternateFieldNames, boolean?
 		public readwrite property ReadOnlyProperties, boolean?
 		public readwrite property SmcPostmanTests, boolean?
-		public readwrite property SmcSignalRHubs, boolean?
+        public readwrite property SmcSignalRHubs, boolean?
+        public readwrite property SignalRHubs, boolean?
+        public readwrite property DisableTraditionalBridgeDOMembers, boolean?
 		public readwrite property VersioningOrSwagger, VersioningOrSwaggerMode?
 		public readwrite property CustomSettings, @Dictionary<string, string>, new Dictionary<string, string>()
 		public readwrite property UserTokens, @Dictionary<string, string>
@@ -156,6 +158,16 @@ namespace HarmonyCoreGenerator.Model
 
 		public readwrite property ExtendedStructures, @List<StructureEx>
 		public readwrite property ExtendedInterfaces, @List<InterfaceEx>
+
+        public class SolutionGenerationEvents
+            public GenerationStarted, @Action<CodeGenTaskSet>
+            public GenerationFinished, @Action<CodeGenTaskSet>
+            public Message, @Action<CodeGenTask, string>
+            public TaskComplete, @Action<CodeGenTask>
+            public TaskStarted, @Action<CodeGenTask>
+            public Error, @Action<CodeGenTask, string>
+        endclass
+
 
 		public method GetExtendedStructureProperties, @Dictionary<string, Dictionary<string, Object>>
 		proc
@@ -742,7 +754,8 @@ namespace HarmonyCoreGenerator.Model
 					end
 					("enable_signalr"),
 					begin
-						result.SmcSignalRHubs = true
+                        result.SmcSignalRHubs = true
+						result.SignalRHubs = true
 					end
 					("enable_unit_test_generation"),
 					begin
@@ -814,7 +827,7 @@ namespace HarmonyCoreGenerator.Model
 						if(result.TraditionalBridge == ^null) 
 							result.TraditionalBridge = new TraditionalBridge()
 
-						result.TraditionalBridge.XFServerSMCPath = Environment.ExpandEnvironmentVariables(value)
+						result.TraditionalBridge.XFServerSMCPath = value
 					end
 					("smc_interface"),
 					begin
@@ -1056,9 +1069,17 @@ namespace HarmonyCoreGenerator.Model
 			mreturn structures
 		endmethod
 
+        public method GenerateSolution, @GenerateResult
+            messageHandler, @Action<CodeGenTask, string>
+            cancelToken, CancellationToken
+            additionalGenerators, @Dictionary<string, GeneratorBase>
+        proc
+			mreturn GenerateSolution(new SolutionGenerationEvents() { Message = messageHandler, Error = messageHandler }, cancelToken, additionalGenerators)
+		endmethod
+
 
 		public method GenerateSolution, @GenerateResult
-			messageHandler, @Action<CodeGenTask, string>
+			handlers, @SolutionGenerationEvents
 			cancelToken, CancellationToken
 			additionalGenerators, @Dictionary<string, GeneratorBase>
 		proc
@@ -1200,6 +1221,8 @@ namespace HarmonyCoreGenerator.Model
 				result.CodeGenTasks.AddRange(genInstance.GenerateTasks(this))
 			end
 
+			result.CodeGenTasks.Reverse()
+
 			;;put back the structures we want to persist on disk
 			ExtendedStructures = originalStructures
 			
@@ -1208,16 +1231,29 @@ namespace HarmonyCoreGenerator.Model
 			begin
 				lambda TaskCompletedHandler(tsk)
 				begin
-					data message, @LogEntry
-					foreach message in tsk.Messages
+                    data message, @LogEntry
+                    if(handlers?.Message != ^null)
 					begin
-						messageHandler(tsk, message.Message)
-					end
+						foreach message in tsk.Messages
+						begin
+							handlers.Message(tsk, message.Message)
+						end
+                    end
+
+                    if(handlers?.TaskComplete != ^null)
+						handlers.TaskComplete(tsk)
 
 					cancelToken.ThrowIfCancellationRequested()
 				end
 
-				taskPart.TaskComplete += TaskCompletedHandler
+                lambda TaskStartedHandler(tsk)
+                begin
+                    if(handlers?.TaskStarted != ^null)
+						handlers.TaskStarted(tsk)
+				end
+
+                taskPart.TaskComplete += TaskCompletedHandler
+                taskPart.StartingTask += TaskStartedHandler
 			end
 
 
@@ -1225,7 +1261,7 @@ namespace HarmonyCoreGenerator.Model
 			;;create code generator context w/extended structure/field properties
 
 			
-			data taskSet = new CodeGenTaskSet()
+            data taskSet = new CodeGenTaskSet()
 
 			taskSet.Tasks.AddRange<CodeGenTask>(result.CodeGenTasks)
 			taskSet.RepositoryMainFile = RPSMFIL
@@ -1236,7 +1272,7 @@ namespace HarmonyCoreGenerator.Model
 				data cgt, @CodeGenTask
 				foreach cgt in taskSet.Tasks
 				begin
-					cgt.MethodCatalogFile = this.TraditionalBridge.XFServerSMCPath;
+					cgt.MethodCatalogFile = Environment.ExpandEnvironmentVariables(this.TraditionalBridge.XFServerSMCPath)
 				end
 			end
 
@@ -1289,7 +1325,7 @@ namespace HarmonyCoreGenerator.Model
 				taskSet.Defines.Add("DEFINED_ENABLE_CUSTOM_AUTHENTICATION")
 			if (FieldSecurity)
 				taskSet.Defines.Add("DEFINED_ENABLE_FIELD_SECURITY")
-			if (SmcSignalRHubs)
+			if (SmcSignalRHubs || SignalRHubs)
 				taskSet.Defines.Add("DEFINED_ENABLE_SIGNALR")
 			if (CaseSensitiveUrls)
 				taskSet.Defines.Add("DEFINED_ENABLE_CASE_SENSITIVE_URL")
@@ -1303,6 +1339,9 @@ namespace HarmonyCoreGenerator.Model
 				taskSet.Defines.Add("DEFINED_ENABLE_BRIDGE_SAMPLE_DISPATCHERS")
 			if (EnableNewtonsoftJson)
 				taskSet.Defines.Add("DEFINED_ENABLE_NEWTONSOFT")
+            if(DisableTraditionalBridgeDOMembers)
+				taskSet.Defines.Add("DEFINED_DISABLE_TRADITIONALBRIDGE_DO_MEMBERS")
+
 
 			data context = new CodeGenContext(taskSet)
 			context.ExtendedRepositoryProperties = GetExtendedStructureProperties()
@@ -1316,15 +1355,20 @@ namespace HarmonyCoreGenerator.Model
 				altFieldNames = AlternateFieldNames.Value
 
 			context.Structures = new RpsStructureCollection(RpsLoadMode.Load, altFieldNames)
-			context.Properties.TryAdd(^typeof(HarmonyCoreExtensions.Helpers.RelationLookup), new HarmonyCoreExtensions.Helpers.RelationLookup(context, loadedRelations))
+			context.Properties.TryAdd(^typeof(HarmonyCoreExtensions.Helpers.RelationLookup), new HarmonyCoreExtensions.Helpers.RelationLookup(context.Structures, loadedRelations))
 			;;create code generator
 			data codegenInstance = new CodeGenerator(taskSet, context)
 			;;record difference between files that exist on disk and predicted file list
 			;;pass taskset to codegenerator
-			;;run code generator
-			result.Failed = codegenInstance.GenerateCode()
-			result.Messages = taskSet.Messages.ToList()
+            ;;run code generator
+			if(handlers?.GenerationStarted != ^null)
+				handlers.GenerationStarted(taskSet)
 
+			result.Failed = codegenInstance.GenerateCode()
+            result.Messages = taskSet.Messages.ToList()
+
+			if(handlers?.GenerationFinished != ^null)
+				handlers.GenerationFinished(taskSet)
 			;;return generator result
 			;;   errors
 			;;   created files
