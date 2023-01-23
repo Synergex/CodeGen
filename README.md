@@ -7,7 +7,7 @@ CodeGen was primarily developed to generate Synergy DBL source code, but can als
 When you have installed CodeGen you can access local documentation by executing the command `codegen -docs`. You can also use the [on-line documentation](https://synergex.github.io/CodeGen/) which will always relate to the latest published version of CodeGen.
 
 ## Requirements
-CodeGen is developed using Visual Studio 2015 and the Synergy .NET development environment. In order to build or use CodeGen you must have a Synergy Development Environment and the latest version of Synergy DBL Integration for Visual Studio installed. For information on how to get started with CodeGen, refer to the documentation.
+CodeGen is developed using Visual Studio 2022 and the Synergy .NET development environment. In order to build or use CodeGen you must have a Synergy Development Environment and the latest version of Synergy DBL Integration for Visual Studio installed. For information on how to get started with CodeGen, refer to the documentation.
 
 ## License
 
