@@ -1,4 +1,4 @@
-/*! HelpSmith Web Help System 3.1
+﻿/*! HelpSmith Web Help System 3.1
 * http://www.helpsmith.com
 * Copyright (c) 2007-2021 Divcom Software */
 var an=getQueryAnchor();$(document).ready(function(){$(window).on("resize",function(){alignDocument()}).trigger("resize");an&&scrollToAnchor(an)});function getQueryAnchor(){var a=location.hash;return""!=a?(a=a.substring(1),a=a.replace(/[^\w]|[\s]/g,"")):""}function scrollToAnchor(a){!a||0>=$("#non-scrolling-area").length||0>=$("#container").length||(location.hash="#"+a)}
