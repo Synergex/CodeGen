@@ -66,6 +66,8 @@ namespace CodeGen.Engine
             loopUtilityExpressionEvaluators.Add("LAST", evaluateLast)
             loopUtilityExpressionEvaluators.Add("MORE", evaluateMore)
             loopUtilityExpressionEvaluators.Add("NOMORE", evaluateNoMore)
+            loopUtilityExpressionEvaluators.Add("REPLICATION_MORE",evaluateReplicationMore)
+            loopUtilityExpressionEvaluators.Add("REPLICATION_NOMORE",evaluateReplicationNoMore)
 
         endmethod
 
@@ -119,6 +121,57 @@ namespace CodeGen.Engine
             data loop, @LoopNode, loops.Last(isLoopNode)
             ;; TODO: Should always return true if it's a primary key loop
             mreturn (loop.CurrentIndex == loop.MaxIndex)
+        endmethod
+
+        private static method evaluateReplicationMore, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            ;The bahavior is similar to that of identical to that of evaluateMore (above)
+            ;except that this code takes into account any fields being excluded via the
+            ;special token REPLICATOR_EXCLUDE in field user text or long descripotion.
+
+            data excludedFields = 0
+            foreach data fld in template.Context.GetCurrentStructure().Fields as @RpsField
+            begin
+                if (fld.HasProperty(template, "REPLICATOR_EXCLUDE"))
+                begin
+                    excludedFields += 1
+                end
+            end
+
+            lambda isLoopNode(node) (node .is. LoopNode)
+            data loop, @LoopNode, loops.Last(isLoopNode)
+
+            mreturn (loop.CurrentIndex < loop.MaxIndex - excludedFields)
+
+        endmethod
+
+        private static method evaluateReplicationNoMore, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            ;The bahavior is similar to that of identical to that of evaluateNoMore (above)
+            ;except that this code takes into account any fields being excluded via the
+            ;special token REPLICATOR_EXCLUDE in field user text or long descripotion.
+
+            data excludedFields = 0
+            foreach data fld in template.Context.GetCurrentStructure().Fields as @RpsField
+            begin
+                if (fld.HasProperty(template, "REPLICATOR_EXCLUDE"))
+                begin
+                    excludedFields += 1
+                end
+            end
+
+            lambda isLoopNode(node) (node .is. LoopNode)
+            data loop, @LoopNode, loops.Last(isLoopNode)
+            ;; TODO: Should always return true if it's a primary key loop
+            mreturn (loop.CurrentIndex == loop.MaxIndex - excludedFields)
         endmethod
 
         ;; *********************************************************************
