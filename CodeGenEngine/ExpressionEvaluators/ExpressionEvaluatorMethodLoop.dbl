@@ -95,6 +95,9 @@ namespace CodeGen.Engine
             methodLoopExpressionEvaluators.Add("COERCE_USHORT", evaluateMethodReturnCorecedType)
 
             ;;Parameter types
+            methodLoopExpressionEvaluators.Add("DATE_PARAMETERS", evaluateMethodDateParameters)
+            methodLoopExpressionEvaluators.Add("DATE_PARAMETERS_IN", evaluateMethodDateParametersIn)
+            methodLoopExpressionEvaluators.Add("DATE_PARAMETERS_OUT", evaluateMethodDateParametersOut)
             methodLoopExpressionEvaluators.Add("IN", evaluateMethodParametersIn)
             methodLoopExpressionEvaluators.Add("INOUT", evaluateMethodParametersInOut)
             methodLoopExpressionEvaluators.Add("IN_OR_INOUT", evaluateMethodParametersInOrInOut)
@@ -258,6 +261,82 @@ namespace CodeGen.Engine
             mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
+        private static method evaluateMethodDateParameters, boolean
+            tkn, @Token
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+        proc
+            lambda doEvaluate(iface, meth, index)
+            begin
+                ;;If there are no parameters we have our answer
+                if (meth.Parameters.Count==0)
+                    mreturn false
+                ;;Otherwise go looking for any date parameters
+                data param, @SmcParameter
+                foreach param in meth.Parameters
+                begin
+                    if param.Type == ParameterType.Decimal && (param.CoerceType == CoerceType.DateTime || param.CoerceType == CoerceType.DecimalNullable)
+                    begin
+                        mreturn true
+                    end
+                end
+                mreturn false
+            end
+            mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateMethodDateParametersIn, boolean
+            tkn, @Token
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+        proc
+            lambda doEvaluate(iface, meth, index)
+            begin
+                ;;If there are no parameters we have our answer
+                if (meth.Parameters.Count==0)
+                    mreturn false
+                ;;Otherwise go looking for any date parameters
+                data param, @SmcParameter
+                foreach param in meth.Parameters
+                begin
+                    if param.Type == ParameterType.Decimal 
+                    &    && (param.CoerceType == CoerceType.DateTime || param.CoerceType == CoerceType.DecimalNullable)
+                    &    && (param.Direction == ParameterDirection.In || param.Direction == ParameterDirection.InOut)
+                    begin
+                        mreturn true
+                    end
+                end
+                mreturn false
+            end
+            mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateMethodDateParametersOut, boolean
+            tkn, @Token
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+        proc
+            lambda doEvaluate(iface, meth, index)
+            begin
+                ;;If there are no parameters we have our answer
+                if (meth.Parameters.Count==0)
+                    mreturn false
+                ;;Otherwise go looking for any date parameters
+                data param, @SmcParameter
+                foreach param in meth.Parameters
+                begin
+                    if param.Type == ParameterType.Decimal 
+                    &    && (param.CoerceType == CoerceType.DateTime || param.CoerceType == CoerceType.DecimalNullable)
+                    &    && (param.Direction == ParameterDirection.Out || param.Direction == ParameterDirection.InOut)
+                    begin
+                        mreturn true
+                    end
+                end
+                mreturn false
+            end
+            mreturn EvaluateMethodLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
         private static method evaluateMethodParametersIn, boolean
             tkn, @Token
             template, @FileNode 
@@ -389,10 +468,10 @@ namespace CodeGen.Engine
         proc
             lambda doEvaluate(iface, meth, index)
             begin
-                ;;If it's a function then we have our answer
+                ;;If there are no parameters we have our answer
                 if (meth.Parameters.Count==0)
                     mreturn false
-                ;;Otherwise go looking for any structure parameter
+                ;;Otherwise go looking for any structure parameters
                 data param, @SmcParameter
                 foreach param in meth.Parameters
                 begin

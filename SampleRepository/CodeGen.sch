@@ -1,12 +1,12 @@
  
 ;  SYNERGY DATA LANGUAGE OUTPUT
 ;
-;  REPOSITORY     : D:\CodeGen\SampleRepository\rpsmain.ism
-;                 : D:\CodeGen\SampleRepository\rpstext.ism
+;  REPOSITORY     : C:\DEV_SYNERGEX\CodeGen\SampleRepository\rpsmain.ism
+;                 : C:\DEV_SYNERGEX\CodeGen\SampleRepository\rpstext.ism
 ;                 : Version 9.1.5b
 ;
-;  GENERATED      : 03-JUN-2022, 14:58:42
-;                 : Version 12.1.1
+;  GENERATED      : 08-JUN-2023, 09:52:15
+;                 : Version 12.2.1
 ;  EXPORT OPTIONS : [ALL] 
  
  
@@ -490,6 +490,23 @@ Field D6PERIOD   Type DATE   Size 6   Stored YYYYPP
 Field USER_DATE   Type USER   Size 14   Stored DATE
    User Type "YYYYMMDDHHMMSS"
    Description "User defined date YYYYMMDDHHMMSS"
+ 
+Structure EXCLUDED_OVERLAY_TEST   DBL ISAM
+   Description "Excluded overlay test"
+ 
+Field F1   Type ALPHA   Size 10
+   Description "f1"
+ 
+Field F2   Type ALPHA   Size 10
+   Description "f2"
+ 
+Field F3   Type ALPHA   Size 10
+   Description "F3"
+ 
+Field ALLREC   Type ALPHA   Size 30   Overlay F1:0
+   Description "All record data"
+   Long Description
+      "REPLICATOR_EXCLUDE"
  
 Structure GROUP_TEST   DBL ISAM
    Description "Structure to test GROUP functionality"

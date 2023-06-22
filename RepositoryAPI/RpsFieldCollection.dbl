@@ -55,9 +55,11 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsFieldCollection extends List<RpsField>
 
+        ;;Stack of structure names used with nested implicit groups
+        private previousStructures, @Stack<string>, new Stack<string>()
+
         ;;Constructor (don't load any fields)
         public method RpsFieldCollection
-            endparams
         proc
         endmethod
 
@@ -66,11 +68,11 @@ namespace CodeGen.RepositoryAPI
             required in LoadMode, RpsFieldCollectionMode
             required in StructureOrGroup, string
             default  in UseAlternateName, Boolean, false
-            endparams
             record
                 str, String
             endrecord
         proc
+            ;TODO: Need to not re-process all the time!!!
 
             str = StructureOrGroup.Trim()
 
@@ -79,22 +81,20 @@ namespace CodeGen.RepositoryAPI
             using LoadMode select
             (RpsFieldCollectionMode.Structure),
             begin
-                ;;Preserve the name of the current structure
-                data PreviousStructure, String, %atrim(Repository.RpsControl.sname)
+                ;;Preserve the name of the current (parent) structure
+                previousStructures.Push(%atrimtostring(Repository.RpsControl.sname))
 
+                ;;Load the structure that defines the group
                 LoadStructureFields(str,UseAlternateName)
                             
-                ;;If we switched to a different structure then set context back to the previous one
-                            
-                ;TODO:  BUG: There is a problem here with nested groups. Resetting the current structure loses our position
-                ;       within any group heirarchy that we were previously in, so somehow we need to reset that context also
-                            
-                if (Repository.RpsControl.sname.nes.PreviousStructure)
+                ;;Reset to the parent structure
+                if (previousStructures.Count > 0)
                 begin
                     data ms_info, s_info
-                    dd_struct(Repository.RpsControl,DDS_INFO,PreviousStructure,ms_info)
+                    str = previousStructures.Pop()
+                    dd_struct(Repository.RpsControl,DDS_INFO,str,ms_info)
                     if (Repository.RpsControl.error)
-                        throw new RpsStructureException("Failed to set context back to original structure  "+PreviousStructure)
+                        throw new RpsStructureException("Failed to reset context to original structure  " + str)
                 end
             end
             (RpsFieldCollectionMode.Group),
@@ -107,7 +107,6 @@ namespace CodeGen.RepositoryAPI
         private method LoadStructureFields, void
             required in StructureName, string
             default  in UseAlternateName, Boolean, false
-            endparams
             record local_data
                 MemHandle, int
                 ix, int
@@ -152,7 +151,6 @@ namespace CodeGen.RepositoryAPI
         private method LoadGroupFields, void
             required in GroupName, String
             default  in UseAlternateName, Boolean, false
-            endparams
             record local_data
                 MemHandle   ,int
                 ix          ,int
