@@ -46,11 +46,32 @@ import CodeGen.RepositoryAPI
 
 namespace CodeGen.Engine
 
+    public enum ValidationContext
+        Ok              ,0
+        Skipped
+        NoFieldsInStructure
+        FieldSizeIssue
+    endenum
+
     public partial class RepositoryTools
 
         public static method CheckStructure, boolean
             required in  context,   @CodeGenContext
             required in  Struct	,   @RpsStructure
+            endparams
+
+            stack record
+                errContext, ValidationContext
+            endrecord
+
+        proc
+            mreturn RepositoryTools.CheckStructure(context,Struct,errContext)
+        endmethod
+
+        public static method CheckStructure, boolean
+            required in  context,   @CodeGenContext
+            required in  Struct	,   @RpsStructure
+            required out ErrContext,ValidationContext
             endparams
 
             stack record
@@ -60,23 +81,12 @@ namespace CodeGen.Engine
         proc
 
             ErrStatus = false
+            ErrContext = ValidationContext.Ok
 
             ;; ==========================================================================================
             ;; STRUCTURE VALIDATION
 
             context.CurrentTask.DebugLog(" - Checking structure " + Struct.Name)
-
-            ;; Make sure the structure has fields
-            if (!Struct.Fields.Count)
-                ErrStatus = context.CurrentTask.Errorlog("Structure " + Struct.Name + " has no fields")
-
-            ;; Do we have any tags?
-            if (!ErrStatus&&Struct.Tags.Count)
-            begin
-                ;; Make sure it's a field=value tag
-                if (Struct.TagType!=RpsTagType.FieldAndValue)
-                    context.CurrentTask.Log("WARNING: Structure "+Struct.Name+" has an unsupported record length tag. Tag loop tokens may not work!")
-            end
 
             ;; Make sure the structure has not been excluded with @NOCODEGEN
             if (!ErrStatus)
@@ -85,7 +95,23 @@ namespace CodeGen.Engine
                 begin
                     context.CurrentTask.DebugLog(" - Structure " + Struct.Name + " is excluded from processing by @NOCODEGEN")
                     ErrStatus = true
+                    ErrContext = ValidationContext.Skipped
                 end
+            end
+
+            ;; Make sure the structure has fields
+            if (!ErrStatus && !Struct.Fields.Count)
+            begin
+                ErrStatus = context.CurrentTask.Errorlog("Structure " + Struct.Name + " has no fields")
+                ErrContext = ValidationContext.NoFieldsInStructure
+            end
+
+            ;; Do we have any tags?
+            if (!ErrStatus && Struct.Tags.Count)
+            begin
+                ;; Make sure it's a field=value tag
+                if (Struct.TagType!=RpsTagType.FieldAndValue)
+                    context.CurrentTask.Log("WARNING: Structure "+Struct.Name+" has an unsupported record length tag. Tag loop tokens may not work!")
             end
 
             ;; ==========================================================================================
@@ -106,6 +132,7 @@ namespace CodeGen.Engine
                     if (Field.DataType == RpsFieldDataType.Decimal && Field.Precision==0 && Field.Size > 28)
                     begin
                         ;;ErrStatus = context.CurrentTask.ErrorLog(String.Format("Decimal field {0}.{1} exceeds the maximum size of D28!", Struct.Name, Field.Name))
+                        ;;ErrContext = ValidationContext.FieldSizeIssue
                         ;;exitloop
                     end
 
@@ -116,6 +143,7 @@ namespace CodeGen.Engine
                         if ((Field.Size-Field.Precision) > 28 || Field.Precision > 28)
                         begin
                             ;;ErrStatus = context.CurrentTask.ErrorLog(String.Format("Implied decimal field {0}.{1} exceeds the maximum size of D56.28!", Struct.Name, Field.Name))
+                            ;;ErrContext = ValidationContext.FieldSizeIssue
                             ;;exitloop
                         end
                     end
@@ -450,7 +478,7 @@ namespace CodeGen.Engine
                                     begin
                                         newField1.SqlName		= StringTools.SqlName(newField1.Name)
                                     end
-                                    
+
                                     ;; Note: BaseName doesn't change because of array expansion
 
                                     if (Field.MappedField)
@@ -508,7 +536,7 @@ namespace CodeGen.Engine
                     ;; 2. Implicit GROUP (fields defined by another structure)
                     ;;
                     ;; And if the "include overlays" command line option (-f o) was used:
-                    ;; 
+                    ;;
                     ;; 3. Explicit GROUP OVERLAY
                     ;; 4. Implicit GROUP OVERLAY
 
@@ -673,9 +701,12 @@ namespace CodeGen.Engine
                     data ix, int
                     for ix from 0 thru Struct.Fields.Count-1
                         Struct.Fields[ix].LogicalFieldNumber = ix+1
-                end	
+                end
                 else
+                begin
                     ErrStatus = context.CurrentTask.Errorlog("After applying CodeGen rules structure " + Struct.Name + " has no remaining fields!")
+                    ErrContext = ValidationContext.NoFieldsInStructure
+                end
             end
 
             if (!ErrStatus)
