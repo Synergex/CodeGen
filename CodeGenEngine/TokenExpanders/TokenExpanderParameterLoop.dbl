@@ -73,6 +73,8 @@ namespace CodeGen.Engine
             parameterLoopTokenExpanders.Add("PARAMETER_SIZE", expandParameterSize)
             parameterLoopTokenExpanders.Add("PARAMETER_PRECISION", expandParameterPrecision)
             parameterLoopTokenExpanders.Add("PARAMETER_ENUM", expandParameterEnum)
+            parameterLoopTokenExpanders.Add("PARAMETER_MAXVALUE", expandParameterMaxValue)
+            parameterLoopTokenExpanders.Add("PARAMETER_MINVALUE", expandParameterMinValue)
             parameterLoopTokenExpanders.Add("PARAMETER_STRUCTURE", expandParameterStructure)
             parameterLoopTokenExpanders.Add("PARAMETER_STRUCTURE_NOPLURAL", expandParameterStructure)
             parameterLoopTokenExpanders.Add("PARAMETER_STRUCTURE_PLURAL", expandParameterStructure)
@@ -631,7 +633,10 @@ namespace CodeGen.Engine
                         if (template.Context.CurrentTask.Tweaks != ^null && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
                         begin
                             strPrefix =  "str"
-                            strName = StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                            if (template.Context.CurrentTask.NoCustomPluralization) then
+                                strName = StringTools.PascalCase(param.StructureName)
+                            else
+                                strName = StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
                         end
                         mreturn String.Format("{0}{1}{2}",arraySpec,strPrefix,strName)
                     end
@@ -700,7 +705,10 @@ namespace CodeGen.Engine
                         if (template.Context.CurrentTask.Tweaks != ^null && template.Context.CurrentTask.Tweaks.Contains("PARAMDEFSTR"))
                         begin
                             strPrefix =  "str"
-                            strName = StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
+                            if (template.Context.CurrentTask.NoCustomPluralization) then
+                                strName = StringTools.PascalCase(param.StructureName)
+                            else
+                                strName = StringTools.PascalCase(param.StructureName.EndsWith("S") ? param.StructureName.Substring(0,param.StructureName.Length-1) : param.StructureName)
                         end
                         mreturn String.Format("{0}{1}",strPrefix,strName)
                     end
@@ -761,6 +769,88 @@ namespace CodeGen.Engine
             endparams
         proc
             lambda doExpand(catalog,iface,meth,param) param.EnumName
+            mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandParameterMaxValue, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(catalog,iface,meth,param)
+            begin
+                data maxValue = String.Empty
+                data nines, a28, "9999999999999999999999999999"
+                using param.Type select
+                (ParameterType.Decimal),
+                begin
+                    maxValue = nines(1:param.Size)
+                end
+                (ParameterType.Integer),
+                begin
+                    using param.Size select
+                    (1),
+                        maxValue = "127"
+                    (2),
+                        maxValue = "32767"
+                    (4),
+                        maxValue = "2147483647"
+                    (8),
+                        maxValue = "9223372036854775807"
+                    endusing
+                end
+                (ParameterType.ImpliedDecimal),
+                begin
+                    maxValue = String.Format("{0}.{1}",nines(1:param.Size-param.Precision),nines(1:param.Precision))
+                end
+                (),
+                    nop
+                endusing
+
+                mreturn maxValue
+            end
+            mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandParameterMinValue, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(catalog,iface,meth,param)
+            begin
+                data minValue = String.Empty
+                data nines, a28, "9999999999999999999999999999"
+                using param.Type select
+                (ParameterType.Decimal),
+                begin
+                    minValue = String.Format("-{0}",nines(1:param.Size))
+                end
+                (ParameterType.Integer),
+                begin
+                    using param.Size select
+                    (1),
+                        minValue = "-128"
+                    (2),
+                        minValue = "-32768"
+                    (4),
+                        minValue = "-2147483648"
+                    (8),
+                        minValue = "-9223372036854775808"
+                    endusing
+                end
+                (ParameterType.ImpliedDecimal),
+                begin
+                    minValue = String.Format("-{0}.{1}",nines(1:param.Size-param.Precision),nines(1:param.Precision))
+                end
+                (),
+                    nop
+                endusing
+
+                mreturn minValue
+            end
             mreturn ExpandParameterLoopToken(tkn, template, loops, doExpand)
         endmethod
 
