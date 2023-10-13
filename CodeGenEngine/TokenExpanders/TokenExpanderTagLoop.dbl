@@ -76,6 +76,7 @@ namespace CodeGen.Engine
             tagLoopTokenExpanders.Add("TAGLOOP_SEQUENCE", expandTagSequence)
             tagLoopTokenExpanders.Add("TAGLOOP_TAG_NAME", expandTagName)
             tagLoopTokenExpanders.Add("TAGLOOP_TAG_VALUE", expandTagValue)
+            tagLoopTokenExpanders.Add("TAGLOOP_TAG_VALUE_QUOTED", expandTagValueQuoted)
 
         endmethod
 
@@ -423,6 +424,48 @@ namespace CodeGen.Engine
                         end
                         (),
                             value = tag.ComparisonValue
+                        endusing
+                        exitloop
+                    end
+                end
+                mreturn value
+            end
+            mreturn ExpandTagLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandTagValueQuoted, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, tag, index)
+            begin
+                data value, string, ""
+                data field, @RpsField
+                foreach field in str.Fields
+                begin
+                    if (field.OriginalName == tag.Field)
+                    begin
+                        using (field.DataType) select
+                        (RpsFieldDataType.Alpha, RpsFieldDataType.User),
+                        begin
+                            data tmplen, int, field.Size
+                            if (tmplen > 15)
+                                tmplen = 15
+                            if (tag.ComparisonValue.Length > 0) then
+                            begin
+                                data tmpval, a15, tag.ComparisonValue
+                                value = String.Format("""{0}""", tmpval(1:tmplen))
+                            end
+                            else
+                            begin
+                                data spaces, a15, " " ;15 is the max length of a tag comparison in RPS
+                                value = String.Format("""{0}""", spaces(1:tmplen))
+                            end
+                        end
+                        (),
+                            value = String.Format("""{0}""",tag.ComparisonValue)
                         endusing
                         exitloop
                     end
