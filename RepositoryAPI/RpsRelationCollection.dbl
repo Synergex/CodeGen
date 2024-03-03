@@ -50,18 +50,22 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsRelationCollection extends List<RpsRelation>
 
+        protected mRepository, @Repository
+
         ;; Constructor (empty collection)
         public method RpsRelationCollection
-            endparams
+            required in aRepository, @Repository
         proc
+            mRepository = aRepository
         endmethod
 
         ;; Constructor (structure relations)
         public method RpsRelationCollection
+            required in aRepository, @Repository
             required in StructureName, String
-            endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadRelations(StructureName)
         endmethod
 
@@ -82,20 +86,20 @@ namespace CodeGen.RepositoryAPI
             begin
                 data ms_info, s_info
                 ;;Set the current structure?
-                dd_struct(Repository.RpsControl,DDS_INFO,StructureName,^a(ms_info))
-                if (Repository.RpsControl.error)
+                dd_struct(mRepository.RpsControl,DDS_INFO,StructureName,^a(ms_info))
+                if (mRepository.RpsControl.error)
                     throw new RpsRelationException("Failed to get information for repository structure "+StructureName)
                 ;;Do we have any relations to load?
                 if (ms_info.si_nmrels)
                 begin
                     ;;Size the relation names array and get the relation names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*ms_info.si_nmrels)
-                    dd_relation(Repository.RpsControl,DDR_LIST,ms_info.si_nmrels,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_relation(mRepository.RpsControl,DDR_LIST,ms_info.si_nmrels,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsRelationException("Failed to get relation names for repository structure "+StructureName)
                     ;;Add relation names to the collection
                     for ix from 1 thru ms_info.si_nmrels
-                        this.Add(new RpsRelation(StructureName,^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsRelation(mRepository,StructureName,^m(strIdentifier[ix],MemHandle)))
                 end
             end
             finally

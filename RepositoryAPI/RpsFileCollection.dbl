@@ -52,32 +52,39 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsFileCollection extends List<RpsFile>
 
+        protected mRepository, @Repository
+
         ;; Constructor (no files)
         public method RpsFileCollection
-            endparams
+            required in aRepository, @Repository
         proc
+            mRepository = aRepository
         endmethod
 
         ;; Constructor (all files)
         public method RpsFileCollection
+            required in aRepository, @Repository
             required in LoadMode, RpsLoadMode
             default  in UseAlternateFieldNames, boolean, false
             endparams
         proc
+            mRepository = aRepository
             if (LoadMode==RpsLoadMode.Load)
             begin
-                Repository.CheckIsOpen()
+                mRepository.CheckIsOpen()
                 LoadAllFiles(UseAlternateFieldNames)
             end
         endmethod
 
         ;; Constructor (structure files)
         public method RpsFileCollection
+            required in aRepository, @Repository
             required in StructureName, String
             default  in UseAlternateFieldNames, boolean, false
             endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadStructureFiles(StructureName,UseAlternateFieldNames)
         endmethod
 
@@ -95,20 +102,20 @@ namespace CodeGen.RepositoryAPI
             try
             begin
                 ;;Get the number of files defined in the repository
-                dd_name(Repository.RpsControl,DDN_COUNT,DDN_FILE,FileCount)
-                if (Repository.RpsControl.error)
+                dd_name(mRepository.RpsControl,DDN_COUNT,DDN_FILE,FileCount)
+                if (mRepository.RpsControl.error)
                     throw new RpsFileException("Failed to get number of repository file definitions")
                 ;;Do we have any files to load?
                 if (FileCount)
                 begin
                     ;;Size the format names array and get the format names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*FileCount)
-                    dd_name(Repository.RpsControl,DDN_LIST,DDN_FILE,FileCount,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_name(mRepository.RpsControl,DDN_LIST,DDN_FILE,FileCount,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsFileException("Failed to get repository file definition names")
                     ;;Add files to collection
                     for ix from 1 thru FileCount
-                        this.Add(new RpsFile(^m(strIdentifier[ix],MemHandle),UseAlternateFieldNames))
+                        this.Add(new RpsFile(mRepository,^m(strIdentifier[ix],MemHandle),UseAlternateFieldNames))
                 end
             end
             finally
@@ -135,20 +142,20 @@ namespace CodeGen.RepositoryAPI
             begin
                 data ms_info, s_info
                 ;;Set the current structure?
-                dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
-                if (Repository.RpsControl.error)
+                dd_struct(mRepository.RpsControl,DDS_INFO,StructureName,ms_info)
+                if (mRepository.RpsControl.error)
                     throw new RpsFileException("Failed to get information for repository structure "+StructureName)
                 ;;Do we have any files to load?
                 if (ms_info.si_nmfils)
                 begin
                     ;;Size the file names array and get file names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*ms_info.si_nmfils)
-                    dd_struct(Repository.RpsControl,DDS_FILS,ms_info.si_nmfils,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_struct(mRepository.RpsControl,DDS_FILS,ms_info.si_nmfils,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsFileException("Failed to get file names for repository structure "+StructureName)
                     ;;Add files to collection
                     for ix from 1 thru ms_info.si_nmfils
-                        this.Add(new RpsFile(^m(strIdentifier[ix],MemHandle),UseAlternateFieldNames))
+                        this.Add(new RpsFile(mRepository,^m(strIdentifier[ix],MemHandle),UseAlternateFieldNames))
                 end
             end
             finally

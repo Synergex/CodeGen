@@ -52,27 +52,32 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsFormatCollection extends List<RpsFormat>
 
+        protected mRepository, @Repository
+
         ;; Constructor (empty collection)
         public method RpsFormatCollection
-            endparams
+            required in aRepository, @Repository
         proc
+            mRepository = aRepository
         endmethod
 
         ;; Constructor (structure formats)
         public method RpsFormatCollection
+            required in aRepository, @Repository
             required in StructureName, String
-            endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadFormats(StructureName)
         endmethod
 
         ;; Constructor for (global or predefined formats)
         public method RpsFormatCollection
+            required in aRepository, @Repository
             required in GlobalFormatType, RpsGlobalFormatType
-            endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadFormats(GlobalFormatType)
         endmethod
 
@@ -93,20 +98,20 @@ namespace CodeGen.RepositoryAPI
             begin
                 data ms_info, s_info
                 ;;Set the current structure?
-                dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
-                if (Repository.RpsControl.error)
+                dd_struct(mRepository.RpsControl,DDS_INFO,StructureName,ms_info)
+                if (mRepository.RpsControl.error)
                     throw new RpsFormatException("Failed to get information for repository structure "+StructureName)
                 ;;Do we have any formats to load?
                 if (ms_info.si_nmfmts)
                 begin
                     ;;Size the format names array and get the format names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*ms_info.si_nmfmts)
-                    dd_format(Repository.RpsControl,DDM_LIST,ms_info.si_nmfmts,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_format(mRepository.RpsControl,DDM_LIST,ms_info.si_nmfmts,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsFormatException("Failed to get formats for repository structure "+StructureName)
                     ;;Add format names to the collection
                     for ix from 1 thru ms_info.si_nmfmts
-                        this.Add(new RpsFormat(StructureName,^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsFormat(mRepository,StructureName,^m(strIdentifier[ix],MemHandle)))
                 end
             end
             finally
@@ -134,16 +139,16 @@ namespace CodeGen.RepositoryAPI
             try
             begin
                 ;;Get the global format count
-                dd_name(Repository.RpsControl,DDN_COUNT,GlobalFormatType,FormatCount)
-                if (Repository.RpsControl.error)
+                dd_name(mRepository.RpsControl,DDN_COUNT,GlobalFormatType,FormatCount)
+                if (mRepository.RpsControl.error)
                     throw new RpsFormatException("Failed to get repository global format count")
                 ;;Do we have any formats to load?
                 if (FormatCount)
                 begin
                     ;;Size the format names array and get the format names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*FormatCount)
-                    dd_name(Repository.RpsControl,DDN_LIST,GlobalFormatType,FormatCount,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_name(mRepository.RpsControl,DDN_LIST,GlobalFormatType,FormatCount,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsFormatException("Failed to get repository global format names")
                     ;;Add formats to collection
                     for ix from 1 thru FormatCount

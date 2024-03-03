@@ -53,6 +53,8 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsFile
 
+        protected mRepository, @Repository
+
         public override method ToString, String
             endparams
         proc
@@ -70,12 +72,14 @@ namespace CodeGen.RepositoryAPI
 
         ;; Constructor
         public method RpsFile
+            required in aRepository, @Repository
             required in FileName, String
             default  in UseAltrernateFieldNames, Boolean, false
             endparams
         proc
+            mRepository = aRepository
             mUseAltrernateFieldNames = UseAltrernateFieldNames
-            Repository.CheckIsOpen()
+            mRepository.CheckIsOpen()
             LoadFile(FileName)
         endmethod
 
@@ -88,16 +92,16 @@ namespace CodeGen.RepositoryAPI
             this.Name = FileName.Trim().ToUpper()
 
             ;;Load file information
-            dd_file(Repository.RpsControl,DDL_INFO,this.Name,^a(mfl_info))
-            if (Repository.RpsControl.error)
+            dd_file(mRepository.RpsControl,DDL_INFO,this.Name,^a(mfl_info))
+            if (mRepository.RpsControl.error)
                 throw new RpsFileException("Failed to get information for repository file "+this.Name)
 
             ;;Load description
             if (mfl_info.fli_desc)
             begin
                 data tmpDescription, a40
-                xcall dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_desc,tmpDescription)
-                if (Repository.RpsControl.error)
+                xcall dd_file(mRepository.RpsControl,DDL_TEXT,mfl_info.fli_desc,tmpDescription)
+                if (mRepository.RpsControl.error)
                     throw new RpsFileException("Failed to get description for repository file "+this.Name)
                 this.Description = %atrim(tmpDescription)
             end
@@ -106,8 +110,8 @@ namespace CodeGen.RepositoryAPI
             if (mfl_info.fli_ldesc)
             begin
                 data tmpLongDescription, a1800
-                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_ldesc,tmpLongDescription)
-                if (Repository.RpsControl.error)
+                dd_file(mRepository.RpsControl,DDL_TEXT,mfl_info.fli_ldesc,tmpLongDescription)
+                if (mRepository.RpsControl.error)
                     throw new RpsFileException("Failed to get long description for repository file "+this.Name)
                 this.LongDescription = %atrim(tmpLongDescription)
             end
@@ -116,8 +120,8 @@ namespace CodeGen.RepositoryAPI
             if (mfl_info.fli_utext)
             begin
                 data tmpUserText, a60
-                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_utext,tmpUserText)
-                if (Repository.RpsControl.error)
+                dd_file(mRepository.RpsControl,DDL_TEXT,mfl_info.fli_utext,tmpUserText)
+                if (mRepository.RpsControl.error)
                     throw new RpsFileException("Failed to get user text for repository file "+this.Name)
                 this.UserText = %atrim(tmpUserText)
             end
@@ -126,8 +130,8 @@ namespace CodeGen.RepositoryAPI
             if (mfl_info.fli_portable)
             begin
                 data tmpPortableInts, a120
-                dd_file(Repository.RpsControl,DDL_TEXT,mfl_info.fli_portable,tmpPortableInts)
-                if (Repository.RpsControl.error)
+                dd_file(mRepository.RpsControl,DDL_TEXT,mfl_info.fli_portable,tmpPortableInts)
+                if (mRepository.RpsControl.error)
                     throw new RpsFileException("Failed to get portable integer specifications for repository file "+this.Name)
                 this.PortableIntsSpecs = %atrim(tmpPortableInts)
             end
@@ -142,7 +146,7 @@ namespace CodeGen.RepositoryAPI
                 data strNames,  D_HANDLE, %mem_proc(DM_ALLOC,^size(strIdentifier)*mfl_info.fli_nmstructs)
                 data odbcNames, D_HANDLE, %mem_proc(DM_ALLOC,^size(strIdentifier)*mfl_info.fli_nmstructs)
 
-                xcall dd_file(Repository.RpsControl,DDL_STRS,mfl_info.fli_nmstructs,^m(strIdentifier,strNames),,,^m(strIdentifier,odbcNames))
+                xcall dd_file(mRepository.RpsControl,DDL_STRS,mfl_info.fli_nmstructs,^m(strIdentifier,strNames),,,^m(strIdentifier,odbcNames))
 
                 data strName, string
                 data odbcName, string
@@ -347,7 +351,7 @@ namespace CodeGen.RepositoryAPI
             method get
             proc
                 if ((mKeys==^null)&&(mfl_info.fli_struct))
-                    mkeys = new RpsKeyCollection(mfl_info.fli_struct)
+                    mkeys = new RpsKeyCollection(mRepository,mfl_info.fli_struct)
                 mreturn mKeys
             endmethod
         endproperty
@@ -360,7 +364,7 @@ namespace CodeGen.RepositoryAPI
             method get
             proc
                 if (mStructures==^null)
-                    mStructures = new RpsStructureCollection(this.Name,mUseAltrernateFieldNames)
+                    mStructures = new RpsStructureCollection(mRepository,this.Name,mUseAltrernateFieldNames)
                 mreturn mStructures
             endmethod
         endproperty

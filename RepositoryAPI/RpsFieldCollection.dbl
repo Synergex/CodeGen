@@ -55,16 +55,21 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsFieldCollection extends List<RpsField>
 
+        protected mRepository, @Repository
+
         ;;Stack of structure names used with nested implicit groups
         private previousStructures, @Stack<string>, new Stack<string>()
 
         ;;Constructor (don't load any fields)
         public method RpsFieldCollection
+            required in aRepository, @Repository
         proc
+            mRepository = aRepository
         endmethod
 
         ;;Constructor (load fields for a structure or group)
         public method RpsFieldCollection
+            required in aRepository, @Repository
             required in LoadMode, RpsFieldCollectionMode
             required in StructureOrGroup, string
             default  in UseAlternateName, Boolean, false
@@ -76,13 +81,14 @@ namespace CodeGen.RepositoryAPI
 
             str = StructureOrGroup.Trim()
 
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
 
             using LoadMode select
             (RpsFieldCollectionMode.Structure),
             begin
                 ;;Preserve the name of the current (parent) structure
-                previousStructures.Push(%atrimtostring(Repository.RpsControl.sname))
+                previousStructures.Push(%atrimtostring(mRepository.RpsControl.sname))
 
                 ;;Load the structure that defines the group
                 LoadStructureFields(str,UseAlternateName)
@@ -92,8 +98,8 @@ namespace CodeGen.RepositoryAPI
                 begin
                     data ms_info, s_info
                     str = previousStructures.Pop()
-                    dd_struct(Repository.RpsControl,DDS_INFO,str,ms_info)
-                    if (Repository.RpsControl.error)
+                    dd_struct(mRepository.RpsControl,DDS_INFO,str,ms_info)
+                    if (mRepository.RpsControl.error)
                         throw new RpsStructureException("Failed to reset context to original structure  " + str)
                 end
             end
@@ -122,20 +128,20 @@ namespace CodeGen.RepositoryAPI
                 data ms_info, s_info
 
                 ;;Set the current structure and get structure information
-                dd_struct(Repository.RpsControl,DDS_INFO,str,ms_info)
-                if (Repository.RpsControl.error)
+                dd_struct(mRepository.RpsControl,DDS_INFO,str,ms_info)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get information for repository structure "+str)
                 ;;Do we have any fields to load?
                 if (ms_info.si_childct)
                 begin
                     ;;Size the field names array and get field names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*ms_info.si_childct)
-                    dd_field(Repository.RpsControl,DDF_SLIST,ms_info.si_childct,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_field(mRepository.RpsControl,DDF_SLIST,ms_info.si_childct,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsFieldException("Failed to get field names for repository structure "+str)
                     ;;Add fields to the collection
                     for ix from 1 thru ms_info.si_childct
-                        this.Add(new RpsField(StructureName,^m(strIdentifier[ix],MemHandle),UseAlternateName))
+                        this.Add(new RpsField(mRepository,StructureName,^m(strIdentifier[ix],MemHandle),UseAlternateName))
                 end
             end
             finally
@@ -162,8 +168,8 @@ namespace CodeGen.RepositoryAPI
                 data mf_info, f_info
 
                 ;;Get field information for group field
-                dd_field(Repository.RpsControl,DDF_INFO,GroupName,^a(mf_info))
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_INFO,GroupName,^a(mf_info))
+                if (mRepository.RpsControl.error)
                     throw new RpsGroupException("Failed to get information for explicit group field "+GroupName)
 
                 ;;Make sure this really is an explicit group
@@ -174,23 +180,23 @@ namespace CodeGen.RepositoryAPI
                 if (mf_info.fi_mbrct)
                 begin
                     ;;Set context to the requested group field
-                    dd_field(Repository.RpsControl,DDF_GROUP,GroupName)
-                    if (Repository.RpsControl.error)
+                    dd_field(mRepository.RpsControl,DDF_GROUP,GroupName)
+                    if (mRepository.RpsControl.error)
                         throw new RpsGroupException("Failed to set field context to group "+GroupName)
 
                     ;;Size the field names array and get field names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*mf_info.fi_mbrct)
-                    dd_field(Repository.RpsControl,DDF_SLIST,mf_info.fi_mbrct,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_field(mRepository.RpsControl,DDF_SLIST,mf_info.fi_mbrct,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsGroupException("Failed to get field names for group "+GroupName)
 
                     ;;Add fields to the collection
                     for ix from 1 thru mf_info.fi_mbrct
-                        this.Add(new RpsField(^m(strIdentifier[ix],MemHandle),UseAlternateName))
+                        this.Add(new RpsField(mRepository,^m(strIdentifier[ix],MemHandle),UseAlternateName))
 
                     ;;Reset field context
-                    dd_field(Repository.RpsControl,DDF_ENDGROUP)
-                    if (Repository.RpsControl.error)
+                    dd_field(mRepository.RpsControl,DDF_ENDGROUP)
+                    if (mRepository.RpsControl.error)
                         throw new RpsGroupException("Failed to reset field context from group "+GroupName)
                 end
             end
