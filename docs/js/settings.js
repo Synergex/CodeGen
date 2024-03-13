@@ -4,5 +4,6 @@
 	tocOnlyExpandSingleHeading : false,
 	tocAutoExpandOnActivate : false,
 	tocAtimateExpandingCollapsingDuration : 200,
-	indexFile : 'index.htm'
+	indexFile : 'index.htm',
+	unknownFile : 'unknown.htm'
 }
