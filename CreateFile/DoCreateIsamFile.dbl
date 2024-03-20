@@ -47,6 +47,7 @@ function DoCreateIsamFile, boolean
     required in  a_filename,    String      ;;Repository file specification name
     required in  a_filespec,    String      ;;Physical file to create (override repository)
     required in  a_overwrite,   boolean     ;;Overwrite existing file?
+    required in	 a_skipspec,	boolean	    ;;Skip dd_filespec?
     required out a_filecreated, String      ;;File name created
     required out a_errtxt,      String      ;;Error text
     endparams
@@ -83,7 +84,8 @@ proc
     dcs = a_dcs
 
     ;;Get the file information record
-    xcall dd_file(dcs,DDL_INFO,a_filename,fl_info)
+    if (!a_skipspec)
+	xcall dd_file(dcs,DDL_INFO,a_filename,fl_info)
     if (dcs.error)
     begin
         a_errtxt = "File definition " + a_filename + " not found!"
@@ -93,7 +95,29 @@ proc
     ;;Get the file specification record for the file
     if (ok)
     begin
-        xcall dd_filespec(dcs,a_filename,,fls_info)
+        if (!a_skipspec) then
+            xcall dd_filespec(dcs,a_filename,,fls_info)
+        else
+        begin
+            ;;Skipping dd_filespec and determining specification from structure
+            xcall dd_struct(dcs,DDS_INFO,a_filename,s_info)
+            if (dcs.error) then
+            begin
+                a_errtxt = "Structure definition " + a_filename + " not found!"
+                ok = false
+            end
+            else
+            begin
+                fls_info.flsi_name = a_filename
+                fls_info.flsi_sname = a_filename
+                fls_info.flsi_recsz = s_info.si_recsz
+                fls_info.flsi_nmkeys = s_info.si_nmkeys
+                fls_info.flsi_filtyp = "DBL ISAM       "
+                ;si_nmkeys may not be correct, as it may include foreign keys as well 
+                ;as access keys, but we'll fix this up later. We could use s_info.si_filtyp
+                ;for fls_info.flsi_filtyp, but it should always be "DBL ISAM" if we've gotten this far.
+            end
+        end
     end
 
     ;;Determine if the file already exists, and if so, whether to replace it
@@ -107,7 +131,7 @@ proc
         try
         begin
             data tmpch, i4, 0
-            open(tmpch,i,fls_info.flsi_name)
+            open(tmpch,i:i,%atrim(fls_info.flsi_name))
             close tmpch
             fileAlreadyExisted = true
         end
@@ -211,7 +235,11 @@ proc
             data key_idx, i4
             keydata = new ArrayList()
 
-            for key_idx from 1 thru fls_info.flsi_nmkeys
+            ;Add all access keys to array
+            ;Loop through all keys until we reach a blank name - we can't use flsi_nmkeys for this loop, because it might cause
+            ;early termination if foreign keys are interspersed with access keys, since flsi_nmkeys only counts access keys.
+            key_idx = 1
+            while (key_idx <= (MAX_KEYS) && keynames[key_idx] .nes. "") do
             begin
                 xcall dd_key(dcs,DDK_INFO,keynames[key_idx],k_info)
                 ;;Keep the access keys, ignore any foreign keys
@@ -226,6 +254,13 @@ proc
                     end
                     keydata.Add((@a)k_info)
                 end
+                key_idx += 1
+            end
+
+            if (a_skipspec)
+            begin
+                fls_info.flsi_nmkeys = keydata.Count
+                ;Fix up number of access keys, in case we skipped dd_filespec and previous value was incorrect
             end
 
             ;;For each key ...
@@ -233,6 +268,7 @@ proc
             begin
                 for key_idx from 1 thru fls_info.flsi_nmkeys
                 begin
+                    data key_isalpha, boolean, true
                     k_info = (a)(keydata[key_idx-1])
 
                     ;;Build the ISAMC key specification string
@@ -266,11 +302,17 @@ proc
                     if (k_info.ki_segdtyp(1))
                     begin
                         append(isamc_keyspec[key_idx],',TYPE='+key_segtyp(k_info.ki_segdtyp(1)))
+                        if (k_info.ki_segdtyp(1) > 2)
+                            key_isalpha = false
                         if (k_info.ki_nmseg>=2)
                         begin
                             data seg_idx, i4
                             for seg_idx from 2 thru k_info.ki_nmseg
+                            begin
                                 append(isamc_keyspec[key_idx],':'+key_segtyp(k_info.ki_segdtyp(seg_idx)))
+                                if (k_info.ki_segdtyp(seg_idx) > 2)
+                                    key_isalpha = false
+                            end
                         end
                     end
 
@@ -346,6 +388,10 @@ proc
 .endc
 
                     ;;Null key?
+.ifdef OS_VMS
+                    if (key_isalpha && k_info.ki_null==KI_REP)
+                        append(isamc_keyspec[key_idx],',NULL=REPLICATE')
+.else
                     using k_info.ki_null select
                     (KI_REP),
                         append(isamc_keyspec[key_idx],',NULL=REPLICATE')
@@ -354,13 +400,35 @@ proc
                     (KI_SHORT),
                         append(isamc_keyspec[key_idx],',NULL=SHORT')
                     endusing
+.endc
 
                     ;;Null key value
-                    if (k_info.ki_nullval)
+                    if (k_info.ki_nullval) then
                     begin
                         data nullval, a255
+                        data nullval_len, d3, 1
+                        ;Select key before checking for text
+                        xcall dd_key(dcs,DDK_INFO,k_info.ki_name,k_info)
                         xcall dd_key(dcs, DDK_TEXT, k_info.ki_nullval, nullval)
-                        append(isamc_keyspec[key_idx],',VALUE_NULL='+%atrim(nullval))
+                        if (dcs.error)
+                        begin
+                            a_errtxt = "Could not retrieve VALUE_NULL for key '" + %atrim(k_info.ki_name) + "'."
+                            ok = false
+                        end
+.ifndef OS_VMS
+                        ;Ensure that a space is used for a blank string, and that only one character is used on VMS
+                        nullval_len = %trim(nullval)
+.endc
+                        append(isamc_keyspec[key_idx],',VALUE_NULL="' + nullval(1:nullval_len) + '"')
+
+                    end
+                    else
+                    begin
+                        if (key_isalpha && k_info.ki_null==KI_NONREP)
+                        begin
+                            Console.WriteLine("WARNING: VALUE_NULL not found for alpha non-replicating null key '" + %atrim(k_info.ki_name) + "'. Using ' '.")
+                            append(isamc_keyspec[key_idx],',VALUE_NULL=" "')
+                        end
                     end
                 end
             end

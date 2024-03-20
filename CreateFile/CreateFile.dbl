@@ -52,7 +52,7 @@ namespace CreateFile
     main CreateFile
 
         .define APP_NAME        "CreateFile"
-        .define APP_VERSION     "V2.0"
+        .define APP_VERSION     "V2.1"
 
         .include "RPSLIB:ddinfo.def"
 
@@ -63,6 +63,8 @@ namespace CreateFile
             strname,        String      ;Structure to process
             inpfile,        String      ;Input instructions file name
             filespec,       String      ;File to create
+	    rpsmfil,	    String      ;Explicit RPS Main File
+	    rpstfil,	    String      ;Explicit RPS Text File
             filecreated,    String      ;File created
             errtxt,         String      ;Error text
             replace,        boolean     ;Replace existing files?
@@ -199,12 +201,48 @@ namespace CreateFile
             replace = CommandLineParser.Parse("r")
         end
 
+	;---------------------------------------------------------------------------
+	;Check for a repository main file option
+
+	if (ok)
+	begin
+	    rpsmfil = ""
+	    if (CommandLineParser.Parse("rm",clvalues))
+	    begin
+		if (clvalues.Count) then
+		    rpsmfil = clvalues[0]
+		else
+		begin
+		    Console.WriteLine("No file specification found after the -rm option, use -h for help!")
+		    ok = false
+		end
+	    end
+	end
+
+	;---------------------------------------------------------------------------
+	;Check for a repository text file option
+
+	if (ok)
+	begin
+	    rpstfil = ""
+	    if (CommandLineParser.Parse("rt",clvalues))
+	    begin
+		if (clvalues.Count) then
+		    rpstfil = clvalues[0]
+		else
+		begin
+		    Console.WriteLine("No file specification found after the -rt option, use -h for help!")
+		    ok = false
+		end
+	    end
+	end
+
         ;---------------------------------------------------------------------------
         ;Open the repository
 
         if (ok)
         begin
-            xcall dd_init(dcs)
+            xcall dd_init(dcs, rpsmfil, rpstfil)
             if (dcs.error) then
             begin
                 Console.WriteLine("Failed to open repository!")
@@ -260,7 +298,8 @@ namespace CreateFile
 
         ;Limit for text    -------------------------------------------------------------------------------
         Console.WriteLine('')
-        Console.WriteLine('  CreateFile -f <fname> | -s <sname> [-out <filespec>] [-r] [-h]')
+        Console.WriteLine('  CreateFile -f <fname> | -s <sname> | -in <infile>')
+	Console.WriteLine('          [-out <filespec>] [-r] [-rm <rpsmfil> -rt <rpstfil>] [-h]')
         Console.WriteLine('')
         Console.WriteLine('    -f <fname>')
         Console.WriteLine('          Name of repository file definition to process')
@@ -273,17 +312,25 @@ namespace CreateFile
         Console.WriteLine('')
         Console.WriteLine('    -out <filespec>')
         Console.WriteLine('          File spec of file to create, overriding repository file spec')
-        Console.WriteLine('          Not used with -in.')
+        Console.WriteLine('          Not used with -in. If used with -s for a structure that is not ')
+	Console.WriteLine('          assigned to any files, this will override the error message and ')
+	Console.WriteLine('          create the specified file with a warning.')
         Console.WriteLine('')
         Console.WriteLine('    -r    Replace existing files. The default is not to replace existing files.')
         Console.WriteLine('          Not used with -in.')
         Console.WriteLine('')
+	Console.WriteLine('    -rm <rpsmfil> -rt <rpstfil>')
+	Console.WriteLine('          Names of repository main file and text file, overriding repository')
+	Console.WriteLine('          from environment')
+	Console.WriteLine('          Not used with -in.')
+	Console.WriteLine('')
         Console.WriteLine('    -h    Display this usage information')
         Console.WriteLine('')
         Console.WriteLine('  The -f and -s options can only be used to create ISAM files.')
         Console.WriteLine('')
-        Console.WriteLine('  The -in option can be used to create ISAM and RELATIVE files, but RELATIVE files')
-        Console.WriteLine('  can only be created if an input file containing initial data is provided.')
+        Console.WriteLine('  The -in option can be used to create ISAM and RELATIVE files, but RELATIVE ')
+        Console.WriteLine('  files can only be created if an input file containing initial data is ')
+	Console.WriteLine('  provided.')
         Console.WriteLine('')
         Console.WriteLine('  The input file used with the -in option must be a JSON file similar to this:')
         Console.WriteLine('')
@@ -302,12 +349,13 @@ namespace CreateFile
         Console.WriteLine('    }')
         Console.WriteLine('  ]')
         Console.WriteLine('')
-        Console.WriteLine('  Including "CreateFile" is optional. By default the file spec of the repository ')
-        Console.WriteLine('  file definition is used.')
+        Console.WriteLine('  Including "CreateFile" is optional. By default the file spec of the ')
+        Console.WriteLine('  repository file definition is used.')
         Console.WriteLine('')
         Console.WriteLine('  Including "LoadFromFile" is optional for ISAM files, if not provided an empty')
-        Console.WriteLine('  file will be created. For relative files you mUST provide an initial data file')
-        Console.WriteLine('  and that file MUST contain at least one record of the appropriate length.')
+        Console.WriteLine('  file will be created. For relative files you mUST provide an initial data ')
+        Console.WriteLine('  file and that file MUST contain at least one record of the appropriate')
+	Console.WriteLine('  length.')
         Console.WriteLine('')
         Console.WriteLine('  Including "OverwriteExistingFile" is optional. By default files will NOT be')
         Console.WriteLine('  overwritten.')
