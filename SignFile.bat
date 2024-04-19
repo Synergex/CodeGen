@@ -12,7 +12,7 @@ if NOT DEFINED SignTarget goto usage
 if NOT DEFINED CertFile goto usage
 if NOT DEFINED Secret goto usage
 
-powershell -NoLogo -NoProfile -Command "Import-Module .\signfile.ps1; Azure-Signfile -CertFile \"%CertFile%\" -SignSecret \"%Secret%\" -Description \"%Description%\" -TargetFile \"%SignTarget%\" -AzureAppId \"%AzureAppId%\" -AzureDirId \"%AzureDirId%\""
+powershell -NoLogo -NoProfile -Command "Import-Module .\signfile.ps1; Azure-Signfile -CertFile \"%CertFile%\" -SignSecret \"%Secret%\" -Description \"%Description%\" -TargetFile \"%SignTarget%\" -ApplicationId \"%AzureAppId%\" -DirectoryId \"%AzureDirId%\""
 endlocal
 goto exit
 
