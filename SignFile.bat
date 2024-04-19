@@ -1,37 +1,25 @@
-rem @echo off
+@echo off
 setlocal
-pushd %~dp0
 
-if "%1"=="" goto usage
+set SignTarget=%~1
+set CertFile=%~2
+set Secret=%~3
+set Description=%~4
+set AzureAppId=%~5
+set AzureDirId=%~6
 
-set FILE_TO_SIGN=%1
+if NOT DEFINED SignTarget goto usage
+if NOT DEFINED CertFile goto usage
+if NOT DEFINED Secret goto usage
 
-if not exist "%FILE_TO_SIGN%" (
-  echo ERROR: File %FILE_TO_SIGN% was not found!
-  goto done
-)
-
-set TIMESTAMP_URL=http://timestamp.entrust.net/TSS/RFC3161sha2TS
-
-echo.
-for %%F in ("%FILE_TO_SIGN%") do echo Signing %%~nxF
-
-rem Should be able to use %WindowsSdkDir% but it looks like Visual Studio clears it for some reason!
-
-rem This is the command used with the certificate on the physical USB device.
-"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool.exe" sign /fd SHA256 /a /tr "%TIMESTAMP_URL%" "%FILE_TO_SIGN%"
-
-if "%ERRORLEVEL%"=="0" (
-  echo SUCCESS!
-)
-
-goto done
+powershell -NoLogo -NoProfile -Command "Import-Module %SYNERGY%\bat\signfile.ps1; Azure-Signfile -CertFile \"%CertFile%\" -SignSecret \"%Secret%\" -Description \"%Description%\" -TargetFile \"%SignTarget%\" -AzureAppId \"%AzureAppId%\" -AzureDirId \"%AzureDirId%\""
+endlocal
+goto exit
 
 :usage
-echo.
-echo Usage: SignFile <fileSpec>
-echo.
-
-:done
-popd
+echo *** usage: signfile filename certificate_name password description
+echo *** example: signfile dbr.exe SomeCert MySecret "Synergy/DE Runtime"
 endlocal
+
+:exit
+
