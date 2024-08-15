@@ -6,6 +6,7 @@ set PATH=C:\Program Files\7-Zip;%PATH%
 pushd %~dp0
 
 if not exist distribution\linux\. mkdir distribution\linux
+if del /s /q distribution\windows\*
 
 pushd CodeGen
 echo Building Linux distribution
@@ -21,4 +22,3 @@ popd
 
 popd
 endlocal
-pause
