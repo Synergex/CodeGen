@@ -110,7 +110,7 @@ namespace CodeGen.Engine
             ;;Is CODEGEN_TPLDIR set in the environment?
             data templateFolder = Environment.GetEnvironmentVariable("CODEGEN_TPLDIR")
 
-.ifdef OS_WINDOWNSET
+.ifndef D_NETCORE
 
             if (String.IsNullOrWhiteSpace(templateFolder))
             begin
@@ -141,7 +141,7 @@ namespace CodeGen.Engine
                 context.Author = authorName
             end
 
-.ifdef OS_WINDOWNSET
+.ifndef D_NETCORE
             if (String.IsNullOrWhiteSpace(context.Author))
             begin
                 ;;Look in the registry for the value set by InstallShield
@@ -168,7 +168,7 @@ namespace CodeGen.Engine
                 context.Company = companyName
             end
 
-.ifdef OS_WINDOWNSET
+.ifndef D_NETCORE
             if (String.IsNullOrWhiteSpace(context.Company))
             begin
                 ;;No, look in the registry for the value set by InstallShield
@@ -1072,12 +1072,17 @@ namespace CodeGen.Engine
             ;;-------------------------------------------------------------------------
             ;;Report template file folder (verbose mode only)
 
-            if ((!errStatus) && context.VerboseLoggingEnabled)
+            if (!errStatus && context.VerboseLoggingEnabled)
             begin
                 if (String.IsNullOrWhiteSpace(context.TemplateFolder)) then
+                begin
                     context.CurrentTask.Log("Template folder : Current directory", true, false)
+                    context.TemplateFolder = String.Format(".{0}",Path.DirectorySeparatorChar)
+                end
                 else
+                begin
                     context.CurrentTask.Log("Template folder : " + context.TemplateFolder, true, false)
+                end
             end
 
             ;;-------------------------------------------------------------------------
@@ -1191,14 +1196,16 @@ namespace CodeGen.Engine
             ;;-------------------------------------------------------------------------
             ;;Report output location (verbose mode only)
 
-            if (!errStatus)
+            if (!errStatus && context.VerboseLoggingEnabled)
             begin
-                if (context.VerboseLoggingEnabled)
+                if (String.IsNullOrWhiteSpace(context.OutputFolder)) then
                 begin
-                    if (String.IsNullOrWhiteSpace(context.OutputFolder)) then
-                        context.CurrentTask.Log("Output folder   : Current directory")
-                    else
-                        context.CurrentTask.Log("Output folder   : " + context.OutputFolder)
+                    context.CurrentTask.Log("Output folder   : Current directory")
+                    context.OutputFolder = String.Format(".{0}",Path.DirectorySeparatorChar)
+                end
+                else
+                begin
+                    context.CurrentTask.Log("Output folder   : " + context.OutputFolder)
                 end
             end
 
@@ -1211,7 +1218,7 @@ namespace CodeGen.Engine
             ;;-------------------------------------------------------------------------
             ;;Report if we're replacing existing files
 
-            if (!errStatus)
+            if (!errStatus && context.VerboseLoggingEnabled)
             begin
                 if (context.CurrentTask.ReplaceFiles) then
                     context.CurrentTask.VerboseLog("Replace files   : YES")
