@@ -50,20 +50,26 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsEnumCollection extends List<RpsEnum>
 
+        protected mRepository, @Repository
+
         ;; Constructor (all enumerations)
         public method RpsEnumCollection
+            required in aRepository, @Repository
             endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadAllEnumerations()
         endmethod
 
         ;; Constructor (enumerations used by a structures fields)
         public method RpsEnumCollection
+            required in aRepository, @Repository
             required in StructureName, String
             endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadStructureEnumerations(StructureName)
         endmethod
 
@@ -83,19 +89,19 @@ namespace CodeGen.RepositoryAPI
             try
             begin
                 ;Get the number of enumerations in the repository
-                dd_name(Repository.RpsControl,DDN_COUNT,DDN_ENUM,EnumCount)
-                if (Repository.RpsControl.error)
+                dd_name(mRepository.RpsControl,DDN_COUNT,DDN_ENUM,EnumCount)
+                if (mRepository.RpsControl.error)
                     throw new RpsEnumException("Failed to get repository enumeration count")
                 ;Do we have any enumerations to load?
                 if (EnumCount)
                 begin
                     ;Allocate enumeration name memory and get enum names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*EnumCount)
-                    dd_name(Repository.RpsControl,DDN_LIST,DDN_ENUM,EnumCount,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_name(mRepository.RpsControl,DDN_LIST,DDN_ENUM,EnumCount,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsEnumException("Failed to get repository enumeration names")
                     for ix from 1 thru EnumCount
-                        this.Add(new RpsEnum(^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsEnum(mRepository,^m(strIdentifier[ix],MemHandle)))
                 end
             end
             finally
@@ -116,7 +122,7 @@ namespace CodeGen.RepositoryAPI
                 ix, int
             endrecord
         proc
-            str = new RpsStructure(StructureName)
+            str = new RpsStructure(mRepository,StructureName)
             for ix from 0 thru str.Fields.Count-1
             begin
                 if (str.Fields[ix].EnumName)
@@ -136,7 +142,7 @@ namespace CodeGen.RepositoryAPI
                     if (done)
                         nextloop
                     ;;Add to collection
-                    this.Add(new RpsEnum(str.Fields[ix].EnumName))
+                    this.Add(new RpsEnum(mRepository,str.Fields[ix].EnumName))
                 end
             end
             str = ^null

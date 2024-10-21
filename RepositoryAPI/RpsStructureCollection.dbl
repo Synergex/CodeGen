@@ -50,25 +50,31 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsStructureCollection extends List<RpsStructure>
 
+        protected mRepository, @Repository
+
         ;; Constructor
         public method RpsStructureCollection
+            required in aRepository, @Repository
             required in LoadMode, RpsLoadMode
             default  in UseAlternateFieldNames, Boolean, false
             endparams
         proc
+            mRepository = aRepository
             if (LoadMode==RpsLoadMode.Load)
             begin
-                Repository.CheckIsOpen()
+                mRepository.CheckIsOpen()
                 LoadStructures(UseAlternateFieldNames)
             end
         endmethod
 
         ;; Constructor
         public method RpsStructureCollection
+            required in aRepository, @Repository
             required in fileDefName, String
             default  in UseAlternateFieldNames, Boolean, false
             endparams
         proc
+            mRepository = aRepository
             LoadStructures(fileDefName,UseAlternateFieldNames)
         endmethod
 
@@ -86,20 +92,20 @@ namespace CodeGen.RepositoryAPI
             try
             begin
                 ;;Get the number of structures in the repository
-                dd_name(Repository.RpsControl,DDN_COUNT,DDN_STRUCT,StructureCount)
-                if (Repository.RpsControl.error)
+                dd_name(mRepository.RpsControl,DDN_COUNT,DDN_STRUCT,StructureCount)
+                if (mRepository.RpsControl.error)
                     throw new RpsStructureException("Failed to get repository structure count")
                 ;;Do we have any structures to load?
                 if (StructureCount)
                 begin
                     ;;Allocate structure name memory and get structure names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*StructureCount)
-                    dd_name(Repository.RpsControl,DDN_LIST,DDN_STRUCT,StructureCount,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_name(mRepository.RpsControl,DDN_LIST,DDN_STRUCT,StructureCount,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsStructureException("Failed to get repository structure names")
                     for ix from 1 thru StructureCount
                         try
-                            this.Add(new RpsStructure(^m(strIdentifier[ix],MemHandle),UseAlternateFieldNames))
+                            this.Add(new RpsStructure(mRepository,^m(strIdentifier[ix],MemHandle),UseAlternateFieldNames))
                         catch(ex, @Exception)
                             nop
                         endtry
@@ -133,21 +139,21 @@ namespace CodeGen.RepositoryAPI
             try
             begin
                 ;;Set the current file and get file information
-                dd_file(Repository.RpsControl,DDL_INFO,fileDefName,^a(file_info))
-                if (Repository.RpsControl.error)
+                dd_file(mRepository.RpsControl,DDL_INFO,fileDefName,^a(file_info))
+                if (mRepository.RpsControl.error)
                     throw new RpsFileException("Failed to get repository file information for file " + fileDefName.Trim())
                 ;;Do we have any structures to load?
                 if (file_info.fli_nmstructs)
                 begin
                     ;;Allocate structure name memory and get structure names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*file_info.fli_nmstructs)
-                    dd_file(Repository.RpsControl,DDL_STRS,file_info.fli_nmstructs,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_file(mRepository.RpsControl,DDL_STRS,file_info.fli_nmstructs,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsFileException("Failed to get repository structure names for file " + fileDefName.Trim())
                     for ix from 1 thru file_info.fli_nmstructs
                     begin
                         try
-                            this.Add(new RpsStructure(^m(strIdentifier[ix],MemHandle),UseAlternateFieldNames))
+                            this.Add(new RpsStructure(mRepository,^m(strIdentifier[ix],MemHandle),UseAlternateFieldNames))
                         catch(ex, @Exception)
                             nop
                         endtry

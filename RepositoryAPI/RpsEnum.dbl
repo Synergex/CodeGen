@@ -53,6 +53,8 @@ namespace CodeGen.RepositoryAPI
     ;;; </summary>
     public class RpsEnum
 
+        protected mRepository, @Repository
+
         public override method ToString, String
             endparams
         proc
@@ -71,10 +73,12 @@ namespace CodeGen.RepositoryAPI
         ;;; </summary>
         ;;; <param name="EnumName">Name of ENUM to load</param>
         public method RpsEnum
+            required in aRepository, @Repository
             required in EnumName, String
             endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadEnum(EnumName)
         endmethod
 
@@ -93,8 +97,8 @@ namespace CodeGen.RepositoryAPI
             mName = EnumName.Trim().ToUpper()
 
             ;;Load enum information
-            dd_enum(Repository.RpsControl,DDE_INFO,mName,^a(me_info))
-            if (Repository.RpsControl.error)
+            dd_enum(mRepository.RpsControl,DDE_INFO,mName,^a(me_info))
+            if (mRepository.RpsControl.error)
                 throw new RpsEnumException("Failed to get information for repository enumeration "+mName)
 
             ;;Load the enums text-based attributes
@@ -103,8 +107,8 @@ namespace CodeGen.RepositoryAPI
             if (me_info.ei_desc) then
             begin
                 data tmpDescription, a40
-                xcall dd_enum(Repository.RpsControl,DDE_TEXT,me_info.ei_desc,tmpDescription)
-                if (Repository.RpsControl.error) then
+                xcall dd_enum(mRepository.RpsControl,DDE_TEXT,me_info.ei_desc,tmpDescription)
+                if (mRepository.RpsControl.error) then
                     throw new RpsEnumException("Failed to get description for repository enumeration "+mName)
                 else
                     mDescription = %atrim(tmpDescription)
@@ -116,8 +120,8 @@ namespace CodeGen.RepositoryAPI
             if (me_info.ei_ldesc) then
             begin
                 data tmpLongDescription, a1800
-                dd_enum(Repository.RpsControl,DDE_TEXT,me_info.ei_ldesc,tmpLongDescription)
-                if (Repository.RpsControl.error) then
+                dd_enum(mRepository.RpsControl,DDE_TEXT,me_info.ei_ldesc,tmpLongDescription)
+                if (mRepository.RpsControl.error) then
                     throw new RpsEnumException("Failed to get long description for repository enumeration "+mName)
                 else
                     mLongDescription = tmpLongDescription
@@ -138,7 +142,7 @@ namespace CodeGen.RepositoryAPI
             proc
                 ;;Load the members collection the first time it is referenced
                 if (mMembers==^null)
-                    mMembers = new RpsEnumMemberCollection(mName)
+                    mMembers = new RpsEnumMemberCollection(mRepository,mName)
                 mreturn mMembers
             endmethod
         endproperty

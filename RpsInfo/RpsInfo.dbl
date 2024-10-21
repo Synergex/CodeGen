@@ -54,7 +54,8 @@ main RpsInfo
 
     record
         ok              ,boolean, true
-		ClValues		,@List<String>
+        ClValues        ,@List<String>
+        rps             ,@Repository
         strs            ,@RpsStructureCollection
         fils            ,@RpsFileCollection
     endrecord
@@ -64,11 +65,13 @@ proc
     open(tt=0,i,"tt:")
     xcall flags(7004000,1)
     xcall flags(20,0)
-	
+
+    rps = new Repository()
+
     ;---------------------------------------------------------------------------
     ;What are we being asked to do?
 
-    if (ok&&CommandLineParser.Parse("s"))
+    if (ok && CommandLineParser.Parse("s"))
     begin
         call StructureInfo
         clear ok
@@ -117,23 +120,23 @@ usage,
 ;
 StructureInfo,
 
-	if (CommandLineParser.Parse("s",ClValues) && !ClValues.Count )
-		ClValues.Add((String)"*")
-	
+    if (CommandLineParser.Parse("s",ClValues) && !ClValues.Count )
+        ClValues.Add((String)"*")
+
     ;All or specific structures?
     if ((ClValues[0])=="*") then
     begin
         ;Process all structures
-		try
-		begin
-			strs = new RpsStructureCollection(RpsLoadMode.Load)
-		end
-		catch (e, @Exception)
-		begin
-			writes(tt,e.Message)
+        try
+        begin
+            strs = new RpsStructureCollection(rps,RpsLoadMode.Load)
+        end
+        catch (e, @Exception)
+        begin
+            writes(tt,e.Message)
             ok = false
-		end
-		endtry
+        end
+        endtry
         if (ok && !strs.Count)
         begin
             writes(tt,"ERROR: Repository contains no structures!")
@@ -143,31 +146,31 @@ StructureInfo,
     else
     begin
         ;Process specified structures
-		data StrNum, int
-		try
-		begin
-			strs = new RpsStructureCollection(RpsLoadMode.NoLoad)
-		end
-		catch (e, @Exception)
-		begin
-			writes(tt,e.Message)
-			ok = false
-		end
-		endtry
-		if (ok)
-		begin
-			for StrNum from 0 thru ClValues.Count-1
-			begin
-				try
-					strs.Add(new RpsStructure((ClValues[StrNum]).ToUpper()))
-				catch (ex)
-				begin
-					writes(tt,"ERROR: Structure " + ClValues[StrNum] + " not found!")
-					ok = false
-				end
-				endtry
-			end
-		end
+        data StrNum, int
+        try
+        begin
+            strs = new RpsStructureCollection(rps,RpsLoadMode.NoLoad)
+        end
+        catch (e, @Exception)
+        begin
+            writes(tt,e.Message)
+            ok = false
+        end
+        endtry
+        if (ok)
+        begin
+            for StrNum from 0 thru ClValues.Count-1
+            begin
+                try
+                    strs.Add(new RpsStructure(rps,(ClValues[StrNum]).ToUpper()))
+                catch (ex)
+                begin
+                    writes(tt,"ERROR: Structure " + ClValues[StrNum] + " not found!")
+                    ok = false
+                end
+                endtry
+            end
+        end
     end
 
     if (ok)
@@ -181,13 +184,13 @@ StructureInfo,
 FileInfo,
 
     if (CommandLineParser.Parse("f",ClValues) && !ClValues.Count)
-		ClValues.Add((String)"*")
-		
+        ClValues.Add((String)"*")
+
     ;All or specific files?
     if ((ClValues[0])=="*") then
     begin
         ;Process all files
-        fils = new RpsFileCollection(RpsLoadMode.Load)
+        fils = new RpsFileCollection(rps,RpsLoadMode.Load)
         if (!fils.Count)
         begin
             writes(tt,"ERROR: Repository contains no file definitions!")
@@ -198,13 +201,13 @@ FileInfo,
     begin
         ;Process specified files
         data FilNum, int
-        fils = new RpsFileCollection(RpsLoadMode.NoLoad)
+        fils = new RpsFileCollection(rps,RpsLoadMode.NoLoad)
         for FilNum from 0 thru ClValues.Count-1
         begin
-			try
-			begin
-				fils.Add(new RpsFile((ClValues[FilNum]).ToUpper()))
-			end
+            try
+            begin
+                fils.Add(new RpsFile(rps,(ClValues[FilNum]).ToUpper()))
+            end
             catch (ex)
             begin
                 writes(tt,"ERROR: File definition " + ClValues[FilNum] + " not found!")
@@ -228,8 +231,8 @@ subroutine Structures
     required in strs    ,@RpsStructureCollection
     endparams
     stack record
-		verbose         ,boolean
-		str				,@RpsStructure
+        verbose         ,boolean
+        str				,@RpsStructure
     endrecord
 proc
     verbose = CommandLineParser.Parse("v")
@@ -366,7 +369,7 @@ proc
     if (f.OverlaysField)
     begin
         if (lowerCase) then
-			overlayDef = "@" + StringTools.LowerCase(f.OverlaysField)
+            overlayDef = "@" + StringTools.LowerCase(f.OverlaysField)
         else
             overlayDef = "@" + f.OverlaysField
 
@@ -448,12 +451,12 @@ subroutine GroupFields, reentrant
     endrecord
 proc
     incr indent
-	foreach fld in flds
+    foreach fld in flds
     begin
-		if (fld.GroupType==RpsFieldGroup.No) then
-			xcall Field(fld)
+        if (fld.GroupType==RpsFieldGroup.No) then
+            xcall Field(fld)
         else
-			xcall Group(fld)
+            xcall Group(fld)
     end
     decr indent
     xreturn
@@ -691,11 +694,11 @@ proc
     (RpsFilePageSize.PageSize4096),
         writes(tt,"4096 bytes")
     (RpsFilePageSize.PageSize8192),
-		writes(tt,"8192 bytes")
+        writes(tt,"8192 bytes")
     (RpsFilePageSize.PageSize16384),
         writes(tt,"16384 bytes")
     (RpsFilePageSize.PageSize32768),
-		writes(tt,"32768 bytes")
+        writes(tt,"32768 bytes")
     endusing
 
     writes(tt, "  File density       : " + %string(f.Density)+"%")
@@ -724,13 +727,13 @@ proc
     if (f.StoredGRFA) then
         writes(tt,"YES")
     else
-		writes(tt,"NO")
+        writes(tt,"NO")
 
     display(tt,"  Change tracking    : ")
     if (f.ChangeTracking) then
         writes(tt,"YES")
     else
-		writes(tt,"NO")
+        writes(tt,"NO")
 
     writes(tt, "  Keys               : " + %string(f.Keys.Count))
 
@@ -878,12 +881,12 @@ endsubroutine
 subroutine KeySegments
     required in segs, @RpsKeySegmentCollection
     endparams
-	stack record
-		ix      ,int
-	endrecord
+    stack record
+        ix      ,int
+    endrecord
 proc
-	for ix from 0 thru segs.Count-1
-		xcall KeySegment(ix,segs[ix])	
+    for ix from 0 thru segs.Count-1
+        xcall KeySegment(ix,segs[ix])	
     xreturn
 endsubroutine
 

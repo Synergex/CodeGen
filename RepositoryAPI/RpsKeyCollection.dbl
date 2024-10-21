@@ -50,18 +50,22 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsKeyCollection extends List<RpsKey>
 
+        protected mRepository, @Repository
+
         ;; Constructor (empty collection)
         public method RpsKeyCollection
-            endparams
+            required in aRepository, @Repository
         proc
+            mRepository = aRepository
         endmethod
 
         ;; Constructor (structure keys)
         public method RpsKeyCollection
+            required in aRepository, @Repository
             required in StructureName, String
-            endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadKeys(StructureName)
         endmethod
 
@@ -79,20 +83,20 @@ namespace CodeGen.RepositoryAPI
             begin
                 data ms_info, s_info
                 ;;Set the current structure?
-                dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
-                if (Repository.RpsControl.error)
+                dd_struct(mRepository.RpsControl,DDS_INFO,StructureName,ms_info)
+                if (mRepository.RpsControl.error)
                     throw new RpsKeyException("Failed to get information for repository structure "+StructureName)
                 ;;Do we have any keys to load?
                 if (ms_info.si_nmkeys)
                 begin
                     ;;Size the key names array and get key names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*ms_info.si_nmkeys)
-                    dd_key(Repository.RpsControl,DDK_SLIST,ms_info.si_nmkeys,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_key(mRepository.RpsControl,DDK_SLIST,ms_info.si_nmkeys,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsKeyException("Failed to get key names for repository structure "+StructureName)
                     ;;Add keys to collection
                     for ix from 1 thru ms_info.si_nmkeys
-                        this.Add(new RpsKey(StructureName,^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsKey(mRepository,StructureName,^m(strIdentifier[ix],MemHandle)))
                 end
             end
             finally

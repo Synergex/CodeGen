@@ -50,19 +50,23 @@ namespace CodeGen.RepositoryAPI
 
     public class RpsTagCollection extends List<RpsTag>
 
+        protected mRepository, @Repository
+
         ;; Constructor (empty collection)
         public method RpsTagCollection
-            endparams
+            required in aRepository, @Repository
         proc
-		
-		endmethod
+            mRepository = aRepository
+        endmethod
 
         ;; Constructor (tags for a structure)
         public method RpsTagCollection
+            required in aRepository, @Repository
             required in StructureName, String
             endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadTags(StructureName)
         endmethod
 
@@ -80,20 +84,20 @@ namespace CodeGen.RepositoryAPI
             begin
                 data ms_info, s_info
                 ;;Set the current structure?
-                dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
-                if (Repository.RpsControl.error)
+                dd_struct(mRepository.RpsControl,DDS_INFO,StructureName,ms_info)
+                if (mRepository.RpsControl.error)
                     throw new RpsTagException("Failed to get information for repository structure "+StructureName)
                 ;;Do we have any tags to load?
                 if (ms_info.si_nmtags)
                 begin
                     ;;Size the tag names array and get the tag names
                     MemHandle = %mem_proc(DM_ALLOC,^size(strIdentifier)*ms_info.si_nmtags)
-                    dd_tag(Repository.RpsControl,DDTG_LIST,ms_info.si_nmtags,^m(strIdentifier,MemHandle))
-                    if (Repository.RpsControl.error)
+                    dd_tag(mRepository.RpsControl,DDTG_LIST,ms_info.si_nmtags,^m(strIdentifier,MemHandle))
+                    if (mRepository.RpsControl.error)
                         throw new RpsTagException("Failed to get tags for repository structure "+StructureName)
                     ;;Add tags to collection
                     for ix from 1 thru ms_info.si_nmtags
-                        this.Add(new RpsTag(StructureName,^m(strIdentifier[ix],MemHandle)))
+                        this.Add(new RpsTag(mRepository,StructureName,^m(strIdentifier[ix],MemHandle)))
                 end
             end
             finally

@@ -58,6 +58,8 @@ namespace CodeGen.RepositoryAPI
     ;;; </summary>
     public partial class RpsField
 
+        protected mRepository, @Repository
+
         public override method ToString, String
             endparams
         proc
@@ -73,12 +75,14 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="FieldName">Name of the field.</param>
         ;;; <param name="UseAlternateName">Should the fields alternate name be used as its actual name? (Default if false).</param>
         public method RpsField
+            required in aRepository, @Repository
             required in StructureName, String
             required in FieldName, String
             default  in UseAlternateName, Boolean, false
             endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadField(StructureName,FieldName,UseAlternateName)
         endmethod
 
@@ -88,10 +92,12 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="FieldName">Name of the field.</param>
         ;;; <param name="UseAlternateName">Should the fields alternate name be used as its actual name? (Default if false).</param>
         public method RpsField
+            required in aRepository, @Repository
             required in FieldName, String
             default  in UseAlternateName, Boolean, false
             endparams
         proc
+            mRepository = aRepository
             LoadCurrentStructureField(FieldName,UseAlternateName)
         endmethod
 
@@ -100,9 +106,11 @@ namespace CodeGen.RepositoryAPI
         ;;; </summary>
         ;;; <param name="SourceField">Repository field to clone.</param>
         public method RpsField
+            required in aRepository, @Repository
             required in SourceField, @RpsField
             endparams
         proc
+            mRepository = aRepository
             cloneField(SourceField)
         endmethod
 
@@ -126,8 +134,8 @@ namespace CodeGen.RepositoryAPI
         proc
             ;Set the current structure
             data ms_info, s_info
-            dd_struct(Repository.RpsControl,DDS_INFO,StructureName,ms_info)
-            if (Repository.RpsControl.error)
+            dd_struct(mRepository.RpsControl,DDS_INFO,StructureName,ms_info)
+            if (mRepository.RpsControl.error)
                 throw new RpsFieldException("Failed to get information for repository structure "+StructureName)
             LoadCurrentStructureField(FieldName,UseAlternateName)
         endmethod
@@ -146,19 +154,19 @@ namespace CodeGen.RepositoryAPI
             data actualFieldName = FieldName.Trim().ToUpper()
 
             ;;Save the structure name
-            this.StructureName = %atrim(Repository.RpsControl.sname)
+            this.StructureName = %atrim(mRepository.RpsControl.sname)
             
             ;;Load the field information structure
-            dd_field(Repository.RpsControl,DDF_INFO,actualFieldName,^a(mf_info))
-            if (Repository.RpsControl.error)
+            dd_field(mRepository.RpsControl,DDF_INFO,actualFieldName,^a(mf_info))
+            if (mRepository.RpsControl.error)
                 throw new RpsFieldException("Failed to get repository information for structure " + this.StructureName +  " field " + actualFieldName)
 
             ;;Load the fields alternate name
             if (mf_info.fi_altnm) then
             begin
                 data tmpalternateName, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_altnm,tmpAlternateName)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_altnm,tmpAlternateName)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get alternate name for repository field "+actualFieldName)
                 this.AlternateName = %atrim(tmpalternateName)
             end
@@ -190,8 +198,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_desc)
             begin
                 data tmpDescription, a40
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_desc,tmpDescription)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_desc,tmpDescription)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get description for repository field "+actualFieldName)
                 this.Description = %atrim(tmpDescription)
             end
@@ -200,8 +208,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_ldesc)
             begin
                 data tmpLongDescription, a1800
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_ldesc,tmpLongDescription)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_ldesc,tmpLongDescription)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get long description for repository field "+actualFieldName)
                 this.LongDescription = %atrim(tmpLongDescription)
             end
@@ -210,8 +218,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_usrtyp)
             begin
                 data tmpUserFieldType, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_usrtyp,tmpUserFieldType)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_usrtyp,tmpUserFieldType)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get user defined type for repository field "+actualFieldName)
                 this.UserFieldType = %atrim(tmpUserFieldType)
             end
@@ -220,8 +228,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_heading)
             begin
                 data tmpReportHeading, a40
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_heading,tmpReportHeading)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_heading,tmpReportHeading)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get report heading for repository field "+actualFieldName)
                 this.ReportHeading = %atrim(tmpReportHeading)
             end
@@ -230,8 +238,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_prompt)
             begin
                 data tmpPrompt, a80
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prompt,tmpPrompt)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_prompt,tmpPrompt)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get prompt for repository field "+actualFieldName)
                 this.Prompt = %atrim(tmpPrompt)
             end
@@ -240,8 +248,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_help)
             begin
                 data tmpHelpIdentifier, a80
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_help,tmpHelpIdentifier)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_help,tmpHelpIdentifier)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get help identifier for repository field "+actualFieldName)
                 this.HelpIdentifier = %atrim(tmpHelpIdentifier)
             end
@@ -250,8 +258,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_infoln)
             begin
                 data tmpInfoLineText, a80
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_infoln,tmpInfoLineText)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_infoln,tmpInfoLineText)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get information line text for repository field "+actualFieldName)
                 this.InfoLineText = tmpInfoLineText
             end
@@ -260,8 +268,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_utext)
             begin
                 data tmpUserText, a80
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_utext,tmpUserText)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_utext,tmpUserText)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get user text for repository field "+actualFieldName)
                 this.UserText = %atrim(tmpUserText)
             end
@@ -270,8 +278,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_font)
             begin
                 data tmpFieldFont, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_font,tmpFieldFont)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_font,tmpFieldFont)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get field font for repository field "+actualFieldName)
                 this.FieldFont = %atrim(tmpFieldFont)
             end
@@ -280,8 +288,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_prmptfont)
             begin
                 data tmpPromptFont, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prmptfont,tmpPromptFont)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_prmptfont,tmpPromptFont)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get prompt font for repository field "+actualFieldName)
                 this.PromptFont = %atrim(tmpPromptFont)
             end
@@ -290,8 +298,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_def)
             begin
                 data tmpDefaultValue, a80
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_def,tmpDefaultValue)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_def,tmpDefaultValue)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get default value for repository field "+actualFieldName)
                 this.DefaultValue = %atrim(tmpDefaultValue)
             end
@@ -300,8 +308,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_arrivemeth)
             begin
                 data tmpArriveMethod, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_arrivemeth,tmpArriveMethod)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_arrivemeth,tmpArriveMethod)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get arrive method for repository field "+actualFieldName)
                 this.ArriveMethod = %atrim(tmpArriveMethod)
             end
@@ -310,8 +318,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_leavemeth)
             begin
                 data tmpLeaveMethod, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_leavemeth,tmpLeaveMethod)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_leavemeth,tmpLeaveMethod)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get leave method for repository field "+actualFieldName)
                 this.LeaveMethod = %atrim(tmpLeaveMethod)
             end
@@ -320,8 +328,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_drillmeth)
             begin
                 data tmpDrillMethod, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_drillmeth,tmpDrillMethod)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_drillmeth,tmpDrillMethod)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get drill method for repository field "+actualFieldName)
                 this.DrillMethod = %atrim(tmpDrillMethod)
             end
@@ -330,8 +338,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_hypermeth)
             begin
                 data tmpHyperlinkMethod, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_hypermeth,tmpHyperlinkMethod)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_hypermeth,tmpHyperlinkMethod)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get hyperlink method for repository field "+actualFieldName)
                 this.HyperlinkMethod = %atrim(tmpHyperlinkMethod)
             end
@@ -340,8 +348,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_changemeth)
             begin
                 data tmpChangeMethod, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_changemeth,tmpChangeMethod)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_changemeth,tmpChangeMethod)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get change method for repository field "+actualFieldName)
                 this.ChangeMethod = %atrim(tmpChangeMethod)
             end
@@ -350,8 +358,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_dispmeth)
             begin
                 data tmpDisplayMethod, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_dispmeth,tmpDisplayMethod)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_dispmeth,tmpDisplayMethod)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get display method for repository field "+actualFieldName)
                 this.DisplayMethod = %atrim(tmpDisplayMethod)
             end
@@ -360,8 +368,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_editfmtmeth)
             begin
                 data tmpEditFormatMethod, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_editfmtmeth,tmpEditFormatMethod)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_editfmtmeth,tmpEditFormatMethod)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get edit format method for repository field "+actualFieldName)
                 this.EditFormatMethod = %atrim(tmpEditFormatMethod)
             end
@@ -370,8 +378,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_alwlst&&mf_info.fi_alwct)
             begin
                 data ListData, fti_entlst
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_alwlst,^a(ListData))
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_alwlst,^a(ListData))
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get allow list entries for repository field "+actualFieldName)
                 data idx, int
                 for idx from 1 thru mf_info.fi_alwct
@@ -382,8 +390,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_sellist&&mf_info.fi_selct)
             begin
                 data ListData, fti_entlst
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_sellist,^a(ListData))
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_sellist,^a(ListData))
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get allow list entries for repository field "+actualFieldName)
                 data idx, int
                 for idx from 1 thru mf_info.fi_selct
@@ -394,8 +402,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_range)
             begin
                 data mfti_range, fti_range
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_range,^a(mfti_range))
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_range,^a(mfti_range))
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get ranges for repository field "+actualFieldName)
                 this.NumericRangeMinimum = mfti_range.fti_rgmin
                 this.NumericRangeMaximum = mfti_range.fti_rgmax
@@ -405,8 +413,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_enum)
             begin
                 data mfti_enum, fti_enum
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enum,^a(mfti_enum))
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_enum,^a(mfti_enum))
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get emumeration data for repository field "+actualFieldName)
                 this.EnumeratedBaseValue = mfti_enum.fti_enmbase
                 this.EnumeratedDisplayLength = mfti_enum.fti_enmlen
@@ -417,8 +425,8 @@ namespace CodeGen.RepositoryAPI
             if ((mf_info.fi_type==T_INT)&&(mf_info.fi_class==C_ENUM)&&(mf_info.fi_enmfld))
             begin
                 data tmpEnumName, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_enmfld,tmpEnumName)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_enmfld,tmpEnumName)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get emumeration name for repository field "+actualFieldName)
                 this.EnumName = %atrim(tmpEnumName)
             end
@@ -430,15 +438,15 @@ namespace CodeGen.RepositoryAPI
                 ;;Is the format defined in the structure?
                 data formatType, a1
                 data formatString, a30
-                xcall dd_format(Repository.RpsControl,DDM_SINFO,mf_info.fi_fmt,formatType,formatString)
+                xcall dd_format(mRepository.RpsControl,DDM_SINFO,mf_info.fi_fmt,formatType,formatString)
 
-                if (!Repository.RpsControl.error) then
+                if (!mRepository.RpsControl.error) then
                     this.FormatString = %atrim(formatString)
                 else
                 begin
                     ;;Maybe it's a "global" or "pre-defined" format?
-                    xcall dd_format(Repository.RpsControl,DDM_INFO,mf_info.fi_fmt,formatType,formatString)
-                    if (!Repository.RpsControl.error)
+                    xcall dd_format(mRepository.RpsControl,DDM_INFO,mf_info.fi_fmt,formatType,formatString)
+                    if (!mRepository.RpsControl.error)
                         this.FormatString = %atrim(formatString)
                 end
             end
@@ -449,8 +457,8 @@ namespace CodeGen.RepositoryAPI
             if ((mf_info.fi_type=="A")&&(mf_info.fi_class==C_STRFLD))
             begin
                 data tmpStructFieldStructure, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_strfld,tmpStructFieldStructure)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_strfld,tmpStructFieldStructure)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get structure for repository struct field "+actualFieldName)
                 this.StructFieldStructure = %atrim(tmpStructFieldStructure)
             end
@@ -459,8 +467,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_struct)
             begin
                 data tmpGroupStructure, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,tmpGroupStructure)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_struct,tmpGroupStructure)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get group structure for repository field "+actualFieldName)
                 this.GroupStructure = %atrim(tmpGroupStructure)
             end
@@ -469,8 +477,8 @@ namespace CodeGen.RepositoryAPI
             if (mf_info.fi_prefix)
             begin
                 data tmpGroupMemberPrefix, a30
-                dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_prefix,tmpGroupMemberPrefix)
-                if (Repository.RpsControl.error)
+                dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_prefix,tmpGroupMemberPrefix)
+                if (mRepository.RpsControl.error)
                     throw new RpsFieldException("Failed to get group prefix for repository field "+actualFieldName)
                 this.GroupMemberPrefix = %atrim(tmpGroupMemberPrefix)
             end
@@ -483,13 +491,13 @@ namespace CodeGen.RepositoryAPI
                 begin
                     ;;It's an implicit group, get the implicit group structure name
                     data implicitGroupStructure, a30
-                    dd_field(Repository.RpsControl,DDF_TEXT,mf_info.fi_struct,implicitGroupStructure)
-                    this.GroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Structure,implicitGroupStructure,UseAlternateName)
+                    dd_field(mRepository.RpsControl,DDF_TEXT,mf_info.fi_struct,implicitGroupStructure)
+                    this.GroupFields = new RpsFieldCollection(mRepository,RpsFieldCollectionMode.Structure,implicitGroupStructure,UseAlternateName)
                 end
                 else
                 begin
                     ;;It's an explicit group
-                    this.GroupFields = new RpsFieldCollection(RpsFieldCollectionMode.Group,actualFieldName,UseAlternateName)
+                    this.GroupFields = new RpsFieldCollection(mRepository,RpsFieldCollectionMode.Group,actualFieldName,UseAlternateName)
                 end
             end
 
@@ -646,7 +654,7 @@ namespace CodeGen.RepositoryAPI
                 data fld, @RpsField
                 this.GroupFields.Clear()
                 foreach fld in SourceField.GroupFields
-                    this.GroupFields.Add(new RpsField(fld))
+                    this.GroupFields.Add(new RpsField(mRepository,fld))
             end
 
             ;;Clone the CodeGen specific properties
@@ -1070,7 +1078,7 @@ namespace CodeGen.RepositoryAPI
         ;;; The collection of fields within this group field.
         ;;; If this field is not a group this collection will be empty.
         ;;; </summary>
-        public readwrite property GroupFields, @RpsFieldCollection, new RpsFieldCollection()
+        public readwrite property GroupFields, @RpsFieldCollection, new RpsFieldCollection(mRepository)
         
         ;;; <summary>
         ;;; The structure that defines the fields for an implicit group field.
@@ -2108,7 +2116,8 @@ namespace CodeGen.RepositoryAPI
         ;;
 ;protected mCsType               ,String     ;C# data type
 ;protected mCsDefault            ,String     ;C# default value
-;protected mCsNumericConvert     ,String     ;C# numeric conversion function
+;protected mCsNumericConvert     ,String     ;C# numeric conversion function (e.g. int.TryParse)
+;protected mDblNetConverterer    ,String     ;Synergy to C# converter method (e.g. DblNetConverter.ToInt32)
 ;protected mOcType               ,String     ;Objective-C data type
 ;protected mOcDefault            ,String     ;Objective-C default value
 ;protected mOcObject             ,boolean    ;Objective-C data type is an object
@@ -2159,6 +2168,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "BINARY"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.NotImplemented"
                     this.CsDefault = '""'
                     this.VbDefault = '""'
                     this.OcDefault = '@""'
@@ -2170,6 +2180,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "ALPHA"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.AlphaToString"
                     this.CsDefault = '""'
                     this.VbDefault = '""'
                     this.OcDefault = '@""'
@@ -2187,6 +2198,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "USER ALPHA"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.AlphaToString"
                     this.CsDefault = '""'
                     this.VbDefault = '""'
                     this.OcDefault = '@""'
@@ -2198,6 +2210,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "USER NUMERIC"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.NotImplemented"
                     this.CsDefault = '""'
                     this.VbDefault = '""'
                     this.OcDefault = '@""'
@@ -2209,6 +2222,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "USER DATE"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.NotImplemented"
                     this.CsDefault = '""'
                     this.VbDefault = '""'
                     this.OcDefault = '@""'
@@ -2226,6 +2240,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "DATE"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.YYYYMMDDToDateTime"
                     this.CsDefault = "new DateTime()"
                     this.VbDefault = "New DateTime()"
                     this.OcDefault = "[NSDate new]"
@@ -2237,6 +2252,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "DATE"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.YYMMDDToDateTime"
                     this.CsDefault = "new DateTime()"
                     this.VbDefault = "New DateTime()"
                     this.OcDefault = "[NSDate new]"
@@ -2248,6 +2264,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "DATE"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.YYYYJJJToDateTime"
                     this.CsDefault = "new DateTime()"
                     this.VbDefault = "New DateTime()"
                     this.OcDefault = "[NSDate new]"
@@ -2259,6 +2276,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "DATE"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.YYJJJToDateTime"
                     this.CsDefault = "new DateTime()"
                     this.VbDefault = "New DateTime()"
                     this.OcDefault = "[NSDate new]"
@@ -2270,6 +2288,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "DATE"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.NotImplemented"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2281,6 +2300,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "DATE"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.NotImplemented"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2292,6 +2312,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "TIME"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.HHMMSSToTimeSpan"
                     this.CsDefault = "new DateTime()"
                     this.VbDefault = "New DateTime()"
                     this.OcDefault = "[NSDate new]"
@@ -2303,6 +2324,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "TIME"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.HHMMToTimeSpan"
                     this.CsDefault = "new DateTime()"
                     this.VbDefault = "New DateTime()"
                     this.OcDefault = "[NSDate new]"
@@ -2316,6 +2338,7 @@ namespace CodeGen.RepositoryAPI
                     begin
                         this.TypeName = "IMPLIED"
                         this.CsNumericConvert = "decimal.TryParse"
+                        this.DblNetConverterer = "DblNetConverter.ImpliedToDecimal"
                         this.CsDefault = "0"
                         this.VbDefault = "0"
                         this.OcDefault = "0.0"
@@ -2329,6 +2352,7 @@ namespace CodeGen.RepositoryAPI
                         begin
                             this.TypeName = "DECIMAL"
                             this.CsNumericConvert = "int.TryParse"
+                            this.DblNetConverterer = "DblNetConverter.SmallDecimalToInt"
                             this.CsDefault = "0"
                             this.VbDefault = "0"
                             this.OcDefault = "0"
@@ -2340,6 +2364,7 @@ namespace CodeGen.RepositoryAPI
                         begin
                             this.TypeName = "DECIMAL"
                             this.CsNumericConvert = "long.TryParse"
+                            this.DblNetConverterer = "DblNetConverter.LargeDecimalToLong"
                             this.CsDefault = "0"
                             this.VbDefault = "0"
                             this.OcDefault = "0"
@@ -2355,10 +2380,23 @@ namespace CodeGen.RepositoryAPI
             begin
                 this.TypeCode = "I"
                 using Size select
-                (1,2),
+                (1),
                 begin
                     this.TypeName = "INTEGER"
                     this.CsNumericConvert = "int.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.I1ToSByte"
+                    this.CsDefault = "0"
+                    this.VbDefault = "0"
+                    this.OcDefault = "0"
+                    this.OcObject = false
+                    this.SnDefault = "0"
+                    this.TsDefault = "0"
+                end
+                (2),
+                begin
+                    this.TypeName = "INTEGER"
+                    this.CsNumericConvert = "int.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.I2ToShort"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2370,6 +2408,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "INTEGER"
                     this.CsNumericConvert = "int.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.I4ToInt"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2381,6 +2420,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "INTEGER"
                     this.CsNumericConvert = "long.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.I8ToLong"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2395,6 +2435,7 @@ namespace CodeGen.RepositoryAPI
                 this.TypeCode = "BOOLEAN"
                 this.TypeName = "BOOLEAN"
                 this.CsNumericConvert = "bool.TryParse"
+                this.DblNetConverterer = "DblNetConverter.BooleanToBoolean"
                 this.CsDefault = "false"
                 this.VbDefault = "False"
                 this.OcDefault = "NO"
@@ -2407,6 +2448,7 @@ namespace CodeGen.RepositoryAPI
                 this.TypeCode = this.EnumName
                 this.TypeName = "ENUM"
                 this.CsNumericConvert = ""
+                this.DblNetConverterer = "DblNetConverter.NotImplemented"
                 this.CsDefault = ""
                 this.VbDefault = ""
                 this.OcDefault = ""
@@ -2419,6 +2461,7 @@ namespace CodeGen.RepositoryAPI
                 this.TypeCode = "A"
                 this.TypeName = "BINARY"
                 this.CsNumericConvert = ""
+                this.DblNetConverterer = "DblNetConverter.NotImplemented"
                 this.CsDefault = ""
                 this.VbDefault = ""
                 this.OcDefault = ""
@@ -2431,6 +2474,7 @@ namespace CodeGen.RepositoryAPI
                 this.TypeCode = this.StructFieldStructure
                 this.TypeName = "STRUCT FIELD"
                 this.CsNumericConvert = ""
+                this.DblNetConverterer = "DblNetConverter.NotImplemented"
                 this.CsDefault = ""
                 this.VbDefault = ""
                 this.OcDefault = ""
@@ -2443,6 +2487,7 @@ namespace CodeGen.RepositoryAPI
                 this.TypeCode = "I"
                 this.TypeName = "AUTO SEQUENCE"
                 this.CsNumericConvert = "long.TryParse"
+                this.DblNetConverterer = "DblNetConverter.I8ToLong"
                 this.CsDefault = "0"
                 this.VbDefault = "0"
                 this.OcDefault = "0"
@@ -2455,6 +2500,7 @@ namespace CodeGen.RepositoryAPI
                 this.TypeCode = "I"
                 this.TypeName = "AUTO TIMESTAMP"
                 this.CsNumericConvert = "long.TryParse"
+                this.DblNetConverterer = "DblNetConverter.I8ToLong"
                 this.CsDefault = "0"
                 this.VbDefault = "0"
                 this.OcDefault = "0"
@@ -2472,6 +2518,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "BYTE"
                     this.CsNumericConvert = "byte.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToByte"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2483,6 +2530,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "SHORT"
                     this.CsNumericConvert = "short.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToShort"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2494,6 +2542,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "INTEGER"
                     this.CsNumericConvert = "int.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToInt"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2505,6 +2554,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "LONG"
                     this.CsNumericConvert = "long.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToLong"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2516,6 +2566,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "SBYTE"
                     this.CsNumericConvert = "sbyte.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToSByte"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2527,6 +2578,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "USHORT"
                     this.CsNumericConvert = "ushort.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToUShort"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2538,6 +2590,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "UINTEGER"
                     this.CsNumericConvert = "uint.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToUInt"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2549,6 +2602,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "ULONG"
                     this.CsNumericConvert = "ulong.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToULong"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0"
@@ -2560,6 +2614,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "BOOLEAN"
                     this.CsNumericConvert = "bool.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToBoolean"
                     this.CsDefault = "false"
                     this.VbDefault = "False"
                     this.OcDefault = "NO"
@@ -2571,6 +2626,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "DOUBLE"
                     this.CsNumericConvert = "double.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToDouble"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0.0"
@@ -2582,6 +2638,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "FLOAT"
                     this.CsNumericConvert = "float.TryParse"
+                    this.DblNetConverterer = "DblNetConverter.NumberToSingle"
                     this.CsDefault = "0"
                     this.VbDefault = "0"
                     this.OcDefault = "0.0"
@@ -2593,6 +2650,7 @@ namespace CodeGen.RepositoryAPI
                 begin
                     this.TypeName = "NULLABLEDATETIME"
                     this.CsNumericConvert = ""
+                    this.DblNetConverterer = "DblNetConverter.DateToNullableDateTime"
                     this.CsDefault = "null"
                     this.VbDefault = "Nothing"
                     this.OcDefault = "[NSDate new]"
@@ -3580,9 +3638,14 @@ namespace CodeGen.RepositoryAPI
         public readwrite property CsType, string, String.Empty
 
         ;;; <summary>
-        ;;; C# numeric conversion function
+        ;;; C# numeric conversion function (e.g. int.TryParse)
         ;;; </summary>
         public readwrite property CsNumericConvert, string, String.Empty
+
+        ;;; <summary>
+        ;;; C# Convert method (e.g. Convert.ToInt32)
+        ;;; </summary>
+        public readwrite property DblNetConverterer, string, String.Empty
 
         ;;; <summary>
         ;;; VB data type

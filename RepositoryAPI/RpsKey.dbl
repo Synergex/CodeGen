@@ -55,6 +55,8 @@ namespace CodeGen.RepositoryAPI
     ;;; </summary>
     public class RpsKey
 
+        protected mRepository, @Repository
+
         public override method ToString, String
             endparams
         proc
@@ -71,8 +73,9 @@ namespace CodeGen.RepositoryAPI
         ;;; Default constructor. Creates an empty key.
         ;;; </summary>
         public method RpsKey
-            endparams
+            required in aRepository, @Repository
         proc
+            mRepository = aRepository
             init mk_info, mDescription, mNullValue
         endmethod
 
@@ -82,11 +85,13 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="StructureName">Structure name</param>
         ;;; <param name="KeyName">Key namew</param>
         public method RpsKey
+            required in aRepository, @Repository
             required in StructureName, String
             required in KeyName, String
             endparams
         proc
-            Repository.CheckIsOpen()
+            mRepository = aRepository
+            mRepository.CheckIsOpen()
             LoadKey(StructureName,KeyName)
         endmethod
 
@@ -106,21 +111,21 @@ namespace CodeGen.RepositoryAPI
                 data ms_info, s_info
 
                 ;;Set the current structure?
-                dd_struct(Repository.RpsControl,DDS_INFO,StructureName,^a(ms_info))
-                if (Repository.RpsControl.error)
+                dd_struct(mRepository.RpsControl,DDS_INFO,StructureName,^a(ms_info))
+                if (mRepository.RpsControl.error)
                     throw new RpsKeyException("Failed to set current repository structure to "+StructureName)
 
                 ;;Get key information record
-                dd_key(Repository.RpsControl,DDK_INFO,KeyName,^a(mk_info))
-                if (Repository.RpsControl.error)
+                dd_key(mRepository.RpsControl,DDK_INFO,KeyName,^a(mk_info))
+                if (mRepository.RpsControl.error)
                     throw new RpsKeyException("Failed to get key information for repository key "+StructureName+"."+KeyName)
 
                 ;;Get key description
                 if (mk_info.ki_desc) then
                 begin
                     data tmpDescription, a40
-                    dd_key(Repository.RpsControl,DDK_TEXT,mk_info.ki_desc,tmpDescription)
-                    if (Repository.RpsControl.error) then
+                    dd_key(mRepository.RpsControl,DDK_TEXT,mk_info.ki_desc,tmpDescription)
+                    if (mRepository.RpsControl.error) then
                         throw new RpsKeyException("Failed to get description repository key "+StructureName+"."+KeyName)
                     else
                         mDescription = %atrim(tmpDescription)
@@ -132,8 +137,8 @@ namespace CodeGen.RepositoryAPI
                 if (mk_info.ki_nullval) then
                 begin
                     data tmpNullValue, a255
-                    dd_key(Repository.RpsControl,DDK_TEXT,mk_info.ki_nullval,tmpNullValue)
-                    if (Repository.RpsControl.error) then
+                    dd_key(mRepository.RpsControl,DDK_TEXT,mk_info.ki_nullval,tmpNullValue)
+                    if (mRepository.RpsControl.error) then
                         throw new RpsKeyException("Failed to get null key string for repository key "+StructureName+"."+KeyName)
                     else
                         mNullValue = %atrim(tmpNullValue)

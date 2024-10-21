@@ -6,10 +6,11 @@ set PATH=C:\Program Files\7-Zip;%PATH%
 pushd %~dp0
 
 if not exist distribution\linux\. mkdir distribution\linux
+del /s /q distribution\windows\* > nul 2>&1
 
 pushd CodeGen
 echo Building Linux distribution
-dotnet publish -c Release -r linux-x64 -o ..\distribution\linux
+dotnet publish --nologo -c Release -r linux-x64 --self-contained -p:PublishTrimmed=false --verbosity minimal -o ..\distribution\linux
 popd
 
 pushd distribution
@@ -21,4 +22,3 @@ popd
 
 popd
 endlocal
-pause

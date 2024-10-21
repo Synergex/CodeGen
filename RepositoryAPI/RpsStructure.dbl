@@ -55,6 +55,8 @@ namespace CodeGen.RepositoryAPI
     ;;; </summary>
     public partial class RpsStructure
 
+        protected mRepository, @Repository
+
         public override method ToString, String
             endparams
         proc
@@ -78,9 +80,9 @@ namespace CodeGen.RepositoryAPI
         ;;; Default constructor. Creates an empty structure.
         ;;; </summary>
         public method RpsStructure
-            endparams
+            required in aRepository, @Repository
         proc
-            
+            mRepository = aRepository
         endmethod
 
         ;;; <summary>
@@ -89,6 +91,7 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="StructureName">Structure name</param>
         ;;; <param name="UseAlternateFieldNames">Should alternate field names be used (default is no)</param>
         public method RpsStructure
+            required in aRepository, @Repository
             required in StructureName, string
             default  in UseAlternateFieldNames, Boolean, false
             endparams
@@ -98,6 +101,7 @@ namespace CodeGen.RepositoryAPI
                 grp ,string
             endrecord
         proc
+            mRepository = aRepository
             mDescription = ""
             mLongDescription = ""
             mUserText = ""
@@ -105,7 +109,7 @@ namespace CodeGen.RepositoryAPI
             str = StructureName.Trim().ToUpper()
             grp = ""
 
-            Repository.CheckIsOpen()
+            mRepository.CheckIsOpen()
 
             ;; Do we have a period in the requested structure name?
             if (pos=%instr(1,str,"."))
@@ -164,11 +168,11 @@ namespace CodeGen.RepositoryAPI
                 this.UserText = gf.UserText
                 this.FirstFile = String.Empty
 
-                this.mKeys = new RpsKeyCollection()
-                this.mFiles = new RpsFileCollection()
-                this.mTags = new RpsTagCollection()
-                this.mFormats = new RpsFormatCollection()
-                this.mRelations = new RpsRelationCollection()
+                this.mKeys = new RpsKeyCollection(mRepository)
+                this.mFiles = new RpsFileCollection(mRepository)
+                this.mTags = new RpsTagCollection(mRepository)
+                this.mFormats = new RpsFormatCollection(mRepository)
+                this.mRelations = new RpsRelationCollection(mRepository)
 
                 this.TagType = RpsTagType.None
                 this.DisplayField = String.Empty
@@ -205,6 +209,7 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="StructureName">Structure name</param>
         ;;; <param name="Fields">Collection of fields to assign.</param>
         public method RpsStructure
+            required in aRepository, @Repository
             required in StructureName, string
             required in Fields, @RpsFieldCollection
             endparams
@@ -218,7 +223,7 @@ namespace CodeGen.RepositoryAPI
 
             str = StructureName.Trim().ToUpper()
             mFields = Fields
-            Repository.CheckIsOpen()
+            mRepository.CheckIsOpen()
             LoadStructure(str)
         endmethod
 
@@ -229,6 +234,7 @@ namespace CodeGen.RepositoryAPI
         ;;; <param name="Fields">Collection of fields to assign.</param>
         ;;; <param name="StructureName">Structure name</param>
         public method RpsStructure
+            required in aRepository, @Repository
             required in aFields, @RpsFieldCollection
             required in aStructureName, string
             endparams
@@ -241,11 +247,11 @@ namespace CodeGen.RepositoryAPI
             mLongDescription = String.Empty
             mUserText = String.Empty
             mFields = aFields
-            mKeys = new RpsKeyCollection()
-            mFiles = new RpsFileCollection()
-            mTags = new RpsTagCollection()
-            mFormats = new RpsFormatCollection()
-            mRelations = new RpsRelationCollection()
+            mKeys = new RpsKeyCollection(mRepository)
+            mFiles = new RpsFileCollection(mRepository)
+            mTags = new RpsTagCollection(mRepository)
+            mFormats = new RpsFormatCollection(mRepository)
+            mRelations = new RpsRelationCollection(mRepository)
 
             FileType = "USER DEFINED"
             Length = 0
@@ -282,8 +288,8 @@ namespace CodeGen.RepositoryAPI
             mStructureName = StructureName
 
             ;; Load structure information
-            dd_struct(Repository.RpsControl,DDS_INFO,mStructureName,ms_info)
-            if (Repository.RpsControl.error)
+            dd_struct(mRepository.RpsControl,DDS_INFO,mStructureName,ms_info)
+            if (mRepository.RpsControl.error)
                 throw new RpsStructureNotFoundException(mStructureName)
 
             ;; Load the structures text-based attributes
@@ -292,8 +298,8 @@ namespace CodeGen.RepositoryAPI
             if (ms_info.si_desc)
             begin
                 data tmpDescription, a40
-                xcall dd_struct(Repository.RpsControl,DDS_TEXT,ms_info.si_desc,tmpDescription)
-                if (Repository.RpsControl.error) then
+                xcall dd_struct(mRepository.RpsControl,DDS_TEXT,ms_info.si_desc,tmpDescription)
+                if (mRepository.RpsControl.error) then
                     throw new RpsStructureException("Failed to get description for repository structure "+mStructureName)
                 else
                     mDescription = %atrim(tmpDescription)
@@ -303,8 +309,8 @@ namespace CodeGen.RepositoryAPI
             if (ms_info.si_ldesc)
             begin
                 data tmpDescription, a1800
-                dd_struct(Repository.RpsControl,DDS_TEXT,ms_info.si_ldesc,tmpDescription)
-                if (Repository.RpsControl.error) then
+                dd_struct(mRepository.RpsControl,DDS_TEXT,ms_info.si_ldesc,tmpDescription)
+                if (mRepository.RpsControl.error) then
                     throw new RpsStructureException("Failed to get long description for repository structure "+mStructureName)
                 else
                     mLongDescription = %atrim(tmpDescription)
@@ -314,8 +320,8 @@ namespace CodeGen.RepositoryAPI
             if (ms_info.si_utext)
             begin
                 data tmpUserText, a60
-                dd_struct(Repository.RpsControl,DDS_TEXT,ms_info.si_utext,tmpUserText)
-                if (Repository.RpsControl.error) then
+                dd_struct(mRepository.RpsControl,DDS_TEXT,ms_info.si_utext,tmpUserText)
+                if (mRepository.RpsControl.error) then
                     throw new RpsStructureException("Failed to get user text for repository structure "+mStructureName)
                 else
                     mUserText = %atrim(tmpUserText)
@@ -324,15 +330,15 @@ namespace CodeGen.RepositoryAPI
             ;; If we don't already have a fields collection (because it was
             ;; passed into the constructor, then load the fields from RPS
             if (mFields==^null)
-                mFields = new RpsFieldCollection(RpsFieldCollectionMode.Structure,mStructureName,UseAlternateFieldNames)
+                mFields = new RpsFieldCollection(mRepository,RpsFieldCollectionMode.Structure,mStructureName,UseAlternateFieldNames)
 
             ;; Now load the other collection properties
 
-            mKeys = new RpsKeyCollection(mStructureName)
-            mFiles = new RpsFileCollection(mStructureName,UseAlternateFieldNames)
-            mTags = new RpsTagCollection(mStructureName)
-            mFormats = new RpsFormatCollection(mStructureName)
-            mRelations = new RpsRelationCollection(mStructureName)
+            mKeys = new RpsKeyCollection(mRepository,mStructureName)
+            mFiles = new RpsFileCollection(mRepository,mStructureName,UseAlternateFieldNames)
+            mTags = new RpsTagCollection(mRepository,mStructureName)
+            mFormats = new RpsFormatCollection(mRepository,mStructureName)
+            mRelations = new RpsRelationCollection(mRepository,mStructureName)
 
             ;; CodeGen specific attributes
             loadCodeGenData(StructureName)
@@ -559,11 +565,11 @@ namespace CodeGen.RepositoryAPI
                 data tmp_flinfo ,fl_info
                 
                 ;; Get the structure info for the mapped structure
-                xcall dd_struct(Repository.RpsControl,DDS_INFO,mMappedStructure,tmp_sinfo)
+                xcall dd_struct(mRepository.RpsControl,DDS_INFO,mMappedStructure,tmp_sinfo)
                 
                 ;; Get the file info for the first (or only) file
                 ;; TODO: Shouldn't need the ^a cast but .NET won't work without it.
-                xcall dd_file(Repository.RpsControl,DDL_INFO,tmp_sinfo.si_file,^a(tmp_flinfo))
+                xcall dd_file(mRepository.RpsControl,DDL_INFO,tmp_sinfo.si_file,^a(tmp_flinfo))
                 
                 mMappedFileSpec = %atrim(tmp_flinfo.fli_fname)
                 

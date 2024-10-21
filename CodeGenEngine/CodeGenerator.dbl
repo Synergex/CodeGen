@@ -101,20 +101,17 @@ namespace CodeGen.Engine
             .include "CODEGEN_SRC:codegen.def"
         proc
             ;;Explicitly set CODEGEN_EXE to the path containing this code (CodeGenEngine.dll).
-.ifdef D_NETSTANDARD
-            ;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
             data sts, i4
             xcall setlog("CODEGEN_EXE",Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(^typeof(CodeGenerator)).Location),sts)
-.else
-            Environment.SetEnvironmentVariable("CODEGEN_EXE",Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(^typeof(CodeGenerator)).Location))
-.endc
 
             ;;Make the current version number available in the expander
             context.Version = CODEGEN_VERSION
 
-.ifndef D_NETSTANDARD
-            ;;Is CODEGEN_TPLDIR already set in the environment?
+            ;;Is CODEGEN_TPLDIR set in the environment?
             data templateFolder = Environment.GetEnvironmentVariable("CODEGEN_TPLDIR")
+
+.ifdef OS_WINDOWNSET
+
             if (String.IsNullOrWhiteSpace(templateFolder))
             begin
                 ;;No, look in the registry for the value set by InstallShield
@@ -122,13 +119,7 @@ namespace CodeGen.Engine
                 if (!String.IsNullOrWhiteSpace(templateFolder)) then
                 begin
                     ;;Found it
-.ifdef D_NETSTANDARD
-                    ;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
-                    data sts, i4
                     xcall setlog("CODEGEN_TPLDIR",templateFolder.Trim(),sts)
-.else
-                    Environment.SetEnvironmentVariable("CODEGEN_TPLDIR",templateFolder.Trim())
-.endc
                 end
                 else if (Environment.Is64BitProcess)
                 begin
@@ -137,59 +128,66 @@ namespace CodeGen.Engine
                     if (!String.IsNullOrWhiteSpace(templateFolder))
                     begin
                         ;;Found it
-.ifdef D_NETSTANDARD
-                        ;TODO: BUG: 4/12/2018 Using SetEnvironmentVariable seems to cause some issues in .NET Core
-                        data sts, i4
                         xcall setlog("CODEGEN_TPLDIR",templateFolder.Trim(),sts)
-.else
-                        Environment.SetEnvironmentVariable("CODEGEN_TPLDIR",templateFolder.Trim())
-.endc
                     end
                 end
             end
 .endc
             ;;Is CODEGEN_AUTHOR already set in the environment?
             data authorName = Environment.GetEnvironmentVariable("CODEGEN_AUTHOR")
-            if (!String.IsNullOrWhiteSpace(authorName)) then
-                context.Author = authorName
-            else
+
+            if (!String.IsNullOrWhiteSpace(authorName))
             begin
-.ifndef D_NETSTANDARD
-                ;;No, look in the registry for the value set by InstallShield
+                context.Author = authorName
+            end
+
+.ifdef OS_WINDOWNSET
+            if (String.IsNullOrWhiteSpace(context.Author))
+            begin
+                ;;Look in the registry for the value set by InstallShield
                 authorName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultAuthor","")
                 if (!String.IsNullOrWhiteSpace(authorName)) then
+                begin
                     context.Author = authorName
+                end
                 else if (Environment.Is64BitProcess)
                 begin
                     ;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
                     authorName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultAuthor","")
                     if (!String.IsNullOrWhiteSpace(authorName))
+                    begin
                         context.Author = authorName
+                    end
                 end
-.endc
             end
-
+.endc
             ;;Is CODEGEN_COMPANY already set in the environment?
             data companyName = Environment.GetEnvironmentVariable("CODEGEN_COMPANY")
-            if (!String.IsNullOrWhiteSpace(companyName)) then
-                context.Company = companyName
-            else
+            if (!String.IsNullOrWhiteSpace(companyName))
             begin
-.ifndef D_NETSTANDARD
+                context.Company = companyName
+            end
+
+.ifdef OS_WINDOWNSET
+            if (String.IsNullOrWhiteSpace(context.Company))
+            begin
                 ;;No, look in the registry for the value set by InstallShield
                 companyName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Synergex\CodeGen","DefaultCompany","")
                 if (!String.IsNullOrWhiteSpace(companyName)) then
+                begin
                     context.Company = companyName
+                end
                 else if (Environment.Is64BitProcess)
                 begin
                     ;;Not found. If we're a 64-bit process then try looking in the 32-bit registry
                     companyName = (String)Registry.GetValue("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Synergex\CodeGen","DefaultCompany","")
                     if (!String.IsNullOrWhiteSpace(companyName))
+                    begin
                         context.Company = companyName
+                    end
                 end
-.endc
             end
-
+.endc
         endmethod
 
         public static method LoadHarmonyCoreExtensions, void
@@ -1293,7 +1291,7 @@ namespace CodeGen.Engine
                 context.CurrentTask.RepositoryFile = context.CurrentTask.RepositoryFile.ToUpper()
                 try
                 begin
-                    context.FileDefinition = new RpsFile(context.CurrentTask.RepositoryFile,context.CurrentTask.UseAlternateFieldNames)
+                    context.FileDefinition = new RpsFile(context.Repository,context.CurrentTask.RepositoryFile,context.CurrentTask.UseAlternateFieldNames)
                 end
                 catch (e, @RpsFileException)
                 begin
@@ -1398,7 +1396,7 @@ namespace CodeGen.Engine
                         structureWildcard = true
                         try
                         begin
-                            context.Structures = new RpsStructureCollection(RpsLoadMode.Load,context.CurrentTask.UseAlternateFieldNames)
+                            context.Structures = new RpsStructureCollection(context.Repository,RpsLoadMode.Load,context.CurrentTask.UseAlternateFieldNames)
                             if (context.Structures.Count == 0)
                                 errStatus = context.CurrentTask.Errorlog("Your repository contains no structures!")
                         end
@@ -1416,7 +1414,7 @@ namespace CodeGen.Engine
                         begin
                             try
                             begin
-                                data newStructure, @RpsStructure, new RpsStructure(context.CurrentTask.Structures[ix],context.CurrentTask.UseAlternateFieldNames)
+                                data newStructure, @RpsStructure, new RpsStructure(context.Repository,context.CurrentTask.Structures[ix],context.CurrentTask.UseAlternateFieldNames)
                                 if (!String.IsNullOrWhiteSpace(context.SelectionWindowScript))
                                 begin
                                     if (!ProcessSelectionWindows(context,newStructure))
@@ -1444,7 +1442,7 @@ namespace CodeGen.Engine
                         structureWildcard = true
                         try
                         begin
-                            context.Structures = new RpsStructureCollection(RpsLoadMode.Load,context.CurrentTask.UseAlternateFieldNames)
+                            context.Structures = new RpsStructureCollection(context.Repository,RpsLoadMode.Load,context.CurrentTask.UseAlternateFieldNames)
                             if (context.Structures.Count == 0)
                                 errStatus = context.CurrentTask.Errorlog("Your repository contains no structures!")
                         end
@@ -1462,7 +1460,7 @@ namespace CodeGen.Engine
                         begin
                             try
                             begin
-                                data newStructure, @RpsStructure, new RpsStructure(context.Taskset.Structures[ix],context.CurrentTask.UseAlternateFieldNames)
+                                data newStructure, @RpsStructure, new RpsStructure(context.Repository,context.Taskset.Structures[ix],context.CurrentTask.UseAlternateFieldNames)
                                 if (!String.IsNullOrWhiteSpace(context.SelectionWindowScript))
                                 begin
                                     if (!ProcessSelectionWindows(context,newStructure))
@@ -1561,7 +1559,7 @@ namespace CodeGen.Engine
                         begin
                             data pfStructure, @RpsStructure
 
-                            context.CurrentTask.ProFormaStructures = new RpsStructureCollection(RpsLoadMode.NoLoad)
+                            context.CurrentTask.ProFormaStructures = new RpsStructureCollection(context.Repository,RpsLoadMode.NoLoad)
 
                             try
                             begin
