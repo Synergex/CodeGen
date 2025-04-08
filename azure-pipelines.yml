@@ -24,8 +24,6 @@ jobs:
 
   variables:
   - group: Secure
-  - name: solution
-    value: 'CodeGen.sln'
   - name: currentVersion
     value: '6.0.8'
   - name: buildPlatform
@@ -40,7 +38,7 @@ jobs:
   - task: NuGetCommand@2
     displayName: 'Restore NuGet packages'
     inputs:
-      restoreSolution: '$(solution)'
+      restoreSolution: '**/*.sln'
 
   - task: BatchScript@1
     displayName: 'Configure SDE environment'
@@ -50,9 +48,9 @@ jobs:
       modifyEnvironment: true
 
   - task: VSBuild@1
-    displayName: 'Build CodeGen solution and installer'
+    displayName: 'Build CodeGen solutions and installer'
     inputs:
-      solution: '$(solution)'
+      solution: '**/*.sln'
       platform: '$(buildPlatform)'
       configuration: '$(buildConfiguration)'
       vsVersion: 17.0
@@ -62,7 +60,6 @@ jobs:
     inputs:
       platform: '$(buildPlatform)'
       configuration: '$(buildConfiguration)'
-
 
   - task: CmdLine@2
     displayName: 'Sign MSI file'
@@ -74,8 +71,15 @@ jobs:
     inputs:
       pathToPublish: 'bin\release\CodeGen_$(currentVersion).msi' 
       artifactName: 'CodeGen-Installer' 
-      #publishLocation: 'Container' # Options: container, filePath
-      #targetPath: # Required when publishLocation == FilePath
-      #parallel: false # Optional
-      #parallelCount: # Optional
-      #fileCopyOptions: #Optional
+
+  - script: |
+      nuget pack RepositoryAPI.nuspec -Version $(currentVersion) -OutputDirectory $(Build.ArtifactStagingDirectory)
+    displayName: 'Pack RepositoryAPI NuGet package'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Save NuGet package(s) as artifact(s)'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)/RepositoryAPI.$(currentVersion).nupkg'
+      artifact: 'RepositoryAPI.$(currentVersion)' 
+      publishLocation: 'pipeline'
+
