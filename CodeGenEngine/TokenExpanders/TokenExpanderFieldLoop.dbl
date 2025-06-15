@@ -40,13 +40,14 @@
 ;; 
 ;; *****************************************************************************
 
+import CodeGen.Engine
+import CodeGen.RepositoryAPI
 import System
 import System.Collections.Generic
 import System.Linq
 import System.Text
+import System.Text.RegularExpressions
 import System.Threading.Tasks
-import CodeGen.Engine
-import CodeGen.RepositoryAPI
 
 .array 0
 
@@ -163,6 +164,8 @@ namespace CodeGen.Engine
             fieldLoopTokenExpanders.Add("FIELD_SQL_ALTNAME", expandFieldSqlAltname)
             fieldLoopTokenExpanders.Add("FIELD_SQLNAME", expandFieldSqlName)
             fieldLoopTokenExpanders.Add("FIELD_SQLDBTYPE", expandFieldSqlDbType)
+            fieldLoopTokenExpanders.Add("FIELD_SQLDBTYPE_SIZE", expandFieldSqlDbTypeSize)
+            fieldLoopTokenExpanders.Add("FIELD_SQLDBTYPE_PRECISION", expandFieldSqlDbTypePrecision)
             fieldLoopTokenExpanders.Add("FIELD_SQLTYPE", expandFieldSqlType)
             fieldLoopTokenExpanders.Add("FIELD_TEMPLATE", expandFieldTemplate)
             fieldLoopTokenExpanders.Add("FIELD_TKSCRIPT", expandFieldTkScript)
@@ -1959,6 +1962,72 @@ namespace CodeGen.Engine
                 mreturn String.Empty
             end
             mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSqlDbTypeSize, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin   
+                using (a)(field.SqlType) select
+                (.eq."CHAR",.eq."DECIMAL",.eq."VARCHAR"),
+                begin
+                    data result, @Tuple<int,int>, ExtractLengthAndPrecision(field.SqlType)
+                    mreturn result.Item1.ToString()
+                end
+                endusing
+                mreturn "-1"
+            end
+            mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandFieldSqlDbTypePrecision, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str, field)
+            begin
+                if (field.SqlType.StartsWith("DECIMAL"))
+                begin
+                    if (field.SqlType.Contains(",")) then
+                    begin
+                        data result, @Tuple<int,int>, ExtractLengthAndPrecision(field.SqlType)
+                        mreturn result.Item2.ToString()
+                    end
+                    else
+                        mreturn "0"
+                end
+                mreturn String.Empty
+            end
+            mreturn ExpandFieldLoopToken(tkn, template, loops, doExpand)
+        endmethod
+
+
+        private static method ExtractLengthAndPrecision, @Tuple<int,int>
+            required in stringToParse, string
+        proc
+            data length = 0
+            data precision = 0
+
+            data result = Regex.Match(stringToParse, "\((\d+)(?:,(\d+))?\)")
+
+            if (result.Success)
+            begin
+                length = int.Parse(result.Groups[1].Value)
+
+                if (result.Groups[2].Success)
+                    precision = int.Parse(result.Groups[2].Value)
+                
+                mreturn Tuple.Create(length, precision)
+            end
+
+            mreturn Tuple.Create(length,precision)
+
         endmethod
 
         private static method expandFieldSqlType, string
