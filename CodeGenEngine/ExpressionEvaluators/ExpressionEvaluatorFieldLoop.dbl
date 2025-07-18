@@ -2898,6 +2898,33 @@ namespace CodeGen.Engine
 
         endmethod
 
+        private static method evaluateFieldHcCustomType, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                ;; Extract the search text from the token
+                data searchText, string, tkn.Value.ToUpper().Replace("HARMONYCORE_CUSTOM_FIELD_TYPE_", "")
+
+                ;; Make sure we have search text
+                if (String.IsNullOrWhiteSpace(searchText))
+                    throw new ApplicationException(String.Format("Invalid custom field expression token {0} at line {1} in template {2}", tkn.Value, tkn.StartLineNumber, template.Context.CurrentTemplateBaseName))
+
+                ;Expand it to the full sting that we're looking for
+                searchText = String.Format("HARMONYCORE_CUSTOM_FIELD_TYPE={0};",searchText).ToUpper()
+
+                ;Is it there? Return the result
+                mreturn ((field.UserText.ToUpper().Contains(searchText)) || (field.LongDescription.ToUpper().Contains(searchText)))
+            end
+
+            ;; We get here for any field loop expression <IF CUSTOM_xxx> or <IF_CUSTOM_NOT_xxx> and we are
+            ;; looking for text to be or not to be present in the current fields user text or long description.
+            mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+
+        endmethod
+
     endclass
 
 endnamespace
