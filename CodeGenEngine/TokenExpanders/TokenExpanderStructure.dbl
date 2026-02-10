@@ -96,6 +96,7 @@ namespace CodeGen.Engine
             structureTokenExpanders.Add("STRUCTURE_PLURAL", expandStructurePlural)
             structureTokenExpanders.Add("STRUCTURE_SIZE", expandStructureSize)
             structureTokenExpanders.Add("STRUCTURE_TAG_AND_COUNT", expandStructureTagAndCount)
+            structureTokenExpanders.Add("STRUCTURE_TAG_EXPRESSION", expandStructureTagExpression)
             structureTokenExpanders.Add("STRUCTURE_TAG_OR_COUNT", expandStructureTagOrCount)
             structureTokenExpanders.Add("STRUCTURE_TAG_PARTS", expandStructureTagParts)
             structureTokenExpanders.Add("STRUCTURE_TYPE", expandStructureType)
@@ -786,6 +787,88 @@ namespace CodeGen.Engine
                             andConnectors += 1
                 end
                 mreturn andConnectors.ToString()
+            end
+            mreturn ExpandStructureToken(tkn, template, loops, doExpand)
+        endmethod
+
+        private static method expandStructureTagExpression, string
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doExpand(str)
+            begin
+                data expression = String.Empty
+
+                foreach data tag in str.Tags as @RpsTag
+                begin
+                    ; Add the connector before the next part of the expression
+                    using tag.ComparisonConnector select
+                    (RpsTagComparison.None),
+                        nop
+                    (RpsTagComparison.CompareOr),
+                        expression = String.Format("{0}||",expression)
+                    (RpsTagComparison.CompareAnd),
+                    begin
+                        ;Whenever we encounter an AND connector, we need to wrap the previous expression in
+                        ;parentheses to ensure correct operator precedence, since OR has lower precedence than AND
+                        expression = String.Format("({0})&&",expression)
+                    end
+                    endusing
+
+                    ;Figure out the comparison operator
+                    data tagOperator, string
+                    using tag.ComparisonOperator select
+                    (RpsTagOperator.OpLT),
+                        tagOperator = "<"
+                    (RpsTagOperator.OpGE),
+                        tagOperator = ">="
+                    (RpsTagOperator.OpLE),
+                        tagOperator = "<="
+                    (RpsTagOperator.OpNE),
+                        tagOperator = "!="
+                    (RpsTagOperator.OpEQ),
+                        tagOperator = "=="
+                    (RpsTagOperator.OpGT),
+                        tagOperator = ">"
+                    endusing
+
+                    ;Figure out the comparison value
+                    data tagValue, string
+                    foreach data field in str.Fields as @RpsField
+                    begin
+                        if (field.OriginalName == tag.Field)
+                        begin
+                            using (field.DataType) select
+                            (RpsFieldDataType.Alpha, RpsFieldDataType.User),
+                            begin
+                                data tmplen, int, field.Size
+                                if (tmplen > 15)
+                                    tmplen = 15
+                                if (tag.ComparisonValue.Length > 0) then
+                                begin
+                                    data tmpval, a15, tag.ComparisonValue
+                                    tagValue = String.Format("""{0}""", tmpval(1:tmplen))
+                                end
+                                else
+                                begin
+                                    data spaces, a15, " " ;15 is the max length of a tag comparison in RPS
+                                    tagValue = String.Format("""{0}""", spaces(1:tmplen))
+                                end
+                            end
+                            (),
+                                tagValue = tag.ComparisonValue
+                            endusing
+                            exitloop
+                        end
+                    end
+
+                    ;Add the next part of the expression
+                    expression = String.Format("{0}sfld.{1}{2}{3}",expression,tag.Field,tagOperator,tagValue)
+
+                end
+                mreturn expression
             end
             mreturn ExpandStructureToken(tkn, template, loops, doExpand)
         endmethod
