@@ -1,0 +1,601 @@
+;;*****************************************************************************
+;;
+;; Title:       Repository.FlattenArraysAndGroups.dbl
+;;
+;; Type:        Partial Class
+;;
+;; Description: Partial class containing "FlattenArraysAndGroups" methods.
+;;
+;; Date:        20th July 2026
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2026, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections.Generic
+
+namespace CodeGen.RepositoryAPI
+
+    public partial class Repository implements IDisposable
+
+        public static method FlattenArraysAndGroups, boolean
+            required in  rps, @Repository
+            required in  Struct, @RpsStructure
+            required in  sqlNameContiguousArray, boolean
+            required in  explicitGroupNoExpand, boolean
+            required in  implicitGroupNoExpand, boolean
+            required out ErrorMessage, string
+
+            stack record
+                ErrStatus,  boolean
+            endrecord
+
+        proc
+
+            ErrStatus = false
+            ErrorMessage = ""
+
+            ; ==========================================================================================
+            ; STRUCTURE VALIDATION
+
+            ; Make sure the structure has not been excluded with @NOCODEGEN
+            if (!ErrStatus)
+            begin
+                if ((Struct.UserText.ToUpper().Contains("@NOCODEGEN"))||(Struct.LongDescription.ToUpper().Contains("@NOCODEGEN")))
+                begin
+                    ErrStatus = true
+                    ErrorMessage = "Structure is excluded from code generation!"
+                end
+            end
+
+            ; Make sure the structure has fields
+            if (!ErrStatus && !Struct.Fields.Count)
+            begin
+                ErrStatus = true
+                ErrorMessage = "Structure has no fields!"
+            end
+
+            ; ==========================================================================================
+            ; The structure seems OK, now lets look at the fields
+
+            if (!ErrStatus)
+            begin
+                data ix, int, -1	;Index within collection of main fields
+
+                while ((ix+=1)<Struct.Fields.Count)
+                begin
+                    ; Get a handle on the current field
+                    data Field, @RpsField, Struct.Fields[ix]
+
+                    ; Exclude overlays and fields ignored by DBL
+
+                    if ( !String.IsNullOrWhiteSpace(Field.OverlaysField)
+                    &    || Field.GroupType==RpsFieldGroup.Overlay
+                    &    || Field.ExcludedByLanguage )
+                    begin
+                        Struct.Fields.RemoveAt(ix)
+                        ix-=1
+                        nextloop
+                    end
+
+                    ;We have a field that we're keeping - set the FieldNumber property
+
+                    Field.FieldNumber = ix+1
+
+                end
+            end
+
+            ; ==========================================================================================
+            ; Field processing
+
+            if (!ErrStatus)
+            begin
+                data ix     ,int, -1    ;Index within collection of main fields
+                data gfix   ,int        ;Index within the fields of a group which is being processed
+
+                while ((ix+=1)<Struct.Fields.Count)
+                begin
+                    ; Get a handle on the current field
+                    data Field, @RpsField, Struct.Fields[ix]
+
+                    ; Expand array fields
+
+                    data contiguousArrayIndex = 0
+
+                    if ((Field.ArrayDimension[1]>1)||(Field.ArrayDimension[2])||(Field.ArrayDimension[3])||(Field.ArrayDimension[4]))
+                    begin
+                        data fieldsAdded, int, 0
+                        data bytesAdded, int, 0
+                        data mask, a3, "XXX"
+                        data al1, int
+                        for al1 from 1 thru Field.ArrayDimension[1]
+                        begin
+                            if (Field.ArrayDimension[2]||Field.ArrayDimension[3]||Field.ArrayDimension[4]) then
+                            begin
+                                ;At least 2 levels
+                                data al2, int
+                                for al2 from 1 thru Field.ArrayDimension[2]
+                                begin
+                                    if (Field.ArrayDimension[3]||Field.ArrayDimension[4]) then
+                                    begin
+                                        ;At least 3 levels
+                                        data al3, int
+                                        for al3 from 1 thru Field.ArrayDimension[3]
+                                        begin
+                                            if (Field.ArrayDimension[4]) then
+                                            begin
+                                                ;All 4 levels
+                                                data al4, int
+                                                for al4 from 1 thru Field.ArrayDimension[4]
+                                                begin
+                                                    data newField4, @RpsField
+                                                    data arrayIndex4, string
+
+                                                    arrayIndex4 = "[" + %string(al1,mask(1:%trim(%string(Field.ArrayDimension[1])))) + "," + %string(al2,mask(1:%trim(%string(Field.ArrayDimension[2])))) + "," + %string(al3,mask(1:%trim(%string(Field.ArrayDimension[3])))) + "," + %string(al4,mask(1:%trim(%string(Field.ArrayDimension[4])))) + "]"
+
+                                                    ; Start with a copy of the current field
+                                                    newField4 = new RpsField(rps,Field)
+
+                                                    ; Change the necessary properties
+                                                    newField4.Name = Field.Name + arrayIndex4
+                                                    newField4.OriginalNameModified = Field.OriginalNameModified + arrayIndex4
+                                                    newField4.AlternateName = Field.AlternateName + arrayIndex4
+                                                    newField4.OdbcName = StringTools.OdbcName(newField4.Name)
+
+                                                    if (sqlNameContiguousArray) then
+                                                    begin
+                                                        contiguousArrayIndex+=1
+                                                        newField4.SqlName =  String.Format("{0}{1}",Field.Name,contiguousArrayIndex==1?"":%string(contiguousArrayIndex))
+                                                    end
+                                                    else
+                                                    begin
+                                                        newField4.SqlName  = StringTools.SqlName(newField4.Name)
+                                                    end
+
+                                                    ; Note: BaseName doesn't change because of array expansion
+
+                                                    if (Field.MappedField.Length)
+                                                        newField4.MappedField = Field.MappedField + arrayIndex4
+
+                                                    if (Field.Description)
+                                                        newField4.Description = Field.Description + " " + %string(al1) + " " + %string(al2) + " " + %string(al3) + " " + %string(al4)
+
+                                                    if (Field.ReportHeading)
+                                                        newField4.ReportHeading = Field.ReportHeading + " #" + %string(al1) + " " + %string(al2) + " " + %string(al3) + " " + %string(al4)
+
+                                                    newField4.StartPosition = Field.StartPosition + bytesAdded
+                                                    bytesAdded+=Field.Size
+
+                                                    newField4.ArrayDimension[1] = 1
+                                                    newField4.ArrayDimension[2] = 0
+                                                    newField4.ArrayDimension[3] = 0
+                                                    newField4.ArrayDimension[4] = 0
+
+                                                    newField4.WasArrayElement = true
+
+                                                    newField4.OriginalElement[1] = al1
+                                                    newField4.OriginalElement[2] = al2
+                                                    newField4.OriginalElement[3] = al3
+                                                    newField4.OriginalElement[4] = al4
+
+                                                    ; And add it to the fields collection
+                                                    if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
+                                                        Struct.Fields.Insert(ix+fieldsAdded,newField4)
+                                                    else
+                                                        Struct.Fields.Add(newField4)
+                                                end
+                                            end
+                                            else
+                                            begin
+                                                ;Only 3 levels
+                                                data newField3, @RpsField
+                                                data arrayIndex3, string
+
+                                                arrayIndex3 = "[" + %string(al1,mask(1:%trim(%string(Field.ArrayDimension[1])))) + "," + %string(al2,mask(1:%trim(%string(Field.ArrayDimension[2])))) + "," + %string(al3,mask(1:%trim(%string(Field.ArrayDimension[3])))) + "]"
+
+                                                ; Start with a copy of the current field
+                                                newField3 = new RpsField(rps,Field)
+
+                                                ; Change the necessary properties
+                                                newField3.Name = Field.Name + arrayIndex3
+                                                newField3.OriginalNameModified = Field.OriginalNameModified + arrayIndex3
+                                                newField3.AlternateName = Field.AlternateName + arrayIndex3
+                                                newField3.OdbcName = StringTools.OdbcName(newField3.Name)
+
+                                                if (sqlNameContiguousArray) then
+                                                begin
+                                                    contiguousArrayIndex+=1
+                                                    newField3.SqlName =  String.Format("{0}{1}",Field.Name,contiguousArrayIndex==1?"":%string(contiguousArrayIndex))
+                                                end
+                                                else
+                                                begin
+                                                    newField3.SqlName  = StringTools.SqlName(newField3.Name)
+                                                end
+
+                                                ; Note: BaseName doesn't change because of array expansion
+
+                                                if (Field.MappedField)
+                                                    newField3.MappedField = Field.MappedField + arrayIndex3
+
+                                                if (Field.Description)
+                                                    newField3.Description = Field.Description + " " + %string(al1) + " " + %string(al2)+ " " + %string(al3)
+
+                                                if (Field.ReportHeading)
+                                                    newField3.ReportHeading = Field.ReportHeading + " #" + %string(al1) + " " + %string(al2)+ " " + %string(al3)
+
+                                                newField3.StartPosition = Field.StartPosition + bytesAdded
+                                                bytesAdded+=Field.Size
+
+                                                newField3.ArrayDimension[1] = 1
+                                                newField3.ArrayDimension[2] = 0
+                                                newField3.ArrayDimension[3] = 0
+
+                                                newField3.WasArrayElement = true
+
+                                                newField3.OriginalElement[1] = al1
+                                                newField3.OriginalElement[2] = al2
+                                                newField3.OriginalElement[3] = al3
+
+                                                ; And add it to the fields collection
+                                                if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
+                                                    Struct.Fields.Insert(ix+fieldsAdded,newField3)
+                                                else
+                                                    Struct.Fields.Add(newField3)
+                                            end
+                                        end
+                                    end
+                                    else
+                                    begin
+                                        ;2 levels
+                                        data newField2, @RpsField
+                                        data arrayIndex2, string
+
+                                        arrayIndex2 = "[" + %string(al1,mask(1:%trim(%string(Field.ArrayDimension[1])))) + "," + %string(al2,mask(1:%trim(%string(Field.ArrayDimension[2])))) + "]"
+
+                                        ; Start with a copy of the current field
+                                        newField2 = new RpsField(rps,Field)
+
+                                        ; Change the necessary properties
+                                        newField2.Name = Field.Name + arrayIndex2
+                                        newField2.OriginalNameModified = Field.OriginalNameModified + arrayIndex2
+                                        newField2.AlternateName = Field.AlternateName + arrayIndex2
+                                        newField2.OdbcName = StringTools.OdbcName(newField2.Name)
+
+                                        if (sqlNameContiguousArray) then
+                                        begin
+                                            contiguousArrayIndex+=1
+                                            newField2.SqlName =  String.Format("{0}{1}",Field.Name,contiguousArrayIndex==1?"":%string(contiguousArrayIndex))
+                                        end
+                                        else
+                                        begin
+                                            newField2.SqlName  = StringTools.SqlName(newField2.Name)
+                                        end
+
+                                        ; Note: BaseName doesn't change because of array expansion
+
+                                        if (Field.MappedField)
+                                            newField2.MappedField = Field.MappedField + arrayIndex2
+
+                                        if (Field.Description)
+                                            newField2.Description = Field.Description + " " + %string(al1) + " " + %string(al2)
+
+                                        if (Field.ReportHeading)
+                                            newField2.ReportHeading = Field.ReportHeading + " #" + %string(al1) + " " + %string(al2)
+
+                                        newField2.StartPosition = Field.StartPosition + bytesAdded
+                                        bytesAdded+=Field.Size
+
+                                        newField2.ArrayDimension[1] = 1
+                                        newField2.ArrayDimension[2] = 0
+
+                                        newField2.WasArrayElement = true
+
+                                        newField2.OriginalElement[1] = al1
+                                        newField2.OriginalElement[2] = al2
+
+                                        ; And add it to the fields collection
+                                        if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
+                                            Struct.Fields.Insert(ix+fieldsAdded,newField2)
+                                        else
+                                            Struct.Fields.Add(newField2)
+                                    end
+                                end
+                            end
+                            else
+                            begin
+                                ;Just one level
+                                data newField1, @RpsField
+                                data arrayIndex1, string
+
+                                arrayIndex1 = "[" + %string(al1) + "]"
+
+                                ; Start with a copy of the current field
+                                newField1 = new RpsField(rps,Field)
+
+                                ; Change the necessary properties
+                                newField1.Name			= Field.Name + arrayIndex1
+                                newField1.OriginalNameModified = Field.OriginalNameModified + arrayIndex1
+                                newField1.AlternateName	= Field.AlternateName + arrayIndex1
+                                newField1.OdbcName		= StringTools.OdbcName(newField1.Name)
+
+                                if (sqlNameContiguousArray) then
+                                begin
+                                    contiguousArrayIndex+=1
+                                    newField1.SqlName =  String.Format("{0}{1}",Field.Name,contiguousArrayIndex==1?"":%string(contiguousArrayIndex))
+                                end
+                                else
+                                begin
+                                    newField1.SqlName		= StringTools.SqlName(newField1.Name)
+                                end
+
+                                ; Note: BaseName doesn't change because of array expansion
+
+                                if (Field.MappedField)
+                                    newField1.MappedField = Field.MappedField + arrayIndex1
+
+                                if (Field.Description)
+                                    newField1.Description = Field.Description + " " + %string(al1)
+
+                                if (Field.ReportHeading)
+                                    newField1.ReportHeading = Field.ReportHeading + " #" + %string(al1)
+
+                                newField1.StartPosition = Field.StartPosition + bytesAdded
+                                bytesAdded+=Field.Size
+
+                                newField1.ArrayDimension[1] = 1
+
+                                newField1.WasArrayElement = true
+
+                                newField1.OriginalElement[1] = al1
+
+                                ; And add it to the fields collection
+
+                                if ((ix+(fieldsAdded+=1))<=Struct.Fields.Count-1) then
+                                    Struct.Fields.Insert(ix+fieldsAdded,newField1)
+                                else
+                                    Struct.Fields.Add(newField1)
+                            end
+                        end
+
+                        ; Remove the array field from the structure
+                        Struct.Fields.RemoveAt(ix)
+
+                        ; And process the same index again, it's now the first field from the array
+                        ix-=1
+
+                        nextloop
+                    end
+
+                    ; ==================================================================================
+                    ; GROUP PROCESSING
+
+                    ; Is the field a group?
+
+                    if (Field.GroupType==RpsFieldGroup.No)
+                        nextloop
+
+
+                    ; ----------------------------------------------------------------------------------
+                    ; If we get here then we have one of four types of GROUP field:
+                    ;
+                    ; 1. Explicit GROUP (fields defined locally)
+                    ; 2. Implicit GROUP (fields defined by another structure)
+                    ;
+                    ; And if the "include overlays" command line option (-f o) was used:
+                    ;
+                    ; 3. Explicit GROUP OVERLAY
+                    ; 4. Implicit GROUP OVERLAY
+
+                    ; Is it an explicit group and we've been told not to expand them?
+
+                    if (Field.GroupType==RpsFieldGroup.Yes && String.IsNullOrWhiteSpace(Field.GroupStructure) && ExplicitGroupNoExpand)
+                    begin
+                        Field.CsType = Field.Name
+                        Field.CsDefault = String.Format("new {0}()",Field.Name)
+                        Field.CsNumericConvert = ""
+
+                        Field.VbType = Field.Name
+                        Field.VbDefault = String.Format("New {0}()",Field.Name)
+
+                        Field.SnType = String.Format("@{0}",Field.Name)
+                        Field.SnDefault = String.Format("new {0}()",Field.Name)
+
+                        Field.SqlType = String.Format("VARCHAR({0})",%string(Field.Size))
+
+                        Field.OcType = "NSString"
+                        Field.OcDefault = '@""'
+                        Field.OcObject = true
+
+                        nextloop
+                    end
+
+                    ; Is it an implicit group and we've been told not to expand them?
+
+                    if (!String.IsNullOrWhiteSpace(Field.GroupStructure) && ImplicitGroupNoExpand)
+                    begin
+                        Field.CsType = Field.GroupStructure
+                        Field.CsDefault = String.Format("new {0}()",Field.GroupStructure)
+                        Field.CsNumericConvert = ""
+
+                        Field.VbType = Field.GroupStructure
+                        Field.VbDefault = String.Format("New {0}()",Field.GroupStructure)
+
+                        Field.SnType = String.Format("@{0}",Field.GroupStructure)
+                        Field.SnDefault = String.Format("new {0}()",Field.GroupStructure)
+
+                        Field.SqlType = String.Format("VARCHAR({0})",%string(Field.Size))
+
+                        Field.OcType = "NSString"
+                        Field.OcDefault = '@""'
+                        Field.OcObject = true
+
+                        nextloop
+                    end
+
+                    ; Flatten the group into individual fields
+
+                    for gfix from 0 thru Field.GroupFields.Count-1
+                    begin
+                        data tmpName, string, ""
+                        data tmpOrigName, string, ""
+                        data tmpOrigNameModified, string, ""
+                        data tmpAltName, string, ""
+                        data tmpBaseName, string, ""
+                        data Child, @RpsField
+
+                        ; Start with the group field as defined
+                        Child = Field.GroupFields[gfix]
+
+                        ; Exclude overlays (unless overridden) and apply optional field level filters
+                        if ( !String.IsNullOrWhiteSpace(Child.OverlaysField)
+                        &    || Field.GroupType==RpsFieldGroup.Overlay
+                        &    || Field.ExcludedByLanguage)
+                            nextloop
+
+                        ;The child field is going to become part of the parent structure, so set its "FieldNumber" property to the same as the parent field
+
+                        Child.FieldNumber = Field.FieldNumber
+
+                        ; Prefix the name with the group field name
+
+                        tmpName = Field.Name + "."
+                        tmpOrigName = Field.OriginalName + "."
+                        tmpOrigNameModified = Field.OriginalNameModified + "."
+                        tmpAltName = Field.AlternateName + "."
+                        ; BaseName uses Field.Name so we get array dimensions back
+                        tmpBaseName = Field.Name + "."
+
+                        ; And then add the actual group field name
+
+                        tmpName = tmpName + Child.Name
+                        tmpOrigName = tmpOrigName + Child.OriginalName
+                        tmpOrigNameModified = tmpOrigNameModified + Child.OriginalName
+                        tmpAltName = tmpAltName + Child.AlternateName
+                        tmpBaseName = tmpBaseName + Child.Name
+
+                        ; Change the childs field name properties
+
+                        Child.Name = tmpName
+                        Child.OriginalName = tmpOrigName
+                        Child.OriginalNameModified = tmpOrigNameModified
+                        Child.AlternateName = tmpAltName
+                        Child.BaseName = tmpBaseName
+                        Child.SqlName  = StringTools.SqlName(tmpName)
+                        Child.OdbcName = StringTools.OdbcName(tmpName)
+
+                        ; Update the fields position in the record. Group field psoitions in f_info are relative to the group.
+
+                        Child.StartPosition = Field.StartPosition + Child.StartPosition - 1
+
+                        ; Remove the fields GROUP information
+
+                        Child.GroupType = RpsFieldGroup.No
+                        Child.GroupStructure = String.Empty
+                        Child.GroupFields = new RpsFieldCollection(rps)
+                        Child.GroupMemberPrefix = String.Empty
+
+                        ; And add it to the fields collection
+
+                        if ((ix+gfix+1)<=Struct.Fields.Count-1) then
+                            Struct.Fields.Insert(ix+gfix+1,Child)
+                        else
+                            Struct.Fields.Add(Child)
+                    end
+
+                    ; Finally remove the group field from the structure
+
+                    Struct.Fields.RemoveAt(ix)
+
+                    ; And process this index again, because it's now the first field from the group
+
+                    ix-=1
+
+                end
+            end
+
+            if (!ErrStatus)
+            begin
+                if (Struct.Fields.Count) then
+                begin
+                    ;We have a valid structure with fields, and arrays and groups have been expanded. Set the "LogicalFieldNumber" properties.
+                    data ix, int
+                    for ix from 0 thru Struct.Fields.Count-1
+                        Struct.Fields[ix].LogicalFieldNumber = ix+1
+                end
+                else
+                begin
+                    ErrStatus = true
+                    ErrorMessage = "After filtering non compatible fields, no failds remain!"
+                end
+            end
+
+            if (!ErrStatus)
+            begin
+                ;Make sure that we don't have any duplicate SqlName values.
+                ;This can happen if two fields names only differ by underscores.
+                data existingSqlNames = new List<String>()
+                data ix = 0
+
+                repeat
+                begin
+                    data fld = Struct.Fields[ix]
+                    data nameToTest = fld.SqlName.Replace("_","")
+                    if (!existingSqlNames.Contains(nameToTest)) then
+                        existingSqlNames.Add(nameToTest)
+                    else
+                    begin
+                        data ctr ,int ,1
+                        repeat
+                        begin
+                            ctr += 1
+                            nameToTest = String.Format("{0}{1}",fld.SqlName.Replace("_",""),ctr)
+                            if (!existingSqlNames.Contains(nameToTest))
+                                exitloop
+                        end
+                        existingSqlNames.Add(nameToTest)
+                        fld.SqlName = nameToTest
+                    end
+                    ;Are we done?
+                    if ((ix+=1) == Struct.Fields.Count)
+                        exitloop
+                end
+            end
+
+            mreturn !ErrStatus
+
+        endmethod
+
+
+
+    endclass
+
+endnamespace
+

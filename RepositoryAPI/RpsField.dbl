@@ -50,6 +50,8 @@ import Newtonsoft.Json.Converters
 import System.Collections
 import System.Collections.Generic
 import System.ComponentModel
+import System.Linq
+import System.Text.RegularExpressions
 
 namespace CodeGen.RepositoryAPI
 
@@ -2085,6 +2087,204 @@ namespace CodeGen.RepositoryAPI
         ;;; See also Enumerated.
         ;;; </summary>
         public readwrite property EnumeratedStepValue, int, 0
+
+
+        ; ---------------------------------------------------------------------
+        ; Public methods
+
+        ;;; <summary>
+        ;;; Returns the SQL type mapping for the field, based on its data type and any custom field type specified in the long description.
+        ;;; </summary>
+        ;;; <param name="fld">The field for which to get the SQL type mapping</param>
+        ;;; <param name="flds">The collection of fields</param>
+        ;;; <returns>The SQL type mapping</returns>
+        public static method GetSqlTypeMapping, string
+            required in fld, @RpsField
+            required in flds, @RpsFieldCollection
+        proc
+
+            using fld.DataType select
+
+            (RpsFieldDataType.Alpha),
+
+                ;TODO: Compiler bug
+                ;if (fld.LongDescription.Contains((string)"HARMONYCORE_CUSTOM_FIELD_TYPE=YnDefaultNoBoolean;",StringComparison.OrdinalIgnoreCase)) then
+                if (fld.LongDescription.ToUpper().Contains((string)"HARMONYCORE_CUSTOM_FIELD_TYPE=YNDEFAULTNOBOOLEAN;")) then
+                begin
+                    mreturn "YnDefaultNoBoolean"
+                end
+                else
+                begin
+                    mreturn fld.DataTypeSubclass==RpsFieldSubclass.Binary
+                    &    ? "FixedSizeBinary"
+                    &    : "Utf8"
+                end
+
+            (RpsFieldDataType.User),
+
+                ;TODO: Compiler bug
+                ;if (fld.LongDescription.Contains("HARMONYCORE_CUSTOM_FIELD_TYPE=AsaJulianDate;",StringComparison.OrdinalIgnoreCase)) then
+                if (fld.LongDescription.ToUpper().Contains((string)"HARMONYCORE_CUSTOM_FIELD_TYPE=ASAJULIANDATE;")) then
+                begin
+                    mreturn "AsaJulianDate"
+                end
+                else
+                begin
+                    using fld.DataTypeSubclass select
+                    (RpsFieldSubclass.UserAlpha),
+                        mreturn "Utf8"
+                    (RpsFieldSubclass.UserNumeric),
+                        mreturn "Utf8"
+                    (RpsFieldSubclass.UserDate),
+                    begin
+                        ;;Inspect the user-defined type to determine the date format.
+                        ;;UserFieldType contains the class name, often prefixed with ^CLASS^=
+                        data uft, string, fld.UserFieldType.Trim().ToUpper()
+
+                        ;;Strip ^CLASS^= prefix if present
+                        if (uft.StartsWith("^CLASS^="))
+                            uft = uft.Substring(8)
+
+                        ;;Check for known date/time formats that have Rust-side handlers
+                        ;;in dbl-storage/src/batch.rs. Only emit custom_handler for
+                        ;;read-only foreign tables. Note: tables where tests INSERT/UPDATE
+                        ;;data will fail if the column type changes from Utf8 to Timestamp
+                        ;;because Arrow's timestamp parser rejects non-ISO date strings
+                        ;;like '1972-2-29 00:00:00'. This needs write-path fixes before
+                        ;;enabling for writable tables.
+                        using uft select
+                        ("YYYYMMDD"),
+                            mreturn "UserDate_YYYYMMDD"
+                        ("YYMMDD"),
+                            mreturn "UserDate_YYMMDD"
+                        ("DDMMYYYY"),
+                            mreturn "UserDate_DDMMYYYY"
+                        ("YYYYMMDDHHMMSS", "YYYYMMDDHHMISS"),
+                            mreturn "UserDate_YYYYMMDDHHMMSS"
+                        ("HHMMSS", "HHMISS"),
+                            mreturn "UserDate_HHMMSS"
+                        ("HHMM"),
+                            mreturn "UserDate_HHMM"
+                        (),
+                            mreturn "Utf8"
+                        endusing
+                    end
+                    endusing
+                end
+
+            (RpsFieldDataType.Decimal),
+
+            ;TODO: Compiler bug
+            ;if (fld.LongDescription.Contains("HARMONYCORE_CUSTOM_FIELD_TYPE=MaybeTwoDecimalPlaces;",StringComparison.OrdinalIgnoreCase)) then
+                if (fld.LongDescription.ToUpper().Contains("HARMONYCORE_CUSTOM_FIELD_TYPE=MAYBETWODECIMALPLACES;")) then
+                begin
+                    data regexResult = Regex.Match(fld.LongDescription,"HARMONYCORE_CUSTOM_FIELD_PARAM=([^;]*)")
+
+                    if (regexResult.Success)
+                    begin
+                        data supportingFieldName = regexResult.Groups[1].Value
+                        data supportingField = flds.FirstOrDefault(lambda(f) { f.Name.Equals(supportingFieldName) })
+
+                        if (supportingField == ^null)
+                            throw new Exception(String.Format("Field {0} defines HARMONYCORE_CUSTOM_FIELD_PARAM as {1} but no such field was found!",fld.Name,supportingFieldName))
+
+                        mreturn String.Format("MaybeTwoDecimalPlaces|{0}",supportingField.LogicalFieldNumber-1)
+                    end
+
+                    throw new Exception(String.Format("Field {0} has HARMONYCORE_CUSTOM_FIELD_TYPE but no marching HARMONYCORE_CUSTOM_FIELD_PARAM",fld.Name))
+                end
+                else
+                begin
+                    using fld.DataTypeSubclass select
+                    (RpsFieldSubclass.DateYYYYMMDD),
+                        mreturn  "Date32"
+                    (RpsFieldSubclass.DateYYMMDD),
+                        mreturn "Date32"
+                    (RpsFieldSubclass.DateYYYYJJJ),
+                        mreturn "Date32"
+                    (RpsFieldSubclass.DateYYJJJ),
+                        mreturn "Date32"
+                    (RpsFieldSubclass.DateYYYYPP),
+                        mreturn "Utf8"
+                    (RpsFieldSubclass.DateYYPP),
+                        mreturn "Utf8"
+                    (RpsFieldSubclass.TimeHHMMSS),
+                        mreturn "Time32"   ;TODO: Thought this needed to be "Time32('s')"
+                    (RpsFieldSubclass.TimeHHMM),
+                        mreturn "Time32"   ;TODO: Thought this needed to be "Time32('s')"
+                    (),
+                        if (fld.Precision) then
+                            mreturn "Decimal128"
+                        else
+                            if (fld.Size<=9) then
+                                mreturn "Int32"
+                            else if (fld.Size <= 18) then
+                                mreturn "Int64"
+                            else
+                                mreturn "Decimal128"
+                    endusing
+                end
+
+            (RpsFieldDataType.Integer),
+                using fld.Size select
+                (1), mreturn "Int8"
+                (2), mreturn "Int16"
+                (4), mreturn "Int32"
+                (8), mreturn "Int64"
+                endusing
+
+            (RpsFieldDatatype.Boolean),
+                mreturn "Boolean"
+
+            (RpsFieldDataType.Enum),        ;Can't happen because of %CheckStructure
+                mreturn fld.EnumName
+
+            (RpsFieldDataType.Binary),      ;Can't happen because of %CheckStructure
+                mreturn "FixedSizeBinary"
+
+            (RpsFieldDataType.Structfield), ;Can't happen because of %CheckStructure
+                mreturn String.Format("str{0}",fld.StructFieldStructure)
+
+            (RpsFieldDataType.AutoSequence),
+                mreturn "Int64"
+
+            (RpsFieldDataType.AutoTime),
+                mreturn "Int64"
+
+            endusing
+
+            ;If the field has an explicit coercion then use it
+            if (fld.CoercedType!=RpsFieldCoercedType.CtNone)
+                using fld.CoercedType select
+                (RpsFieldCoercedType.CtByte),
+                    mreturn "Int8"
+                (RpsFieldCoercedType.CtShort),
+                    mreturn "Int16"
+                (RpsFieldCoercedType.CtInt),
+                    mreturn "Int32"
+                (RpsFieldCoercedType.CtLong),
+                    mreturn "Int64"
+                (RpsFieldCoercedType.CtSbyte),
+                    mreturn "UInt18"
+                (RpsFieldCoercedType.CtUshort),
+                    mreturn "UInt16"
+                (RpsFieldCoercedType.CtUint),
+                    mreturn "UInt32"
+                (RpsFieldCoercedType.CtUlong),
+                    mreturn "UInt64"
+                (RpsFieldCoercedType.CtBoolean),
+                    mreturn "Boolean"
+                (RpsFieldCoercedType.CtDouble),
+                    mreturn "Float64"
+                (RpsFieldCoercedType.CtFloat),
+                    mreturn "Float32"
+                (RpsFieldCoercedType.CtNullDateTime),
+                    mreturn "Date64"
+                endusing
+
+            mreturn "?"
+
+        endmethod
 
     endclass
     
