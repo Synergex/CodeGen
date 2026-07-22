@@ -1,44 +1,44 @@
-;;*****************************************************************************
-;;
-;; Title:       RpsTag.dbl
-;;
-;; Type:        Class
-;;
-;; Description: Represents a single tag definition for a Repository structure
-;;
-;; Date:        19th October 2007
-;;
-;; Author:      Steve Ives, Synergex Professional Services Group
-;;              http://www.synergex.com
-;;
-;;*****************************************************************************
-;;
-;; Copyright (c) 2012, Synergex International, Inc.
-;; All rights reserved.
-;;
-;; Redistribution and use in source and binary forms, with or without
-;; modification, are permitted provided that the following conditions are met:
-;;
-;; * Redistributions of source code must retain the above copyright notice,
-;;   this list of conditions and the following disclaimer.
-;;
-;; * Redistributions in binary form must reproduce the above copyright notice,
-;;   this list of conditions and the following disclaimer in the documentation
-;;   and/or other materials provided with the distribution.
-;;
-;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-;; POSSIBILITY OF SUCH DAMAGE.
-;;
-;;*****************************************************************************
+;******************************************************************************
+;
+; Title:       RpsTag.dbl
+;
+; Type:        Class
+;
+; Description: Represents a single tag definition for a Repository structure
+;
+; Date:        19th October 2007
+;
+; Author:      Steve Ives, Synergex Professional Services Group
+;              http://www.synergex.com
+;
+;******************************************************************************
+;
+; Copyright (c) 2012, Synergex International, Inc.
+; All rights reserved.
+;
+; Redistribution and use in source and binary forms, with or without
+; modification, are permitted provided that the following conditions are met:
+;
+; * Redistributions of source code must retain the above copyright notice,
+;   this list of conditions and the following disclaimer.
+;
+; * Redistributions in binary form must reproduce the above copyright notice,
+;   this list of conditions and the following disclaimer in the documentation
+;   and/or other materials provided with the distribution.
+;
+; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+; POSSIBILITY OF SUCH DAMAGE.
+;
+;******************************************************************************
 
 .define DDINFO_DEFINES_ONLY
 .include "RPSLIB:ddinfo.def"
@@ -47,6 +47,7 @@
 import CodeGen.RepositoryAPI
 import Newtonsoft.Json
 import Newtonsoft.Json.Converters
+import System.Linq
 
 namespace CodeGen.RepositoryAPI
 
@@ -63,7 +64,7 @@ namespace CodeGen.RepositoryAPI
             mreturn String.Format("RpsTag: {0}",mTagName)
         endmethod
 
-        ;;Tag attribute data
+        ; Tag attribute data
         protected mtg_info  ,tg_info
         protected mTagName  ,String
 
@@ -83,29 +84,29 @@ namespace CodeGen.RepositoryAPI
             LoadTag(StructureName,TagName)
         endmethod
 
-        ;; LoadTag method
+        ; LoadTag method
         private method LoadTag, void
             required in StructureName, String
             required in TagName, String
             endparams
         proc
-            ;;Save the tag name
+            ; Save the tag name
             mTagName = TagName.Trim().ToUpper()
             begin
                 data ms_info, s_info
-                ;;Set the current structure?
+                ; Set the current structure?
                 dd_struct(mRepository.RpsControl,DDS_INFO,StructureName,^a(ms_info))
                 if (mRepository.RpsControl.error)
                     throw new RpsTagException("Failed to set current repository structure to "+StructureName)
-                ;;Load tag information
+                ; Load tag information
                 dd_tag(mRepository.RpsControl,DDTG_INFO,mTagName,^a(mtg_info))
                 if (mRepository.RpsControl.error)
                     throw new RpsTagException("Failed to load structure "+StructureName+" tag "+TagName+".")
             end
         endmethod
 
-        ;;---------------------------------------------------------------------
-        ;;Public properties to expose tag data to the outside world
+        ; ---------------------------------------------------------------------
+        ; Public properties to expose tag data to the outside world
 
         ;;; <summary>
         ;;; Tag name
@@ -171,6 +172,63 @@ namespace CodeGen.RepositoryAPI
                 mreturn %atrim(mtg_info.tgi_tagval)
             endmethod
         endproperty
+
+
+        ; ---------------------------------------------------------------------
+        ; Public methods
+
+        ;;; <summary>
+        ;;; Translate a tag operator into a string representation
+        ;;; </summary>
+        public static method TranslateTagOperator, string
+            required in tagOperator, RpsTagOperator
+        proc
+            using tagOperator select
+            (RpsTagOperator.OpEQ),
+                mreturn "=="
+            (RpsTagOperator.OpNE),
+                mreturn "!="
+            (RpsTagOperator.OpLE),
+                mreturn "<="
+            (RpsTagOperator.OpLT),
+                mreturn "<"
+            (RpsTagOperator.OpGE),
+                mreturn ">="
+            (RpsTagOperator.OpGT),
+                mreturn ">"
+            endusing
+        endmethod
+
+        ;;; <summary>
+        ;;; Translate a tag connector into a string representation
+        ;;; </summary>
+        public static method TranslateTagConnector, string
+            required in tagConnector, RpsTagComparison
+        proc
+            using tagConnector select
+            (RpsTagComparison.CompareAnd),
+                mreturn "&&"
+            (RpsTagComparison.CompareOr),
+                mreturn "||"
+            endusing
+        endmethod
+
+        ;;; <summary>
+        ;;; Translate a tag value into a string representation
+        ;;; </summary>
+        public static method TranslateTagValue, string
+            required in fields, @RpsFieldCollection
+            required in tag, @RpsTag
+        proc
+            data fld = fields.First(lambda(f) { f.Name.Equals(tag.Field) } )
+            using fld.DataTypeCode select
+            ("A","U"),
+                mreturn String.Format("""{0,-" + %string(fld.Size) + "}""",tag.ComparisonValue)
+            (),
+                mreturn tag.ComparisonValue
+            endusing
+            mreturn ""
+        endmethod
 
     endclass
 

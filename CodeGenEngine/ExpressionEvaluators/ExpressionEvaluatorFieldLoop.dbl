@@ -132,6 +132,8 @@ namespace CodeGen.Engine
             fieldLoopExpressionEvaluators.Add("FIRST_UNIQUE_KEY_SEGMENT", evaluateFirstUniqueKeySegment)
             fieldLoopExpressionEvaluators.Add("FORMAT", evaluateFieldFormat)
             fieldLoopExpressionEvaluators.Add("GROUP", evaluateFieldGroup)
+            fieldLoopExpressionEvaluators.Add("GROUP_EXPLICIT", evaluateFieldGroupExplicit)
+            fieldLoopExpressionEvaluators.Add("GROUP_IMPLICIT", evaluateFieldGroupImplicit)
             fieldLoopExpressionEvaluators.Add("GROUP_OVERLAY", evaluateFieldGroupOverlay)
             fieldLoopExpressionEvaluators.Add("GROUP_MEMBER_PREFIX", evaluateFieldGroupMemberPrefix)
             fieldLoopExpressionEvaluators.Add("GROUP_MEMBER_PREFIX_COMPILER", evaluateFieldGroupMemberPrefixCompiler)
@@ -244,6 +246,8 @@ namespace CodeGen.Engine
             fieldLoopExpressionEvaluators.Add("REVERSE", evaluateFieldReverse)
             fieldLoopExpressionEvaluators.Add("SELECTIONS", evaluateFieldSelections)
             fieldLoopExpressionEvaluators.Add("SELWND", evaluateFieldSelWnd)
+            fieldLoopExpressionEvaluators.Add("SQLDBTYPE_SIZE", evaluateFieldPositionDbTypeSize)
+            fieldLoopExpressionEvaluators.Add("SQLDBTYPE_PRECISION", evaluateFieldPositionDbTypePrecision)
             fieldLoopExpressionEvaluators.Add("STRUCTFIELD", evaluateFieldStructField)
             fieldLoopExpressionEvaluators.Add("TEXTBOX", evaluateFieldTextBox)
             fieldLoopExpressionEvaluators.Add("TIME", evaluateFieldTime)
@@ -1275,6 +1279,36 @@ namespace CodeGen.Engine
             mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
+        private static method evaluateFieldPositionDbTypeSize, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                using (a)(field.SqlType) select
+                (.eq."CHAR",.eq."DECIMAL",.eq."VARCHAR"),
+                    mreturn true
+                endusing
+                mreturn false
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldPositionDbTypePrecision, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                mreturn (field.SqlType.StartsWith("DECIMAL") && field.SqlType.Contains(","))
+            end
+            mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
         private static method evaluateFieldFormat, boolean
             tkn, @Token 
             template, @FileNode 
@@ -1292,6 +1326,30 @@ namespace CodeGen.Engine
             endparams
         proc
             lambda doEvaluate(str, field, index) (field.GroupType != RpsFieldGroup.No)
+            mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldGroupExplicit, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            &    field.GroupType != RpsFieldGroup.No
+            &    && String.IsNullOrWhiteSpace(field.GroupStructure)
+            mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+        endmethod
+
+        private static method evaluateFieldGroupImplicit, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+            endparams
+        proc
+            lambda doEvaluate(str, field, index)
+            &    field.GroupType != RpsFieldGroup.No
+            &    && !String.IsNullOrWhiteSpace(field.GroupStructure)
             mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
         endmethod
 
@@ -2832,6 +2890,33 @@ namespace CodeGen.Engine
 
                 ;; Return the result
                 mreturn tkn.Value.StartsWith("CUSTOM_NOT_") ? !found : found
+            end
+
+            ;; We get here for any field loop expression <IF CUSTOM_xxx> or <IF_CUSTOM_NOT_xxx> and we are
+            ;; looking for text to be or not to be present in the current fields user text or long description.
+            mreturn EvaluateFieldLoopExpression(tkn, template, loops, doEvaluate)
+
+        endmethod
+
+        private static method evaluateFieldHcCustomType, boolean
+            tkn, @Token 
+            template, @FileNode 
+            loops, @IEnumerable<LoopNode> 
+        proc
+            lambda doEvaluate(str, field, index)
+            begin
+                ;; Extract the search text from the token
+                data searchText, string, tkn.Value.ToUpper().Replace("HARMONYCORE_CUSTOM_FIELD_TYPE_", "")
+
+                ;; Make sure we have search text
+                if (String.IsNullOrWhiteSpace(searchText))
+                    throw new ApplicationException(String.Format("Invalid custom field expression token {0} at line {1} in template {2}", tkn.Value, tkn.StartLineNumber, template.Context.CurrentTemplateBaseName))
+
+                ;Expand it to the full sting that we're looking for
+                searchText = String.Format("HARMONYCORE_CUSTOM_FIELD_TYPE={0};",searchText).ToUpper()
+
+                ;Is it there? Return the result
+                mreturn ((field.UserText.ToUpper().Contains(searchText)) || (field.LongDescription.ToUpper().Contains(searchText)))
             end
 
             ;; We get here for any field loop expression <IF CUSTOM_xxx> or <IF_CUSTOM_NOT_xxx> and we are
