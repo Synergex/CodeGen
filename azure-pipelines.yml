@@ -12,7 +12,7 @@ trigger: none
 
 jobs:
 - job: CodeGenBuild
-  timeoutInMinutes: 10
+  timeoutInMinutes: '10'
 
   pool:
    name: 'CodeGen Pool'
@@ -32,8 +32,17 @@ jobs:
     value: 'Deploy'
 
   steps:
+
   - task: NuGetToolInstaller@1
     displayName: 'Get NuGet tool'
+    inputs:
+      versionSpec: '7.x'
+
+  - task: NuGetCommand@2
+    displayName: 'Get NuGet tool'
+    inputs:
+      command: 'restore'
+      restoreSolution: '**/*.slnx'
 
   - task: NuGetCommand@2
     displayName: 'Restore NuGet packages'
@@ -44,13 +53,12 @@ jobs:
     displayName: 'Configure SDE environment'
     inputs:
       filename: '$(SYNERGYDE32)\dbl\dblvars32.bat'
-      arguments: 
       modifyEnvironment: true
 
   - task: VSBuild@1
     displayName: 'Build CodeGen solution and installer'
     inputs:
-      solution: 'CodeGen.sln'
+      solution: 'CodeGen.slnx'
       platform: '$(buildPlatform)'
       configuration: '$(buildConfiguration)'
       vsVersion: "17.0"
@@ -58,7 +66,7 @@ jobs:
   - task: VSBuild@1
     displayName: 'Build CodeGenCore solution'
     inputs:
-      solution: 'DotNetCore/CodeGenCore.sln'
+      solution: 'DotNetCore/CodeGenCore.slnx'
       platform: '$(buildPlatform)'
       configuration: '$(buildConfiguration)'
       vsVersion: "17.0"
@@ -77,8 +85,9 @@ jobs:
   - task: PublishBuildArtifacts@1
     displayName: 'Save MSI file as artifact'
     inputs:
-      pathToPublish: 'bin\release\CodeGen_$(currentVersion).msi' 
-      artifactName: 'CodeGen-Installer' 
+      PathtoPublish: 'bin\release\CodeGen_$(currentVersion).msi' 
+      ArtifactName: 'CodeGen-Installer'
+      publishLocation: 'Container'
 
   - script: |
       nuget pack RepositoryAPI.nuspec -Version $(currentVersion)
@@ -87,5 +96,6 @@ jobs:
   - task: PublishBuildArtifacts@1
     displayName: 'Save NuGet package as artifact'
     inputs:
-      pathToPublish: 'RepositoryAPI.$(currentVersion).nupkg' 
-      artifactName: 'RepositoryAPI-Package' 
+      PathtoPublish:  'RepositoryAPI.$(currentVersion).nupkg' 
+      ArtifactName: 'RepositoryAPI-Package'
+      publishLocation: 'Container' 
