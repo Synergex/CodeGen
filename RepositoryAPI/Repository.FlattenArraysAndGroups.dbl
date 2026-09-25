@@ -62,6 +62,7 @@ namespace CodeGen.RepositoryAPI
 
             ErrStatus = false
             ErrorMessage = ""
+            Struct.OverlayFields.Clear()
 
             ; ==========================================================================================
             ; STRUCTURE VALIDATION
@@ -101,6 +102,11 @@ namespace CodeGen.RepositoryAPI
                     &    || Field.GroupType==RpsFieldGroup.Overlay
                     &    || Field.ExcludedByLanguage )
                     begin
+                        ;; Preserve excluded overlays for callers that need to
+                        ;; interpret key segments after normal field flattening.
+                        if (((!String.IsNullOrWhiteSpace(Field.OverlaysField)) || (Field.GroupType==RpsFieldGroup.Overlay)) &&
+                        &   !Struct.OverlayFields.Contains(Field))
+                            Struct.OverlayFields.Add(Field)
                         Struct.Fields.RemoveAt(ix)
                         ix-=1
                         nextloop
@@ -477,8 +483,14 @@ namespace CodeGen.RepositoryAPI
                         ; Exclude overlays (unless overridden) and apply optional field level filters
                         if ( !String.IsNullOrWhiteSpace(Child.OverlaysField)
                         &    || Field.GroupType==RpsFieldGroup.Overlay
+                        &    || Child.GroupType==RpsFieldGroup.Overlay
                         &    || Field.ExcludedByLanguage)
+                        begin
+                            if (((!String.IsNullOrWhiteSpace(Child.OverlaysField)) || (Child.GroupType==RpsFieldGroup.Overlay)) &&
+                            &   !Struct.OverlayFields.Contains(Child))
+                                Struct.OverlayFields.Add(Child)
                             nextloop
+                        end
 
                         ;The child field is going to become part of the parent structure, so set its "FieldNumber" property to the same as the parent field
 

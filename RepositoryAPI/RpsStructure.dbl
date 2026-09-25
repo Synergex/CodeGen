@@ -70,6 +70,7 @@ namespace CodeGen.RepositoryAPI
         protected mLongDescription  ,String
         protected mUserText         ,String
         protected mFields           ,@RpsFieldCollection
+        protected mOverlayFields    ,@RpsFieldCollection
         protected mKeys             ,@RpsKeyCollection
         protected mFiles            ,@RpsFileCollection
         protected mTags             ,@RpsTagCollection
@@ -83,6 +84,7 @@ namespace CodeGen.RepositoryAPI
             required in aRepository, @Repository
         proc
             mRepository = aRepository
+            mOverlayFields = new RpsFieldCollection(aRepository)
         endmethod
 
         ;;; <summary>
@@ -102,6 +104,7 @@ namespace CodeGen.RepositoryAPI
             endrecord
         proc
             mRepository = aRepository
+            mOverlayFields = new RpsFieldCollection(aRepository)
             mDescription = ""
             mLongDescription = ""
             mUserText = ""
@@ -135,6 +138,7 @@ namespace CodeGen.RepositoryAPI
                 data newLen, int
 
                 ;; Remove all fields except for the specified group
+                mOverlayFields.Clear()
                 ix = -1
                 while ((ix+=1)<this.Fields.Count)
                 begin
@@ -217,12 +221,14 @@ namespace CodeGen.RepositoryAPI
                 str ,string
             endrecord
         proc
+            mRepository = aRepository
             mDescription = ""
             mLongDescription = ""
             mUserText = ""
 
             str = StructureName.Trim().ToUpper()
             mFields = Fields
+            mOverlayFields = new RpsFieldCollection(aRepository)
             mRepository.CheckIsOpen()
             LoadStructure(str)
         endmethod
@@ -242,11 +248,13 @@ namespace CodeGen.RepositoryAPI
                 str ,string
             endrecord
         proc
+            mRepository = aRepository
             mStructureName = aStructureName.Trim().ToUpper()
             mDescription = String.Empty
             mLongDescription = String.Empty
             mUserText = String.Empty
             mFields = aFields
+            mOverlayFields = new RpsFieldCollection(aRepository)
             mKeys = new RpsKeyCollection(mRepository)
             mFiles = new RpsFileCollection(mRepository)
             mTags = new RpsTagCollection(mRepository)
@@ -275,7 +283,7 @@ namespace CodeGen.RepositoryAPI
         ;; Destructor
         method ~RpsStructure
         proc
-            clear mFields, mKeys, mFiles, mTags, mFormats, mRelations
+            clear mFields, mOverlayFields, mKeys, mFiles, mTags, mFormats, mRelations
         endmethod
 
         ;; LoadStructure method
@@ -332,6 +340,9 @@ namespace CodeGen.RepositoryAPI
             if (mFields==^null)
                 mFields = new RpsFieldCollection(mRepository,RpsFieldCollectionMode.Structure,mStructureName,UseAlternateFieldNames)
 
+            if (mOverlayFields==^null)
+                mOverlayFields = new RpsFieldCollection(mRepository)
+
             ;; Now load the other collection properties
 
             mKeys = new RpsKeyCollection(mRepository,mStructureName)
@@ -365,6 +376,21 @@ namespace CodeGen.RepositoryAPI
             method get
             proc
                 mreturn mFields
+            endmethod
+        endproperty
+
+        {JsonIgnore}
+        ;;; <summary>
+        ;;; Overlay fields removed during CodeGen structure processing.
+        ;;; These fields remain available for optional key segment expansion,
+        ;;; but are not included in the normal Fields collection.
+        ;;; </summary>
+        public property OverlayFields, @RpsFieldCollection
+            method get
+            proc
+                if (mOverlayFields==^null)
+                    mOverlayFields = new RpsFieldCollection(mRepository)
+                mreturn mOverlayFields
             endmethod
         endproperty
 

@@ -1,4 +1,4 @@
-;; *****************************************************************************
+ ;; *****************************************************************************
 ;; 
 ;;  Title:       TokenExpanderSegmentLoop.dbl
 ;; 
@@ -528,17 +528,25 @@ namespace CodeGen.Engine
             loops, @IEnumerable<LoopNode> 
             endparams
         proc
+            lambda isSegmentLoop(node) node .is. SegmentLoopNode
+            data segmentLoop, @SegmentLoopNode, ^as(loops.First(isSegmentLoop), SegmentLoopNode)
+
             lambda doExpand(str, ky, segment, index)
             begin
                 data value, string, ""
+                data segmentCount, int, segmentLoop.ExpandedSegments != ^null ? segmentLoop.ExpandedSegments.Count : ky.Segments.Count
 
                 ;We should return a comma only if there are one or more subsequent segments that are NOT marked as TAG fields.
-                if (index < ky.Segments.Count - 1)
+                if (index < segmentCount - 1)
                 begin
                     data ix = 0
-                    for ix from index + 1 thru ky.Segments.Count - 1
+                    for ix from index + 1 thru segmentCount - 1
                     begin
-                        data thisSegment, @RpsKeySegment, ky.Segments[ix]
+                        data thisSegment, @RpsKeySegment
+                        if (segmentLoop.ExpandedSegments != ^null) then
+                            thisSegment = segmentLoop.ExpandedSegments[ix].Item1
+                        else
+                            thisSegment = ky.Segments[ix]
                         data segmentFieldName, string, thisSegment.Field
 
 ;COMPILER BUG: segmentFieldName not found

@@ -183,7 +183,7 @@ relations.
 | --- | --- |
 | Identity and text | `Name`, `Description`, `LongDescription`, `UserText`, `Alias` |
 | Physical definition | `FileType`, `Length`, `ChildCount`, `TagType`, `FirstFile` |
-| Children | `Fields`, `Keys`, `Files`, `Tags`, `Formats`, `Relations` |
+| Children | `Fields`, `OverlayFields`, `Keys`, `Files`, `Tags`, `Formats`, `Relations` |
 | CodeGen metadata | `MappedStructure`, `MappedFileSpec`, `DisplayField`, `IsFake` |
 | Raw interop | `ddlib_s_info` exposes the underlying `s_info` record. |
 
@@ -194,6 +194,10 @@ structure has no Repository files, keys, tags, formats, or relations.
 
 An implicit group remains a field with `GroupStructure` naming the source
 structure and `GroupFields` containing fields loaded from that structure.
+
+When a caller flattens a structure for code generation, overlay fields removed
+from `Fields` are retained in `OverlayFields` so key-processing code can use
+their position and size without exposing them as normal columns.
 
 ### Fields
 

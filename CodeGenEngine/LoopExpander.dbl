@@ -1070,6 +1070,157 @@ namespace CodeGen.Engine
 
         endmethod
 
+        private static method isOverlayField, boolean
+            required in field, @RpsField
+        proc
+            mreturn ((!String.IsNullOrWhiteSpace(field.OverlaysField)) || (field.GroupType==RpsFieldGroup.Overlay))
+        endmethod
+
+        private static method getOverlayFieldForSegment, @RpsField
+            required in str, @RpsStructure
+            required in seg, @RpsKeySegment
+        proc
+            data overlayField, @RpsField
+
+            ;; OverlayFields contains overlays that were removed during structure
+            ;; validation. If overlays were explicitly included, find them in the
+            ;; normal field collection instead.
+            overlayField = str.OverlayFields.FirstOrDefault(lambda (field) { (field.OriginalName == seg.Field) || (field.Name == seg.Field) || (field.OriginalNameModified == seg.Field) })
+
+            if (overlayField == ^null)
+                overlayField = str.Fields.FirstOrDefault(lambda (field) { isOverlayField(field) && ((field.OriginalName == seg.Field) || (field.Name == seg.Field) || (field.OriginalNameModified == seg.Field)) })
+
+            mreturn overlayField
+        endmethod
+
+        private static method getUnderlyingOverlayFields, @List<RpsField>
+            required in str, @RpsStructure
+            required in overlayField, @RpsField
+            required in seg, @RpsKeySegment
+        proc
+            data underlyingFields, @List<RpsField>, new List<RpsField>()
+            data overlayStart, int, overlayField.StartPosition
+            data overlayEnd, int, overlayField.StartPosition + overlayField.Size - 1
+            data targetStart, int, overlayStart
+            data targetEnd, int, overlayEnd
+
+            ;; The key segment must describe the complete overlay. A partial
+            ;; overlay span is not safe to expose as a set of physical columns.
+            if ((seg.Position <= 0) || (seg.Length <= 0) ||
+            &   (overlayStart <= 0) || (overlayField.Size <= 0) ||
+            &   (seg.Position != overlayStart) ||
+            &   (seg.Length != overlayField.Size))
+                throw new ApplicationException(String.Format("When processing structure {0} key segment overlay field {1} at position {2} length {3} could not be mapped cleanly to multiple contiguous fields.", str.Name, overlayField.OriginalName, overlayStart, overlayField.Size))
+
+            data nextPosition, int, targetStart
+            while (nextPosition <= targetEnd)
+            begin
+                data matchingField, @RpsField
+                data field, @RpsField
+
+                foreach field in str.Fields
+                begin
+                    if (!isOverlayField(field) && field.StartPosition == nextPosition &&
+                    &   field.Size > 0 && ((field.StartPosition + field.Size - 1) <= targetEnd))
+                    begin
+                        if (matchingField != ^null)
+                        begin
+                            throw new ApplicationException(String.Format("When processing structure {0} key segment overlay field {1} at position {2} length {3} could not be mapped cleanly to multiple contiguous fields.", str.Name, overlayField.OriginalName, overlayStart, overlayField.Size))
+                        end
+                        matchingField = field
+                    end
+                end
+
+                if (matchingField == ^null)
+                    throw new ApplicationException(String.Format("When processing structure {0} key segment overlay field {1} at position {2} length {3} could not be mapped cleanly to multiple contiguous fields.", str.Name, overlayField.OriginalName, overlayStart, overlayField.Size))
+
+                underlyingFields.Add(matchingField)
+                nextPosition += matchingField.Size
+            end
+
+            if ((nextPosition != targetEnd + 1) || (underlyingFields.Count < 2))
+                throw new ApplicationException(String.Format("When processing structure {0} key segment overlay field {1} at position {2} length {3} could not be mapped cleanly to multiple contiguous fields.", str.Name, overlayField.OriginalName, overlayStart, overlayField.Size))
+
+            mreturn underlyingFields
+        endmethod
+
+        private static method getKeySegmentLoopItems, @List<Tuple<RpsKeySegment,RpsField,int>>
+            required in str, @RpsStructure
+            required in key, @RpsKey
+            required in startIndex, int
+            required in endIndex, int
+            required in expandOverlays, boolean
+        proc
+            data items, @List<Tuple<RpsKeySegment,RpsField,int>>, new List<Tuple<RpsKeySegment,RpsField,int>>()
+
+            if ((startIndex >= 0) && (endIndex >= startIndex))
+            begin
+                data ix, int
+                for ix from startIndex thru endIndex
+                begin
+                    data segment, @RpsKeySegment, key.Segments[ix]
+
+                    if (segment.SegmentType == RpsKeySegmentType.Field) then
+                    begin
+                        data overlayField, @RpsField
+
+                        if (expandOverlays)
+                            overlayField = getOverlayFieldForSegment(str, segment)
+
+                        if (overlayField != ^null) then
+                        begin
+                            data underlyingFields, @List<RpsField>, getUnderlyingOverlayFields(str, overlayField, segment)
+                            data underlyingField, @RpsField
+                            data expandedPosition, d, 0
+                            data expandedLength, d, 0
+                            data expandedDataType, d, 0
+                            data expandedOrder, d, 0
+
+                            foreach underlyingField in underlyingFields
+                            begin
+                                ;; The expanded segment retains key-level data type and
+                                ;; ordering metadata, but gets the physical field's name,
+                                ;; position and length so field and SQL tokens operate on
+                                ;; the actual column.
+                                expandedPosition = underlyingField.StartPosition
+                                expandedLength = underlyingField.Size
+                                expandedDataType = %integer(segment.DataType)
+                                expandedOrder = %integer(segment.Order)
+
+                                data expandedSegment, @RpsKeySegment, new RpsKeySegment
+                                &   (
+                                &       "F",
+                                &       expandedPosition,
+                                &       expandedLength,
+                                &       underlyingField.OriginalName,
+                                &       segment.Structure,
+                                &       String.Empty,
+                                &       expandedDataType,
+                                &       expandedOrder
+                                &   )
+
+                                items.Add(Tuple.Create(expandedSegment, underlyingField, ix))
+                            end
+                        end
+                        else
+                        begin
+                            data field, @RpsField, str.Fields.FirstOrDefault(lambda (fld) { fld.OriginalName == segment.Field })
+                            if (field == ^null)
+                                throw new ApplicationException(String.Format("When processing structure {0} key segment field {1} was not found.", str.Name, segment.Field))
+                            items.Add(Tuple.Create(segment, field, ix))
+                        end
+                    end
+                    else
+                    begin
+                        data noField, @RpsField
+                        items.Add(Tuple.Create(segment, noField, ix))
+                    end
+                end
+            end
+
+            mreturn items
+        endmethod
+
         private static method processKeySegmentLoop, void
             required in node,       @LoopNode 
             required in template,   @FileNode 
@@ -1083,17 +1234,32 @@ namespace CodeGen.Engine
 
             if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
+                data segmentItems, @List<Tuple<RpsKeySegment,RpsField,int>>
+                data lastSegment, int, outerLoop.CurrentKey.Segments.Count - 1
+                if (outerLoop.HighestSegmentToProcess)
+                    lastSegment = outerLoop.HighestSegmentToProcess - 1
+                segmentItems = getKeySegmentLoopItems
+                &   (
+                &       currentStructure,
+                &       outerLoop.CurrentKey,
+                &       0,
+                &       lastSegment,
+                &       context.CurrentTask.ExpandOverlayKeySegments
+                &   )
+
                 loop.CurrentKey = outerLoop.CurrentKey
-                loop.MaxIndex = outerLoop.HighestSegmentToProcess ? outerLoop.HighestSegmentToProcess - 1 : outerLoop.CurrentKey.Segments.Count - 1
+                loop.ExpandedSegments = segmentItems
+                loop.MaxIndex = segmentItems.Count - 1
 
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
                 data ix, int
-                for ix from 0 thru loop.MaxIndex
+                for ix from 0 thru segmentItems.Count - 1
                 begin
-                    loop.CurrentSegment = outerLoop.CurrentKey.Segments[ix]
+                    loop.CurrentSegment = segmentItems[ix].Item1
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
+                    loop.CurrentSourceIndex = segmentItems[ix].Item3
+                    loop.CurrentField = segmentItems[ix].Item2
 
                     expander.Visit(node.Body)
                 end
@@ -1134,17 +1300,30 @@ namespace CodeGen.Engine
 
             if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
+                data segmentItems, @List<Tuple<RpsKeySegment,RpsField,int>>, new List<Tuple<RpsKeySegment,RpsField,int>>()
+                if (outerLoop.CurrentKey.Segments.Count > 1)
+                    segmentItems = getKeySegmentLoopItems
+                    &   (
+                    &       currentStructure,
+                    &       outerLoop.CurrentKey,
+                    &       0,
+                    &       outerLoop.CurrentKey.Segments.Count - 2,
+                    &       context.CurrentTask.ExpandOverlayKeySegments
+                    &   )
+
                 loop.CurrentKey = outerLoop.CurrentKey
-                loop.MaxIndex = outerLoop.CurrentKey.Segments.Count - 2
+                loop.ExpandedSegments = segmentItems
+                loop.MaxIndex = segmentItems.Count - 1
 
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
                 data ix, int, 0
-                while (ix < outerLoop.CurrentKey.Segments.Count - 1) do
+                while (ix < segmentItems.Count) do
                 begin
-                    loop.CurrentSegment = outerLoop.CurrentKey.Segments[ix]
+                    loop.CurrentSegment = segmentItems[ix].Item1
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
+                    loop.CurrentSourceIndex = segmentItems[ix].Item3
+                    loop.CurrentField = segmentItems[ix].Item2
 
                     expander.Visit(node.Body)
 
@@ -1168,15 +1347,30 @@ namespace CodeGen.Engine
             if (outerLoop.CurrentKey.Segments.Count > 0)
             begin
                 ;; Only process the first segment
+                data segmentItems = getKeySegmentLoopItems
+                &   (
+                &       currentStructure,
+                &       outerLoop.CurrentKey,
+                &       0,
+                &       0,
+                &       context.CurrentTask.ExpandOverlayKeySegments
+                &   )
+
                 loop.CurrentKey = outerLoop.CurrentKey
-                loop.CurrentSegment = outerLoop.CurrentKey.Segments[0]
-                loop.CurrentIndex = 0
-                loop.MaxIndex = 0
-                loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
+                loop.ExpandedSegments = segmentItems
+                loop.MaxIndex = segmentItems.Count - 1
 
-                context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> 1 segment", string.Format("<{0}>", loop.OpenToken.Value)))
+                context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), segmentItems.Count))
 
-                expander.Visit(node.Body)
+                data ix, int
+                for ix from 0 thru segmentItems.Count - 1
+                begin
+                    loop.CurrentSegment = segmentItems[ix].Item1
+                    loop.CurrentIndex = ix
+                    loop.CurrentSourceIndex = segmentItems[ix].Item3
+                    loop.CurrentField = segmentItems[ix].Item2
+                    expander.Visit(node.Body)
+                end
             end
 
         endmethod
@@ -1195,15 +1389,33 @@ namespace CodeGen.Engine
             if (outerLoop.CurrentKey.Segments.Count > 1)
             begin
                 ;; Only process the second segment
+                data segmentItems = getKeySegmentLoopItems
+                &   (
+                &       currentStructure,
+                &       outerLoop.CurrentKey,
+                &       1,
+                &       1,
+                &       context.CurrentTask.ExpandOverlayKeySegments
+                &   )
+
                 loop.CurrentKey = outerLoop.CurrentKey
-                loop.CurrentSegment = outerLoop.CurrentKey.Segments[1]
-                loop.CurrentIndex = 1
-                loop.MaxIndex = 1
-                loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
+                loop.ExpandedSegments = segmentItems
+                ;; Preserve the historical second-segment index (1) unless
+                ;; the second source segment was actually expanded.
+                data expandedSecondSegment, boolean, context.CurrentTask.ExpandOverlayKeySegments && segmentItems.Count > 1
+                loop.MaxIndex = expandedSecondSegment ? segmentItems.Count - 1 : 1
 
-                context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> 1 segment", string.Format("<{0}>", loop.OpenToken.Value)))
+                context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), segmentItems.Count))
 
-                expander.Visit(node.Body)
+                data ix, int
+                for ix from 0 thru segmentItems.Count - 1
+                begin
+                    loop.CurrentSegment = segmentItems[ix].Item1
+                    loop.CurrentIndex = expandedSecondSegment ? ix : 1
+                    loop.CurrentSourceIndex = segmentItems[ix].Item3
+                    loop.CurrentField = segmentItems[ix].Item2
+                    expander.Visit(node.Body)
+                end
             end
 
         endmethod
@@ -1247,20 +1459,31 @@ namespace CodeGen.Engine
 
             if (outerLoop.FromKey.Segments.Count > 0)
             begin
+                data segmentItems = getKeySegmentLoopItems
+                &   (
+                &       currentStructure,
+                &       outerLoop.FromKey,
+                &       0,
+                &       outerLoop.FromKey.Segments.Count - 1,
+                &       context.CurrentTask.ExpandOverlayKeySegments
+                &   )
+
                 loop.CurrentRelation = outerLoop.CurrentRelation
                 loop.CurrentKey = outerLoop.FromKey
-                loop.MaxIndex = outerLoop.FromKey.Segments.Count - 1
+                loop.ExpandedSegments = segmentItems
+                loop.MaxIndex = segmentItems.Count - 1
                 loop.ToStructure = outerLoop.ToStructure
                 loop.ToKey = outerLoop.ToKey
 
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
                 data ix, int
-                for ix from 0 thru outerLoop.FromKey.Segments.Count - 1
+                for ix from 0 thru segmentItems.Count - 1
                 begin
-                    loop.CurrentSegment = outerLoop.FromKey.Segments[ix]
+                    loop.CurrentSegment = segmentItems[ix].Item1
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
+                    loop.CurrentSourceIndex = segmentItems[ix].Item3
+                    loop.CurrentField = segmentItems[ix].Item2
 
                     expander.Visit(node.Body)
                 end
@@ -1280,9 +1503,19 @@ namespace CodeGen.Engine
 
             if (outerLoop.FromKey.Segments.Count > 0)
             begin
+                data segmentItems = getKeySegmentLoopItems
+                &   (
+                &       currentStructure,
+                &       outerLoop.FromKey,
+                &       0,
+                &       outerLoop.FromKey.Segments.Count - 1,
+                &       context.CurrentTask.ExpandOverlayKeySegments
+                &   )
+
                 loop.CurrentRelation = outerLoop.CurrentRelation
                 loop.CurrentKey = outerLoop.FromKey
-                loop.MaxIndex = outerLoop.FromKey.Segments.Count - 1
+                loop.ExpandedSegments = segmentItems
+                loop.MaxIndex = segmentItems.Count - 1
                 loop.ToStructure = outerLoop.ToStructure
                 loop.ToKey = outerLoop.ToKey
 
@@ -1291,11 +1524,12 @@ namespace CodeGen.Engine
                 data lengthSoFar = 0
 
                 data ix, int
-                for ix from 0 thru outerLoop.FromKey.Segments.Count - 1
+                for ix from 0 thru segmentItems.Count - 1
                 begin
-                    loop.CurrentSegment = outerLoop.FromKey.Segments[ix]
+                    loop.CurrentSegment = segmentItems[ix].Item1
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(currentStructure, loop.CurrentSegment)
+                    loop.CurrentSourceIndex = segmentItems[ix].Item3
+                    loop.CurrentField = segmentItems[ix].Item2
 
                     lengthSoFar += loop.CurrentSegment.Length
                     if (lengthSoFar == outerLoop.ToKey.Size)
@@ -1321,18 +1555,29 @@ namespace CodeGen.Engine
 
             if (outerLoop.ToKey.Segments.Count > 0)
             begin
+                data segmentItems = getKeySegmentLoopItems
+                &   (
+                &       outerLoop.ToStructure,
+                &       outerLoop.ToKey,
+                &       0,
+                &       outerLoop.ToKey.Segments.Count - 1,
+                &       context.CurrentTask.ExpandOverlayKeySegments
+                &   )
+
                 loop.CurrentRelation = outerLoop.CurrentRelation
                 loop.CurrentKey = outerLoop.ToKey
-                loop.MaxIndex = outerLoop.ToKey.Segments.Count - 1
+                loop.ExpandedSegments = segmentItems
+                loop.MaxIndex = segmentItems.Count - 1
 
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
                 data ix, int
-                for ix from 0 thru outerLoop.ToKey.Segments.Count - 1
+                for ix from 0 thru segmentItems.Count - 1
                 begin
-                    loop.CurrentSegment = outerLoop.ToKey.Segments[ix]
+                    loop.CurrentSegment = segmentItems[ix].Item1
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(outerLoop.ToStructure, loop.CurrentSegment)
+                    loop.CurrentSourceIndex = segmentItems[ix].Item3
+                    loop.CurrentField = segmentItems[ix].Item2
 
                     expander.Visit(node.Body)
                 end
@@ -1353,18 +1598,29 @@ namespace CodeGen.Engine
 
             if (outerLoop.ToKey.Segments.Count > 0)
             begin
+                data segmentItems = getKeySegmentLoopItems
+                &   (
+                &       outerLoop.ToStructure,
+                &       outerLoop.ToKey,
+                &       0,
+                &       outerLoop.ToKey.Segments.Count - 1,
+                &       context.CurrentTask.ExpandOverlayKeySegments
+                &   )
+
                 loop.CurrentRelation = outerLoop.CurrentRelation
                 loop.CurrentKey = outerLoop.ToKey
-                loop.MaxIndex = outerLoop.ToKey.Segments.Count - 1
+                loop.ExpandedSegments = segmentItems
+                loop.MaxIndex = segmentItems.Count - 1
 
                 context.CurrentTask.DebugLog(String.Format("   - {0,-30} -> {1} segments", string.Format("<{0}>", loop.OpenToken.Value), loop.MaxIndex + 1))
 
                 data ix, int
-                for ix from 0 thru outerLoop.ToKey.Segments.Count - 1
+                for ix from 0 thru segmentItems.Count - 1
                 begin
-                    loop.CurrentSegment = outerLoop.ToKey.Segments[ix]
+                    loop.CurrentSegment = segmentItems[ix].Item1
                     loop.CurrentIndex = ix
-                    loop.CurrentField = getFieldForSegment(outerLoop.ToStructure, loop.CurrentSegment)
+                    loop.CurrentSourceIndex = segmentItems[ix].Item3
+                    loop.CurrentField = segmentItems[ix].Item2
 
                     lengthSoFar += loop.CurrentSegment.Length
                     if (lengthSoFar == outerLoop.FromKey.Size)

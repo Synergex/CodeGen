@@ -82,6 +82,7 @@ namespace CodeGen.Engine
 
             ErrStatus = false
             ErrContext = ValidationContext.Ok
+            Struct.OverlayFields.Clear()
 
             ;; ==========================================================================================
             ;; STRUCTURE VALIDATION
@@ -160,6 +161,14 @@ namespace CodeGen.Engine
                     &    || (context.CurrentTask.HonorExcludeWeb&&Field.ExcludedByWeb)
                     &    )
                     begin
+                        ;; Preserve excluded overlays for optional key segment processing.
+                        ;; They are deliberately not added back to Struct.Fields because
+                        ;; normal field loops and column generation must continue to omit them.
+                        if (!context.CurrentTask.IncludeOverlayFields &&
+                        &   ((!String.IsNullOrWhiteSpace(Field.OverlaysField)) || (Field.GroupType==RpsFieldGroup.Overlay)) &&
+                        &   !Struct.OverlayFields.Contains(Field))
+                            Struct.OverlayFields.Add(Field)
+
                         context.CurrentTask.DevDebugLog("Removing field  " + Field.OriginalName + " because of field filters")
                         Struct.Fields.RemoveAt(ix)
                         ix-=1
@@ -603,13 +612,22 @@ namespace CodeGen.Engine
                         ;; Exclude overlays (unless overridden) and apply optional field level filters
                         if (
                         &    ((!String.IsNullOrWhiteSpace(Child.OverlaysField))&&!context.CurrentTask.IncludeOverlayFields)
-                        &    || ((Field.GroupType==RpsFieldGroup.Overlay) &&!context.CurrentTask.IncludeOverlayFields)
+                        &    || (((Field.GroupType==RpsFieldGroup.Overlay)||(Child.GroupType==RpsFieldGroup.Overlay)) &&!context.CurrentTask.IncludeOverlayFields)
                         &    || (!context.CurrentTask.IgnoreExcludeLanguage && Field.ExcludedByLanguage)
                         &    || (context.CurrentTask.HonorExcludeToolkit && Field.ExcludedByToolkit)
                         &    || (context.CurrentTask.HonorExcludeReportWriter && Field.ExcludedByReportWriter)
                         &    || (context.CurrentTask.HonorExcludeWeb && Field.ExcludedByWeb)
                         &    )
+                        begin
+                            ;; Preserve child overlays before the group is flattened. The
+                            ;; child may be removed from the group and therefore would not
+                            ;; otherwise be available to key segment processing.
+                            if (!context.CurrentTask.IncludeOverlayFields &&
+                            &   ((!String.IsNullOrWhiteSpace(Child.OverlaysField)) || (Child.GroupType==RpsFieldGroup.Overlay)) &&
+                            &   !Struct.OverlayFields.Contains(Child))
+                                Struct.OverlayFields.Add(Child)
                             nextloop
+                        end
 
                         ;;The child field is going to become part of the parent structure, so set its "FieldNumber" property to the same as the parent field
 
